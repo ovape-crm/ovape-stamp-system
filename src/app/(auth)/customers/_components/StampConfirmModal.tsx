@@ -32,12 +32,19 @@ export default function StampConfirmModal({
           mode === 'add' ? '추가' : '제거'
         }하시겠습니까?`;
 
-  const notePlaceholder =
+  const labelTitle =
     mode === 'add'
-      ? '예: [기기이름] [숫자]개 구매 , [액상이름] [30/60]ml [숫자]병 구매'
+      ? '입력 순서'
       : mode === 'remove'
-      ? '제거 사유 입력'
-      : '예: [입/폐호흡] 쿠폰 사용';
+      ? '특이 사항'
+      : '특이 사항';
+
+  const labelText =
+    mode === 'add'
+      ? '\n [리뷰/할인/(숫자)병쿠폰] ) [기기이름] [숫자] 개\n[액상이름][30/60]ml [숫자] 병 , [기기이름] [옴] [코일/팟] 개'
+      : mode === 'remove'
+      ? ' (제거 사유 입력)'
+      : ' (예: [입/폐호흡] 쿠폰 사용)';
 
   const handleConfirm = async () => {
     try {
@@ -72,14 +79,17 @@ export default function StampConfirmModal({
       {/* 메모 입력 */}
       <div className="mb-6">
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          메모 (선택사항)
+          {labelTitle}
+          <span className="text-xs text-gray-500 whitespace-pre-line">
+            {labelText}
+          </span>
         </label>
         <input
           type="text"
           value={note}
           onChange={(e) => setNote(e.target.value)}
           className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-colors text-xs"
-          placeholder={notePlaceholder}
+          placeholder={'위에 해당되는 내용을 입력해주세요.'}
         />
       </div>
 
