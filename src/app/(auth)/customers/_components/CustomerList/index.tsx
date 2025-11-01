@@ -192,7 +192,12 @@ const CustomerList = ({
                           className="w-16 px-2 py-1 text-xs border border-brand-200 rounded focus:outline-none focus:ring-1 focus:ring-brand-300 disabled:bg-gray-100"
                         />
                         <button
-                          onClick={() =>
+                          onClick={() => {
+                            if (amount === 0) {
+                              toast.error('스탬프 개수를 입력해주세요.');
+                              return;
+                            }
+
                             open({
                               content: (
                                 <StampConfirmModal
@@ -210,8 +215,8 @@ const CustomerList = ({
                                 />
                               ),
                               options: { dismissOnBackdrop: false },
-                            })
-                          }
+                            });
+                          }}
                           disabled={isThisLoading}
                           className="px-2 py-1 text-xs font-medium text-white bg-gradient-to-r from-brand-500 to-brand-600 rounded hover:from-brand-600 hover:to-brand-700 transition-all shadow-sm disabled:opacity-50"
                         >
