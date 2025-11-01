@@ -66,6 +66,39 @@ export default function HistoriesPage() {
     return { text: action, color: 'text-gray-700 bg-gray-100' };
   };
 
+  const formatPhoneNumber = (phone: string | null | undefined): string => {
+    if (!phone) return '';
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length === 11) {
+      // 010-1234-5678 format
+      return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+    } else if (digits.length === 10) {
+      // 010-123-4567 or 02-1234-5678 format
+      if (digits.startsWith('02')) {
+        return `${digits.slice(0, 2)}-${digits.slice(2, 6)}-${digits.slice(6)}`;
+      } else {
+        return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+      }
+    }
+    return phone;
+  };
+
+  const handleCopy = async (log: HistoryItem) => {
+    const note = log.note || '';
+    const name = log.customers?.name || '이름 없음';
+    const phone = formatPhoneNumber(log.customers?.phone);
+
+    const textToCopy = `${note}\t\t\t\t${name}\t${phone}`;
+
+    try {
+      await navigator.clipboard.writeText(textToCopy);
+      toast.success('클립보드에 복사되었습니다!');
+    } catch (err) {
+      toast.error('복사에 실패했습니다.');
+      console.error('Failed to copy:', err);
+    }
+  };
+
   return (
     <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10 mb-10">
       <div className="bg-white rounded-lg shadow-sm border border-brand-100 p-6">
@@ -132,6 +165,17 @@ export default function HistoriesPage() {
                         minute: '2-digit',
                       })}
                     </div>
+                  </div>
+                  <div className="ml-4">
+                    <button
+                      className="px-4 py-2 text-sm font-medium text-brand-700 bg-white border border-brand-300 rounded-lg hover:bg-brand-50 transition-all"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCopy(log);
+                      }}
+                    >
+                      복사
+                    </button>
                   </div>
                 </div>
               );
