@@ -146,7 +146,7 @@ const CustomerList = ({
               customers.map((customer, index) => {
                 const stampCount = customer.stamps?.[0]?.count || 0;
                 const isThisLoading = loadingCustomerId === customer.id;
-                const amount = amounts[customer.id] || 1;
+                const amount = amounts[customer.id] || 0;
 
                 return (
                   <tr
@@ -177,15 +177,17 @@ const CustomerList = ({
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-center gap-1.5">
                         <input
-                          type="number"
-                          min="1"
+                          type="text"
                           value={amount}
-                          onChange={(e) =>
-                            setAmounts({
-                              ...amounts,
-                              [customer.id]: Number(e.target.value),
-                            })
-                          }
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === '' || /^[0-9]+$/.test(value)) {
+                              setAmounts({
+                                ...amounts,
+                                [customer.id]: value === '' ? 0 : Number(value),
+                              });
+                            }
+                          }}
                           disabled={isThisLoading}
                           className="w-16 px-2 py-1 text-xs border border-brand-200 rounded focus:outline-none focus:ring-1 focus:ring-brand-300 disabled:bg-gray-100"
                         />
