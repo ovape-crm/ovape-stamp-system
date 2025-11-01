@@ -62,7 +62,7 @@ const LogList = ({ logs, isLoading, error }: LogListProps) => {
   );
 
   if (isLoading) {
-    return <Loading size="md" text="작업 이력 불러오는 중..." />;
+    return <Loading size="md" text="스탬프 이력 불러오는 중..." />;
   }
 
   if (error) {
@@ -90,13 +90,13 @@ const LogList = ({ logs, isLoading, error }: LogListProps) => {
   return (
     <div className="bg-white rounded-lg shadow-sm border border-brand-100 p-6">
       <h2 className="text-xl font-semibold text-brand-700 mb-4 pb-3 border-b border-brand-100">
-        작업 이력
+        스탬프 이력
       </h2>
 
       <div className="space-y-3">
         {logs.length === 0 ? (
           <div className="text-center py-10 text-gray-500">
-            작업 이력이 없습니다.
+            스탬프 이력이 없습니다.
           </div>
         ) : (
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
