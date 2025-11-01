@@ -2,7 +2,7 @@
 
 import { Resolver, useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 
 type FormValues = {
   name: string;
@@ -55,17 +55,20 @@ const safeResolver = (schema: z.ZodTypeAny) => async (data: unknown) => {
 export default function CustomerCreateModal({
   onSubmit,
   onCancel,
+  isSubmitting,
 }: {
   onSubmit: (values: FormValues) => Promise<void> | void;
   onCancel: () => void;
+  isSubmitting: boolean;
 }) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [formData, setFormData] = useState<FormValues | null>(null);
+  const canSubmitRef = useRef(true);
 
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting, isValid },
+    formState: { errors, isValid },
   } = useForm<FormValues>({
     mode: 'onChange',
     resolver: safeResolver(schema) as Resolver<FormValues, unknown>,
@@ -79,11 +82,26 @@ export default function CustomerCreateModal({
     }
     setFormData(values);
     setShowConfirm(true);
+    // 확인 화면으로 갈 때 제출 가능 상태로 리셋
+    canSubmitRef.current = true;
   };
 
   const handleConfirm = async () => {
-    if (formData) {
+    // ref로 한 번만 제출 가능하도록 체크 (연타 방지)
+    if (!formData || !canSubmitRef.current || isSubmitting) {
+      return;
+    }
+
+    // 즉시 제출 불가능으로 설정 (state 업데이트보다 빠르게 차단)
+    canSubmitRef.current = false;
+
+    try {
       await onSubmit(formData);
+      // 성공하면 절대 두 번 추가 못하게 (canSubmitRef는 false 유지)
+    } catch (error) {
+      // 실패하면 다시 제출 가능하도록 true로 변경
+      canSubmitRef.current = true;
+      throw error;
     }
   };
 
@@ -133,7 +151,8 @@ export default function CustomerCreateModal({
           <button
             type="button"
             onClick={() => setShowConfirm(false)}
-            className="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            disabled={isSubmitting}
+            className="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             수정
           </button>
@@ -141,7 +160,7 @@ export default function CustomerCreateModal({
             type="button"
             disabled={isSubmitting || !isValid}
             onClick={handleConfirm}
-            className="px-6 py-2 text-sm font-medium text-white bg-brand-500 rounded-lg hover:bg-brand-600 disabled:bg-brand-300 disabled:opacity-50 transition-colors"
+            className="px-6 py-2 text-sm font-medium text-white bg-brand-500 rounded-lg hover:bg-brand-600 disabled:bg-brand-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {isSubmitting ? '등록 중...' : '등록'}
           </button>
@@ -228,7 +247,8 @@ export default function CustomerCreateModal({
       <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
         <button
           type="button"
-          className="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          disabled={isSubmitting}
+          className="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={onCancel}
         >
           취소
@@ -236,7 +256,7 @@ export default function CustomerCreateModal({
         <button
           type="submit"
           disabled={isSubmitting}
-          className="px-6 py-2 text-sm font-medium text-white bg-brand-500 rounded-lg hover:bg-brand-600 disabled:bg-brand-300 disabled:opacity-50 transition-colors"
+          className="px-6 py-2 text-sm font-medium text-white bg-brand-500 rounded-lg hover:bg-brand-600 disabled:bg-brand-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {isSubmitting ? '등록 중...' : '등록'}
         </button>

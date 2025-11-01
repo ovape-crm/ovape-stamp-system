@@ -7,11 +7,13 @@ import { useModal } from '@/app/contexts/ModalContext';
 import CustomerCreateModal from './_components/CustomerCreateModal';
 import { createCustomer } from '@/services/customerService';
 import toast from 'react-hot-toast';
+import { useState } from 'react';
 
 export default function CustomersPage() {
   const { customers, isLoading, error, search, refresh, hasQuery } =
     useCustomers();
   const { open, close } = useModal();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10 space-y-4">
@@ -20,13 +22,16 @@ export default function CustomersPage() {
       <div className="flex justify-end">
         <button
           className="px-3 py-2 text-sm font-medium text-white bg-brand-500 rounded hover:bg-brand-600 transition-colors"
-          onClick={() =>
+          onClick={() => {
+            setIsSubmitting(false); // 모달이 열릴 때 초기화
             open({
               content: (
                 <CustomerCreateModal
                   onCancel={close}
+                  isSubmitting={isSubmitting}
                   onSubmit={async (values) => {
                     try {
+                      setIsSubmitting(true);
                       await createCustomer({
                         name: values.name,
                         phone: values.phone,
@@ -50,13 +55,15 @@ export default function CustomersPage() {
                             : '고객 추가에 실패했습니다.'
                         );
                       }
+                    } finally {
+                      setIsSubmitting(false);
                     }
                   }}
                 />
               ),
               options: { dismissOnBackdrop: false, dismissOnEsc: true },
-            })
-          }
+            });
+          }}
         >
           고객 추가
         </button>
