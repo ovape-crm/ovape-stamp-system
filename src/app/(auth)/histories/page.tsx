@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import Button from '@/app/_components/Button';
 import { LogsResType } from '@/app/_types/log.types';
+import { getActionText } from '@/app/_utils/utils';
 
 const PAGE_SIZE = 10;
 
@@ -42,21 +43,6 @@ export default function HistoriesPage() {
       void load();
     }
   }, []); // 의존성 배열을 비워서 한 번만 실행
-
-  const getActionText = (action: string) => {
-    if (action.startsWith('add-')) {
-      const amount = action.replace('add-', '');
-      return {
-        text: `${amount}개 추가`,
-        color: 'text-emerald-700 bg-emerald-100',
-      };
-    }
-    if (action.startsWith('remove-')) {
-      const amount = action.replace('remove-', '');
-      return { text: `${amount}개 제거`, color: 'text-rose-700 bg-rose-100' };
-    }
-    return { text: action, color: 'text-gray-700 bg-gray-100' };
-  };
 
   const formatPhoneNumber = (phone: string | null | undefined): string => {
     if (!phone) return '';

@@ -6,6 +6,7 @@ import { updateLogNote } from '@/services/logService';
 import { toast } from 'react-hot-toast';
 import Button from '@/app/_components/Button';
 import { CustomersLogsResType } from '@/app/_types/log.types';
+import { getActionText } from '@/app/_utils/utils';
 
 interface LogListProps {
   logs: CustomersLogsResType;
@@ -71,20 +72,6 @@ const LogList = ({ logs, isLoading, error }: LogListProps) => {
       </div>
     );
   }
-
-  const getActionText = (action: string) => {
-    if (action.startsWith('add-')) {
-      const amount = action.replace('add-', '');
-      return {
-        text: `${amount}개 추가`,
-        color: 'text-emerald-700 bg-emerald-100',
-      };
-    } else if (action.startsWith('remove-')) {
-      const amount = action.replace('remove-', '');
-      return { text: `${amount}개 제거`, color: 'text-rose-700 bg-rose-100' };
-    }
-    return { text: action, color: 'text-gray-700 bg-gray-100' };
-  };
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-brand-100 p-6">
