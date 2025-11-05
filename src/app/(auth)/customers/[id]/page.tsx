@@ -10,7 +10,7 @@ import CustomerEditModal from './_components/CustomerEditModal';
 import Loading from '@/app/_components/Loading';
 import toast from 'react-hot-toast';
 import { useModal } from '@/app/contexts/ModalContext';
-import { updateCustomer } from '@/services/customerService';
+import { updateCustomer, deleteCustomer } from '@/services/customerService';
 import Button from '@/app/_components/Button';
 
 export default function CustomerDetailPage() {
@@ -51,6 +51,24 @@ export default function CustomerDetailPage() {
       } else {
         toast.error('고객 정보 수정에 실패했습니다.');
       }
+    }
+  };
+
+  const handleDeleteCustomer = async () => {
+    try {
+      await deleteCustomer(customerId);
+      toast.success('고객 정보가 삭제되었습니다.');
+      close();
+      handleUpdate();
+      router.push('/customers');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
+      if (error.message === 'NOT_FOUND_CUSTOMER') {
+        toast.error('고객 정보를 찾을 수 없습니다.');
+      } else {
+        toast.error('고객 정보 삭제에 실패했습니다.');
+      }
+      toast.error('고객 정보 삭제에 실패했습니다.');
     }
   };
 
@@ -106,6 +124,7 @@ export default function CustomerDetailPage() {
                     <CustomerEditModal
                       customer={customer}
                       onSubmit={handleEditCustomer}
+                      onDelete={handleDeleteCustomer}
                       onCancel={close}
                     />
                   ),
