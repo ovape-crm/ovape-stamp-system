@@ -4,17 +4,11 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import supabase from '@/libs/supabaseClient';
-import Loading from '@/_components/Loading';
-
-interface User {
-  id: string;
-  email: string;
-  name?: string;
-  oss_role?: string;
-}
+import Loading from '@/app/_components/Loading';
+import { UserType } from '@/app/_types/user.types';
 
 interface UserContextType {
-  user: User | null;
+  user: UserType | null;
   isLoading: boolean;
   refreshUser: () => Promise<void>;
   logout: () => Promise<void>;
@@ -29,7 +23,7 @@ export const UserProvider = ({
   children: React.ReactNode;
   requireAuth?: boolean;
 }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 

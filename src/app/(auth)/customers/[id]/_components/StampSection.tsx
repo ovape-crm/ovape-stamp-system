@@ -6,6 +6,7 @@ import StampCards from './StampCards';
 import { addStamp, removeStamp } from '@/services/stampService';
 import { useModal } from '@/app/contexts/ModalContext';
 import StampConfirmModal from '../../_components/StampConfirmModal';
+import Button from '@/app/_components/Button';
 
 interface StampSectionProps {
   stampCount: number;
@@ -13,11 +14,7 @@ interface StampSectionProps {
   onUpdate: () => void;
 }
 
-const StampSection = ({
-  stampCount,
-  target,
-  onUpdate,
-}: StampSectionProps) => {
+const StampSection = ({ stampCount, target, onUpdate }: StampSectionProps) => {
   const [amount, setAmount] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const { open, close } = useModal();
@@ -26,7 +23,7 @@ const StampSection = ({
     if (amount < 1) return;
 
     try {
-      setIsLoading(true); 
+      setIsLoading(true);
       await addStamp(target.id, amount, memo ?? '');
       onUpdate(); // 데이터 새로고침
       toast.success(`스탬프 ${amount}개 추가 완료!`);
@@ -97,7 +94,8 @@ const StampSection = ({
             disabled={isLoading}
             className="flex-1 px-3 py-2 border border-brand-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-transparent disabled:bg-gray-100"
           />
-          <button
+          <Button
+            size="sm"
             onClick={() =>
               open({
                 content: (
@@ -119,11 +117,12 @@ const StampSection = ({
               })
             }
             disabled={isLoading}
-            className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-brand-500 to-brand-600 rounded-lg hover:from-brand-600 hover:to-brand-700 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? '...' : '추가'}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() =>
               open({
                 content: (
@@ -145,15 +144,14 @@ const StampSection = ({
               })
             }
             disabled={isLoading}
-            className="px-4 py-2 text-sm font-medium text-rose-700 bg-white border border-rose-300 rounded-lg hover:bg-rose-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? '...' : '제거'}
-          </button>
+          </Button>
         </div>
 
         {/* 10개 사용처리 버튼 */}
         <div>
-          <button
+          <Button
             onClick={() =>
               open({
                 content: (
@@ -174,10 +172,11 @@ const StampSection = ({
               })
             }
             disabled={isLoading || stampCount < 10}
-            className="w-full px-4 py-3 text-sm font-medium text-brand-700 bg-white border-2 border-brand-300 rounded-lg hover:bg-brand-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            variant="secondary"
+            className="w-full"
           >
             {isLoading ? '처리 중...' : '10개 사용처리'}
-          </button>
+          </Button>
         </div>
       </div>
     </section>

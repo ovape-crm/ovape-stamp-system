@@ -2,25 +2,17 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { getLogs } from '@/services/logService';
-import Loading from '@/_components/Loading';
+import Loading from '@/app/_components/Loading';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
-
-interface HistoryItem {
-  id: string;
-  action: string;
-  note: string;
-  created_at: string;
-  customer_id: number;
-  users?: { name?: string | null; email?: string | null } | null;
-  customers?: { name?: string | null; phone?: string | null } | null;
-}
+import Button from '@/app/_components/Button';
+import { LogsResType } from '@/app/_types/log.types';
 
 const PAGE_SIZE = 10;
 
 export default function HistoriesPage() {
   const router = useRouter();
-  const [items, setItems] = useState<HistoryItem[]>([]);
+  const [items, setItems] = useState<LogsResType[]>([]);
   const [offset, setOffset] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -30,7 +22,7 @@ export default function HistoriesPage() {
     try {
       setIsLoading(true);
       setError('');
-      const data = (await getLogs(PAGE_SIZE, offset)) as HistoryItem[];
+      const data = await getLogs(PAGE_SIZE, offset);
       setItems((prev) => [...prev, ...data]);
       setHasMore(data.length === PAGE_SIZE);
       setOffset((prev) => prev + data.length);
@@ -83,7 +75,7 @@ export default function HistoriesPage() {
     return phone;
   };
 
-  const handleCopy = async (log: HistoryItem) => {
+  const handleCopy = async (log: LogsResType) => {
     const note = log.note || '';
     const name = log.customers?.name || '이름 없음';
     const phone = formatPhoneNumber(log.customers?.phone);
@@ -167,15 +159,13 @@ export default function HistoriesPage() {
                     </div>
                   </div>
                   <div className="ml-4">
-                    <button
-                      className="px-4 py-2 text-sm font-medium text-brand-700 bg-white border border-brand-300 rounded-lg hover:bg-brand-50 transition-all"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleCopy(log);
-                      }}
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleCopy(log)}
                     >
                       복사
-                    </button>
+                    </Button>
                   </div>
                 </div>
               );
@@ -187,12 +177,9 @@ export default function HistoriesPage() {
           {isLoading ? (
             <Loading size="sm" text="불러오는 중..." />
           ) : hasMore ? (
-            <button
-              onClick={() => void load()}
-              className="px-4 py-2 text-sm font-medium text-brand-700 bg-white border border-brand-300 rounded-lg hover:bg-brand-50 transition-all"
-            >
+            <Button onClick={() => void load()} variant="secondary" size="sm">
               더 불러오기
-            </button>
+            </Button>
           ) : (
             <div className="text-xs text-gray-400">마지막 페이지입니다.</div>
           )}

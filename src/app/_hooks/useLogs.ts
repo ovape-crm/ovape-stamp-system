@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getLogsByCustomer, Log } from '@/services/logService';
+import { getLogsByCustomer } from '@/services/logService';
+import { CustomersLogsResType } from '@/app/_types/log.types';
 
 export const useLogs = (customerId: string, pageSize = 10) => {
-  const [logs, setLogs] = useState<Log[]>([]);
+  const [logs, setLogs] = useState<CustomersLogsResType>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [offset, setOffset] = useState(0);

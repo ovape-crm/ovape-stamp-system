@@ -1,6 +1,6 @@
 'use client';
 
-import { useCustomers } from '@/_hooks/useCustomers';
+import { useCustomers } from '@/app/_hooks/useCustomers';
 import CustomerList from './_components/CustomerList';
 import SearchBox from './_components/SearchBox';
 import { useModal } from '@/app/contexts/ModalContext';
@@ -8,6 +8,7 @@ import CustomerCreateModal from './_components/CustomerCreateModal';
 import { createCustomer } from '@/services/customerService';
 import toast from 'react-hot-toast';
 import { useState } from 'react';
+import Button from '@/app/_components/Button';
 
 export default function CustomersPage() {
   const { customers, isLoading, error, search, refresh, hasQuery } =
@@ -20,8 +21,8 @@ export default function CustomersPage() {
       <SearchBox onSearch={search} />
 
       <div className="flex justify-end">
-        <button
-          className="px-3 py-2 text-sm font-medium text-white bg-brand-500 rounded hover:bg-brand-600 transition-colors"
+        <Button
+          size="sm"
           onClick={() => {
             setIsSubmitting(false); // 모달이 열릴 때 초기화
             open({
@@ -66,7 +67,7 @@ export default function CustomersPage() {
           }}
         >
           고객 추가
-        </button>
+        </Button>
       </div>
 
       {!hasQuery ? (

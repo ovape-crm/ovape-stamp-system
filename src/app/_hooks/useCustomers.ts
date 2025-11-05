@@ -1,12 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import {
-  getCustomers,
-  Customer,
-  SearchParams,
-} from '@/services/customerService';
+import { getCustomers, SearchParams } from '@/services/customerService';
+import { CustomerType } from '@/app/_types/customer.types';
 
 export const useCustomers = (initialParams?: SearchParams) => {
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customers, setCustomers] = useState<CustomerType[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [searchParams, setSearchParams] = useState<SearchParams>(

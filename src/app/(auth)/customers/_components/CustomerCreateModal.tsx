@@ -3,6 +3,7 @@
 import { Resolver, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useState, useRef } from 'react';
+import Button from '@/app/_components/Button';
 
 type FormValues = {
   name: string;
@@ -148,22 +149,21 @@ export default function CustomerCreateModal({
         </div>
 
         <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-          <button
-            type="button"
+          <Button
             onClick={() => setShowConfirm(false)}
             disabled={isSubmitting}
-            className="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            size="sm"
+            variant="gray"
           >
             수정
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
             disabled={isSubmitting || !isValid}
             onClick={handleConfirm}
-            className="px-6 py-2 text-sm font-medium text-white bg-brand-500 rounded-lg hover:bg-brand-600 disabled:bg-brand-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            size="sm"
           >
             {isSubmitting ? '등록 중...' : '등록'}
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -245,21 +245,17 @@ export default function CustomerCreateModal({
       </div>
 
       <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-        <button
-          type="button"
+        <Button
+          size="sm"
+          variant="gray"
           disabled={isSubmitting}
-          className="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={onCancel}
         >
           취소
-        </button>
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="px-6 py-2 text-sm font-medium text-white bg-brand-500 rounded-lg hover:bg-brand-600 disabled:bg-brand-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
+        </Button>
+        <Button size="sm" type="submit" disabled={isSubmitting}>
           {isSubmitting ? '등록 중...' : '등록'}
-        </button>
+        </Button>
       </div>
     </form>
   );

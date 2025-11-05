@@ -1,13 +1,14 @@
 'use client';
 
-import { Log } from '@/services/logService';
-import Loading from '@/_components/Loading';
+import Loading from '@/app/_components/Loading';
 import { useCallback, useState } from 'react';
 import { updateLogNote } from '@/services/logService';
 import { toast } from 'react-hot-toast';
+import Button from '@/app/_components/Button';
+import { CustomersLogsResType } from '@/app/_types/log.types';
 
 interface LogListProps {
-  logs: Log[];
+  logs: CustomersLogsResType;
   isLoading: boolean;
   error: string;
 }
@@ -21,14 +22,13 @@ const LogList = ({ logs, isLoading, error }: LogListProps) => {
   >({});
 
   const getCurrentNote = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (log: any) => noteOverridesById[log.id] ?? log.note ?? '',
+    (log: CustomersLogsResType[number]) =>
+      noteOverridesById[log.id] ?? log.note ?? '',
     [noteOverridesById]
   );
 
   const startEdit = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (log: any) => {
+    (log: CustomersLogsResType[number]) => {
       setEditingId(log.id);
       setNoteDraft(getCurrentNote(log));
     },
@@ -41,8 +41,7 @@ const LogList = ({ logs, isLoading, error }: LogListProps) => {
   }, []);
 
   const saveNote = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    async (log: any) => {
+    async (log: CustomersLogsResType[number]) => {
       try {
         setIsSaving(true);
         const updated = await updateLogNote(log.id, noteDraft);
@@ -99,8 +98,7 @@ const LogList = ({ logs, isLoading, error }: LogListProps) => {
             스탬프 이력이 없습니다.
           </div>
         ) : (
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          logs.map((log: any) => {
+          logs.map((log: CustomersLogsResType[number]) => {
             const actionInfo = getActionText(log.action);
             const isEditing = editingId === log.id;
             const currentNote = getCurrentNote(log);
@@ -136,30 +134,32 @@ const LogList = ({ logs, isLoading, error }: LogListProps) => {
                         placeholder="메모를 입력하세요"
                         disabled={isSaving}
                       />
-                      <button
-                        className="text-xs px-2 py-1 rounded bg-brand-600 text-white disabled:opacity-60"
+                      <Button
+                        variant="primary"
+                        size="xs"
                         onClick={() => saveNote(log)}
                         disabled={isSaving}
                       >
                         저장
-                      </button>
-                      <button
-                        className="text-xs px-2 py-1 rounded border border-brand-200 text-brand-700 disabled:opacity-60"
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="xs"
                         onClick={cancelEdit}
                         disabled={isSaving}
                       >
                         취소
-                      </button>
+                      </Button>
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <button
-                        aria-label="메모 수정"
-                        className="p-1 rounded hover:bg-brand-50 text-gray-500 hover:text-gray-700"
+                      <Button
+                        variant="secondary"
+                        size="xs"
                         onClick={() => startEdit(log)}
                       >
                         ✏️
-                      </button>
+                      </Button>
                       <span className="flex-1 text-sm text-gray-600 break-words">
                         {currentNote || (
                           <span className="text-gray-400"> - </span>
