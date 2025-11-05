@@ -118,7 +118,7 @@ const StampSection = ({ stampCount, target, onUpdate }: StampSectionProps) => {
             }
             disabled={isLoading}
           >
-            {isLoading ? '...' : '추가'}
+            {isLoading ? '...' : '적립'}
           </Button>
           <Button
             variant="secondary"
@@ -145,7 +145,7 @@ const StampSection = ({ stampCount, target, onUpdate }: StampSectionProps) => {
             }
             disabled={isLoading}
           >
-            {isLoading ? '...' : '제거'}
+            {isLoading ? '...' : '차감'}
           </Button>
         </div>
 

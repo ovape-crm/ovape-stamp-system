@@ -65,7 +65,7 @@ export default function StampConfirmModal({
       <div className="mb-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-3">{title}</h2>
 
-        <div className="bg-gray-50 rounded-lg p-4 mb-4">
+        <div className="bg-gray-100 rounded-lg p-4 mb-4">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-2 h-2 bg-brand-500 rounded-full"></div>
             <span className="text-sm font-medium text-gray-700">대상 고객</span>

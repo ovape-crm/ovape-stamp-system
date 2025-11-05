@@ -177,7 +177,7 @@ const CustomerList = ({
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center justify-center gap-1.5">
+                      <div className="flex items-center justify-center gap-3">
                         <input
                           type="text"
                           value={amount}
@@ -191,10 +191,10 @@ const CustomerList = ({
                             }
                           }}
                           disabled={isThisLoading}
-                          className="w-16 px-2 py-1 text-xs border border-brand-200 rounded focus:outline-none focus:ring-1 focus:ring-brand-300 disabled:bg-gray-100"
+                          className="w-16 px-2 py-1 border border-brand-200 rounded focus:outline-none focus:ring-1 focus:ring-brand-300 disabled:bg-gray-100"
                         />
                         <Button
-                          size="xs"
+                          size="sm"
                           onClick={() => {
                             if (amount === 0) {
                               toast.error('스탬프 개수를 입력해주세요.');
@@ -222,7 +222,7 @@ const CustomerList = ({
                           }}
                           disabled={isThisLoading}
                         >
-                          추가
+                          적립
                         </Button>
                         <Button
                           onClick={() =>
@@ -246,10 +246,10 @@ const CustomerList = ({
                             })
                           }
                           disabled={isThisLoading}
-                          size="xs"
+                          size="sm"
                           variant="tertiary"
                         >
-                          제거
+                          차감
                         </Button>
                         <Button
                           onClick={() =>
@@ -276,17 +276,17 @@ const CustomerList = ({
                             })
                           }
                           disabled={isThisLoading || stampCount < 10}
-                          size="xs"
-                          variant="secondary"
+                          size="sm"
+                          variant="tertiary"
                         >
-                          10개
+                          쿠폰
                         </Button>
                         <Button
                           onClick={() =>
                             router.push(`/customers/${customer.id}`)
                           }
                           disabled={isThisLoading}
-                          size="xs"
+                          size="sm"
                           variant="secondary"
                         >
                           상세
