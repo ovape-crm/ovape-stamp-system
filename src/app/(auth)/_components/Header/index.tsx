@@ -4,7 +4,7 @@ import UserInfo from './_components/UserInfo';
 
 const Header = () => {
   return (
-    <header className="bg-gradient-to-r from-brand-50 via-brand-100 to-brand-50 border-b border-brand-200 shadow-sm">
+    <header className="sticky top-0 z-50 bg-gradient-to-r from-brand-50 via-brand-100 to-brand-50 border-b border-brand-200 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="h-20 flex items-center justify-between">
           {/* 로고 & 네비게이션 */}

@@ -13,18 +13,22 @@ const Nav = () => {
   ];
 
   return (
-    <nav className="flex gap-1">
+    <nav className="flex gap-2">
       {navLinks.map((link) => {
         const isActive = pathname?.startsWith(link.href);
         return (
           <Link
             key={link.href}
             href={link.href}
-            className={`px-4 py-2 rounded-lg font-medium transition-all ${
-              isActive
-                ? 'bg-white text-brand-600 shadow-sm'
-                : 'text-brand-700 hover:bg-white/50'
-            }`}
+            className={`
+              px-4 py-2 rounded-lg font-medium
+              transition-colors duration-150
+              ${
+                isActive
+                  ? 'text-brand-600 bg-white shadow-sm'
+                  : 'text-brand-700 hover:text-brand-600 hover:bg-white/50'
+              }
+            `}
           >
             {link.label}
           </Link>
