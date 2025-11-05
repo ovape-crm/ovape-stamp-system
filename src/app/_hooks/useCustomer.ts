@@ -1,18 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getCustomerById } from '@/services/customerService';
-
-interface CustomerDetail {
-  id: string;
-  name: string;
-  phone: string;
-  gender?: 'male' | 'female';
-  note?: string | null;
-  created_at: string;
-  stamps: { count: number }[];
-}
+import { CustomerType } from '@/app/_types/customer.types';
 
 export const useCustomer = (id: string) => {
-  const [customer, setCustomer] = useState<CustomerDetail | null>(null);
+  const [customer, setCustomer] = useState<CustomerType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 

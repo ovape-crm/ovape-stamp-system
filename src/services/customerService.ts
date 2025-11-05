@@ -1,14 +1,5 @@
+import { CustomerType } from '@/app/_types/customer.types';
 import supabase from '@/libs/supabaseClient';
-
-export interface Customer {
-  id: string;
-  name: string;
-  phone: string;
-  gender?: 'male' | 'female';
-  note?: string | null;
-  created_at: string;
-  stamps: { count: number }[];
-}
 
 export interface SearchParams {
   target?: 'all' | 'name' | 'phone';
@@ -18,7 +9,9 @@ export interface SearchParams {
 /**
  * 고객 목록 조회
  */
-export const getCustomers = async (params?: SearchParams) => {
+export const getCustomers = async (
+  params?: SearchParams
+): Promise<CustomerType[]> => {
   let query = supabase.from('customers').select(`
     *,
     stamps(count)
@@ -44,13 +37,13 @@ export const getCustomers = async (params?: SearchParams) => {
 
   if (error) throw error;
 
-  return data as Customer[];
+  return data;
 };
 
 /**
  * 고객 상세 조회
  */
-export const getCustomerById = async (id: string) => {
+export const getCustomerById = async (id: string): Promise<CustomerType> => {
   const { data, error } = await supabase
     .from('customers')
     .select(

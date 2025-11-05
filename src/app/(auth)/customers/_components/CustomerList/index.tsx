@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { Customer } from '@/services/customerService';
+import { CustomerType } from '@/app/_types/customer.types';
 import { addStamp, removeStamp } from '@/services/stampService';
 import Loading from '@/app/_components/Loading';
 import { useModal } from '@/app/contexts/ModalContext';
@@ -11,7 +11,7 @@ import StampConfirmModal from '../StampConfirmModal';
 import Button from '@/app/_components/Button';
 
 interface CustomerListProps {
-  customers: Customer[];
+  customers: CustomerType[];
   isLoading: boolean;
   error: string;
   onUpdate: () => void;
