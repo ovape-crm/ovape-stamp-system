@@ -5,6 +5,7 @@ import Image from 'next/image';
 import supabase from '@/libs/supabaseClient';
 import { useRouter } from 'next/navigation';
 import Loading from '@/app/_components/Loading';
+import Button from '@/app/_components/Button';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -110,12 +111,9 @@ export default function LoginPage() {
             />
           </div>
 
-          <button
-            onClick={handleLogin}
-            className="w-full px-4 py-3 text-white font-semibold bg-gradient-to-r from-brand-500 to-brand-600 rounded-lg hover:from-brand-600 hover:to-brand-700 transition-all shadow-md hover:shadow-lg mt-6"
-          >
+          <Button onClick={handleLogin} className="w-full mt-6">
             로그인
-          </button>
+          </Button>
 
           {error && (
             <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">

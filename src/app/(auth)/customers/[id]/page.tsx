@@ -11,6 +11,7 @@ import Loading from '@/app/_components/Loading';
 import toast from 'react-hot-toast';
 import { useModal } from '@/app/contexts/ModalContext';
 import { updateCustomer } from '@/services/customerService';
+import Button from '@/app/_components/Button';
 
 export default function CustomerDetailPage() {
   const params = useParams();
@@ -88,12 +89,9 @@ export default function CustomerDetailPage() {
         <h1 className="text-3xl font-bold bg-gradient-to-r from-brand-600 to-brand-700 bg-clip-text text-transparent">
           고객 상세
         </h1>
-        <button
-          onClick={() => router.push('/customers')}
-          className="px-4 py-2 text-sm font-medium text-brand-700 bg-brand-50 border border-brand-200 rounded-lg hover:bg-brand-100 hover:border-brand-300 transition-all"
-        >
+        <Button onClick={() => router.push('/customers')} variant="tertiary">
           ← 목록으로
-        </button>
+        </Button>
       </div>
 
       {/* 메인 컨텐츠 */}
@@ -133,15 +131,16 @@ export default function CustomerDetailPage() {
         <LogList logs={logs} isLoading={logsLoading} error={logsError} />
         <div className="mt-4 flex justify-center">
           {logsLoading ? null : hasMore ? (
-            <button
+            <Button
               onClick={async () => {
                 const added = await loadMore();
                 if (added > 0) toast.success(`${added}개 더 불러오기 성공!`);
               }}
-              className="px-4 py-2 text-sm font-medium text-brand-700 bg-white border border-brand-300 rounded-lg hover:bg-brand-50 transition-all"
+              variant="secondary"
+              size="sm"
             >
               더 불러오기
-            </button>
+            </Button>
           ) : (
             <div className="text-xs text-gray-400">마지막 페이지입니다.</div>
           )}

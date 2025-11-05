@@ -5,6 +5,7 @@ import { getLogs } from '@/services/logService';
 import Loading from '@/app/_components/Loading';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
+import Button from '@/app/_components/Button';
 
 interface HistoryItem {
   id: string;
@@ -167,15 +168,13 @@ export default function HistoriesPage() {
                     </div>
                   </div>
                   <div className="ml-4">
-                    <button
-                      className="px-4 py-2 text-sm font-medium text-brand-700 bg-white border border-brand-300 rounded-lg hover:bg-brand-50 transition-all"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleCopy(log);
-                      }}
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleCopy(log)}
                     >
                       복사
-                    </button>
+                    </Button>
                   </div>
                 </div>
               );
@@ -187,12 +186,9 @@ export default function HistoriesPage() {
           {isLoading ? (
             <Loading size="sm" text="불러오는 중..." />
           ) : hasMore ? (
-            <button
-              onClick={() => void load()}
-              className="px-4 py-2 text-sm font-medium text-brand-700 bg-white border border-brand-300 rounded-lg hover:bg-brand-50 transition-all"
-            >
+            <Button onClick={() => void load()} variant="secondary" size="sm">
               더 불러오기
-            </button>
+            </Button>
           ) : (
             <div className="text-xs text-gray-400">마지막 페이지입니다.</div>
           )}

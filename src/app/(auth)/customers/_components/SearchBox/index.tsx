@@ -1,5 +1,6 @@
 'use client';
 
+import Button from '@/app/_components/Button';
 import { useState } from 'react';
 
 interface SearchBoxProps {
@@ -42,12 +43,7 @@ const SearchBox = ({ onSearch }: SearchBoxProps) => {
           className="flex-1 px-4 py-2 border border-brand-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-transparent"
         />
 
-        <button
-          onClick={handleSearch}
-          className="px-6 py-2 bg-gradient-to-r from-brand-500 to-brand-600 text-white font-medium rounded-lg hover:from-brand-600 hover:to-brand-700 transition-all shadow-sm"
-        >
-          검색
-        </button>
+        <Button onClick={handleSearch}>검색</Button>
       </div>
     </div>
   );

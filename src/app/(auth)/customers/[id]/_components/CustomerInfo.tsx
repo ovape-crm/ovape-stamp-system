@@ -1,3 +1,5 @@
+import Button from '@/app/_components/Button';
+
 interface CustomerInfoProps {
   customer: {
     name: string;
@@ -15,13 +17,14 @@ const CustomerInfo = ({ customer, onEdit }: CustomerInfoProps) => {
       <div className="flex items-center justify-between mb-6 pb-3 border-b border-brand-100">
         <h2 className="text-xl font-semibold text-brand-700">고객 정보</h2>
         {onEdit && (
-          <button
+          <Button
             onClick={onEdit}
-            className="p-2 rounded-lg hover:bg-brand-50 text-gray-500 hover:text-brand-600 transition-colors"
+            variant="secondary"
+            size="sm"
             aria-label="고객 정보 수정"
           >
             ✏️
-          </button>
+          </Button>
         )}
       </div>
 

@@ -2,6 +2,7 @@
 
 import { useUser } from '@/app/contexts/UserContext';
 import Loading from '@/app/_components/Loading';
+import Button from '@/app/_components/Button';
 
 const UserInfo = () => {
   const { user, isLoading, logout } = useUser();
@@ -30,12 +31,9 @@ const UserInfo = () => {
         </div>
       </div>
 
-      <button
-        onClick={logout}
-        className="px-4 py-2 rounded-lg bg-white/70 border border-brand-200 text-brand-700 font-medium hover:bg-brand-50 hover:border-brand-300 transition-all"
-      >
+      <Button onClick={logout} variant="secondary">
         로그아웃
-      </button>
+      </Button>
     </div>
   );
 };

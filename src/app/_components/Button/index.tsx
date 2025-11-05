@@ -3,7 +3,7 @@ interface ButtonProps {
   size?: 'xs' | 'sm' | 'md' | 'lg';
   type?: 'button' | 'submit' | 'reset';
   children: React.ReactNode;
-  onClick?: () => void;
+  onClick?: (e?: React.MouseEvent<HTMLButtonElement>) => void;
   disabled?: boolean;
   className?: string;
 }
@@ -28,7 +28,6 @@ const Button = ({
     'focus-visible:ring-offset-2',
     'disabled:opacity-50',
     'disabled:cursor-not-allowed',
-    'disabled:pointer-events-none',
     'cursor-pointer',
   ];
 

@@ -5,6 +5,7 @@ import Loading from '@/app/_components/Loading';
 import { useCallback, useState } from 'react';
 import { updateLogNote } from '@/services/logService';
 import { toast } from 'react-hot-toast';
+import Button from '@/app/_components/Button';
 
 interface LogListProps {
   logs: Log[];
@@ -136,30 +137,32 @@ const LogList = ({ logs, isLoading, error }: LogListProps) => {
                         placeholder="메모를 입력하세요"
                         disabled={isSaving}
                       />
-                      <button
-                        className="text-xs px-2 py-1 rounded bg-brand-600 text-white disabled:opacity-60"
+                      <Button
+                        variant="primary"
+                        size="xs"
                         onClick={() => saveNote(log)}
                         disabled={isSaving}
                       >
                         저장
-                      </button>
-                      <button
-                        className="text-xs px-2 py-1 rounded border border-brand-200 text-brand-700 disabled:opacity-60"
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="xs"
                         onClick={cancelEdit}
                         disabled={isSaving}
                       >
                         취소
-                      </button>
+                      </Button>
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <button
-                        aria-label="메모 수정"
-                        className="p-1 rounded hover:bg-brand-50 text-gray-500 hover:text-gray-700"
+                      <Button
+                        variant="secondary"
+                        size="xs"
                         onClick={() => startEdit(log)}
                       >
                         ✏️
-                      </button>
+                      </Button>
                       <span className="flex-1 text-sm text-gray-600 break-words">
                         {currentNote || (
                           <span className="text-gray-400"> - </span>

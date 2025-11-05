@@ -8,6 +8,7 @@ import { addStamp, removeStamp } from '@/services/stampService';
 import Loading from '@/app/_components/Loading';
 import { useModal } from '@/app/contexts/ModalContext';
 import StampConfirmModal from '../StampConfirmModal';
+import Button from '@/app/_components/Button';
 
 interface CustomerListProps {
   customers: Customer[];
@@ -191,7 +192,8 @@ const CustomerList = ({
                           disabled={isThisLoading}
                           className="w-16 px-2 py-1 text-xs border border-brand-200 rounded focus:outline-none focus:ring-1 focus:ring-brand-300 disabled:bg-gray-100"
                         />
-                        <button
+                        <Button
+                          size="xs"
                           onClick={() => {
                             if (amount === 0) {
                               toast.error('스탬프 개수를 입력해주세요.');
@@ -218,11 +220,10 @@ const CustomerList = ({
                             });
                           }}
                           disabled={isThisLoading}
-                          className="px-2 py-1 text-xs font-medium text-white bg-gradient-to-r from-brand-500 to-brand-600 rounded hover:from-brand-600 hover:to-brand-700 transition-all shadow-sm disabled:opacity-50"
                         >
                           추가
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           onClick={() =>
                             open({
                               content: (
@@ -244,11 +245,12 @@ const CustomerList = ({
                             })
                           }
                           disabled={isThisLoading}
-                          className="px-2 py-1 text-xs font-medium text-rose-700 bg-rose-50 border border-rose-200 rounded hover:bg-rose-100 transition-all disabled:opacity-50"
+                          size="xs"
+                          variant="tertiary"
                         >
                           제거
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           onClick={() =>
                             open({
                               content: (
@@ -273,19 +275,21 @@ const CustomerList = ({
                             })
                           }
                           disabled={isThisLoading || stampCount < 10}
-                          className="px-2 py-1 text-xs font-medium text-brand-700 bg-white border border-brand-300 rounded hover:bg-brand-50 transition-all disabled:opacity-50"
+                          size="xs"
+                          variant="secondary"
                         >
                           10개
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           onClick={() =>
                             router.push(`/customers/${customer.id}`)
                           }
                           disabled={isThisLoading}
-                          className="px-2 py-1 text-xs font-medium text-brand-700 bg-brand-50 border border-brand-200 rounded hover:bg-brand-100 hover:border-brand-300 transition-all disabled:opacity-50"
+                          size="xs"
+                          variant="secondary"
                         >
                           상세
-                        </button>
+                        </Button>
                       </div>
                     </td>
                   </tr>

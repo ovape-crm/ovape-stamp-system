@@ -3,6 +3,7 @@
 import { Resolver, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useState } from 'react';
+import Button from '@/app/_components/Button';
 
 type FormValues = {
   name: string;
@@ -142,21 +143,20 @@ export default function CustomerEditModal({
         </div>
 
         <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-          <button
-            type="button"
+          <Button
+            variant="gray"
+            size="sm"
             onClick={() => setShowConfirm(false)}
-            className="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
           >
-            수정
-          </button>
-          <button
-            type="button"
+            취소
+          </Button>
+          <Button
             disabled={isSubmitting || !isValid}
             onClick={handleConfirm}
-            className="px-6 py-2 text-sm font-medium text-white bg-brand-500 rounded-lg hover:bg-brand-600 disabled:bg-brand-300 disabled:opacity-50 transition-colors"
+            size="sm"
           >
             {isSubmitting ? '수정 중...' : '수정'}
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -238,20 +238,12 @@ export default function CustomerEditModal({
       </div>
 
       <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-        <button
-          type="button"
-          className="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-          onClick={onCancel}
-        >
+        <Button variant="gray" size="sm" onClick={onCancel}>
           취소
-        </button>
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="px-6 py-2 text-sm font-medium text-white bg-brand-500 rounded-lg hover:bg-brand-600 disabled:bg-brand-300 disabled:opacity-50 transition-colors"
-        >
+        </Button>
+        <Button type="submit" disabled={isSubmitting} size="sm">
           {isSubmitting ? '수정 중...' : '수정'}
-        </button>
+        </Button>
       </div>
     </form>
   );
