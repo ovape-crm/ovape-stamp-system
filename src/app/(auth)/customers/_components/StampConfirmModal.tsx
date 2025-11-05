@@ -1,6 +1,7 @@
 'use client';
 
 import Button from '@/app/_components/Button';
+import { formatPhoneNumber } from '@/app/_utils/utils';
 import { useState } from 'react';
 
 export default function StampConfirmModal({
@@ -70,7 +71,9 @@ export default function StampConfirmModal({
             <span className="text-sm font-medium text-gray-700">대상 고객</span>
           </div>
           <p className="text-lg font-semibold text-gray-900">{target.name}</p>
-          <p className="text-sm text-gray-600">{target.phone}</p>
+          <p className="text-sm text-gray-600">
+            {formatPhoneNumber(target?.phone)}
+          </p>
         </div>
 
         <div className="text-center py-4">

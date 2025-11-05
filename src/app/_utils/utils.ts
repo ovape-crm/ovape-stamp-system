@@ -15,3 +15,20 @@ export const getActionText = (action: string) => {
   }
   return { text: action, color: 'text-gray-700 bg-gray-100' };
 };
+
+export const formatPhoneNumber = (phone: string | null | undefined): string => {
+  if (!phone) return '';
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 11) {
+    // 010-1234-5678 format
+    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  } else if (digits.length === 10) {
+    // 010-123-4567 or 02-1234-5678 format
+    if (digits.startsWith('02')) {
+      return `${digits.slice(0, 2)}-${digits.slice(2, 6)}-${digits.slice(6)}`;
+    } else {
+      return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+    }
+  }
+  return phone;
+};

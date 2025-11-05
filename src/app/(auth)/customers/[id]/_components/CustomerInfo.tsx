@@ -1,4 +1,5 @@
 import Button from '@/app/_components/Button';
+import { formatPhoneNumber } from '@/app/_utils/utils';
 import { useUser } from '@/app/contexts/UserContext';
 
 interface CustomerInfoProps {
@@ -44,7 +45,7 @@ const CustomerInfo = ({ customer, onEdit }: CustomerInfoProps) => {
             전화번호
           </label>
           <p className="text-lg font-semibold text-gray-900">
-            {customer.phone}
+            {formatPhoneNumber(customer?.phone)}
           </p>
         </div>
 

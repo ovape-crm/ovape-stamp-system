@@ -9,6 +9,7 @@ import Loading from '@/app/_components/Loading';
 import { useModal } from '@/app/contexts/ModalContext';
 import StampConfirmModal from '../StampConfirmModal';
 import Button from '@/app/_components/Button';
+import { formatPhoneNumber } from '@/app/_utils/utils';
 
 interface CustomerListProps {
   customers: CustomerType[];
@@ -161,7 +162,7 @@ const CustomerList = ({
                       {customer.name}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
-                      {customer.phone}
+                      {formatPhoneNumber(customer?.phone)}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
                       {customer.gender === 'male'
