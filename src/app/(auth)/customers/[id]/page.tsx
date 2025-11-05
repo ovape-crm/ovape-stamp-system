@@ -3,6 +3,7 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useCustomer } from '@/app/_hooks/useCustomer';
 import { useLogs } from '@/app/_hooks/useLogs';
+import NotFoundView from '@/app/_components/NotFoundView';
 import CustomerInfo from './_components/CustomerInfo';
 import StampSection from './_components/StampSection';
 import LogList from './_components/LogList';
@@ -80,21 +81,7 @@ export default function CustomerDetailPage() {
   }
 
   if (error || !customer) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="text-center">
-          <p className="text-red-500 mb-4">
-            {error || '고객을 찾을 수 없습니다.'}
-          </p>
-          <button
-            onClick={() => router.push('/customers')}
-            className="px-4 py-2 bg-brand-500 text-white rounded-lg hover:bg-brand-600"
-          >
-            목록으로 돌아가기
-          </button>
-        </div>
-      </div>
-    );
+    return <NotFoundView full={false} />;
   }
 
   const stampCount = customer.stamps?.[0]?.count || 0;
