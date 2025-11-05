@@ -1,7 +1,7 @@
 'use client';
 
 import { Log } from '@/services/logService';
-import Loading from '@/_components/Loading';
+import Loading from '@/app/_components/Loading';
 import { useCallback, useState } from 'react';
 import { updateLogNote } from '@/services/logService';
 import { toast } from 'react-hot-toast';

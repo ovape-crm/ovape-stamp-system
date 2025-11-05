@@ -1,13 +1,13 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { useCustomer } from '@/_hooks/useCustomer';
-import { useLogs } from '@/_hooks/useLogs';
+import { useCustomer } from '@/app/_hooks/useCustomer';
+import { useLogs } from '@/app/_hooks/useLogs';
 import CustomerInfo from './_components/CustomerInfo';
 import StampSection from './_components/StampSection';
 import LogList from './_components/LogList';
 import CustomerEditModal from './_components/CustomerEditModal';
-import Loading from '@/_components/Loading';
+import Loading from '@/app/_components/Loading';
 import toast from 'react-hot-toast';
 import { useModal } from '@/app/contexts/ModalContext';
 import { updateCustomer } from '@/services/customerService';

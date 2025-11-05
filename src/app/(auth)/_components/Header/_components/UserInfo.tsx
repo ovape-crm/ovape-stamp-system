@@ -1,7 +1,7 @@
 'use client';
 
 import { useUser } from '@/app/contexts/UserContext';
-import Loading from '@/_components/Loading';
+import Loading from '@/app/_components/Loading';
 
 const UserInfo = () => {
   const { user, isLoading, logout } = useUser();

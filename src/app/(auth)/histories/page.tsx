@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { getLogs } from '@/services/logService';
-import Loading from '@/_components/Loading';
+import Loading from '@/app/_components/Loading';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 

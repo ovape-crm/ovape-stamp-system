@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import supabase from '@/libs/supabaseClient';
-import Loading from '@/_components/Loading';
+import Loading from '@/app/_components/Loading';
 
 interface User {
   id: string;
