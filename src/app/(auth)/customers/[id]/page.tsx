@@ -3,6 +3,7 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useCustomer } from '@/app/_hooks/useCustomer';
 import { useLogs } from '@/app/_hooks/useLogs';
+import NotFoundView from '@/app/_components/NotFoundView';
 import CustomerInfo from './_components/CustomerInfo';
 import StampSection from './_components/StampSection';
 import LogList from './_components/LogList';
@@ -10,10 +11,12 @@ import CustomerEditModal from './_components/CustomerEditModal';
 import Loading from '@/app/_components/Loading';
 import toast from 'react-hot-toast';
 import { useModal } from '@/app/contexts/ModalContext';
-import { updateCustomer } from '@/services/customerService';
+import { updateCustomer, deleteCustomer } from '@/services/customerService';
 import Button from '@/app/_components/Button';
+import { useUser } from '@/app/contexts/UserContext';
 
 export default function CustomerDetailPage() {
+  const { isAdmin } = useUser();
   const params = useParams();
   const router = useRouter();
   const customerId = params.id as string;
@@ -54,6 +57,21 @@ export default function CustomerDetailPage() {
     }
   };
 
+  const handleDeleteCustomer = async () => {
+    if (!isAdmin) {
+      return;
+    }
+    try {
+      await deleteCustomer(customerId);
+      toast.success('고객 정보가 삭제되었습니다.');
+      close();
+      router.push('/customers');
+      handleUpdate();
+    } catch {
+      toast.error('고객 정보 삭제에 실패했습니다.');
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -63,21 +81,7 @@ export default function CustomerDetailPage() {
   }
 
   if (error || !customer) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="text-center">
-          <p className="text-red-500 mb-4">
-            {error || '고객을 찾을 수 없습니다.'}
-          </p>
-          <button
-            onClick={() => router.push('/customers')}
-            className="px-4 py-2 bg-brand-500 text-white rounded-lg hover:bg-brand-600"
-          >
-            목록으로 돌아가기
-          </button>
-        </div>
-      </div>
-    );
+    return <NotFoundView full={false} />;
   }
 
   const stampCount = customer.stamps?.[0]?.count || 0;
@@ -104,8 +108,10 @@ export default function CustomerDetailPage() {
                 open({
                   content: (
                     <CustomerEditModal
+                      isAdmin={isAdmin}
                       customer={customer}
                       onSubmit={handleEditCustomer}
+                      onDelete={handleDeleteCustomer}
                       onCancel={close}
                     />
                   ),

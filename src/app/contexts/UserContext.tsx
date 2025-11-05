@@ -9,6 +9,7 @@ import { UserType } from '@/app/_types/user.types';
 
 interface UserContextType {
   user: UserType | null;
+  isAdmin: boolean;
   isLoading: boolean;
   refreshUser: () => Promise<void>;
   logout: () => Promise<void>;
@@ -25,6 +26,7 @@ export const UserProvider = ({
 }) => {
   const [user, setUser] = useState<UserType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   const router = useRouter();
 
   const fetchUser = async () => {
@@ -61,6 +63,7 @@ export const UserProvider = ({
       }
 
       setUser(userData);
+      setIsAdmin(userData.oss_role === 'admin');
     } catch (error) {
       console.error('Error fetching user:', error);
       setUser(null);
@@ -129,7 +132,9 @@ export const UserProvider = ({
   }
 
   return (
-    <UserContext.Provider value={{ user, isLoading, refreshUser, logout }}>
+    <UserContext.Provider
+      value={{ user, isLoading, isAdmin, refreshUser, logout }}
+    >
       {children}
     </UserContext.Provider>
   );

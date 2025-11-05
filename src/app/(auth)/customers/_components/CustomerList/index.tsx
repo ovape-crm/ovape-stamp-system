@@ -9,6 +9,7 @@ import Loading from '@/app/_components/Loading';
 import { useModal } from '@/app/contexts/ModalContext';
 import StampConfirmModal from '../StampConfirmModal';
 import Button from '@/app/_components/Button';
+import { formatPhoneNumber } from '@/app/_utils/utils';
 
 interface CustomerListProps {
   customers: CustomerType[];
@@ -50,7 +51,7 @@ const CustomerList = ({
     const amount = amounts[customerId] || 1;
     try {
       setLoadingCustomerId(customerId);
-      await removeStamp(customerId, amount, modalNote ?? '');
+      await removeStamp('remove', customerId, amount, modalNote ?? '');
       onUpdate();
       toast.success(`스탬프 ${amount}개 제거 완료!`);
       setAmounts({ ...amounts, [customerId]: 1 });
@@ -76,12 +77,12 @@ const CustomerList = ({
 
     try {
       setLoadingCustomerId(customerId);
-      await removeStamp(customerId, 10, modalNote ?? '');
+      await removeStamp('coupon', customerId, 10, modalNote ?? '');
       onUpdate();
-      toast.success('10개 사용처리 완료! 🎉');
+      toast.success('쿠폰 사용 완료! 🎉');
     } catch (error) {
-      console.error('사용처리 실패:', error);
-      toast.error('사용처리에 실패했습니다.');
+      console.error('쿠폰 사용 실패:', error);
+      toast.error('쿠폰 사용에 실패했습니다.');
     } finally {
       setLoadingCustomerId(null);
     }
@@ -161,7 +162,7 @@ const CustomerList = ({
                       {customer.name}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
-                      {customer.phone}
+                      {formatPhoneNumber(customer?.phone)}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
                       {customer.gender === 'male'

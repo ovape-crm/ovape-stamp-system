@@ -58,6 +58,7 @@ export const addStamp = async (
  * 스탬프 제거 (count 감소)
  */
 export const removeStamp = async (
+  mode: 'remove' | 'coupon',
   customerId: string,
   amount: number = 1,
   note: string = ''
@@ -89,7 +90,7 @@ export const removeStamp = async (
   if (updateError) throw updateError;
 
   // 로그 추가
-  await createLog(customerId, `remove-${amount}`, note);
+  await createLog(customerId, `${mode}-${amount}`, note);
 };
 
 /**

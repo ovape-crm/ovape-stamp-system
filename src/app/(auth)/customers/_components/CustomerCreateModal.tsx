@@ -4,6 +4,7 @@ import { Resolver, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useState, useRef } from 'react';
 import Button from '@/app/_components/Button';
+import { formatPhoneNumber } from '@/app/_utils/utils';
 
 type FormValues = {
   name: string;
@@ -124,7 +125,7 @@ export default function CustomerCreateModal({
                 전화번호:
               </span>
               <p className="text-base font-semibold text-gray-900">
-                {formData.phone}
+                {formatPhoneNumber(formData?.phone)}
               </p>
             </div>
             <div>

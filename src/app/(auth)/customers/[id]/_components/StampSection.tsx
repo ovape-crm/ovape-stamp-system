@@ -41,7 +41,7 @@ const StampSection = ({ stampCount, target, onUpdate }: StampSectionProps) => {
 
     try {
       setIsLoading(true);
-      await removeStamp(target.id, amount, memo ?? '');
+      await removeStamp('remove', target.id, amount, memo ?? '');
       onUpdate(); // 데이터 새로고침
       toast.success(`스탬프 ${amount}개 제거 완료!`);
       setAmount(1); // 입력값 초기화
@@ -63,12 +63,12 @@ const StampSection = ({ stampCount, target, onUpdate }: StampSectionProps) => {
 
     try {
       setIsLoading(true);
-      await removeStamp(target.id, 10, memo ?? '');
+      await removeStamp('coupon', target.id, 10, memo ?? '');
       onUpdate();
-      toast.success('10개 사용처리 완료! 🎉');
+      toast.success('쿠폰 사용 완료! 🎉');
     } catch (error) {
-      console.error('사용처리 실패:', error);
-      toast.error('사용처리에 실패했습니다.');
+      console.error('쿠폰 사용 실패:', error);
+      toast.error('쿠폰 사용에 실패했습니다.');
     } finally {
       setIsLoading(false);
     }
@@ -175,7 +175,7 @@ const StampSection = ({ stampCount, target, onUpdate }: StampSectionProps) => {
             variant="secondary"
             className="w-full"
           >
-            {isLoading ? '처리 중...' : '10개 사용처리'}
+            {isLoading ? '처리 중...' : '쿠폰 사용'}
           </Button>
         </div>
       </div>
