@@ -18,17 +18,20 @@ export default function StampConfirmModal({
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [note, setNote] = useState('');
+  const [breathType, setBreathType] = useState<'mtl' | 'dtl' | 'custom' | ''>(
+    ''
+  );
 
   const title =
     mode === 'add'
       ? '스탬프 추가'
       : mode === 'remove'
       ? '스탬프 제거'
-      : '10개 사용처리';
+      : '쿠폰 사용';
   const displayAmount = mode === 'use10' ? 10 : amount ?? 1;
   const description =
     mode === 'use10'
-      ? '스탬프를 10개 사용 처리하시겠습니까?'
+      ? '쿠폰을 사용 처리 하시겠습니까? (10개 차감)'
       : `스탬프를 ${displayAmount}개 ${
           mode === 'add' ? '추가' : '제거'
         }하시겠습니까?`;
@@ -77,28 +80,102 @@ export default function StampConfirmModal({
         </div>
       </div>
 
-      {/* 메모 입력 */}
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          {labelTitle}
-          <span className="text-xs text-gray-500 whitespace-pre-line">
-            {labelText}
+      {/* 메모 입력 또는 사용 유형 선택 */}
+      {mode === 'use10' ? (
+        <div className="mb-6">
+          <span className="block text-sm font-medium text-gray-700 mb-3">
+            쿠폰 사용 유형
           </span>
-        </label>
-        <input
-          type="text"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-colors text-xs"
-          placeholder={'위에 해당되는 내용을 입력해주세요.'}
-        />
-      </div>
+          <div className="flex items-center gap-3">
+            <Button
+              type="button"
+              size="sm"
+              variant={breathType === 'mtl' ? 'primary' : 'tertiary'}
+              className="flex-1 text-center"
+              onClick={() => {
+                setBreathType('mtl');
+                setNote('입호흡 쿠폰 사용');
+              }}
+            >
+              입호흡
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={breathType === 'dtl' ? 'primary' : 'tertiary'}
+              className="flex-1 text-center"
+              onClick={() => {
+                setBreathType('dtl');
+                setNote('폐호흡 쿠폰 사용');
+              }}
+            >
+              폐호흡
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={breathType === 'custom' ? 'primary' : 'tertiary'}
+              className="flex-1 text-center"
+              onClick={() => {
+                setBreathType('custom');
+                setNote('');
+                // keep existing note so user can toggle without losing text
+              }}
+            >
+              직접 입력
+            </Button>
+          </div>
+
+          {breathType !== 'custom' && (
+            <p className="mt-2 text-xs text-gray-500">
+              사용 유형을 선택하면 메모가 자동으로 입력됩니다.
+            </p>
+          )}
+          {breathType === 'custom' && (
+            <div className="mt-3">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                메모 직접 입력
+              </label>
+              <span className="text-xs text-gray-500 whitespace-pre-line">
+                (예: [액상 이름] [30/60]ml [숫자] 병, 쿠폰 사용)
+              </span>
+              <input
+                type="text"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-colors text-xs"
+                placeholder={'위에 해당되는 내용을 입력해주세요.'}
+              />
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            {labelTitle}
+            <span className="text-xs text-gray-500 whitespace-pre-line">
+              {labelText}
+            </span>
+          </label>
+          <input
+            type="text"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-colors text-xs"
+            placeholder={'위에 해당되는 내용을 입력해주세요.'}
+          />
+        </div>
+      )}
 
       <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
         <Button variant="gray" size="sm" onClick={onCancel}>
           취소
         </Button>
-        <Button disabled={isSubmitting} onClick={handleConfirm} size="sm">
+        <Button
+          disabled={isSubmitting || (mode === 'use10' && breathType === '')}
+          onClick={handleConfirm}
+          size="sm"
+        >
           {isSubmitting ? '처리 중...' : '확인'}
         </Button>
       </div>

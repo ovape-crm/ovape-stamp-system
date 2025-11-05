@@ -175,7 +175,7 @@ const StampSection = ({ stampCount, target, onUpdate }: StampSectionProps) => {
             variant="secondary"
             className="w-full"
           >
-            {isLoading ? '처리 중...' : '10개 사용처리'}
+            {isLoading ? '처리 중...' : '쿠폰 사용'}
           </Button>
         </div>
       </div>
