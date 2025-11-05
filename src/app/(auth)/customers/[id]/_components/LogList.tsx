@@ -1,14 +1,14 @@
 'use client';
 
-import { Log } from '@/services/logService';
 import Loading from '@/app/_components/Loading';
 import { useCallback, useState } from 'react';
 import { updateLogNote } from '@/services/logService';
 import { toast } from 'react-hot-toast';
 import Button from '@/app/_components/Button';
+import { CustomersLogsResType } from '@/app/_types/log.types';
 
 interface LogListProps {
-  logs: Log[];
+  logs: CustomersLogsResType;
   isLoading: boolean;
   error: string;
 }
@@ -22,14 +22,13 @@ const LogList = ({ logs, isLoading, error }: LogListProps) => {
   >({});
 
   const getCurrentNote = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (log: any) => noteOverridesById[log.id] ?? log.note ?? '',
+    (log: CustomersLogsResType[number]) =>
+      noteOverridesById[log.id] ?? log.note ?? '',
     [noteOverridesById]
   );
 
   const startEdit = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (log: any) => {
+    (log: CustomersLogsResType[number]) => {
       setEditingId(log.id);
       setNoteDraft(getCurrentNote(log));
     },
@@ -42,8 +41,7 @@ const LogList = ({ logs, isLoading, error }: LogListProps) => {
   }, []);
 
   const saveNote = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    async (log: any) => {
+    async (log: CustomersLogsResType[number]) => {
       try {
         setIsSaving(true);
         const updated = await updateLogNote(log.id, noteDraft);
@@ -100,8 +98,7 @@ const LogList = ({ logs, isLoading, error }: LogListProps) => {
             스탬프 이력이 없습니다.
           </div>
         ) : (
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          logs.map((log: any) => {
+          logs.map((log: CustomersLogsResType[number]) => {
             const actionInfo = getActionText(log.action);
             const isEditing = editingId === log.id;
             const currentNote = getCurrentNote(log);
