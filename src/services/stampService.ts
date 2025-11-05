@@ -78,7 +78,7 @@ export const removeStamp = async (
   const newCount = existing.count - amount;
 
   if (newCount < 0) {
-    throw new Error('제거할 스탬프가 부족합니다');
+    throw new Error('차감할 스탬프가 부족합니다');
   }
 
   // count 업데이트 (0이 되어도 레코드는 유지하여 UI 일관성 확보)

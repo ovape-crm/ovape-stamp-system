@@ -26,11 +26,11 @@ const StampSection = ({ stampCount, target, onUpdate }: StampSectionProps) => {
       setIsLoading(true);
       await addStamp(target.id, amount, memo ?? '');
       onUpdate(); // 데이터 새로고침
-      toast.success(`스탬프 ${amount}개 추가 완료!`);
+      toast.success(`스탬프 ${amount}개 적립 완료!`);
       setAmount(1); // 입력값 초기화
     } catch (error) {
-      console.error('스탬프 추가 실패:', error);
-      toast.error('스탬프 추가에 실패했습니다.');
+      console.error('스탬프 적립 실패:', error);
+      toast.error('스탬프 적립에 실패했습니다.');
     } finally {
       setIsLoading(false);
     }
@@ -43,12 +43,12 @@ const StampSection = ({ stampCount, target, onUpdate }: StampSectionProps) => {
       setIsLoading(true);
       await removeStamp('remove', target.id, amount, memo ?? '');
       onUpdate(); // 데이터 새로고침
-      toast.success(`스탬프 ${amount}개 제거 완료!`);
+      toast.success(`스탬프 ${amount}개 차감 완료!`);
       setAmount(1); // 입력값 초기화
     } catch (error) {
-      console.error('스탬프 제거 실패:', error);
+      console.error('스탬프 차감 실패:', error);
       toast.error(
-        error instanceof Error ? error.message : '스탬프 제거에 실패했습니다.'
+        error instanceof Error ? error.message : '스탬프 차감에 실패했습니다.'
       );
     } finally {
       setIsLoading(false);

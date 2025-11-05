@@ -25,16 +25,16 @@ export default function StampConfirmModal({
 
   const title =
     mode === 'add'
-      ? '스탬프 추가'
+      ? '스탬프 적립'
       : mode === 'remove'
-      ? '스탬프 제거'
+      ? '스탬프 차감'
       : '쿠폰 사용';
   const displayAmount = mode === 'use10' ? 10 : amount ?? 1;
   const description =
     mode === 'use10'
       ? '쿠폰을 사용 처리 하시겠습니까? (10개 차감)'
       : `스탬프를 ${displayAmount}개 ${
-          mode === 'add' ? '추가' : '제거'
+          mode === 'add' ? '적립' : '차감'
         }하시겠습니까?`;
 
   const labelTitle =
@@ -48,7 +48,7 @@ export default function StampConfirmModal({
     mode === 'add'
       ? '\n [리뷰/할인/(숫자)병쿠폰] ) [기기이름] [숫자] 개\n[액상이름][30/60]ml [숫자] 병 , [기기이름] [옴] [코일/팟] 개'
       : mode === 'remove'
-      ? ' (제거 사유 입력)'
+      ? ' (차감 사유 입력)'
       : ' (예: [입/폐호흡] 쿠폰 사용)';
 
   const handleConfirm = async () => {

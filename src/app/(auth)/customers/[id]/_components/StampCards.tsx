@@ -91,7 +91,7 @@ const StampCards = ({ count }: StampCardsProps) => {
           <div className="text-gray-300 text-6xl mb-4">📋</div>
           <p className="text-gray-500">아직 스탬프가 없습니다.</p>
           <p className="text-sm text-gray-400 mt-2">
-            첫 스탬프를 추가해보세요!
+            첫 스탬프를 적립해보세요!
           </p>
         </div>
       )}

@@ -37,11 +37,11 @@ const CustomerList = ({
       setLoadingCustomerId(customerId);
       await addStamp(customerId, amount, modalNote ?? '');
       onUpdate();
-      toast.success(`스탬프 ${amount}개 추가 완료!`);
+      toast.success(`스탬프 ${amount}개 적립 완료!`);
       setAmounts({ ...amounts, [customerId]: 1 });
     } catch (error) {
-      console.error('스탬프 추가 실패:', error);
-      toast.error('스탬프 추가에 실패했습니다.');
+      console.error('스탬프 적립 실패:', error);
+      toast.error('스탬프 적립에 실패했습니다.');
     } finally {
       setLoadingCustomerId(null);
     }
@@ -53,12 +53,12 @@ const CustomerList = ({
       setLoadingCustomerId(customerId);
       await removeStamp('remove', customerId, amount, modalNote ?? '');
       onUpdate();
-      toast.success(`스탬프 ${amount}개 제거 완료!`);
+      toast.success(`스탬프 ${amount}개 차감 완료!`);
       setAmounts({ ...amounts, [customerId]: 1 });
     } catch (error) {
-      console.error('스탬프 제거 실패:', error);
+      console.error('스탬프 차감 실패:', error);
       toast.error(
-        error instanceof Error ? error.message : '스탬프 제거에 실패했습니다.'
+        error instanceof Error ? error.message : '스탬프 차감에 실패했습니다.'
       );
     } finally {
       setLoadingCustomerId(null);
