@@ -1,4 +1,5 @@
 import Button from '@/app/_components/Button';
+import { useUser } from '@/app/contexts/UserContext';
 
 interface CustomerInfoProps {
   customer: {
@@ -12,11 +13,13 @@ interface CustomerInfoProps {
 }
 
 const CustomerInfo = ({ customer, onEdit }: CustomerInfoProps) => {
+  const { isAdmin } = useUser();
+
   return (
     <section className="flex-1 h-full bg-white rounded-lg shadow-sm border border-brand-100 p-6">
       <div className="flex items-center justify-between mb-6 pb-3 border-b border-brand-100">
         <h2 className="text-xl font-semibold text-brand-700">고객 정보</h2>
-        {onEdit && (
+        {onEdit && isAdmin && (
           <Button
             onClick={onEdit}
             variant="secondary"

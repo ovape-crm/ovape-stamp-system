@@ -54,11 +54,13 @@ const safeResolver = (schema: z.ZodTypeAny) => async (data: unknown) => {
 };
 
 export default function CustomerEditModal({
+  isAdmin,
   customer,
   onSubmit,
   onCancel,
   onDelete,
 }: {
+  isAdmin: boolean;
   customer: {
     name: string;
     phone: string;
@@ -308,16 +310,22 @@ export default function CustomerEditModal({
         </div>
       </div>
 
-      <div className="pt-4 border-t border-gray-200 flex justify-between mt-4">
-        <div>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => setShowDeleteConfirm(true)}
-          >
-            고객 삭제
-          </Button>
-        </div>
+      <div
+        className={`pt-4 border-t border-gray-200 flex justify-between mt-4 ${
+          isAdmin ? 'justify-between' : 'justify-end'
+        }`}
+      >
+        {isAdmin && (
+          <div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setShowDeleteConfirm(true)}
+            >
+              고객 삭제
+            </Button>
+          </div>
+        )}
 
         <div className="flex gap-3">
           <Button variant="gray" size="sm" onClick={onCancel}>

@@ -12,8 +12,10 @@ import toast from 'react-hot-toast';
 import { useModal } from '@/app/contexts/ModalContext';
 import { updateCustomer, deleteCustomer } from '@/services/customerService';
 import Button from '@/app/_components/Button';
+import { useUser } from '@/app/contexts/UserContext';
 
 export default function CustomerDetailPage() {
+  const { isAdmin } = useUser();
   const params = useParams();
   const router = useRouter();
   const customerId = params.id as string;
@@ -55,19 +57,16 @@ export default function CustomerDetailPage() {
   };
 
   const handleDeleteCustomer = async () => {
+    if (!isAdmin) {
+      return;
+    }
     try {
       await deleteCustomer(customerId);
       toast.success('고객 정보가 삭제되었습니다.');
       close();
-      handleUpdate();
       router.push('/customers');
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-      if (error.message === 'NOT_FOUND_CUSTOMER') {
-        toast.error('고객 정보를 찾을 수 없습니다.');
-      } else {
-        toast.error('고객 정보 삭제에 실패했습니다.');
-      }
+      handleUpdate();
+    } catch {
       toast.error('고객 정보 삭제에 실패했습니다.');
     }
   };
@@ -122,6 +121,7 @@ export default function CustomerDetailPage() {
                 open({
                   content: (
                     <CustomerEditModal
+                      isAdmin={isAdmin}
                       customer={customer}
                       onSubmit={handleEditCustomer}
                       onDelete={handleDeleteCustomer}
