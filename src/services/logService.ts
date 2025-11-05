@@ -1,13 +1,5 @@
+import { CustomersLogsResType, LogsResType } from '@/app/_types/log.types';
 import supabase from '@/libs/supabaseClient';
-
-export interface Log {
-  id: string;
-  admin_id: string;
-  customer_id: string;
-  action: string;
-  note: string;
-  created_at: string;
-}
 
 /**
  * 로그 추가
@@ -52,7 +44,7 @@ export const getLogsByCustomer = async (
   customerId: string,
   limit = 10,
   offset = 0
-) => {
+): Promise<CustomersLogsResType> => {
   const from = offset;
   const to = offset + limit - 1;
   const { data, error } = await supabase
@@ -69,13 +61,16 @@ export const getLogsByCustomer = async (
 
   if (error) throw error;
 
-  return data as Log[];
+  return data;
 };
 
 /**
  * 전체 로그 조회 (페이지네이션)
  */
-export const getLogs = async (limit = 10, offset = 0) => {
+export const getLogs = async (
+  limit = 10,
+  offset = 0
+): Promise<LogsResType[]> => {
   const from = offset;
   const to = offset + limit - 1;
   const { data, error } = await supabase
@@ -91,8 +86,7 @@ export const getLogs = async (limit = 10, offset = 0) => {
     .range(from, to);
 
   if (error) throw error;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return data as any[];
+  return data;
 };
 
 /**
@@ -107,5 +101,5 @@ export const updateLogNote = async (logId: string, note: string) => {
     .single();
 
   if (error) throw error;
-  return data as Log;
+  return data;
 };

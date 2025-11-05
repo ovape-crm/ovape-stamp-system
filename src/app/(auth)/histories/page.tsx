@@ -6,22 +6,13 @@ import Loading from '@/app/_components/Loading';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import Button from '@/app/_components/Button';
-
-interface HistoryItem {
-  id: string;
-  action: string;
-  note: string;
-  created_at: string;
-  customer_id: number;
-  users?: { name?: string | null; email?: string | null } | null;
-  customers?: { name?: string | null; phone?: string | null } | null;
-}
+import { LogsResType } from '@/app/_types/log.types';
 
 const PAGE_SIZE = 10;
 
 export default function HistoriesPage() {
   const router = useRouter();
-  const [items, setItems] = useState<HistoryItem[]>([]);
+  const [items, setItems] = useState<LogsResType[]>([]);
   const [offset, setOffset] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -31,7 +22,7 @@ export default function HistoriesPage() {
     try {
       setIsLoading(true);
       setError('');
-      const data = (await getLogs(PAGE_SIZE, offset)) as HistoryItem[];
+      const data = await getLogs(PAGE_SIZE, offset);
       setItems((prev) => [...prev, ...data]);
       setHasMore(data.length === PAGE_SIZE);
       setOffset((prev) => prev + data.length);
@@ -84,7 +75,7 @@ export default function HistoriesPage() {
     return phone;
   };
 
-  const handleCopy = async (log: HistoryItem) => {
+  const handleCopy = async (log: LogsResType) => {
     const note = log.note || '';
     const name = log.customers?.name || '이름 없음';
     const phone = formatPhoneNumber(log.customers?.phone);
