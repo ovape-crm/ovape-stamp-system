@@ -196,7 +196,7 @@ const CustomerList = ({
                             }
                           }}
                           disabled={isThisLoading}
-                          className="w-16 px-2 py-1 border border-brand-200 rounded focus:outline-none focus:ring-1 focus:ring-brand-300 disabled:bg-gray-100"
+                          className="w-10 px-2 py-1 border border-brand-200 rounded focus:outline-none focus:ring-1 focus:ring-brand-300 disabled:bg-gray-100"
                         />
                         <Button
                           size="sm"
@@ -245,33 +245,6 @@ const CustomerList = ({
                                     name: customer.name,
                                     phone: customer.phone,
                                   }}
-                                  mode="remove"
-                                  amount={amount}
-                                  onCancel={close}
-                                  onConfirm={async (modalNote?: string) => {
-                                    await handleRemove(customer.id, modalNote);
-                                    close();
-                                  }}
-                                />
-                              ),
-                              options: { dismissOnBackdrop: false },
-                            })
-                          }
-                          disabled={isThisLoading}
-                          size="sm"
-                          variant="tertiary"
-                        >
-                          차감
-                        </Button>
-                        <Button
-                          onClick={() =>
-                            open({
-                              content: (
-                                <StampConfirmModal
-                                  target={{
-                                    name: customer.name,
-                                    phone: customer.phone,
-                                  }}
                                   mode="use10"
                                   onCancel={close}
                                   onConfirm={async (modalNote?: string) => {
@@ -291,8 +264,36 @@ const CustomerList = ({
                           size="sm"
                           variant="tertiary"
                         >
-                          쿠폰
+                          쿠폰사용
                         </Button>
+                        <Button
+                          onClick={() =>
+                            open({
+                              content: (
+                                <StampConfirmModal
+                                  target={{
+                                    name: customer.name,
+                                    phone: customer.phone,
+                                  }}
+                                  mode="remove"
+                                  amount={amount}
+                                  onCancel={close}
+                                  onConfirm={async (modalNote?: string) => {
+                                    await handleRemove(customer.id, modalNote);
+                                    close();
+                                  }}
+                                />
+                              ),
+                              options: { dismissOnBackdrop: false },
+                            })
+                          }
+                          disabled={isThisLoading}
+                          size="sm"
+                          variant="tertiary"
+                        >
+                          차감
+                        </Button>
+
                         <Button
                           onClick={() =>
                             router.push(`/customers/${customer.id}`)

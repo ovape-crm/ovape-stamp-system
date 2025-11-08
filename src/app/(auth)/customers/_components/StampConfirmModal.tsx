@@ -191,8 +191,7 @@ export default function StampConfirmModal({
               <span className="text-xs text-gray-500 whitespace-pre-line">
                 (예: [액상 이름] [30/60]ml [숫자] 병, 쿠폰 사용)
               </span>
-              <input
-                type="text"
+              <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-colors text-xs"
@@ -211,8 +210,7 @@ export default function StampConfirmModal({
               {labelText}
             </span>
           </label>
-          <input
-            type="text"
+          <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-colors text-xs"

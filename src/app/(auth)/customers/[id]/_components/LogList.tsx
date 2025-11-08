@@ -147,7 +147,7 @@ const LogList = ({ logs, isLoading, error }: LogListProps) => {
                       >
                         ✏️
                       </Button>
-                      <span className="flex-1 text-sm text-gray-600 break-words">
+                      <span className="flex-1 text-sm text-gray-600 break-words whitespace-pre-line">
                         {currentNote || (
                           <span className="text-gray-400"> - </span>
                         )}
