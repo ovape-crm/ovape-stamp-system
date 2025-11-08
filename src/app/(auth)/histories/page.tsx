@@ -8,8 +8,16 @@ import { useRouter } from 'next/navigation';
 import Button from '@/app/_components/Button';
 import { LogsResType } from '@/app/_types/log.types';
 import { formatPhoneNumber, getActionText } from '@/app/_utils/utils';
+import { PaymentTypeEnum, PaymentTypeEnumType } from '@/app/_enums/enums';
 
 const PAGE_SIZE = 10;
+const paymentTypeNameByValue = Object.values(PaymentTypeEnum).reduce(
+  (acc, type) => {
+    acc[type.value as PaymentTypeEnumType['value']] = type.name;
+    return acc;
+  },
+  {} as Record<PaymentTypeEnumType['value'], string>
+);
 
 export default function HistoriesPage() {
   const router = useRouter();
@@ -45,11 +53,26 @@ export default function HistoriesPage() {
   }, []); // 의존성 배열을 비워서 한 번만 실행
 
   const handleCopy = async (log: LogsResType) => {
+    const paymentTypeValue = log.jsonb?.paymentType as
+      | PaymentTypeEnumType['value']
+      | undefined;
+
+    const paymentTypeName = paymentTypeValue
+      ? paymentTypeNameByValue[paymentTypeValue]
+      : undefined;
+
     const note = log.note || '';
     const name = log.customers?.name || '이름 없음';
     const phone = formatPhoneNumber(log.customers?.phone);
 
-    const textToCopy = `${note}\t\t\t\t${name}\t${phone}`;
+    const createdAt = new Date(log.created_at);
+    const formattedDate = `${createdAt.getFullYear()}. ${String(
+      createdAt.getMonth() + 1
+    ).padStart(2, '0')}. ${createdAt.getDate()}`;
+
+    const textToCopy = `오베이프\t${formattedDate}\t${note}\t\t\t${
+      paymentTypeName ?? ''
+    }\t${name}\t${phone}`;
 
     try {
       await navigator.clipboard.writeText(textToCopy);
@@ -79,6 +102,12 @@ export default function HistoriesPage() {
           <div className="space-y-3">
             {items.map((log, index) => {
               const actionInfo = getActionText(log.action);
+              const paymentTypeValue = log.jsonb?.paymentType as
+                | PaymentTypeEnumType['value']
+                | undefined;
+              const paymentTypeName = paymentTypeValue
+                ? paymentTypeNameByValue[paymentTypeValue]
+                : undefined;
               return (
                 <div
                   key={`${log.id}-${index}`}
@@ -104,6 +133,14 @@ export default function HistoriesPage() {
                       </p>
                     </div>
                   </div>
+
+                  {paymentTypeName && (
+                    <div>
+                      <span className="inline-flex items-center rounded-full bg-gray-100 text-gray-500 text-xs font-medium px-2 py-1">
+                        {paymentTypeName}
+                      </span>
+                    </div>
+                  )}
 
                   <div className="flex-1 pl-4 ml-4 border-l border-brand-100">
                     <div className="flex items-center gap-2">
