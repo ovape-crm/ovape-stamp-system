@@ -1,15 +1,23 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { getLogs } from '@/services/logService';
+import { getLogs, updateLogNote } from '@/services/logService';
 import Loading from '@/app/_components/Loading';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import Button from '@/app/_components/Button';
 import { LogsResType } from '@/app/_types/log.types';
 import { formatPhoneNumber, getActionText } from '@/app/_utils/utils';
+import { PaymentTypeEnum, PaymentTypeEnumType } from '@/app/_enums/enums';
 
 const PAGE_SIZE = 10;
+const paymentTypeNameByValue = Object.values(PaymentTypeEnum).reduce(
+  (acc, type) => {
+    acc[type.value as PaymentTypeEnumType['value']] = type.name;
+    return acc;
+  },
+  {} as Record<PaymentTypeEnumType['value'], string>
+);
 
 export default function HistoriesPage() {
   const router = useRouter();
@@ -18,6 +26,9 @@ export default function HistoriesPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [hasMore, setHasMore] = useState(true);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [noteDraft, setNoteDraft] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -45,11 +56,26 @@ export default function HistoriesPage() {
   }, []); // 의존성 배열을 비워서 한 번만 실행
 
   const handleCopy = async (log: LogsResType) => {
-    const note = log.note || '';
+    const paymentTypeValue = log.jsonb?.paymentType as
+      | PaymentTypeEnumType['value']
+      | undefined;
+
+    const paymentTypeName = paymentTypeValue
+      ? paymentTypeNameByValue[paymentTypeValue]
+      : undefined;
+
+    const note = (editingId === log.id ? noteDraft : log.note) || '';
     const name = log.customers?.name || '이름 없음';
     const phone = formatPhoneNumber(log.customers?.phone);
 
-    const textToCopy = `${note}\t\t\t\t${name}\t${phone}`;
+    const createdAt = new Date(log.created_at);
+    const formattedDate = `${createdAt.getFullYear()}. ${String(
+      createdAt.getMonth() + 1
+    ).padStart(2, '0')}. ${createdAt.getDate()}`;
+
+    const textToCopy = `오베이프\t${formattedDate}\t${note}\t\t\t${
+      paymentTypeName ?? ''
+    }\t${name}\t${phone}`;
 
     try {
       await navigator.clipboard.writeText(textToCopy);
@@ -59,6 +85,39 @@ export default function HistoriesPage() {
       console.error('Failed to copy:', err);
     }
   };
+
+  const startEdit = useCallback((log: LogsResType) => {
+    setEditingId(log.id);
+    setNoteDraft(log.note ?? '');
+  }, []);
+
+  const cancelEdit = useCallback(() => {
+    setEditingId(null);
+    setNoteDraft('');
+  }, []);
+
+  const saveNote = useCallback(
+    async (log: LogsResType) => {
+      try {
+        setIsSaving(true);
+        const updated = await updateLogNote(log.id, noteDraft);
+        setItems((prev) =>
+          prev.map((item) =>
+            item.id === log.id ? { ...item, note: updated.note } : item
+          )
+        );
+        setEditingId(null);
+        setNoteDraft('');
+        toast.success('노트를 저장했습니다.');
+      } catch (e) {
+        console.error('Failed to save note:', e);
+        toast.error('노트 저장에 실패했습니다. 다시 시도해 주세요.');
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [noteDraft]
+  );
 
   return (
     <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10 mb-10">
@@ -79,6 +138,14 @@ export default function HistoriesPage() {
           <div className="space-y-3">
             {items.map((log, index) => {
               const actionInfo = getActionText(log.action);
+              const paymentTypeValue = log.jsonb?.paymentType as
+                | PaymentTypeEnumType['value']
+                | undefined;
+              const paymentTypeName = paymentTypeValue
+                ? paymentTypeNameByValue[paymentTypeValue]
+                : undefined;
+              const isEditing = editingId === log.id;
+              const currentNote = isEditing ? noteDraft : log.note ?? '';
               return (
                 <div
                   key={`${log.id}-${index}`}
@@ -105,12 +172,58 @@ export default function HistoriesPage() {
                     </div>
                   </div>
 
-                  <div className="flex-1 pl-4 ml-4 border-l border-brand-100">
-                    <div className="flex items-center gap-2">
-                      <span className="flex-1 text-sm text-gray-600 break-words">
-                        {log.note || <span className="text-gray-400"> - </span>}
+                  {paymentTypeName && (
+                    <div>
+                      <span className="ml-2 inline-flex items-center rounded-full bg-gray-100 text-gray-500 text-xs font-medium px-2 py-1">
+                        {paymentTypeName}
                       </span>
                     </div>
+                  )}
+
+                  <div className="flex-1 pl-4 ml-4 border-l border-brand-100">
+                    {isEditing ? (
+                      <div className="flex items-center gap-2 pr-4">
+                        <input
+                          className="flex-1 text-sm px-2 py-2 rounded border border-brand-200 focus:outline-none focus:ring-2 focus:ring-brand-200"
+                          value={noteDraft}
+                          onChange={(e) => setNoteDraft(e.target.value)}
+                          placeholder="메모를 입력하세요"
+                          disabled={isSaving}
+                        />
+                        <Button
+                          variant="primary"
+                          size="xs"
+                          onClick={() => saveNote(log)}
+                          disabled={isSaving}
+                        >
+                          저장
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="xs"
+                          onClick={cancelEdit}
+                          disabled={isSaving}
+                        >
+                          취소
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="secondary"
+                          size="xs"
+                          onClick={() => startEdit(log)}
+                          disabled={isSaving}
+                        >
+                          ✏️
+                        </Button>
+                        <span className="flex-1 text-sm text-gray-600 break-words whitespace-pre-line">
+                          {currentNote || (
+                            <span className="text-gray-400"> - </span>
+                          )}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="text-right">
@@ -132,6 +245,7 @@ export default function HistoriesPage() {
                       variant="secondary"
                       size="sm"
                       onClick={() => handleCopy(log)}
+                      disabled={isSaving}
                     >
                       복사
                     </Button>

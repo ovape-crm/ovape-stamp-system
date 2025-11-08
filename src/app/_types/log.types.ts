@@ -29,4 +29,5 @@ export type LogsResType = {
     name: string;
     phone: string;
   };
+  jsonb: Record<string, unknown>;
 };

@@ -7,7 +7,8 @@ import supabase from '@/libs/supabaseClient';
 export const createLog = async (
   customerId: string,
   action: string,
-  note: string = ''
+  note: string = '',
+  jsonb: Record<string, unknown> | null = null
 ) => {
   // 현재 세션에서 user id 가져오기
   const {
@@ -28,6 +29,7 @@ export const createLog = async (
       customer_id: customerId,
       action,
       note,
+      jsonb,
     })
     .select()
     .single();

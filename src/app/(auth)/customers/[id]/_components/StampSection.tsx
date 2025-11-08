@@ -4,6 +4,7 @@ import { useState } from 'react';
 import toast from 'react-hot-toast';
 import StampCards from './StampCards';
 import { addStamp, removeStamp } from '@/services/stampService';
+import { PaymentTypeEnumType } from '@/app/_enums/enums';
 import { useModal } from '@/app/contexts/ModalContext';
 import StampConfirmModal from '../../_components/StampConfirmModal';
 import Button from '@/app/_components/Button';
@@ -19,12 +20,15 @@ const StampSection = ({ stampCount, target, onUpdate }: StampSectionProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const { open, close } = useModal();
 
-  const handleAdd = async (memo?: string) => {
+  const handleAdd = async (
+    memo?: string,
+    paymentType?: PaymentTypeEnumType['value']
+  ) => {
     if (amount < 1) return;
 
     try {
       setIsLoading(true);
-      await addStamp(target.id, amount, memo ?? '');
+      await addStamp(target.id, amount, memo ?? '', paymentType);
       onUpdate(); // 데이터 새로고침
       toast.success(`스탬프 ${amount}개 적립 완료!`);
       setAmount(1); // 입력값 초기화
@@ -107,8 +111,11 @@ const StampSection = ({ stampCount, target, onUpdate }: StampSectionProps) => {
                     mode="add"
                     amount={amount}
                     onCancel={close}
-                    onConfirm={async (modalNote?: string) => {
-                      await handleAdd(modalNote);
+                    onConfirm={async (
+                      modalNote?: string,
+                      paymentType?: PaymentTypeEnumType['value']
+                    ) => {
+                      await handleAdd(modalNote, paymentType);
                       close();
                     }}
                   />

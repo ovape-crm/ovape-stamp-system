@@ -10,6 +10,7 @@ import { useModal } from '@/app/contexts/ModalContext';
 import StampConfirmModal from '../StampConfirmModal';
 import Button from '@/app/_components/Button';
 import { formatPhoneNumber } from '@/app/_utils/utils';
+import { PaymentTypeEnumType } from '@/app/_enums/enums';
 
 interface CustomerListProps {
   customers: CustomerType[];
@@ -31,11 +32,15 @@ const CustomerList = ({
   );
   const [amounts, setAmounts] = useState<Record<string, number>>({});
 
-  const handleAdd = async (customerId: string, modalNote?: string) => {
+  const handleAdd = async (
+    customerId: string,
+    modalNote?: string,
+    paymentType?: PaymentTypeEnumType['value']
+  ) => {
     const amount = amounts[customerId] || 1;
     try {
       setLoadingCustomerId(customerId);
-      await addStamp(customerId, amount, modalNote ?? '');
+      await addStamp(customerId, amount, modalNote ?? '', paymentType);
       onUpdate();
       toast.success(`스탬프 ${amount}개 적립 완료!`);
       setAmounts({ ...amounts, [customerId]: 1 });
@@ -191,7 +196,7 @@ const CustomerList = ({
                             }
                           }}
                           disabled={isThisLoading}
-                          className="w-16 px-2 py-1 border border-brand-200 rounded focus:outline-none focus:ring-1 focus:ring-brand-300 disabled:bg-gray-100"
+                          className="w-10 px-2 py-1 border border-brand-200 rounded focus:outline-none focus:ring-1 focus:ring-brand-300 disabled:bg-gray-100"
                         />
                         <Button
                           size="sm"
@@ -211,8 +216,15 @@ const CustomerList = ({
                                   mode="add"
                                   amount={amount}
                                   onCancel={close}
-                                  onConfirm={async (modalNote?: string) => {
-                                    await handleAdd(customer.id, modalNote);
+                                  onConfirm={async (
+                                    modalNote?: string,
+                                    paymentType?: PaymentTypeEnumType['value']
+                                  ) => {
+                                    await handleAdd(
+                                      customer.id,
+                                      modalNote,
+                                      paymentType
+                                    );
                                     close();
                                   }}
                                 />
@@ -223,33 +235,6 @@ const CustomerList = ({
                           disabled={isThisLoading}
                         >
                           적립
-                        </Button>
-                        <Button
-                          onClick={() =>
-                            open({
-                              content: (
-                                <StampConfirmModal
-                                  target={{
-                                    name: customer.name,
-                                    phone: customer.phone,
-                                  }}
-                                  mode="remove"
-                                  amount={amount}
-                                  onCancel={close}
-                                  onConfirm={async (modalNote?: string) => {
-                                    await handleRemove(customer.id, modalNote);
-                                    close();
-                                  }}
-                                />
-                              ),
-                              options: { dismissOnBackdrop: false },
-                            })
-                          }
-                          disabled={isThisLoading}
-                          size="sm"
-                          variant="tertiary"
-                        >
-                          차감
                         </Button>
                         <Button
                           onClick={() =>
@@ -279,8 +264,36 @@ const CustomerList = ({
                           size="sm"
                           variant="tertiary"
                         >
-                          쿠폰
+                          쿠폰사용
                         </Button>
+                        <Button
+                          onClick={() =>
+                            open({
+                              content: (
+                                <StampConfirmModal
+                                  target={{
+                                    name: customer.name,
+                                    phone: customer.phone,
+                                  }}
+                                  mode="remove"
+                                  amount={amount}
+                                  onCancel={close}
+                                  onConfirm={async (modalNote?: string) => {
+                                    await handleRemove(customer.id, modalNote);
+                                    close();
+                                  }}
+                                />
+                              ),
+                              options: { dismissOnBackdrop: false },
+                            })
+                          }
+                          disabled={isThisLoading}
+                          size="sm"
+                          variant="tertiary"
+                        >
+                          차감
+                        </Button>
+
                         <Button
                           onClick={() =>
                             router.push(`/customers/${customer.id}`)
