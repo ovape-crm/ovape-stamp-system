@@ -8,7 +8,7 @@ export const createLog = async (
   customerId: string,
   action: string,
   note: string = '',
-  jsonb: Record<string, unknown> = {}
+  jsonb: Record<string, unknown> | null = null
 ) => {
   // 현재 세션에서 user id 가져오기
   const {
