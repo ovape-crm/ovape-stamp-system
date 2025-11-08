@@ -1,6 +1,7 @@
 'use client';
 
 import Button from '@/app/_components/Button';
+import { BreathTypeEnum, BreathTypeEnumType } from '@/app/_enums/enums';
 import { formatPhoneNumber } from '@/app/_utils/utils';
 import { useState } from 'react';
 
@@ -19,9 +20,9 @@ export default function StampConfirmModal({
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [note, setNote] = useState('');
-  const [breathType, setBreathType] = useState<'mtl' | 'dtl' | 'custom' | ''>(
-    ''
-  );
+  const [breathType, setBreathType] = useState<
+    BreathTypeEnumType['value'] | ''
+  >('');
 
   const title =
     mode === 'add'
@@ -84,7 +85,7 @@ export default function StampConfirmModal({
       </div>
 
       {/* 메모 입력 또는 사용 유형 선택 */}
-      {mode === 'use10' ? (
+      {mode === 'use10' && (
         <div className="mb-6">
           <span className="block text-sm font-medium text-gray-700 mb-3">
             쿠폰 사용 유형
@@ -93,10 +94,12 @@ export default function StampConfirmModal({
             <Button
               type="button"
               size="sm"
-              variant={breathType === 'mtl' ? 'primary' : 'tertiary'}
+              variant={
+                breathType === BreathTypeEnum.MTL.value ? 'primary' : 'tertiary'
+              }
               className="flex-1 text-center"
               onClick={() => {
-                setBreathType('mtl');
+                setBreathType(BreathTypeEnum.MTL.value);
                 setNote('입호흡 쿠폰 사용');
               }}
             >
@@ -105,10 +108,12 @@ export default function StampConfirmModal({
             <Button
               type="button"
               size="sm"
-              variant={breathType === 'dtl' ? 'primary' : 'tertiary'}
+              variant={
+                breathType === BreathTypeEnum.DTL.value ? 'primary' : 'tertiary'
+              }
               className="flex-1 text-center"
               onClick={() => {
-                setBreathType('dtl');
+                setBreathType(BreathTypeEnum.DTL.value);
                 setNote('폐호흡 쿠폰 사용');
               }}
             >
@@ -117,24 +122,27 @@ export default function StampConfirmModal({
             <Button
               type="button"
               size="sm"
-              variant={breathType === 'custom' ? 'primary' : 'tertiary'}
+              variant={
+                breathType === BreathTypeEnum.CUSTOM.value
+                  ? 'primary'
+                  : 'tertiary'
+              }
               className="flex-1 text-center"
               onClick={() => {
-                setBreathType('custom');
+                setBreathType(BreathTypeEnum.CUSTOM.value);
                 setNote('');
-                // keep existing note so user can toggle without losing text
               }}
             >
               직접 입력
             </Button>
           </div>
 
-          {breathType !== 'custom' && (
+          {breathType !== BreathTypeEnum.CUSTOM.value && (
             <p className="mt-2 text-xs text-gray-500">
               사용 유형을 선택하면 메모가 자동으로 입력됩니다.
             </p>
           )}
-          {breathType === 'custom' && (
+          {breathType === BreathTypeEnum.CUSTOM.value && (
             <div className="mt-3">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 메모 직접 입력
@@ -152,7 +160,9 @@ export default function StampConfirmModal({
             </div>
           )}
         </div>
-      ) : (
+      )}
+
+      {mode !== 'use10' && (
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             {labelTitle}
