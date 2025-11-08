@@ -1,5 +1,6 @@
 import supabase from '@/libs/supabaseClient';
 import { createLog } from './logService';
+import { PaymentTypeEnumType } from '@/app/_enums/enums';
 
 export interface Stamp {
   id: string;
@@ -14,7 +15,8 @@ export interface Stamp {
 export const addStamp = async (
   customerId: string,
   amount: number = 1,
-  note: string = ''
+  note: string = '',
+  paymentType?: PaymentTypeEnumType['value']
 ) => {
   // 먼저 해당 customer의 stamp 레코드가 있는지 확인
   const { data: existing } = await supabase
@@ -49,7 +51,7 @@ export const addStamp = async (
   }
 
   // 로그 추가
-  await createLog(customerId, `add-${amount}`, note);
+  await createLog(customerId, `add-${amount}`, note, { paymentType });
 
   return result;
 };

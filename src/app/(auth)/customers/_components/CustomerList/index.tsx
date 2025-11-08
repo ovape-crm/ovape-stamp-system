@@ -10,6 +10,7 @@ import { useModal } from '@/app/contexts/ModalContext';
 import StampConfirmModal from '../StampConfirmModal';
 import Button from '@/app/_components/Button';
 import { formatPhoneNumber } from '@/app/_utils/utils';
+import { PaymentTypeEnumType } from '@/app/_enums/enums';
 
 interface CustomerListProps {
   customers: CustomerType[];
@@ -31,11 +32,15 @@ const CustomerList = ({
   );
   const [amounts, setAmounts] = useState<Record<string, number>>({});
 
-  const handleAdd = async (customerId: string, modalNote?: string) => {
+  const handleAdd = async (
+    customerId: string,
+    modalNote?: string,
+    paymentType?: PaymentTypeEnumType['value']
+  ) => {
     const amount = amounts[customerId] || 1;
     try {
       setLoadingCustomerId(customerId);
-      await addStamp(customerId, amount, modalNote ?? '');
+      await addStamp(customerId, amount, modalNote ?? '', paymentType);
       onUpdate();
       toast.success(`스탬프 ${amount}개 적립 완료!`);
       setAmounts({ ...amounts, [customerId]: 1 });
@@ -211,8 +216,15 @@ const CustomerList = ({
                                   mode="add"
                                   amount={amount}
                                   onCancel={close}
-                                  onConfirm={async (modalNote?: string) => {
-                                    await handleAdd(customer.id, modalNote);
+                                  onConfirm={async (
+                                    modalNote?: string,
+                                    paymentType?: PaymentTypeEnumType['value']
+                                  ) => {
+                                    await handleAdd(
+                                      customer.id,
+                                      modalNote,
+                                      paymentType
+                                    );
                                     close();
                                   }}
                                 />

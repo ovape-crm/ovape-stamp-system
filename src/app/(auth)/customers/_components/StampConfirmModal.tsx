@@ -1,9 +1,16 @@
 'use client';
 
 import Button from '@/app/_components/Button';
-import { BreathTypeEnum, BreathTypeEnumType } from '@/app/_enums/enums';
+import {
+  BreathTypeEnum,
+  BreathTypeEnumType,
+  PaymentTypeEnum,
+  PaymentTypeEnumType,
+} from '@/app/_enums/enums';
 import { formatPhoneNumber } from '@/app/_utils/utils';
 import { useState } from 'react';
+
+const paymentTypeOptions = Object.values(PaymentTypeEnum);
 
 export default function StampConfirmModal({
   target,
@@ -15,13 +22,22 @@ export default function StampConfirmModal({
   target: { name: string; phone: string };
   mode: 'add' | 'remove' | 'use10';
   amount?: number;
-  onConfirm: (note?: string) => Promise<void> | void;
+  onConfirm: (
+    note?: string,
+    paymentType?: PaymentTypeEnumType['value']
+  ) => Promise<void> | void;
   onCancel: () => void;
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [note, setNote] = useState('');
+
   const [breathType, setBreathType] = useState<
     BreathTypeEnumType['value'] | ''
+  >('');
+
+  const [paymentType, setPaymentType] = useState<
+    PaymentTypeEnumType['value'] | ''
   >('');
 
   const title =
@@ -55,7 +71,7 @@ export default function StampConfirmModal({
   const handleConfirm = async () => {
     try {
       setIsSubmitting(true);
-      await onConfirm(note);
+      await onConfirm(note, paymentType as PaymentTypeEnumType['value']);
     } finally {
       setIsSubmitting(false);
     }
@@ -83,6 +99,31 @@ export default function StampConfirmModal({
           </p>
         </div>
       </div>
+
+      {mode === 'add' && (
+        <div>
+          <span className="block text-sm font-medium mb-1">
+            결제 유형 <span className="text-rose-600">*</span>
+          </span>
+          <div className="flex items-center gap-4 mb-6">
+            {paymentTypeOptions.map((option) => (
+              <label
+                key={option.value}
+                className="inline-flex items-center gap-2 text-sm"
+              >
+                <input
+                  type="radio"
+                  name="paymentType"
+                  value={option.value}
+                  checked={paymentType === option.value}
+                  onChange={() => setPaymentType(option.value)}
+                />
+                {option.name}
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 메모 입력 또는 사용 유형 선택 */}
       {mode === 'use10' && (
@@ -185,7 +226,11 @@ export default function StampConfirmModal({
           취소
         </Button>
         <Button
-          disabled={isSubmitting || (mode === 'use10' && breathType === '')}
+          disabled={
+            isSubmitting ||
+            (mode === 'use10' && breathType === '') ||
+            (mode === 'add' && paymentType === '')
+          }
           onClick={handleConfirm}
           size="sm"
         >
