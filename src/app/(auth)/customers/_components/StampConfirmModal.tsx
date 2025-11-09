@@ -109,7 +109,7 @@ export default function StampConfirmModal({
             {paymentTypeOptions.map((option) => (
               <label
                 key={option.value}
-                className="inline-flex items-center gap-2 text-sm"
+                className="inline-flex items-center gap-2 text-xs whitespace-nowrap"
               >
                 <input
                   type="radio"
