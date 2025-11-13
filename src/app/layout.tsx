@@ -1,7 +1,14 @@
 import type { Metadata } from 'next';
+import { Noto_Sans_KR } from 'next/font/google';
 import './globals.css';
 import { ModalProvider } from './contexts/ModalContext';
 import { Toaster } from 'react-hot-toast';
+
+const notoSansKR = Noto_Sans_KR({
+  weight: ['400', '500', '700'],
+  subsets: ['latin'],
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'OSS - Ovape Stamp System',
@@ -18,7 +25,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
-      <body>
+      <body className={notoSansKR.className}>
         <Toaster
           position="top-right"
           toastOptions={{

@@ -182,30 +182,33 @@ export default function HistoriesPage() {
 
                   <div className="flex-1 pl-4 ml-4 border-l border-brand-100">
                     {isEditing ? (
-                      <div className="flex items-center gap-2 pr-4">
-                        <input
-                          className="flex-1 text-sm px-2 py-2 rounded border border-brand-200 focus:outline-none focus:ring-2 focus:ring-brand-200"
+                      <div className="flex flex-col gap-2 pr-4">
+                        <textarea
+                          className="flex-1 text-sm px-2 py-2 rounded border border-brand-200 focus:outline-none focus:ring-2 focus:ring-brand-200 resize-none min-h-[60px]"
                           value={noteDraft}
                           onChange={(e) => setNoteDraft(e.target.value)}
                           placeholder="메모를 입력하세요"
                           disabled={isSaving}
+                          rows={3}
                         />
-                        <Button
-                          variant="primary"
-                          size="xs"
-                          onClick={() => saveNote(log)}
-                          disabled={isSaving}
-                        >
-                          저장
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="xs"
-                          onClick={cancelEdit}
-                          disabled={isSaving}
-                        >
-                          취소
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="primary"
+                            size="xs"
+                            onClick={() => saveNote(log)}
+                            disabled={isSaving}
+                          >
+                            저장
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="xs"
+                            onClick={cancelEdit}
+                            disabled={isSaving}
+                          >
+                            취소
+                          </Button>
+                        </div>
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">

@@ -78,7 +78,7 @@ const CustomerInfo = ({ customer, onEdit }: CustomerInfoProps) => {
 
       <div className="mt-6 pt-4 border-t border-brand-100">
         <label className="block text-sm font-medium text-gray-500 mb-1">
-          메모
+          특이사항
         </label>
         <p className="text-sm text-gray-800 whitespace-pre-wrap">
           {customer?.note && customer?.note?.trim()?.length > 0
