@@ -1,11 +1,18 @@
 'use client';
 
 import Button from '@/app/_components/Button';
+import { Dropdown, DropdownOption } from '@/app/_components/Dropdown';
 import { useState } from 'react';
 
 interface SearchBoxProps {
   onSearch: (target: string, keyword: string) => void;
 }
+
+const targetOptions = [
+  { label: '전체', value: 'all' },
+  { label: '이름', value: 'name' },
+  { label: '전화번호', value: 'phone' },
+];
 
 const SearchBox = ({ onSearch }: SearchBoxProps) => {
   const [target, setTarget] = useState('all');
@@ -24,16 +31,26 @@ const SearchBox = ({ onSearch }: SearchBoxProps) => {
   return (
     <div className="bg-white rounded-lg shadow-sm border border-brand-100 p-6">
       <div className="flex gap-3 items-center">
-        <select
-          value={target}
-          onChange={(e) => setTarget(e.target.value)}
-          className="px-4 py-2 border border-brand-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-transparent"
-        >
-          <option value="all">전체</option>
-          <option value="name">이름</option>
-          <option value="phone">전화번호</option>
-        </select>
-
+        <div className="w-[150px]">
+          <Dropdown>
+            <Dropdown.Trigger>
+              {targetOptions.find((option) => option.value === target)?.label}
+            </Dropdown.Trigger>
+            <Dropdown.Content>
+              {targetOptions.map((option) => {
+                return (
+                  <Dropdown.Item
+                    key={option.value}
+                    option={option}
+                    onSelect={(option: DropdownOption) =>
+                      setTarget(option.value as string)
+                    }
+                  />
+                );
+              })}
+            </Dropdown.Content>
+          </Dropdown>
+        </div>
         <input
           type="text"
           placeholder="검색어 입력"
