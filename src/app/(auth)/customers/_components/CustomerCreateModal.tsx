@@ -231,7 +231,9 @@ export default function CustomerCreateModal({
             </div>
             {formData.note && (
               <div>
-                <span className="text-sm font-medium text-gray-600">메모:</span>
+                <span className="text-sm font-medium text-gray-600">
+                  특이사항:
+                </span>
                 <p className="text-base text-gray-900">{formData.note}</p>
               </div>
             )}
@@ -371,7 +373,7 @@ export default function CustomerCreateModal({
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-1">메모</label>
+          <label className="block text-sm font-medium mb-1">특이사항</label>
           <textarea
             className="w-full min-h-24 rounded border border-brand-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
             placeholder="결제관련 특이사항, 주소지 등"
