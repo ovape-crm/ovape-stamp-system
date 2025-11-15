@@ -97,7 +97,9 @@ const StampHistoryItem = ({
       </div>
 
       <div className="text-right">
-        <LogActorInfo log={log} />
+        {log.users && (
+          <LogActorInfo users={log.users} created_at={log.created_at} />
+        )}
       </div>
 
       <div className="ml-4">

@@ -1,9 +1,15 @@
-import { LogsResType } from '@/app/_types/log.types';
+import { LogActorUserInfo } from '@/app/_types/log.types';
 
-const LogActorInfo = ({ log }: { log: LogsResType }) => {
-  const userDisplay = log.users?.name || log.users?.email || '알 수 없음';
+const LogActorInfo = ({
+  users,
+  created_at,
+}: {
+  users: LogActorUserInfo;
+  created_at: string;
+}) => {
+  const userDisplay = users?.name || users?.email || '알 수 없음';
 
-  const createdAtText = new Date(log.created_at).toLocaleString('ko-KR', {
+  const createdAtText = new Date(created_at).toLocaleString('ko-KR', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
