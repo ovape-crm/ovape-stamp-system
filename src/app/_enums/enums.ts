@@ -41,3 +41,21 @@ export const PaymentTypeEnum = {
 
 export type PaymentTypeEnumType =
   (typeof PaymentTypeEnum)[keyof typeof PaymentTypeEnum];
+
+export const LogCategoryEnum = {
+  CUSTOMER: {
+    value: 'customer',
+    name: '고객',
+  },
+  STAMP: {
+    value: 'stamp',
+    name: '스탬프',
+  },
+  REMARK: {
+    value: 'remark',
+    name: '특이사항',
+  },
+} as const;
+
+export type LogCategoryEnumType =
+  (typeof LogCategoryEnum)[keyof typeof LogCategoryEnum];

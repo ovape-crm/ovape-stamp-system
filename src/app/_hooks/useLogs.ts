@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getLogsByCustomer } from '@/services/logService';
 import { CustomersLogsResType } from '@/app/_types/log.types';
+import { LogCategoryEnum } from '../_enums/enums';
 
 export const useLogs = (customerId: string, pageSize = 10) => {
   const [logs, setLogs] = useState<CustomersLogsResType>([]);
@@ -14,7 +15,12 @@ export const useLogs = (customerId: string, pageSize = 10) => {
       setIsLoading(true);
       setError('');
 
-      const data = await getLogsByCustomer(customerId, pageSize, 0);
+      const data = await getLogsByCustomer(
+        LogCategoryEnum.STAMP.value,
+        customerId,
+        pageSize,
+        0
+      );
       setLogs(data);
       setOffset(data.length);
       setHasMore(data.length === pageSize);
@@ -31,7 +37,12 @@ export const useLogs = (customerId: string, pageSize = 10) => {
   const loadMore = useCallback(async (): Promise<number> => {
     try {
       setIsLoading(true);
-      const more = await getLogsByCustomer(customerId, pageSize, offset);
+      const more = await getLogsByCustomer(
+        LogCategoryEnum.STAMP.value,
+        customerId,
+        pageSize,
+        offset
+      );
       setLogs((prev) => [...prev, ...more]);
       setOffset((prev) => prev + more.length);
       setHasMore(more.length === pageSize);
