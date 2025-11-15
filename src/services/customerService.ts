@@ -1,5 +1,8 @@
 import { CustomerType } from '@/app/_types/customer.types';
 import supabase from '@/libs/supabaseClient';
+import { createLog } from './logService';
+import { LogCategoryEnum } from '@/app/_enums/enums';
+import { getUpdateLogNote } from '@/app/_utils/utils';
 
 export interface SearchParams {
   target?: 'all' | 'name' | 'phone';
@@ -89,6 +92,14 @@ export const createCustomer = async (customer: {
 
   if (error) throw error;
 
+  await createLog(
+    LogCategoryEnum.CUSTOMER.value,
+    data.id,
+    'create-customer',
+    '',
+    null
+  );
+
   return data;
 };
 
@@ -118,6 +129,31 @@ export const updateCustomer = async (
       throw new Error('DUPLICATE_CUSTOMER');
     }
   }
+
+  const prevCustomer = await getCustomerById(id);
+
+  const changeObj = getUpdateLogNote(
+    {
+      name: prevCustomer.name,
+      phone: prevCustomer.phone,
+      gender: prevCustomer.gender,
+      note: prevCustomer?.note ?? '',
+    },
+    {
+      name: updates.name ?? prevCustomer.name,
+      phone: updates.phone ?? prevCustomer.phone,
+      gender: updates.gender ?? prevCustomer.gender,
+      note: updates.note ?? prevCustomer?.note ?? '',
+    }
+  );
+
+  await createLog(
+    LogCategoryEnum.CUSTOMER.value,
+    id,
+    'update-customer-info',
+    '',
+    changeObj
+  );
 
   // 고객 업데이트 (결과 없을 수 있음)
   const { data, error } = await supabase
