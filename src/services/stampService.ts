@@ -1,6 +1,6 @@
 import supabase from '@/libs/supabaseClient';
 import { createLog } from './logService';
-import { PaymentTypeEnumType } from '@/app/_enums/enums';
+import { LogCategoryEnum, PaymentTypeEnumType } from '@/app/_enums/enums';
 
 export interface Stamp {
   id: string;
@@ -51,7 +51,13 @@ export const addStamp = async (
   }
 
   // 로그 추가
-  await createLog(customerId, `add-${amount}`, note, { paymentType });
+  await createLog(
+    LogCategoryEnum.STAMP.value,
+    customerId,
+    `add-${amount}`,
+    note,
+    { paymentType }
+  );
 
   return result;
 };
@@ -92,7 +98,12 @@ export const removeStamp = async (
   if (updateError) throw updateError;
 
   // 로그 추가
-  await createLog(customerId, `${mode}-${amount}`, note);
+  await createLog(
+    LogCategoryEnum.STAMP.value,
+    customerId,
+    `${mode}-${amount}`,
+    note
+  );
 };
 
 /**

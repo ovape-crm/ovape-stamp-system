@@ -8,8 +8,7 @@ const Nav = () => {
 
   const navLinks = [
     { href: '/customers', label: '고객' },
-    { href: '/histories', label: '기록' },
-    { href: '/admins', label: '관리자' },
+    { href: '/histories', label: '이력' },
   ];
 
   return (

@@ -1,3 +1,4 @@
+import { LogCategoryEnumType } from '@/app/_enums/enums';
 import { CustomersLogsResType, LogsResType } from '@/app/_types/log.types';
 import supabase from '@/libs/supabaseClient';
 
@@ -5,6 +6,7 @@ import supabase from '@/libs/supabaseClient';
  * 로그 추가
  */
 export const createLog = async (
+  category: LogCategoryEnumType['value'],
   customerId: string,
   action: string,
   note: string = '',
@@ -30,6 +32,7 @@ export const createLog = async (
       action,
       note,
       jsonb,
+      category,
     })
     .select()
     .single();
@@ -43,6 +46,7 @@ export const createLog = async (
  * 특정 고객의 로그 조회 (최신순)
  */
 export const getLogsByCustomer = async (
+  category: LogCategoryEnumType['value'] = 'stamp',
   customerId: string,
   limit = 10,
   offset = 0
@@ -58,6 +62,7 @@ export const getLogsByCustomer = async (
     `
     )
     .eq('customer_id', customerId)
+    .eq('category', category)
     .order('created_at', { ascending: false })
     .range(from, to);
 
@@ -71,7 +76,8 @@ export const getLogsByCustomer = async (
  */
 export const getLogs = async (
   limit = 10,
-  offset = 0
+  offset = 0,
+  category: LogCategoryEnumType['value'] = 'stamp'
 ): Promise<LogsResType[]> => {
   const from = offset;
   const to = offset + limit - 1;
@@ -84,6 +90,7 @@ export const getLogs = async (
       customers(name, phone)
     `
     )
+    .eq('category', category)
     .order('created_at', { ascending: false })
     .range(from, to);
 

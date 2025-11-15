@@ -1,3 +1,6 @@
+import { LogCategoryEnumType } from '../_enums/enums';
+
+// 고객 상세 페이지의 로그
 export type CustomersLogsResType = {
   id: string;
   admin_id: string;
@@ -5,6 +8,7 @@ export type CustomersLogsResType = {
   action: string;
   note: string;
   created_at: string;
+  category: LogCategoryEnumType['value'];
   // 작업자 정보
   users: {
     name: string;
@@ -12,6 +16,7 @@ export type CustomersLogsResType = {
   };
 }[];
 
+// 이력 페이지의 로그
 export type LogsResType = {
   id: string;
   admin_id: string;
@@ -19,6 +24,7 @@ export type LogsResType = {
   action: string;
   note: string;
   created_at: string;
+  category: LogCategoryEnumType['value'];
   // 작업자 정보
   users: {
     name: string;

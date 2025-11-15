@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useCustomer } from '@/app/_hooks/useCustomer';
-import { useLogs } from '@/app/_hooks/useLogs';
+import { useLogsByCustomerId } from '@/app/_hooks/useLogsByCustomerId';
 import NotFoundView from '@/app/_components/NotFoundView';
 import CustomerInfo from './_components/CustomerInfo';
 import StampSection from './_components/StampSection';
@@ -14,6 +14,10 @@ import { useModal } from '@/app/contexts/ModalContext';
 import { updateCustomer, deleteCustomer } from '@/services/customerService';
 import Button from '@/app/_components/Button';
 import { useUser } from '@/app/contexts/UserContext';
+import { useState } from 'react';
+import { LogCategoryEnum, LogCategoryEnumType } from '@/app/_enums/enums';
+
+const PAGE_SIZE = 10;
 
 export default function CustomerDetailPage() {
   const { isAdmin } = useUser();
@@ -22,6 +26,11 @@ export default function CustomerDetailPage() {
   const customerId = params.id as string;
   const { open, close } = useModal();
   const { customer, isLoading, error, refresh } = useCustomer(customerId);
+
+  const [logCategory, setLogCategory] = useState<LogCategoryEnumType['value']>(
+    LogCategoryEnum.STAMP.value
+  );
+
   const {
     logs,
     isLoading: logsLoading,
@@ -29,7 +38,7 @@ export default function CustomerDetailPage() {
     refresh: refreshLogs,
     loadMore,
     hasMore,
-  } = useLogs(customerId);
+  } = useLogsByCustomerId(customerId, PAGE_SIZE, logCategory);
 
   const handleUpdate = () => {
     refresh();
@@ -134,7 +143,13 @@ export default function CustomerDetailPage() {
 
       {/* 로그 섹션 */}
       <div className="mb-10">
-        <LogList logs={logs} isLoading={logsLoading} error={logsError} />
+        <LogList
+          category={logCategory}
+          setLogCategory={setLogCategory}
+          logs={logs}
+          isLoading={logsLoading}
+          error={logsError}
+        />
         <div className="mt-4 flex justify-center">
           {logsLoading ? null : hasMore ? (
             <Button

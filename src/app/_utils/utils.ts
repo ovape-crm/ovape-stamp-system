@@ -13,6 +13,15 @@ export const getActionText = (action: string) => {
   if (action === 'coupon-10') {
     return { text: `쿠폰 사용`, color: 'text-blue-700 bg-blue-100' };
   }
+
+  if (action === 'update-customer-info') {
+    return { text: `고객 정보 수정`, color: 'text-gray-700 bg-gray-100' };
+  }
+
+  if (action === 'create-customer') {
+    return { text: `고객 추가`, color: 'text-green-700 bg-green-100' };
+  }
+
   return { text: action, color: 'text-gray-700 bg-gray-100' };
 };
 
@@ -31,4 +40,40 @@ export const formatPhoneNumber = (phone: string | null | undefined): string => {
     }
   }
   return phone;
+};
+
+type CustomerValue = {
+  name: string;
+  phone: string;
+  gender: 'male' | 'female';
+  note?: string | null;
+};
+
+export const getUpdateLogNote = (
+  prevValue: CustomerValue,
+  newValue: CustomerValue
+) => {
+  const changeArray = [];
+  const changeObj: Record<string, { old: string | null; new: string | null }> =
+    {};
+
+  const fieldNameMap = ['name', 'phone', 'gender', 'note'];
+
+  const prevValueArray = Object.values(prevValue);
+  const newValueArray = Object.values(newValue);
+
+  for (let i = 0; i < prevValueArray.length; i++) {
+    if (prevValueArray[i] !== newValueArray[i]) {
+      changeArray.push(i);
+    }
+  }
+
+  changeArray.forEach((index) => {
+    changeObj[fieldNameMap[index]] = {
+      old: prevValueArray[index],
+      new: newValueArray[index],
+    };
+  });
+
+  return changeObj;
 };

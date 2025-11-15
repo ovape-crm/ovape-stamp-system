@@ -1,58 +1,52 @@
-import { useState, useEffect, useCallback } from 'react';
-import { getLogsByCustomer } from '@/services/logService';
-import { CustomersLogsResType } from '@/app/_types/log.types';
+import { useEffect, useState, useCallback } from 'react';
+import { LogsResType } from '../_types/log.types';
+import { getLogs } from '@/services/logService';
+import toast from 'react-hot-toast';
+import { LogCategoryEnum, LogCategoryEnumType } from '../_enums/enums';
 
-export const useLogs = (customerId: string, pageSize = 10) => {
-  const [logs, setLogs] = useState<CustomersLogsResType>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
+const useLogs = (
+  pageSize = 10,
+  category: LogCategoryEnumType['value'] = LogCategoryEnum.STAMP.value
+) => {
+  const [items, setItems] = useState<LogsResType[]>([]);
   const [offset, setOffset] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
   const [hasMore, setHasMore] = useState(true);
 
-  const fetchLogs = useCallback(async () => {
+  const load = useCallback(async () => {
     try {
       setIsLoading(true);
       setError('');
-
-      const data = await getLogsByCustomer(customerId, pageSize, 0);
-      setLogs(data);
-      setOffset(data.length);
+      const data = await getLogs(pageSize, offset, category);
+      setItems((prev) => [...prev, ...data]);
       setHasMore(data.length === pageSize);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-      setLogs([]);
-      setOffset(0);
-      setHasMore(false);
+      setOffset((prev) => prev + data.length);
+      if (offset > 0 && data.length > 0) {
+        toast.success(`${data.length}개 더 불러오기 성공!`);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '에러가 발생했습니다');
     } finally {
       setIsLoading(false);
     }
-  }, [customerId, pageSize]);
-
-  const loadMore = useCallback(async (): Promise<number> => {
-    try {
-      setIsLoading(true);
-      const more = await getLogsByCustomer(customerId, pageSize, offset);
-      setLogs((prev) => [...prev, ...more]);
-      setOffset((prev) => prev + more.length);
-      setHasMore(more.length === pageSize);
-      return more.length;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [customerId, pageSize, offset]);
+  }, [offset]);
 
   useEffect(() => {
-    if (customerId) {
-      fetchLogs();
+    // first load only
+    if (offset === 0 && items.length === 0 && !isLoading) {
+      void load();
     }
-  }, [customerId, fetchLogs]);
+  }, []); // 의존성 배열을 비워서 한 번만 실행
 
   return {
-    logs,
+    items,
+    setItems,
     isLoading,
     error,
-    refresh: fetchLogs,
-    loadMore,
     hasMore,
+    load,
   };
 };
+
+export default useLogs;
