@@ -2,8 +2,9 @@
 
 import Button from '@/app/_components/Button';
 import { LogsResType } from '@/app/_types/log.types';
-import { formatPhoneNumber, getActionText } from '@/app/_utils/utils';
 import { PaymentTypeEnum, PaymentTypeEnumType } from '@/app/_enums/enums';
+import ActionInfoLabel from '../_components/ActionInfoLabel';
+import CustomerInfo from '../_components/CustomerInfo';
 
 const paymentTypeNameByValue = Object.values(PaymentTypeEnum).reduce(
   (acc, type) => {
@@ -40,7 +41,6 @@ const StampHistoryItem = ({
   onNavigate,
   isSaving,
 }: StampHistoryItemProps) => {
-  const actionInfo = getActionText(log.action);
   const paymentTypeValue = log.jsonb?.paymentType as
     | PaymentTypeEnumType['value']
     | undefined;
@@ -59,22 +59,12 @@ const StampHistoryItem = ({
   return (
     <div className="flex items-center justify-between p-4 rounded-lg border border-brand-50 hover:bg-brand-50/30 transition-colors">
       <div className="flex items-center gap-4">
-        <span
-          className={`px-3 py-1 rounded-full text-xs font-semibold ${actionInfo.color}`}
-        >
-          {actionInfo.text}
-        </span>
-        <div
-          className="cursor-pointer hover:bg-brand-100 hover:shadow-md p-3 rounded-lg transition-all duration-200 border border-transparent hover:border-brand-200"
+        <ActionInfoLabel action={log.action} />
+        <CustomerInfo
+          name={log.customers?.name}
+          phone={log.customers?.phone}
           onClick={onNavigate}
-        >
-          <p className="text-base font-semibold text-gray-900">
-            {log.customers?.name || '이름 없음'}
-          </p>
-          <p className="text-sm text-gray-600">
-            {formatPhoneNumber(log.customers?.phone)}
-          </p>
-        </div>
+        />
       </div>
 
       {paymentTypeName && (

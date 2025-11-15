@@ -11,6 +11,7 @@ const PAGE_SIZE = 10;
 
 const CustomerHistories = () => {
   const router = useRouter();
+
   const { items, isLoading, error, hasMore, load } = useLogs(
     PAGE_SIZE,
     LogCategoryEnum.CUSTOMER.value
