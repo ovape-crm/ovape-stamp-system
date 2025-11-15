@@ -5,6 +5,7 @@ import { LogsResType } from '@/app/_types/log.types';
 import { PaymentTypeEnum, PaymentTypeEnumType } from '@/app/_enums/enums';
 import ActionInfoLabel from '../_components/ActionInfoLabel';
 import CustomerInfo from '../_components/CustomerInfo';
+import LogActorInfo from '../_components/LogActorInfo';
 
 const paymentTypeNameByValue = Object.values(PaymentTypeEnum).reduce(
   (acc, type) => {
@@ -47,14 +48,6 @@ const StampHistoryItem = ({
   const paymentTypeName = paymentTypeValue
     ? paymentTypeNameByValue[paymentTypeValue]
     : undefined;
-  const userDisplay = log.users?.name || log.users?.email || '알 수 없음';
-  const createdAtText = new Date(log.created_at).toLocaleString('ko-KR', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
 
   return (
     <div className="flex items-center justify-between p-4 rounded-lg border border-brand-50 hover:bg-brand-50/30 transition-colors">
@@ -123,9 +116,9 @@ const StampHistoryItem = ({
       </div>
 
       <div className="text-right">
-        <div className="text-xs text-gray-400 mb-1">{userDisplay}</div>
-        <div className="text-xs text-gray-400">{createdAtText}</div>
+        <LogActorInfo log={log} />
       </div>
+
       <div className="ml-4">
         <Button
           variant="secondary"
