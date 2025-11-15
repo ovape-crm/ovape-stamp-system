@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useCustomer } from '@/app/_hooks/useCustomer';
-import { useLogs } from '@/app/_hooks/useLogs';
+import { useLogsByCustomerId } from '@/app/_hooks/useLogsByCustomerId';
 import NotFoundView from '@/app/_components/NotFoundView';
 import CustomerInfo from './_components/CustomerInfo';
 import StampSection from './_components/StampSection';
@@ -29,7 +29,7 @@ export default function CustomerDetailPage() {
     refresh: refreshLogs,
     loadMore,
     hasMore,
-  } = useLogs(customerId);
+  } = useLogsByCustomerId(customerId);
 
   const handleUpdate = () => {
     refresh();
