@@ -2,8 +2,12 @@ import { useEffect, useState, useCallback } from 'react';
 import { LogsResType } from '../_types/log.types';
 import { getLogs } from '@/services/logService';
 import toast from 'react-hot-toast';
+import { LogCategoryEnum, LogCategoryEnumType } from '../_enums/enums';
 
-const useLogs = (pageSize = 10) => {
+const useLogs = (
+  pageSize = 10,
+  category: LogCategoryEnumType['value'] = LogCategoryEnum.STAMP.value
+) => {
   const [items, setItems] = useState<LogsResType[]>([]);
   const [offset, setOffset] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -14,7 +18,7 @@ const useLogs = (pageSize = 10) => {
     try {
       setIsLoading(true);
       setError('');
-      const data = await getLogs(pageSize, offset);
+      const data = await getLogs(pageSize, offset, category);
       setItems((prev) => [...prev, ...data]);
       setHasMore(data.length === pageSize);
       setOffset((prev) => prev + data.length);

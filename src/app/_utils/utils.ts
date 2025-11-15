@@ -13,6 +13,15 @@ export const getActionText = (action: string) => {
   if (action === 'coupon-10') {
     return { text: `쿠폰 사용`, color: 'text-blue-700 bg-blue-100' };
   }
+
+  if (action === 'update-customer-info') {
+    return { text: `고객 정보 수정`, color: 'text-gray-700 bg-gray-100' };
+  }
+
+  if (action === 'create-customer') {
+    return { text: `고객 추가`, color: 'text-green-700 bg-green-100' };
+  }
+
   return { text: action, color: 'text-gray-700 bg-gray-100' };
 };
 
