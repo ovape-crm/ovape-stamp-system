@@ -2,18 +2,10 @@
 
 import Button from '@/app/_components/Button';
 import { LogsResType } from '@/app/_types/log.types';
-import { PaymentTypeEnum, PaymentTypeEnumType } from '@/app/_enums/enums';
 import ActionInfoLabel from '../_components/ActionInfoLabel';
 import CustomerInfo from '../_components/CustomerInfo';
 import LogActorInfo from '../_components/LogActorInfo';
-
-const paymentTypeNameByValue = Object.values(PaymentTypeEnum).reduce(
-  (acc, type) => {
-    acc[type.value as PaymentTypeEnumType['value']] = type.name;
-    return acc;
-  },
-  {} as Record<PaymentTypeEnumType['value'], string>
-);
+import PaymentTypeLabel from '../_components/PaymentTypeLabel';
 
 interface StampHistoryItemProps {
   log: LogsResType;
@@ -42,13 +34,6 @@ const StampHistoryItem = ({
   onNavigate,
   isSaving,
 }: StampHistoryItemProps) => {
-  const paymentTypeValue = log.jsonb?.paymentType as
-    | PaymentTypeEnumType['value']
-    | undefined;
-  const paymentTypeName = paymentTypeValue
-    ? paymentTypeNameByValue[paymentTypeValue]
-    : undefined;
-
   return (
     <div className="flex items-center justify-between p-4 rounded-lg border border-brand-50 hover:bg-brand-50/30 transition-colors">
       <div className="flex items-center gap-4">
@@ -60,12 +45,8 @@ const StampHistoryItem = ({
         />
       </div>
 
-      {paymentTypeName && (
-        <div>
-          <span className="ml-2 inline-flex items-center rounded-full bg-gray-100 text-gray-500 text-xs font-medium px-2 py-1">
-            {paymentTypeName}
-          </span>
-        </div>
+      {log.jsonb && 'paymentType' in log.jsonb && (
+        <PaymentTypeLabel jsonb={log.jsonb} />
       )}
 
       <div className="flex-1 pl-4 ml-4 border-l border-brand-100">
