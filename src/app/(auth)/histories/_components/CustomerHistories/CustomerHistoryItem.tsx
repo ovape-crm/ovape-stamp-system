@@ -1,10 +1,12 @@
 'use client';
 
 import { LogsResType } from '@/app/_types/log.types';
-import ActionInfoLabel from '../_components/ActionInfoLabel';
-import CustomerInfo from '../_components/CustomerInfo';
-import ChangeFields from '../_components/ChangeFields';
-import LogActorInfo from '../_components/LogActorInfo';
+import {
+  ActionInfoLabel,
+  CustomerInfo,
+  LogActorInfo,
+  ChangeFields,
+} from '@/app/(auth)/_components/HistoriesComponents';
 
 interface CustomerHistoryItemProps {
   log: LogsResType;

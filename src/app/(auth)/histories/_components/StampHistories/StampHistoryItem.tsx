@@ -2,10 +2,12 @@
 
 import Button from '@/app/_components/Button';
 import { LogsResType } from '@/app/_types/log.types';
-import ActionInfoLabel from '../_components/ActionInfoLabel';
-import CustomerInfo from '../_components/CustomerInfo';
-import LogActorInfo from '../_components/LogActorInfo';
-import PaymentTypeLabel from '../_components/PaymentTypeLabel';
+import {
+  ActionInfoLabel,
+  CustomerInfo,
+  LogActorInfo,
+  PaymentTypeLabel,
+} from '@/app/(auth)/_components/HistoriesComponents';
 
 interface StampHistoryItemProps {
   log: LogsResType;
