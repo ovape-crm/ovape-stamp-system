@@ -1,5 +1,5 @@
 import { PaymentTypeEnum, PaymentTypeEnumType } from '../_enums/enums';
-import { LogBaseType, LogsResType } from '../_types/log.types';
+import { LogBaseType } from '../_types/log.types';
 import { formatPhoneNumber } from '../_utils/utils';
 import toast from 'react-hot-toast';
 
