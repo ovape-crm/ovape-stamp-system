@@ -8,6 +8,7 @@ import {
   LogActorInfo,
   PaymentTypeLabel,
 } from '@/app/(auth)/_components/HistoriesComponents';
+import useCopy from '@/app/_hooks/useCopy';
 
 interface StampHistoryItemProps {
   log: LogsResType;
@@ -18,7 +19,6 @@ interface StampHistoryItemProps {
   onSave: () => void;
   onCancel: () => void;
   onEdit: () => void;
-  onCopy: () => void;
   onNavigate: () => void;
   isSaving: boolean;
 }
@@ -32,10 +32,11 @@ const StampHistoryItem = ({
   onSave,
   onCancel,
   onEdit,
-  onCopy,
   onNavigate,
   isSaving,
 }: StampHistoryItemProps) => {
+  const { copyLogToClipboard } = useCopy();
+
   return (
     <div className="flex items-center justify-between p-4 rounded-lg border border-brand-50 hover:bg-brand-50/30 transition-colors">
       <div className="flex items-center gap-4">
@@ -108,7 +109,12 @@ const StampHistoryItem = ({
         <Button
           variant="secondary"
           size="sm"
-          onClick={onCopy}
+          onClick={() =>
+            copyLogToClipboard(log, {
+              name: log.customers?.name,
+              phone: log.customers?.phone,
+            })
+          }
           disabled={isSaving}
         >
           복사

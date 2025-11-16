@@ -5,20 +5,11 @@ import {
 } from '@/app/(auth)/_components/HistoriesComponents';
 import Button from '@/app/_components/Button';
 import Loading from '@/app/_components/Loading';
-import { PaymentTypeEnum, PaymentTypeEnumType } from '@/app/_enums/enums';
+import useCopy from '@/app/_hooks/useCopy';
 import { CustomersLogsResType } from '@/app/_types/log.types';
-import { formatPhoneNumber } from '@/app/_utils/utils';
 import { updateLogNote } from '@/services/logService';
 import { useCallback, useState } from 'react';
 import { toast } from 'react-hot-toast';
-
-const paymentTypeNameByValue = Object.values(PaymentTypeEnum).reduce(
-  (acc, type) => {
-    acc[type.value as PaymentTypeEnumType['value']] = type.name;
-    return acc;
-  },
-  {} as Record<PaymentTypeEnumType['value'], string>
-);
 
 const CustomersDetailStampsHistories = ({
   targetUser,
@@ -37,6 +28,8 @@ const CustomersDetailStampsHistories = ({
   const [noteOverridesById, setNoteOverridesById] = useState<
     Record<string, string>
   >({});
+
+  const { copyLogToClipboard } = useCopy();
 
   const getCurrentNote = useCallback(
     (log: CustomersLogsResType[number]) =>
@@ -74,44 +67,6 @@ const CustomersDetailStampsHistories = ({
       }
     },
     [noteDraft]
-  );
-
-  const handleCopy = useCallback(
-    async (
-      log: CustomersLogsResType[number],
-      targetUser: { phone: string; name: string }
-    ) => {
-      const paymentTypeValue = log.jsonb?.paymentType as
-        | PaymentTypeEnumType['value']
-        | undefined;
-
-      const paymentTypeName = paymentTypeValue
-        ? paymentTypeNameByValue[paymentTypeValue]
-        : undefined;
-
-      const note =
-        (editingId === log.id ? noteDraft : getCurrentNote(log)) || '';
-      const name = targetUser.name || '이름 없음';
-      const phone = formatPhoneNumber(targetUser.phone ?? '');
-
-      const createdAt = new Date(log.created_at);
-      const formattedDate = `${createdAt.getFullYear()}. ${String(
-        createdAt.getMonth() + 1
-      ).padStart(2, '0')}. ${createdAt.getDate()}`;
-
-      const textToCopy = `오베이프\t${formattedDate}\t${note}\t\t\t${
-        paymentTypeName ?? ''
-      }\t${name}\t${phone}`;
-
-      try {
-        await navigator.clipboard.writeText(textToCopy);
-        toast.success('클립보드에 복사되었습니다!');
-      } catch (err) {
-        toast.error('복사에 실패했습니다.');
-        console.error('Failed to copy:', err);
-      }
-    },
-    [editingId, noteDraft, getCurrentNote]
   );
 
   if (error) {
@@ -201,7 +156,12 @@ const CustomersDetailStampsHistories = ({
           <Button
             variant="secondary"
             size="xs"
-            onClick={() => handleCopy(log, targetUser)}
+            onClick={() =>
+              copyLogToClipboard(log, {
+                name: targetUser.name,
+                phone: targetUser.phone,
+              })
+            }
             disabled={isSaving}
           >
             복사
