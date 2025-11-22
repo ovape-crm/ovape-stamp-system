@@ -59,3 +59,45 @@ export const LogCategoryEnum = {
 
 export type LogCategoryEnumType =
   (typeof LogCategoryEnum)[keyof typeof LogCategoryEnum];
+
+export const AfterServiceStatusEnum = {
+  RECEIVED: {
+    value: 'received',
+    name: '접수',
+  },
+  EXCHANGE: {
+    value: 'exchange',
+    name: '교환',
+  },
+  RENTAL: {
+    value: 'rental',
+    name: '대여',
+  },
+  SENT_FOR_REPAIR: {
+    value: 'sent_for_repair',
+    name: '수리 접수',
+  },
+  REPAIR_RETURNED: {
+    value: 'repair_returned',
+    name: '수리 수령',
+  },
+  REPAIR_REJECTED: {
+    value: 'repair_rejected',
+    name: 'AS 불가',
+  },
+  CUSTOMER_RECEIVED: {
+    value: 'customer_received',
+    name: '고객 수령',
+  },
+  RETURNED: {
+    value: 'returned',
+    name: '반품 처리',
+  },
+  OTHER: {
+    value: 'other',
+    name: '기타',
+  },
+} as const;
+
+export type AfterServiceStatusEnumType =
+  (typeof AfterServiceStatusEnum)[keyof typeof AfterServiceStatusEnum];
