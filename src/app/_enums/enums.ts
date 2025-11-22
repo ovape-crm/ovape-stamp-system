@@ -101,3 +101,25 @@ export const AfterServiceStatusEnum = {
 
 export type AfterServiceStatusEnumType =
   (typeof AfterServiceStatusEnum)[keyof typeof AfterServiceStatusEnum];
+
+export const AfterServiceItemTypeEnum = {
+  DEVICE: {
+    value: 'device',
+    name: '기기',
+  },
+  DISPOSABLE_DEVICE: {
+    value: 'disposable_device',
+    name: '일회용 기기',
+  },
+  LIQUID: {
+    value: 'liquid',
+    name: '액상',
+  },
+  CONSUMABLE: {
+    value: 'consumable',
+    name: '소모품',
+  },
+} as const;
+
+export type AfterServiceItemTypeEnumType =
+  (typeof AfterServiceItemTypeEnum)[keyof typeof AfterServiceItemTypeEnum];
