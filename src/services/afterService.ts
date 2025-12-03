@@ -1,6 +1,7 @@
 import {
   AfterServiceItemTypeEnumType,
   AfterServiceStatusEnum,
+  AfterServiceStatusEnumType,
 } from '@/app/_enums/enums';
 import supabase from '@/libs/supabaseClient';
 
@@ -47,5 +48,38 @@ export const createAfterService = async ({
 
   if (error) throw error;
 
+  return data;
+};
+
+/**
+ * 전체 AS 조회 (페이지네이션)
+ */
+export const getAfterServices = async (
+  limit = 10,
+  offset = 0,
+  status?: AfterServiceStatusEnumType['value']
+) => {
+  const from = offset;
+  const to = offset + limit - 1;
+  let query = supabase
+    .from('after_services')
+    .select(
+      `
+      *,
+      users!admin_id(name, email),
+      customers(name, phone)
+    `
+    )
+    .order('created_at', { ascending: false })
+    .range(from, to);
+
+  // status 필터링 (선택사항)
+  if (status) {
+    query = query.eq('status', status);
+  }
+
+  const { data, error } = await query;
+
+  if (error) throw error;
   return data;
 };

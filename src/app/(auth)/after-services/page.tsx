@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Button from '@/app/_components/Button';
 import { useModal } from '@/app/contexts/ModalContext';
 import AfterServiceCreateModal from './_components/AfterServiceCreateModal';
+import AfterServiceList from './_components/AfterServiceList';
 import { createAfterService } from '@/services/afterService';
 import toast from 'react-hot-toast';
 import { AfterServiceItemTypeEnumType } from '@/app/_enums/enums';
@@ -11,6 +12,7 @@ import { AfterServiceItemTypeEnumType } from '@/app/_enums/enums';
 const AfterServicesPage = () => {
   const { open, close } = useModal();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // ========================================================================
   // AS 생성 핸들러
@@ -37,7 +39,8 @@ const AfterServicesPage = () => {
 
       toast.success('AS가 등록되었습니다.');
       close();
-      // TODO: AS 목록 새로고침 (추후 구현)
+      // AS 목록 새로고침
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       console.error('AS 등록 실패:', err);
       toast.error(
@@ -73,6 +76,9 @@ const AfterServicesPage = () => {
           AS 생성
         </Button>
       </div>
+
+      {/* AS 목록 */}
+      <AfterServiceList refreshKey={refreshKey} />
     </div>
   );
 };
