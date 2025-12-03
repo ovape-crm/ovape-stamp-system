@@ -114,116 +114,161 @@ const CustomersDetailStampsHistories = ({
 
   const paymentTypeOptions = Object.values(PaymentTypeEnum);
 
-  return logs.map((log) => {
-    const isEditing = editingId === log.id;
-    const currentNote = getCurrentNote(log);
-    const currentPaymentType = getCurrentPaymentType(log);
-    const effectivePaymentType = isEditing
-      ? paymentTypeDraft
-      : currentPaymentType;
+  // 날짜별 그룹핑
+  const logsByDate = logs.reduce<Record<string, CustomersLogsResType>>(
+    (acc, log) => {
+      const dateKey = new Date(log.created_at).toLocaleDateString('ko-KR', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      });
 
-    const effectiveJsonb = {
-      ...(log.jsonb || {}),
-      ...(currentPaymentType ? { paymentType: currentPaymentType } : {}),
-    };
+      if (!acc[dateKey]) acc[dateKey] = [];
+      acc[dateKey].push(log);
+      return acc;
+    },
+    {}
+  );
+
+  const sortedDates = Object.keys(logsByDate).sort(
+    (a, b) => new Date(b).getTime() - new Date(a).getTime()
+  );
+
+  return sortedDates.map((dateKey) => {
+    const logsOfDate = logsByDate[dateKey];
+    const [yyyy, mm, dd] = dateKey.split('.').map((s) => s.trim());
+    const prettyDate = `${yyyy}년 ${mm}월 ${dd}일`;
 
     return (
-      <div
-        key={log.id}
-        className="flex items-center justify-between p-3 rounded border border-brand-50 hover:bg-brand-50/30 transition-colors text-sm"
-      >
-        <div className="flex items-center gap-6">
-          <ActionInfoLabel action={log.action} />
-
-          {log.users && (
-            <div className="text-left">
-              <LogActorInfo users={log.users} created_at={log.created_at} />
-            </div>
-          )}
+      <div key={dateKey} className="space-y-3">
+        {/* 날짜 헤더 (히스토리와 동일 스타일) */}
+        <div className="w-full py-1">
+          <div className="w-full px-4 py-2 rounded-lg bg-brand-50/80 border border-brand-100 shadow-xs flex items-center justify-center">
+            <span className="text-sm font-semibold text-brand-800 tracking-wide">
+              {prettyDate}
+            </span>
+          </div>
         </div>
-        {effectiveJsonb && 'paymentType' in effectiveJsonb && (
-          <PaymentTypeLabel jsonb={effectiveJsonb} />
-        )}
-        <div className="flex-1 pl-4 ml-4 border-l border-brand-100">
-          {isEditing ? (
-            <div className="flex flex-col gap-2 pr-4">
-              <textarea
-                className="flex-1 text-sm px-2 py-2 rounded border border-brand-200 focus:outline-none focus:ring-2 focus:ring-brand-200 resize-none min-h-[50px]"
-                value={noteDraft}
-                onChange={(e) => setNoteDraft(e.target.value)}
-                placeholder="메모를 입력하세요"
-                disabled={isSaving}
-                rows={3}
-              />
-              {log.jsonb && 'paymentType' in log.jsonb && (
-                <div className="flex items-center gap-2">
-                  {paymentTypeOptions.map((option) => (
-                    <label
-                      key={option.value}
-                      className="inline-flex items-center gap-2 text-xs whitespace-nowrap"
-                    >
-                      <input
-                        type="radio"
-                        name={`paymentType-${log.id}`}
-                        value={option.value}
-                        checked={effectivePaymentType === option.value}
-                        onChange={() => setPaymentTypeDraft(option.value)}
-                      />
-                      {option.name}
-                    </label>
-                  ))}
-                </div>
+
+        {/* 해당 날짜의 로그들 */}
+        {logsOfDate.map((log) => {
+          const isEditing = editingId === log.id;
+          const currentNote = getCurrentNote(log);
+          const currentPaymentType = getCurrentPaymentType(log);
+          const effectivePaymentType = isEditing
+            ? paymentTypeDraft
+            : currentPaymentType;
+
+          const effectiveJsonb = {
+            ...(log.jsonb || {}),
+            ...(currentPaymentType ? { paymentType: currentPaymentType } : {}),
+          };
+
+          return (
+            <div
+              key={log.id}
+              className="flex items-center justify-between p-3 rounded border border-brand-50 hover:bg-brand-50/30 transition-colors text-sm"
+            >
+              <div className="flex items-center gap-6">
+                <ActionInfoLabel action={log.action} />
+
+                {log.users && (
+                  <div className="text-left">
+                    <LogActorInfo
+                      users={log.users}
+                      created_at={log.created_at}
+                    />
+                  </div>
+                )}
+              </div>
+              {effectiveJsonb && 'paymentType' in effectiveJsonb && (
+                <PaymentTypeLabel jsonb={effectiveJsonb} />
               )}
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="primary"
-                  size="xs"
-                  onClick={() => saveNote(log)}
-                  disabled={isSaving}
-                >
-                  저장
-                </Button>
+              <div className="flex-1 pl-4 ml-4 border-l border-brand-100">
+                {isEditing ? (
+                  <div className="flex flex-col gap-2 pr-4">
+                    <textarea
+                      className="flex-1 text-sm px-2 py-2 rounded border border-brand-200 focus:outline-none focus:ring-2 focus:ring-brand-200 resize-none min-h-[50px]"
+                      value={noteDraft}
+                      onChange={(e) => setNoteDraft(e.target.value)}
+                      placeholder="메모를 입력하세요"
+                      disabled={isSaving}
+                      rows={3}
+                    />
+                    {log.jsonb && 'paymentType' in log.jsonb && (
+                      <div className="flex items-center gap-2">
+                        {paymentTypeOptions.map((option) => (
+                          <label
+                            key={option.value}
+                            className="inline-flex items-center gap-2 text-xs whitespace-nowrap"
+                          >
+                            <input
+                              type="radio"
+                              name={`paymentType-${log.id}`}
+                              value={option.value}
+                              checked={effectivePaymentType === option.value}
+                              onChange={() => setPaymentTypeDraft(option.value)}
+                            />
+                            {option.name}
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="primary"
+                        size="xs"
+                        onClick={() => saveNote(log)}
+                        disabled={isSaving}
+                      >
+                        저장
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="xs"
+                        onClick={cancelEdit}
+                        disabled={isSaving}
+                      >
+                        취소
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="secondary"
+                      size="xs"
+                      onClick={() => startEdit(log)}
+                      disabled={isSaving}
+                    >
+                      ✏️
+                    </Button>
+                    <span className="flex-1 text-sm text-gray-600 break-words whitespace-pre-line">
+                      {currentNote || (
+                        <span className="text-gray-400"> - </span>
+                      )}
+                    </span>
+                  </div>
+                )}
+              </div>
+              <div className="ml-3">
                 <Button
                   variant="secondary"
                   size="xs"
-                  onClick={cancelEdit}
+                  onClick={() =>
+                    copyLogToClipboard(log, {
+                      name: targetUser.name,
+                      phone: targetUser.phone,
+                    })
+                  }
                   disabled={isSaving}
                 >
-                  취소
+                  복사
                 </Button>
               </div>
             </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Button
-                variant="secondary"
-                size="xs"
-                onClick={() => startEdit(log)}
-                disabled={isSaving}
-              >
-                ✏️
-              </Button>
-              <span className="flex-1 text-sm text-gray-600 break-words whitespace-pre-line">
-                {currentNote || <span className="text-gray-400"> - </span>}
-              </span>
-            </div>
-          )}
-        </div>
-        <div className="ml-3">
-          <Button
-            variant="secondary"
-            size="xs"
-            onClick={() =>
-              copyLogToClipboard(log, {
-                name: targetUser.name,
-                phone: targetUser.phone,
-              })
-            }
-            disabled={isSaving}
-          >
-            복사
-          </Button>
-        </div>
+          );
+        })}
       </div>
     );
   });
