@@ -1,4 +1,4 @@
-import { LogCategoryEnumType } from '@/app/_enums/enums';
+import { LogCategoryEnumType, PaymentTypeEnumType } from '@/app/_enums/enums';
 import { CustomersLogsResType, LogsResType } from '@/app/_types/log.types';
 import supabase from '@/libs/supabaseClient';
 
@@ -101,10 +101,14 @@ export const getLogs = async (
 /**
  * 로그 노트 업데이트
  */
-export const updateLogNote = async (logId: string, note: string) => {
+export const updateLogNote = async (
+  logId: string,
+  note: string,
+  paymentType?: PaymentTypeEnumType['value']
+) => {
   const { data, error } = await supabase
     .from('logs')
-    .update({ note })
+    .update({ note, jsonb: { paymentType } })
     .eq('id', logId)
     .select()
     .single();

@@ -9,6 +9,7 @@ import useCopy from '@/app/_hooks/useCopy';
 import { CustomersLogsResType } from '@/app/_types/log.types';
 import { updateLogNote } from '@/services/logService';
 import { useCallback, useState } from 'react';
+import { PaymentTypeEnum, PaymentTypeEnumType } from '@/app/_enums/enums';
 import { toast } from 'react-hot-toast';
 
 const CustomersDetailStampsHistories = ({
@@ -28,6 +29,12 @@ const CustomersDetailStampsHistories = ({
   const [noteOverridesById, setNoteOverridesById] = useState<
     Record<string, string>
   >({});
+  const [paymentTypeOverridesById, setPaymentTypeOverridesById] = useState<
+    Record<string, PaymentTypeEnumType['value'] | undefined>
+  >({});
+  const [paymentTypeDraft, setPaymentTypeDraft] = useState<
+    PaymentTypeEnumType['value'] | undefined
+  >(undefined);
 
   const { copyLogToClipboard } = useCopy();
 
@@ -37,27 +44,47 @@ const CustomersDetailStampsHistories = ({
     [noteOverridesById]
   );
 
+  const getCurrentPaymentType = useCallback(
+    (log: CustomersLogsResType[number]) =>
+      paymentTypeOverridesById[log.id] ??
+      (log.jsonb?.paymentType as PaymentTypeEnumType['value'] | undefined),
+    [paymentTypeOverridesById]
+  );
+
   const startEdit = useCallback(
     (log: CustomersLogsResType[number]) => {
       setEditingId(log.id);
       setNoteDraft(getCurrentNote(log));
+      setPaymentTypeDraft(getCurrentPaymentType(log));
     },
-    [getCurrentNote]
+    [getCurrentNote, getCurrentPaymentType]
   );
 
   const cancelEdit = useCallback(() => {
     setEditingId(null);
     setNoteDraft('');
+    setPaymentTypeDraft(undefined);
   }, []);
 
   const saveNote = useCallback(
     async (log: CustomersLogsResType[number]) => {
       try {
         setIsSaving(true);
-        const updated = await updateLogNote(log.id, noteDraft);
+        const updated = await updateLogNote(
+          log.id,
+          noteDraft,
+          paymentTypeDraft
+        );
         setNoteOverridesById((prev) => ({ ...prev, [log.id]: updated.note }));
+        setPaymentTypeOverridesById((prev) => ({
+          ...prev,
+          [log.id]: updated.jsonb?.paymentType as
+            | PaymentTypeEnumType['value']
+            | undefined,
+        }));
         setEditingId(null);
         setNoteDraft('');
+        setPaymentTypeDraft(undefined);
         toast.success('노트를 저장했습니다.');
       } catch (e) {
         console.error(e);
@@ -66,7 +93,7 @@ const CustomersDetailStampsHistories = ({
         setIsSaving(false);
       }
     },
-    [noteDraft]
+    [noteDraft, paymentTypeDraft]
   );
 
   if (error) {
@@ -85,9 +112,20 @@ const CustomersDetailStampsHistories = ({
     );
   }
 
+  const paymentTypeOptions = Object.values(PaymentTypeEnum);
+
   return logs.map((log) => {
     const isEditing = editingId === log.id;
     const currentNote = getCurrentNote(log);
+    const currentPaymentType = getCurrentPaymentType(log);
+    const effectivePaymentType = isEditing
+      ? paymentTypeDraft
+      : currentPaymentType;
+
+    const effectiveJsonb = {
+      ...(log.jsonb || {}),
+      ...(currentPaymentType ? { paymentType: currentPaymentType } : {}),
+    };
 
     return (
       <div
@@ -103,8 +141,8 @@ const CustomersDetailStampsHistories = ({
             </div>
           )}
         </div>
-        {log.jsonb && 'paymentType' in log.jsonb && (
-          <PaymentTypeLabel jsonb={log.jsonb} />
+        {effectiveJsonb && 'paymentType' in effectiveJsonb && (
+          <PaymentTypeLabel jsonb={effectiveJsonb} />
         )}
         <div className="flex-1 pl-4 ml-4 border-l border-brand-100">
           {isEditing ? (
@@ -117,6 +155,25 @@ const CustomersDetailStampsHistories = ({
                 disabled={isSaving}
                 rows={3}
               />
+              {log.jsonb && 'paymentType' in log.jsonb && (
+                <div className="flex items-center gap-2">
+                  {paymentTypeOptions.map((option) => (
+                    <label
+                      key={option.value}
+                      className="inline-flex items-center gap-2 text-xs whitespace-nowrap"
+                    >
+                      <input
+                        type="radio"
+                        name={`paymentType-${log.id}`}
+                        value={option.value}
+                        checked={effectivePaymentType === option.value}
+                        onChange={() => setPaymentTypeDraft(option.value)}
+                      />
+                      {option.name}
+                    </label>
+                  ))}
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 <Button
                   variant="primary"

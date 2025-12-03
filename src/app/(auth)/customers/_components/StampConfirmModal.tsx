@@ -105,7 +105,7 @@ export default function StampConfirmModal({
           <span className="block text-sm font-medium mb-1">
             결제 유형 <span className="text-rose-600">*</span>
           </span>
-          <div className="flex items-center gap-4 mb-6">
+          <div className="flex items-center gap-2 mb-6">
             {paymentTypeOptions.map((option) => (
               <label
                 key={option.value}
