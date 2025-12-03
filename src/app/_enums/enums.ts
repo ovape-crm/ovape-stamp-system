@@ -37,6 +37,10 @@ export const PaymentTypeEnum = {
     value: 'transfer_cash_receipt',
     name: '이체현금영수증',
   },
+  REMARK: {
+    value: 'remark',
+    name: '특이사항',
+  },
 } as const;
 
 export type PaymentTypeEnumType =

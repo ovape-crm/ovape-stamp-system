@@ -9,13 +9,16 @@ import {
   PaymentTypeLabel,
 } from '@/app/(auth)/_components/HistoriesComponents';
 import useCopy from '@/app/_hooks/useCopy';
+import { PaymentTypeEnum, PaymentTypeEnumType } from '@/app/_enums/enums';
 
 interface StampHistoryItemProps {
   log: LogsResType;
   isEditing: boolean;
   noteDraft: string;
   currentNote: string;
+  paymentType?: PaymentTypeEnumType['value'];
   onNoteChange: (value: string) => void;
+  onPaymentTypeChange: (value: PaymentTypeEnumType['value']) => void;
   onSave: () => void;
   onCancel: () => void;
   onEdit: () => void;
@@ -23,12 +26,16 @@ interface StampHistoryItemProps {
   isSaving: boolean;
 }
 
+const paymentTypeOptions = Object.values(PaymentTypeEnum);
+
 const StampHistoryItem = ({
   log,
   isEditing,
   noteDraft,
   currentNote,
   onNoteChange,
+  paymentType,
+  onPaymentTypeChange,
   onSave,
   onCancel,
   onEdit,
@@ -54,7 +61,7 @@ const StampHistoryItem = ({
 
       <div className="flex-1 pl-4 ml-4 border-l border-brand-100">
         {isEditing ? (
-          <div className="flex flex-col gap-2 pr-4">
+          <div key="edit" className="flex flex-col gap-2 pr-4">
             <textarea
               className="flex-1 text-sm px-2 py-2 rounded border border-brand-200 focus:outline-none focus:ring-2 focus:ring-brand-200 resize-none min-h-[60px]"
               value={noteDraft}
@@ -63,6 +70,27 @@ const StampHistoryItem = ({
               disabled={isSaving}
               rows={3}
             />
+
+            {log.jsonb && 'paymentType' in log.jsonb && (
+              <div className="flex items-center gap-2">
+                {paymentTypeOptions.map((option) => (
+                  <label
+                    key={option.value}
+                    className="inline-flex items-center gap-2 text-xs whitespace-nowrap"
+                  >
+                    <input
+                      type="radio"
+                      name={`paymentType-${log.id}`}
+                      value={option.value}
+                      defaultChecked={paymentType === option.value}
+                      onChange={() => onPaymentTypeChange(option.value)}
+                    />
+                    {option.name}
+                  </label>
+                ))}
+              </div>
+            )}
+
             <div className="flex items-center gap-2">
               <Button
                 variant="primary"
@@ -83,7 +111,7 @@ const StampHistoryItem = ({
             </div>
           </div>
         ) : (
-          <div className="flex items-center gap-2">
+          <div key="view" className="flex items-center gap-2">
             <Button
               variant="secondary"
               size="xs"

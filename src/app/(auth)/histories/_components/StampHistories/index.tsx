@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { PaymentTypeEnumType } from '@/app/_enums/enums';
 import { updateLogNote } from '@/services/logService';
 import Loading from '@/app/_components/Loading';
 import Button from '@/app/_components/Button';
@@ -19,30 +20,44 @@ const StampHistories = () => {
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState('');
+  const [paymentTypeDraft, setPaymentTypeDraft] = useState<
+    PaymentTypeEnumType['value'] | undefined
+  >(undefined);
   const [isSaving, setIsSaving] = useState(false);
 
   const startEdit = useCallback((log: LogsResType) => {
     setEditingId(log.id);
     setNoteDraft(log.note ?? '');
+    setPaymentTypeDraft(
+      log.jsonb?.paymentType as PaymentTypeEnumType['value'] | undefined
+    );
   }, []);
 
   const cancelEdit = useCallback(() => {
     setEditingId(null);
     setNoteDraft('');
+    setPaymentTypeDraft(undefined);
   }, []);
 
   const saveNote = useCallback(
     async (log: LogsResType) => {
       try {
         setIsSaving(true);
-        const updated = await updateLogNote(log.id, noteDraft);
+        const updated = await updateLogNote(
+          log.id,
+          noteDraft,
+          paymentTypeDraft
+        );
         setItems((prev) =>
           prev.map((item) =>
-            item.id === log.id ? { ...item, note: updated.note } : item
+            item.id === log.id
+              ? { ...item, note: updated.note, jsonb: updated.jsonb }
+              : item
           )
         );
         setEditingId(null);
         setNoteDraft('');
+        setPaymentTypeDraft(undefined);
         toast.success('노트를 저장했습니다.');
       } catch (e) {
         console.error('Failed to save note:', e);
@@ -51,7 +66,7 @@ const StampHistories = () => {
         setIsSaving(false);
       }
     },
-    [noteDraft, setItems]
+    [noteDraft, paymentTypeDraft, setItems]
   );
 
   return (
@@ -71,12 +86,14 @@ const StampHistories = () => {
             const currentNote = isEditing ? noteDraft : log.note ?? '';
             return (
               <StampHistoryItem
-                key={`${log.id}-${index}`}
+                key={`${log.id}-${index}-${isEditing ? 'edit' : 'view'}`}
                 log={log}
                 isEditing={isEditing}
                 noteDraft={noteDraft}
                 currentNote={currentNote}
                 onNoteChange={setNoteDraft}
+                paymentType={isEditing ? paymentTypeDraft : undefined}
+                onPaymentTypeChange={setPaymentTypeDraft}
                 onSave={() => saveNote(log)}
                 onCancel={cancelEdit}
                 onEdit={() => startEdit(log)}
