@@ -6,7 +6,6 @@ import { useLogsByCustomerId } from '@/app/_hooks/useLogsByCustomerId';
 import NotFoundView from '@/app/_components/NotFoundView';
 import CustomerInfo from './_components/CustomerInfo';
 import StampSection from './_components/StampSection';
-import LogList from './_components/LogList';
 import CustomerEditModal from './_components/CustomerEditModal';
 import Loading from '@/app/_components/Loading';
 import toast from 'react-hot-toast';
@@ -16,6 +15,8 @@ import Button from '@/app/_components/Button';
 import { useUser } from '@/app/contexts/UserContext';
 import { useState } from 'react';
 import { LogCategoryEnum, LogCategoryEnumType } from '@/app/_enums/enums';
+import CustomersDetailStampsHistories from './_components/CustomersDetailStampsHistories';
+import CustomersDetailUpdateHistories from './_components/CustomersDetailUpdateHistories';
 
 const PAGE_SIZE = 10;
 
@@ -143,13 +144,48 @@ export default function CustomerDetailPage() {
 
       {/* 로그 섹션 */}
       <div className="mb-10">
-        <LogList
-          category={logCategory}
-          setLogCategory={setLogCategory}
-          logs={logs}
-          isLoading={logsLoading}
-          error={logsError}
-        />
+        <div className="bg-white rounded-lg shadow-sm border border-brand-100 p-4">
+          <div className="mb-3 pb-2 border-b border-brand-100 flex gap-2 text-xs">
+            <Button
+              variant={
+                logCategory === LogCategoryEnum.STAMP.value
+                  ? 'primary'
+                  : 'secondary'
+              }
+              size="sm"
+              onClick={() => setLogCategory(LogCategoryEnum.STAMP.value)}
+            >
+              스탬프 이력
+            </Button>
+            <Button
+              variant={
+                logCategory === LogCategoryEnum.CUSTOMER.value
+                  ? 'primary'
+                  : 'secondary'
+              }
+              size="sm"
+              onClick={() => setLogCategory(LogCategoryEnum.CUSTOMER.value)}
+            >
+              고객 이력
+            </Button>
+          </div>
+          <div className="space-y-2.5">
+            {logCategory === LogCategoryEnum.STAMP.value ? (
+              <CustomersDetailStampsHistories
+                targetUser={{ phone: customer.phone, name: customer.name }}
+                logs={logs}
+                isLoading={logsLoading}
+                error={logsError}
+              />
+            ) : (
+              <CustomersDetailUpdateHistories
+                logs={logs}
+                isLoading={logsLoading}
+                error={logsError}
+              />
+            )}
+          </div>
+        </div>
         <div className="mt-4 flex justify-center">
           {logsLoading ? null : hasMore ? (
             <Button

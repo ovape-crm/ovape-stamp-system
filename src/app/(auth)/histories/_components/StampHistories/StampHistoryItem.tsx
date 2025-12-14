@@ -2,30 +2,31 @@
 
 import Button from '@/app/_components/Button';
 import { LogsResType } from '@/app/_types/log.types';
-import { formatPhoneNumber, getActionText } from '@/app/_utils/utils';
+import {
+  ActionInfoLabel,
+  CustomerInfo,
+  LogActorInfo,
+  PaymentTypeLabel,
+} from '@/app/(auth)/_components/HistoriesComponents';
+import useCopy from '@/app/_hooks/useCopy';
 import { PaymentTypeEnum, PaymentTypeEnumType } from '@/app/_enums/enums';
-
-const paymentTypeNameByValue = Object.values(PaymentTypeEnum).reduce(
-  (acc, type) => {
-    acc[type.value as PaymentTypeEnumType['value']] = type.name;
-    return acc;
-  },
-  {} as Record<PaymentTypeEnumType['value'], string>
-);
 
 interface StampHistoryItemProps {
   log: LogsResType;
   isEditing: boolean;
   noteDraft: string;
   currentNote: string;
+  paymentType?: PaymentTypeEnumType['value'];
   onNoteChange: (value: string) => void;
+  onPaymentTypeChange: (value: PaymentTypeEnumType['value']) => void;
   onSave: () => void;
   onCancel: () => void;
   onEdit: () => void;
-  onCopy: () => void;
   onNavigate: () => void;
   isSaving: boolean;
 }
+
+const paymentTypeOptions = Object.values(PaymentTypeEnum);
 
 const StampHistoryItem = ({
   log,
@@ -33,61 +34,34 @@ const StampHistoryItem = ({
   noteDraft,
   currentNote,
   onNoteChange,
+  paymentType,
+  onPaymentTypeChange,
   onSave,
   onCancel,
   onEdit,
-  onCopy,
   onNavigate,
   isSaving,
 }: StampHistoryItemProps) => {
-  const actionInfo = getActionText(log.action);
-  const paymentTypeValue = log.jsonb?.paymentType as
-    | PaymentTypeEnumType['value']
-    | undefined;
-  const paymentTypeName = paymentTypeValue
-    ? paymentTypeNameByValue[paymentTypeValue]
-    : undefined;
-  const userDisplay = log.users?.name || log.users?.email || '알 수 없음';
-  const createdAtText = new Date(log.created_at).toLocaleString('ko-KR', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const { copyLogToClipboard } = useCopy();
 
   return (
     <div className="flex items-center justify-between p-4 rounded-lg border border-brand-50 hover:bg-brand-50/30 transition-colors">
       <div className="flex items-center gap-4">
-        <span
-          className={`px-3 py-1 rounded-full text-xs font-semibold ${actionInfo.color}`}
-        >
-          {actionInfo.text}
-        </span>
-        <div
-          className="cursor-pointer hover:bg-brand-100 hover:shadow-md p-3 rounded-lg transition-all duration-200 border border-transparent hover:border-brand-200"
+        <ActionInfoLabel action={log.action} />
+        <CustomerInfo
+          name={log.customers?.name}
+          phone={log.customers?.phone}
           onClick={onNavigate}
-        >
-          <p className="text-base font-semibold text-gray-900">
-            {log.customers?.name || '이름 없음'}
-          </p>
-          <p className="text-sm text-gray-600">
-            {formatPhoneNumber(log.customers?.phone)}
-          </p>
-        </div>
+        />
       </div>
 
-      {paymentTypeName && (
-        <div>
-          <span className="ml-2 inline-flex items-center rounded-full bg-gray-100 text-gray-500 text-xs font-medium px-2 py-1">
-            {paymentTypeName}
-          </span>
-        </div>
+      {log.jsonb && 'paymentType' in log.jsonb && (
+        <PaymentTypeLabel jsonb={log.jsonb} />
       )}
 
       <div className="flex-1 pl-4 ml-4 border-l border-brand-100">
         {isEditing ? (
-          <div className="flex flex-col gap-2 pr-4">
+          <div key="edit" className="flex flex-col gap-2 pr-4">
             <textarea
               className="flex-1 text-sm px-2 py-2 rounded border border-brand-200 focus:outline-none focus:ring-2 focus:ring-brand-200 resize-none min-h-[60px]"
               value={noteDraft}
@@ -96,6 +70,27 @@ const StampHistoryItem = ({
               disabled={isSaving}
               rows={3}
             />
+
+            {log.jsonb && 'paymentType' in log.jsonb && (
+              <div className="flex items-center gap-2">
+                {paymentTypeOptions.map((option) => (
+                  <label
+                    key={option.value}
+                    className="inline-flex items-center gap-2 text-xs whitespace-nowrap"
+                  >
+                    <input
+                      type="radio"
+                      name={`paymentType-${log.id}`}
+                      value={option.value}
+                      defaultChecked={paymentType === option.value}
+                      onChange={() => onPaymentTypeChange(option.value)}
+                    />
+                    {option.name}
+                  </label>
+                ))}
+              </div>
+            )}
+
             <div className="flex items-center gap-2">
               <Button
                 variant="primary"
@@ -116,7 +111,7 @@ const StampHistoryItem = ({
             </div>
           </div>
         ) : (
-          <div className="flex items-center gap-2">
+          <div key="view" className="flex items-center gap-2">
             <Button
               variant="secondary"
               size="xs"
@@ -133,14 +128,21 @@ const StampHistoryItem = ({
       </div>
 
       <div className="text-right">
-        <div className="text-xs text-gray-400 mb-1">{userDisplay}</div>
-        <div className="text-xs text-gray-400">{createdAtText}</div>
+        {log.users && (
+          <LogActorInfo users={log.users} created_at={log.created_at} />
+        )}
       </div>
+
       <div className="ml-4">
         <Button
           variant="secondary"
           size="sm"
-          onClick={onCopy}
+          onClick={() =>
+            copyLogToClipboard(log, {
+              name: log.customers?.name,
+              phone: log.customers?.phone,
+            })
+          }
           disabled={isSaving}
         >
           복사
