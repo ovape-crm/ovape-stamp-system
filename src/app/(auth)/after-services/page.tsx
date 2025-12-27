@@ -5,14 +5,21 @@ import Button from '@/app/_components/Button';
 import { useModal } from '@/app/contexts/ModalContext';
 import AfterServiceCreateModal from './_components/AfterServiceCreateModal';
 import AfterServiceList from './_components/AfterServiceList';
+import AfterServiceDetailDrawer from './_components/AfterServiceDetailDrawer';
 import { createAfterService } from '@/services/afterService';
 import toast from 'react-hot-toast';
 import { AfterServiceItemTypeEnumType } from '@/app/_enums/enums';
+import AfterServiceSearchBox from './_components/AfterServiceSearchBox';
+import AfterServiceProgressBox from './_components/AfterServiceProgressBox';
 
 const AfterServicesPage = () => {
   const { open, close } = useModal();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [selectedAfterServiceId, setSelectedAfterServiceId] = useState<
+    string | null
+  >(null);
 
   // ========================================================================
   // AS 생성 핸들러
@@ -53,32 +60,49 @@ const AfterServicesPage = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10 space-y-4">
-      <div className="bg-white rounded-lg shadow-sm border border-brand-100 p-6">
-        <h2 className="text-xl font-bold text-brand-700">AS 현황</h2>
-      </div>
-      <div className="flex justify-end">
-        <Button
-          size="sm"
-          onClick={() => {
-            setIsSubmitting(false);
-            open({
-              content: (
-                <AfterServiceCreateModal
-                  onCancel={close}
-                  isSubmitting={isSubmitting}
-                  onSubmit={handleAfterServiceSubmit}
-                />
-              ),
-              options: { dismissOnBackdrop: false, dismissOnEsc: true },
-            });
-          }}
-        >
-          AS 생성
-        </Button>
+      <AfterServiceSearchBox />
+      <div className="flex justify-between items-end">
+        <AfterServiceProgressBox />
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            onClick={() => {
+              setIsSubmitting(false);
+              open({
+                content: (
+                  <AfterServiceCreateModal
+                    onCancel={close}
+                    isSubmitting={isSubmitting}
+                    onSubmit={handleAfterServiceSubmit}
+                  />
+                ),
+                options: { dismissOnBackdrop: false, dismissOnEsc: true },
+              });
+            }}
+          >
+            AS 생성
+          </Button>
+        </div>
       </div>
 
+      {/* AS 상세 Drawer */}
+      <AfterServiceDetailDrawer
+        isOpen={isDrawerOpen}
+        onClose={() => {
+          setIsDrawerOpen(false);
+          setSelectedAfterServiceId(null);
+        }}
+        afterServiceId={selectedAfterServiceId}
+      />
+
       {/* AS 목록 */}
-      <AfterServiceList refreshKey={refreshKey} />
+      <AfterServiceList
+        refreshKey={refreshKey}
+        onRowClick={(id) => {
+          setSelectedAfterServiceId(id);
+          setIsDrawerOpen(true);
+        }}
+      />
     </div>
   );
 };

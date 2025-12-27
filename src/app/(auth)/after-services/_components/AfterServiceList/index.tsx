@@ -1,10 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
 import { getAfterServices } from '@/services/afterService';
 import Loading from '@/app/_components/Loading';
-import Button from '@/app/_components/Button';
 import { formatPhoneNumber } from '@/app/_utils/utils';
 import {
   AfterServiceStatusEnum,
@@ -13,6 +11,7 @@ import {
 
 interface AfterServiceListProps {
   refreshKey?: number;
+  onRowClick?: (afterServiceId: string) => void;
 }
 
 type AfterServiceType = {
@@ -35,8 +34,10 @@ type AfterServiceType = {
   } | null;
 };
 
-const AfterServiceList = ({ refreshKey }: AfterServiceListProps) => {
-  const router = useRouter();
+const AfterServiceList = ({
+  refreshKey,
+  onRowClick,
+}: AfterServiceListProps) => {
   const [afterServices, setAfterServices] = useState<AfterServiceType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -101,6 +102,9 @@ const AfterServiceList = ({ refreshKey }: AfterServiceListProps) => {
         <table className="min-w-full divide-y divide-brand-100">
           <thead className="bg-gradient-to-r from-brand-50 to-brand-100">
             <tr>
+              <th className="px-6 py-4 text-center text-sm font-semibold text-brand-700">
+                상태
+              </th>
               <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700">
                 No
               </th>
@@ -119,17 +123,8 @@ const AfterServiceList = ({ refreshKey }: AfterServiceListProps) => {
               <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700">
                 증상
               </th>
-              <th className="px-6 py-4 text-center text-sm font-semibold text-brand-700">
-                상태
-              </th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700">
-                담당자
-              </th>
               <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700">
                 생성일
-              </th>
-              <th className="px-6 py-4 text-center text-sm font-semibold text-brand-700">
-                작업
               </th>
             </tr>
           </thead>
@@ -137,7 +132,7 @@ const AfterServiceList = ({ refreshKey }: AfterServiceListProps) => {
             {afterServices.length === 0 ? (
               <tr>
                 <td
-                  colSpan={10}
+                  colSpan={8}
                   className="px-6 py-10 text-center text-gray-500"
                 >
                   AS 데이터가 없습니다.
@@ -147,22 +142,25 @@ const AfterServiceList = ({ refreshKey }: AfterServiceListProps) => {
               afterServices.map((as, index) => {
                 const statusInfo = getStatusInfo(as.status);
                 const itemTypeInfo = getItemTypeInfo(as.item_type);
-                const createdAt = new Date(as.created_at).toLocaleString(
-                  'ko-KR',
-                  {
-                    year: 'numeric',
-                    month: '2-digit',
-                    day: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  }
-                );
+                const date = new Date(as.created_at);
+                const year = String(date.getFullYear()).slice(-2);
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                const hour = String(date.getHours()).padStart(2, '0');
+                const minute = String(date.getMinutes()).padStart(2, '0');
+                const createdAt = `${year}.${month}.${day} ${hour}:${minute}`;
 
                 return (
                   <tr
                     key={as.id}
-                    className="hover:bg-brand-50/50 transition-colors"
+                    className="hover:bg-brand-50/50 transition-colors cursor-pointer"
+                    onClick={() => onRowClick?.(as.id)}
                   >
+                    <td className="px-6 py-4 text-center">
+                      <span className="inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                        {statusInfo.name}
+                      </span>
+                    </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
                       {index + 1}
                     </td>
@@ -194,29 +192,8 @@ const AfterServiceList = ({ refreshKey }: AfterServiceListProps) => {
                         {as.symptom}
                       </p>
                     </td>
-                    <td className="px-6 py-4 text-center">
-                      <span className="inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
-                        {statusInfo.name}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">
-                      {as.users?.name || as.users?.email || '-'}
-                    </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
                       {createdAt}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-center gap-2">
-                        <Button
-                          onClick={() =>
-                            router.push(`/customers/${as.customer_id}`)
-                          }
-                          size="sm"
-                          variant="secondary"
-                        >
-                          고객 상세
-                        </Button>
-                      </div>
                     </td>
                   </tr>
                 );
@@ -230,4 +207,3 @@ const AfterServiceList = ({ refreshKey }: AfterServiceListProps) => {
 };
 
 export default AfterServiceList;
-
