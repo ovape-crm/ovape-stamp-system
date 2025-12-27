@@ -6,11 +6,11 @@ import { useState } from 'react';
 import { AfterServiceStatusEnum } from '@/app/_enums/enums';
 
 interface SearchBoxProps {
+  onStatusChange?: (status: string) => void;
   onSearch?: (target: string, keyword: string) => void;
 }
 
 const targetOptions = [
-  { label: '전체', value: 'all' },
   { label: '고객 이름', value: 'name' },
   { label: '고객 전화번호', value: 'phone' },
   { label: '기기/제품 이름', value: 'item_name' },
@@ -24,10 +24,18 @@ const symptomOptions = [
   })),
 ];
 
-const AfterServiceSearchBox = ({ onSearch }: SearchBoxProps) => {
-  const [target, setTarget] = useState('all');
+const AfterServiceSearchBox = ({
+  onStatusChange,
+  onSearch,
+}: SearchBoxProps) => {
+  const [target, setTarget] = useState('name');
   const [symptom, setSymptom] = useState('all');
   const [keyword, setKeyword] = useState('');
+
+  const handleStatusChange = (newStatus: string) => {
+    setSymptom(newStatus);
+    onStatusChange?.(newStatus);
+  };
 
   const handleSearch = () => {
     onSearch?.(target, keyword);
@@ -61,7 +69,7 @@ const AfterServiceSearchBox = ({ onSearch }: SearchBoxProps) => {
                         key={option.value}
                         option={option}
                         onSelect={(option: DropdownOption) =>
-                          setSymptom(option.value as string)
+                          handleStatusChange(option.value as string)
                         }
                       />
                     );
@@ -75,7 +83,7 @@ const AfterServiceSearchBox = ({ onSearch }: SearchBoxProps) => {
             <label className="text-xs font-medium text-gray-600">
               검색 조건
             </label>
-            <div className="w-[180px]">
+            <div className="w-[200px]">
               <Dropdown>
                 <Dropdown.Trigger>
                   {

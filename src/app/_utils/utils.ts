@@ -37,9 +37,34 @@ export const getActionText = (action: string) => {
       other: '기타',
     };
     const statusName = statusMap[statusValue] || statusValue;
+
+    // 상태 그룹별 색상 분류 (AfterServiceProgressBox 참조)
+    const receivedStatuses = ['received'];
+    const inProgressStatuses = [
+      'exchange',
+      'rental',
+      'sent_for_repair',
+      'repair_returned',
+      'other',
+    ];
+    const completedStatuses = [
+      'repair_rejected',
+      'customer_received',
+      'returned',
+    ];
+
+    let color = 'text-gray-700 bg-gray-100'; // 기본값
+    if (receivedStatuses.includes(statusValue)) {
+      color = 'text-gray-700 bg-gray-100'; // 접수: 회색
+    } else if (inProgressStatuses.includes(statusValue)) {
+      color = 'text-blue-700 bg-blue-100'; // 진행: 파란색
+    } else if (completedStatuses.includes(statusValue)) {
+      color = 'text-green-700 bg-green-100'; // 완료: 녹색
+    }
+
     return {
       text: statusName,
-      color: 'text-blue-700 bg-blue-100',
+      color,
     };
   }
 

@@ -20,6 +20,11 @@ const AfterServicesPage = () => {
   const [selectedAfterServiceId, setSelectedAfterServiceId] = useState<
     string | null
   >(null);
+  const [filters, setFilters] = useState<{
+    status?: string;
+    searchTarget?: string;
+    searchKeyword?: string;
+  }>({});
 
   // ========================================================================
   // AS 생성 핸들러
@@ -58,9 +63,27 @@ const AfterServicesPage = () => {
     }
   };
 
+  const handleStatusChange = (status: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      status,
+    }));
+  };
+
+  const handleSearch = (target: string, keyword: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      searchTarget: target,
+      searchKeyword: keyword,
+    }));
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10 space-y-4">
-      <AfterServiceSearchBox />
+      <AfterServiceSearchBox
+        onStatusChange={handleStatusChange}
+        onSearch={handleSearch}
+      />
       <div className="flex justify-between items-end">
         <AfterServiceProgressBox />
         <div className="flex gap-2">
@@ -98,6 +121,7 @@ const AfterServicesPage = () => {
       {/* AS 목록 */}
       <AfterServiceList
         refreshKey={refreshKey}
+        filters={filters}
         onRowClick={(id) => {
           setSelectedAfterServiceId(id);
           setIsDrawerOpen(true);

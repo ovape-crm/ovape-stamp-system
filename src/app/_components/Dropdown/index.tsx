@@ -12,6 +12,7 @@ import {
   cloneElement,
   isValidElement,
 } from 'react';
+import { createPortal } from 'react-dom';
 
 export type DropdownOption = {
   label: string;
@@ -32,11 +33,18 @@ interface DropdownContextType {
   contentRef: React.RefObject<HTMLDivElement | null>;
   itemCount: number;
   setItemCount: (count: number) => void;
+  usePortal: boolean;
 }
 
 const DropdownContext = createContext<DropdownContextType | null>(null);
 
-const DropdownProvider = ({ children }: { children: React.ReactNode }) => {
+const DropdownProvider = ({
+  children,
+  usePortal = false,
+}: {
+  children: React.ReactNode;
+  usePortal?: boolean;
+}) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedOption, setSelectedOption] = useState<DropdownOption | null>(
     null
@@ -161,6 +169,7 @@ const DropdownProvider = ({ children }: { children: React.ReactNode }) => {
       contentRef,
       itemCount,
       setItemCount,
+      usePortal,
     }),
     [
       isOpen,
@@ -173,6 +182,7 @@ const DropdownProvider = ({ children }: { children: React.ReactNode }) => {
       handleSelect,
       focusedIndex,
       itemCount,
+      usePortal,
     ]
   );
 
@@ -281,7 +291,13 @@ const DropdownTrigger = ({ children }: { children: React.ReactNode }) => {
 };
 
 const DropdownContent = ({ children }: { children: React.ReactNode }) => {
-  const { isOpen, contentRef, setItemCount } = useDropdown();
+  const { isOpen, contentRef, setItemCount, triggerRef, usePortal } =
+    useDropdown();
+  const [position, setPosition] = useState<{
+    top: number;
+    left: number;
+    width: number;
+  } | null>(null);
 
   // 자동으로 index를 주입하고 아이템 개수 추적
   const itemsWithIndex = useMemo(() => {
@@ -300,11 +316,38 @@ const DropdownContent = ({ children }: { children: React.ReactNode }) => {
     });
   }, [children, setItemCount]);
 
-  const contentClasses = [
-    'absolute',
-    'z-50',
-    'w-full',
-    'mt-2',
+  // trigger 위치 계산 (portal 사용 시에만)
+  useEffect(() => {
+    if (!isOpen || !triggerRef.current || !usePortal) {
+      if (usePortal) {
+        setPosition(null);
+      }
+      return;
+    }
+
+    const updatePosition = () => {
+      if (triggerRef.current) {
+        const rect = triggerRef.current.getBoundingClientRect();
+        setPosition({
+          top: rect.bottom + window.scrollY + 8, // mt-2 = 8px
+          left: rect.left + window.scrollX,
+          width: rect.width,
+        });
+      }
+    };
+
+    // 즉시 위치 계산
+    updatePosition();
+    window.addEventListener('scroll', updatePosition, true);
+    window.addEventListener('resize', updatePosition);
+
+    return () => {
+      window.removeEventListener('scroll', updatePosition, true);
+      window.removeEventListener('resize', updatePosition);
+    };
+  }, [isOpen, triggerRef, usePortal]);
+
+  const baseContentClasses = [
     'rounded-lg',
     'shadow-lg',
     'bg-white',
@@ -313,18 +356,58 @@ const DropdownContent = ({ children }: { children: React.ReactNode }) => {
     'overflow-hidden',
     'transition-all',
     'duration-200',
-    isOpen
-      ? 'opacity-100 translate-y-0'
-      : 'opacity-0 -translate-y-2 pointer-events-none',
   ].join(' ');
+
+  const animationClasses = usePortal
+    ? isOpen
+      ? 'opacity-100 scale-100'
+      : 'opacity-0 scale-95 pointer-events-none'
+    : isOpen
+    ? 'opacity-100 translate-y-0'
+    : 'opacity-0 -translate-y-2 pointer-events-none';
+
+  const contentClasses = usePortal
+    ? [baseContentClasses, 'fixed', 'z-[3000]', animationClasses].join(' ')
+    : [
+        baseContentClasses,
+        'absolute',
+        'z-50',
+        'w-full',
+        'mt-2',
+        animationClasses,
+      ].join(' ');
 
   if (!isOpen) return null;
 
-  return (
-    <div ref={contentRef} className={contentClasses} role="listbox">
-      <div className="py-1">{itemsWithIndex}</div>
+  // Portal 사용 시 위치가 계산되기 전까지는 렌더링하지 않음
+  if (usePortal && !position) return null;
+
+  const content = (
+    <div
+      ref={contentRef}
+      className={contentClasses}
+      role="listbox"
+      style={
+        usePortal && position
+          ? {
+              top: `${position.top}px`,
+              left: `${position.left}px`,
+              width: `${position.width}px`,
+            }
+          : undefined
+      }
+    >
+      <div className={`py-1 ${usePortal ? 'max-h-[300px] overflow-auto' : ''}`}>
+        {itemsWithIndex}
+      </div>
     </div>
   );
+
+  if (usePortal && typeof window !== 'undefined') {
+    return createPortal(content, document.body);
+  }
+
+  return content;
 };
 
 const DropdownItem = ({

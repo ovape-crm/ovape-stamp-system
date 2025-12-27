@@ -1,9 +1,14 @@
 'use client';
 
 import Drawer from '@/app/_components/Drawer';
-import { getAfterServiceDetail } from '@/services/afterService';
+import {
+  getAfterServiceDetail,
+  updateAfterServiceStatus,
+} from '@/services/afterService';
 import { useEffect, useState } from 'react';
+import { useModal } from '@/app/contexts/ModalContext';
 import Loading from '@/app/_components/Loading';
+import toast from 'react-hot-toast';
 import AfterServiceLogList from './AfterServiceLogList';
 import CustomerInfoCard from './CustomerInfoCard';
 import ASInfoCard from './ASInfoCard';
@@ -11,6 +16,8 @@ import StatusBox from './StatusBox';
 import SymptomCard from './SymptomCard';
 import NoteCard from './NoteCard';
 import UpdatedDate from './UpdatedDate';
+import StatusUpdateModal from './StatusUpdateModal';
+import { AfterServiceStatusEnumType } from '@/app/_enums/enums';
 
 type AfterServiceDetailType = {
   id: string;
@@ -42,10 +49,12 @@ const AfterServiceDetailDrawer = ({
   onClose: () => void;
   afterServiceId: string | null;
 }) => {
+  const { open, close } = useModal();
   const [afterServiceDetail, setAfterServiceDetail] =
     useState<AfterServiceDetailType | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
   useEffect(() => {
     if (!isOpen || !afterServiceId) {
@@ -73,6 +82,50 @@ const AfterServiceDetailDrawer = ({
 
     fetchAfterServiceDetail();
   }, [isOpen, afterServiceId]);
+
+  const handleStatusUpdate = async (values: {
+    status: AfterServiceStatusEnumType['value'];
+    note: string;
+  }) => {
+    if (!afterServiceId || !afterServiceDetail) return;
+
+    try {
+      setIsUpdatingStatus(true);
+      await updateAfterServiceStatus(
+        afterServiceId,
+        values.status,
+        values.note
+      );
+
+      // 상세 정보 새로고침
+      const updated = await getAfterServiceDetail(afterServiceId);
+      setAfterServiceDetail(updated);
+
+      close();
+      toast.success('상태가 업데이트되었습니다.');
+    } catch (err) {
+      console.error('Failed to update status:', err);
+      toast.error('상태 업데이트에 실패했습니다. 다시 시도해 주세요.');
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
+  const handleStatusEdit = () => {
+    if (!afterServiceDetail) return;
+
+    open({
+      content: (
+        <StatusUpdateModal
+          currentStatus={afterServiceDetail.status}
+          onSubmit={handleStatusUpdate}
+          onCancel={close}
+          isSubmitting={isUpdatingStatus}
+        />
+      ),
+      options: { dismissOnBackdrop: false, dismissOnEsc: true },
+    });
+  };
 
   return (
     <Drawer isOpen={isOpen} onClose={onClose} width="w-[800px]">
@@ -132,7 +185,10 @@ const AfterServiceDetailDrawer = ({
                   />
 
                   {/* Status 박스 */}
-                  <StatusBox status={afterServiceDetail.status} />
+                  <StatusBox
+                    status={afterServiceDetail.status}
+                    onEdit={handleStatusEdit}
+                  />
 
                   {/* 고객 정보 섹션 */}
                   <CustomerInfoCard

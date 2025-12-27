@@ -6,12 +6,18 @@ import Loading from '@/app/_components/Loading';
 import { formatPhoneNumber } from '@/app/_utils/utils';
 import {
   AfterServiceStatusEnum,
+  AfterServiceStatusEnumType,
   AfterServiceItemTypeEnum,
 } from '@/app/_enums/enums';
 
 interface AfterServiceListProps {
   refreshKey?: number;
   onRowClick?: (afterServiceId: string) => void;
+  filters?: {
+    status?: string;
+    searchTarget?: string;
+    searchKeyword?: string;
+  };
 }
 
 type AfterServiceType = {
@@ -37,6 +43,7 @@ type AfterServiceType = {
 const AfterServiceList = ({
   refreshKey,
   onRowClick,
+  filters,
 }: AfterServiceListProps) => {
   const [afterServices, setAfterServices] = useState<AfterServiceType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -47,7 +54,18 @@ const AfterServiceList = ({
       setIsLoading(true);
       setError('');
 
-      const data = await getAfterServices(100, 0); // 일단 100개까지 가져오기
+      const data = await getAfterServices(100, 0, {
+        status:
+          filters?.status && filters.status !== 'all'
+            ? (filters.status as AfterServiceStatusEnumType['value'])
+            : undefined,
+        searchTarget: filters?.searchTarget as
+          | 'name'
+          | 'phone'
+          | 'item_name'
+          | undefined,
+        searchKeyword: filters?.searchKeyword,
+      });
       setAfterServices(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -55,7 +73,7 @@ const AfterServiceList = ({
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [filters]);
 
   useEffect(() => {
     fetchAfterServices();
@@ -87,6 +105,32 @@ const AfterServiceList = ({
     return itemTypeOption || { name: itemType, value: itemType };
   };
 
+  const getStatusColor = (status: string) => {
+    // 상태 그룹별 색상 분류 (AfterServiceProgressBox 참조)
+    const receivedStatuses = ['received'];
+    const inProgressStatuses = [
+      'exchange',
+      'rental',
+      'sent_for_repair',
+      'repair_returned',
+      'other',
+    ];
+    const completedStatuses = [
+      'repair_rejected',
+      'customer_received',
+      'returned',
+    ];
+
+    if (receivedStatuses.includes(status)) {
+      return 'bg-gray-100 text-gray-700'; // 접수: 회색
+    } else if (inProgressStatuses.includes(status)) {
+      return 'bg-blue-100 text-blue-700'; // 진행: 파란색
+    } else if (completedStatuses.includes(status)) {
+      return 'bg-green-100 text-green-700'; // 완료: 녹색
+    }
+    return 'bg-gray-100 text-gray-700'; // 기본값: 회색
+  };
+
   return (
     <div className="mb-10">
       <div className="flex justify-start items-center mb-3">
@@ -102,29 +146,26 @@ const AfterServiceList = ({
         <table className="min-w-full divide-y divide-brand-100">
           <thead className="bg-gradient-to-r from-brand-50 to-brand-100">
             <tr>
-              <th className="px-6 py-4 text-center text-sm font-semibold text-brand-700">
-                상태
-              </th>
               <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700">
                 No
               </th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700">
-                고객
+              <th className="px-6 py-4 text-center text-sm font-semibold text-brand-700">
+                상태
               </th>
               <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700">
                 기기 종류
               </th>
               <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700">
-                기기/제품 이름
+                제품 이름 / 수량
               </th>
-              <th className="px-6 py-4 text-center text-sm font-semibold text-brand-700">
-                수량
-              </th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700">
+              <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700 w-64">
                 증상
               </th>
               <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700">
-                생성일
+                고객
+              </th>
+              <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700">
+                등록일
               </th>
             </tr>
           </thead>
@@ -132,7 +173,7 @@ const AfterServiceList = ({
             {afterServices.length === 0 ? (
               <tr>
                 <td
-                  colSpan={8}
+                  colSpan={7}
                   className="px-6 py-10 text-center text-gray-500"
                 >
                   AS 데이터가 없습니다.
@@ -156,13 +197,32 @@ const AfterServiceList = ({
                     className="hover:bg-brand-50/50 transition-colors cursor-pointer"
                     onClick={() => onRowClick?.(as.id)}
                   >
+                    <td className="px-6 py-4 text-sm text-gray-700">
+                      {index + 1}
+                    </td>
                     <td className="px-6 py-4 text-center">
-                      <span className="inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                      <span
+                        className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(
+                          as.status
+                        )}`}
+                      >
                         {statusInfo.name}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
-                      {index + 1}
+                      {itemTypeInfo.name}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-700">
+                      <div className="flex items-center gap-2">
+                        <span>{as.item_name}</span>
+                        <span className="text-gray-400">/</span>
+                        <span className="font-medium">{as.quantity}개</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-700 w-64">
+                      <p className="truncate" title={as.symptom}>
+                        {as.symptom}
+                      </p>
                     </td>
                     <td className="px-6 py-4 text-sm">
                       <div>
@@ -175,22 +235,6 @@ const AfterServiceList = ({
                             : '-'}
                         </p>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">
-                      {itemTypeInfo.name}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">
-                      {as.item_name}
-                    </td>
-                    <td className="px-6 py-4 text-center text-sm text-gray-700">
-                      <span className="inline-flex items-center justify-center px-3 py-1 rounded-full text-sm font-semibold bg-brand-100 text-brand-700">
-                        {as.quantity}개
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-700 max-w-xs">
-                      <p className="truncate" title={as.symptom}>
-                        {as.symptom}
-                      </p>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
                       {createdAt}
