@@ -22,6 +22,27 @@ export const getActionText = (action: string) => {
     return { text: `고객 추가`, color: 'text-green-700 bg-green-100' };
   }
 
+  // AS 상태 액션 처리
+  if (action.startsWith('after-service-')) {
+    const statusValue = action.replace('after-service-', '');
+    const statusMap: Record<string, string> = {
+      received: '접수',
+      exchange: '교환',
+      rental: '대여',
+      sent_for_repair: '수리 접수',
+      repair_returned: '수리 수령',
+      repair_rejected: 'AS 불가',
+      customer_received: '고객 수령',
+      returned: '반품 처리',
+      other: '기타',
+    };
+    const statusName = statusMap[statusValue] || statusValue;
+    return {
+      text: statusName,
+      color: 'text-blue-700 bg-blue-100',
+    };
+  }
+
   return { text: action, color: 'text-gray-700 bg-gray-100' };
 };
 

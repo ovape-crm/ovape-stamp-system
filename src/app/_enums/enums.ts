@@ -59,6 +59,10 @@ export const LogCategoryEnum = {
     value: 'remark',
     name: '특이사항',
   },
+  AFTER_SERVICE: {
+    value: 'after_service',
+    name: 'AS',
+  },
 } as const;
 
 export type LogCategoryEnumType =

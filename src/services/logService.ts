@@ -1,5 +1,13 @@
-import { LogCategoryEnumType, PaymentTypeEnumType } from '@/app/_enums/enums';
-import { CustomersLogsResType, LogsResType } from '@/app/_types/log.types';
+import {
+  LogCategoryEnum,
+  LogCategoryEnumType,
+  PaymentTypeEnumType,
+} from '@/app/_enums/enums';
+import {
+  AfterServiceLogsResType,
+  CustomersLogsResType,
+  LogsResType,
+} from '@/app/_types/log.types';
 import supabase from '@/libs/supabaseClient';
 
 /**
@@ -71,6 +79,69 @@ export const getLogsByCustomer = async (
   return data;
 };
 
+export const createAfterServiceLog = async (
+  customerId: string,
+  afterServiceId: number,
+  action: string,
+  note: string = '',
+  jsonb: Record<string, unknown> | null = null
+) => {
+  // 현재 세션에서 user id 가져오기
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  if (sessionError || !session) {
+    throw new Error('세션을 찾을 수 없습니다');
+  }
+
+  const adminId = session.user.id;
+
+  const { data, error } = await supabase
+    .from('logs')
+    .insert({
+      admin_id: adminId,
+      customer_id: customerId,
+      action,
+      note,
+      jsonb,
+      category: LogCategoryEnum.AFTER_SERVICE.value,
+      after_service_id: afterServiceId,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return data;
+};
+
+/**
+ * AS 로그 조회
+ */
+export const getLogsByAfterServiceId = async (
+  afterServiceId: number,
+  limit = 10,
+  offset = 0
+): Promise<AfterServiceLogsResType> => {
+  const from = offset;
+  const to = offset + limit - 1;
+  const { data, error } = await supabase
+    .from('logs')
+    .select(
+      `*,
+      users!admin_id(name, email)`
+    )
+    .eq('after_service_id', afterServiceId)
+    .eq('category', 'after_service')
+    .order('created_at', { ascending: false })
+    .range(from, to);
+
+  if (error) throw error;
+
+  return data;
+};
 /**
  * 전체 로그 조회 (페이지네이션)
  */

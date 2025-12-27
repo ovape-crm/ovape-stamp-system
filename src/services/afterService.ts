@@ -4,6 +4,7 @@ import {
   AfterServiceStatusEnumType,
 } from '@/app/_enums/enums';
 import supabase from '@/libs/supabaseClient';
+import { createAfterServiceLog } from './logService';
 
 export const createAfterService = async ({
   customerId,
@@ -48,6 +49,8 @@ export const createAfterService = async ({
 
   if (error) throw error;
 
+  await createAfterServiceLog(customerId, data.id, 'after-service-recieved');
+
   return data;
 };
 
@@ -79,6 +82,26 @@ export const getAfterServices = async (
   }
 
   const { data, error } = await query;
+
+  if (error) throw error;
+  return data;
+};
+
+/**
+ * AS 상세 조회
+ */
+export const getAfterServiceDetail = async (id: string) => {
+  const { data, error } = await supabase
+    .from('after_services')
+    .select(
+      `
+      *,
+      users!admin_id(name, email),
+      customers(name, phone)
+    `
+    )
+    .eq('id', id)
+    .single();
 
   if (error) throw error;
   return data;
