@@ -80,7 +80,7 @@ export const getLogsByCustomer = async (
 };
 
 export const createAfterServiceLog = async (
-  customerId: string,
+  customerId: string | null,
   afterServiceId: number,
   action: string,
   note: string = '',
@@ -102,7 +102,7 @@ export const createAfterServiceLog = async (
     .from('logs')
     .insert({
       admin_id: adminId,
-      customer_id: customerId,
+      customer_id: customerId ? String(customerId) : null,
       action,
       note,
       jsonb,

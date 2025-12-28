@@ -32,10 +32,7 @@ type FormValues = {
 // ============================================================================
 
 const schema = z.object({
-  customerId: z.coerce
-    .string()
-    .trim()
-    .min(1, { message: '고객을 선택하세요.' }),
+  customerId: z.coerce.string().trim().optional(),
   itemType: z.enum(
     [
       AfterServiceItemTypeEnum.DEVICE.value,
@@ -167,10 +164,7 @@ export default function AfterServiceCreateModal({
    * 폼 제출 시 확인 화면으로 이동
    */
   const handleFormSubmit = (values: FormValues) => {
-    if (!isValid || !selectedCustomerId) {
-      if (!selectedCustomerId) {
-        setValue('customerId', '');
-      }
+    if (!isValid) {
       return;
     }
     setFormData(values);
@@ -190,6 +184,7 @@ export default function AfterServiceCreateModal({
     canSubmitRef.current = false;
 
     try {
+      console.log('formData', formData);
       await onSubmit(formData);
     } catch (error) {
       canSubmitRef.current = true;
@@ -302,7 +297,6 @@ export default function AfterServiceCreateModal({
           value={selectedCustomerId}
           onChange={handleCustomerChange}
           error={errors.customerId?.message}
-          required
         />
 
         {/* 기기 종류 선택 (Radio) */}

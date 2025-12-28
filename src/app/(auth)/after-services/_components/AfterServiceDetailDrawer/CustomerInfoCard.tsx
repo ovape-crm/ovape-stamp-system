@@ -18,18 +18,20 @@ const CustomerInfoCard = ({
 }: CustomerInfoCardProps) => {
   const router = useRouter();
 
+  const handleClick = () => {
+    if (customerId) {
+      router.push(`/customers/${customerId}`);
+      onClose();
+    }
+  };
+
   return (
     <div
-      onClick={() => {
-        if (customerId) {
-          router.push(`/customers/${customerId}`);
-          onClose();
-        }
-      }}
+      onClick={customerId ? handleClick : undefined}
       className={`p-3 rounded-lg border-2 transition-all ${
         customerId
           ? 'border-brand-200 hover:border-brand-300 hover:bg-brand-50/30 cursor-pointer bg-gradient-to-r from-brand-50/50 to-transparent'
-          : 'border-gray-200'
+          : 'border-gray-200 bg-gray-50/50'
       }`}
     >
       <div className="flex items-center justify-between mb-1.5">
@@ -50,14 +52,18 @@ const CustomerInfoCard = ({
           </svg>
         )}
       </div>
-      <div className="flex flex-col gap-0.5">
-        <span className="text-base font-semibold text-gray-900">
-          {customerName || '-'}
-        </span>
-        <span className="text-xs text-gray-600">
-          {customerPhone ? formatPhoneNumber(customerPhone) : '-'}
-        </span>
-      </div>
+      {customerId && customerName ? (
+        <div className="flex flex-col gap-0.5">
+          <span className="text-base font-semibold text-gray-900">
+            {customerName}
+          </span>
+          <span className="text-xs text-gray-600">
+            {customerPhone ? formatPhoneNumber(customerPhone) : '-'}
+          </span>
+        </div>
+      ) : (
+        <span className="text-xs text-gray-400">고객 정보 없음</span>
+      )}
     </div>
   );
 };

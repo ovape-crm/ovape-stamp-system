@@ -41,7 +41,7 @@ const AfterServicesPage = () => {
       setIsSubmitting(true);
 
       await createAfterService({
-        customerId: values.customerId,
+        customerId: values.customerId.length > 0 ? String(values.customerId) : null,
         itemType: values.itemType,
         itemName: values.itemName,
         quantity: values.quantity,

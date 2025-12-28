@@ -14,7 +14,7 @@ export const createAfterService = async ({
   symptom,
   note = '',
 }: {
-  customerId: string;
+  customerId: string | null;
   itemType: AfterServiceItemTypeEnumType['value'];
   itemName: string;
   quantity: number;
@@ -36,7 +36,7 @@ export const createAfterService = async ({
     .from('after_services')
     .insert({
       admin_id: adminId,
-      customer_id: customerId,
+      customer_id: customerId ? String(customerId) : null,
       item_type: itemType,
       item_name: itemName,
       quantity: quantity,
@@ -49,7 +49,11 @@ export const createAfterService = async ({
 
   if (error) throw error;
 
-  await createAfterServiceLog(customerId, data.id, 'after-service-received');
+  await createAfterServiceLog(
+    customerId ? String(customerId) : null,
+    data.id,
+    'after-service-received'
+  );
 
   return data;
 };

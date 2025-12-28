@@ -225,16 +225,22 @@ const AfterServiceList = ({
                       </p>
                     </td>
                     <td className="px-6 py-4 text-sm">
-                      <div>
-                        <p className="font-medium text-gray-900">
-                          {as.customers?.name || '-'}
-                        </p>
-                        <p className="text-xs text-gray-600">
-                          {as.customers?.phone
-                            ? formatPhoneNumber(as.customers.phone)
-                            : '-'}
-                        </p>
-                      </div>
+                      {as.customers ? (
+                        <div>
+                          <p className="font-medium text-gray-900">
+                            {as.customers.name}
+                          </p>
+                          <p className="text-xs text-gray-600">
+                            {formatPhoneNumber(as.customers.phone)}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-gray-400">
+                            고객 정보 없음
+                          </span>
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
                       {createdAt}
