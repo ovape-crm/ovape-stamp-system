@@ -3,7 +3,11 @@
 import { useEffect, useState } from 'react';
 import { getAfterServices } from '@/services/afterService';
 
-const AfterServiceProgressBox = () => {
+const AfterServiceProgressBox = ({
+  refreshKey = 0,
+}: {
+  refreshKey?: number;
+}) => {
   const [stats, setStats] = useState([
     { label: '전체', value: 0 },
     { label: '접수', value: 0 },
@@ -60,7 +64,7 @@ const AfterServiceProgressBox = () => {
     };
 
     fetchStats();
-  }, []);
+  }, [refreshKey]);
 
   const getValueColor = (label: string) => {
     if (label === '전체') return 'text-gray-900';

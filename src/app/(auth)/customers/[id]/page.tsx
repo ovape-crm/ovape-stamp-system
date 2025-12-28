@@ -17,6 +17,7 @@ import { useState } from 'react';
 import { LogCategoryEnum, LogCategoryEnumType } from '@/app/_enums/enums';
 import CustomersDetailStampsHistories from './_components/CustomersDetailStampsHistories';
 import CustomersDetailUpdateHistories from './_components/CustomersDetailUpdateHistories';
+import CustomerAfterServices from './_components/CustomerAfterServices';
 
 const PAGE_SIZE = 10;
 
@@ -27,6 +28,7 @@ export default function CustomerDetailPage() {
   const customerId = params.id as string;
   const { open, close } = useModal();
   const { customer, isLoading, error, refresh } = useCustomer(customerId);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const [logCategory, setLogCategory] = useState<LogCategoryEnumType['value']>(
     LogCategoryEnum.STAMP.value
@@ -44,6 +46,7 @@ export default function CustomerDetailPage() {
   const handleUpdate = () => {
     refresh();
     refreshLogs();
+    setRefreshKey((prev) => prev + 1);
   };
 
   const handleEditCustomer = async (values: {
@@ -143,7 +146,7 @@ export default function CustomerDetailPage() {
       </div>
 
       {/* 로그 섹션 */}
-      <div className="mb-10">
+      <div className="mb-6">
         <div className="bg-white rounded-lg shadow-sm border border-brand-100 p-4">
           <div className="mb-3 pb-2 border-b border-brand-100 flex gap-2 text-xs">
             <Button
@@ -186,8 +189,8 @@ export default function CustomerDetailPage() {
             )}
           </div>
         </div>
-        <div className="mt-4 flex justify-center">
-          {logsLoading ? null : hasMore ? (
+        {hasMore && !logsLoading && (
+          <div className="mt-4 flex justify-center">
             <Button
               onClick={async () => {
                 const added = await loadMore();
@@ -198,9 +201,18 @@ export default function CustomerDetailPage() {
             >
               더 불러오기
             </Button>
-          ) : (
-            <div className="text-xs text-gray-400">마지막 페이지입니다.</div>
-          )}
+          </div>
+        )}
+      </div>
+
+      {/* AS 현황 섹션 */}
+      <div className="mb-10">
+        <div className="bg-white rounded-lg shadow-sm border border-brand-100 p-6">
+        <h2 className="text-xl font-semibold text-brand-700 mb-4">AS 현황</h2>
+          <CustomerAfterServices
+            customerId={customerId}
+            refreshKey={refreshKey}
+          />
         </div>
       </div>
     </div>

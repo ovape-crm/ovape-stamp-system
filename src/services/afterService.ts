@@ -68,6 +68,7 @@ export const getAfterServices = async (
     status?: AfterServiceStatusEnumType['value'];
     searchTarget?: 'name' | 'phone' | 'item_name';
     searchKeyword?: string;
+    customerId?: string;
   }
 ) => {
   const from = offset;
@@ -97,6 +98,11 @@ export const getAfterServices = async (
     .select(selectQuery)
     .order('created_at', { ascending: false })
     .range(from, to);
+
+  // customerId 필터링 (선택사항)
+  if (filters?.customerId) {
+    query = query.eq('customer_id', filters.customerId);
+  }
 
   // status 필터링 (선택사항)
   if (filters?.status) {

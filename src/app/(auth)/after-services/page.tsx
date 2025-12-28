@@ -90,7 +90,7 @@ const AfterServicesPage = () => {
         onSearch={handleSearch}
       />
       <div className="flex justify-between items-end">
-        <AfterServiceProgressBox />
+        <AfterServiceProgressBox refreshKey={refreshKey} />
         <div className="flex gap-2">
           <Button
             size="sm"
