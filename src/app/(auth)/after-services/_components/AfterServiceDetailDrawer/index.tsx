@@ -4,9 +4,12 @@ import Drawer from '@/app/_components/Drawer';
 import {
   getAfterServiceDetail,
   updateAfterServiceStatus,
+  updateAfterService,
+  deleteAfterService,
 } from '@/services/afterService';
 import { useEffect, useState } from 'react';
 import { useModal } from '@/app/contexts/ModalContext';
+import { useUser } from '@/app/contexts/UserContext';
 import Loading from '@/app/_components/Loading';
 import toast from 'react-hot-toast';
 import AfterServiceLogList from './AfterServiceLogList';
@@ -17,7 +20,12 @@ import SymptomCard from './SymptomCard';
 import NoteCard from './NoteCard';
 import UpdatedDate from './UpdatedDate';
 import StatusUpdateModal from './StatusUpdateModal';
-import { AfterServiceStatusEnumType } from '@/app/_enums/enums';
+import AfterServiceCreateModal from '../AfterServiceCreateModal';
+import {
+  AfterServiceStatusEnumType,
+  AfterServiceItemTypeEnumType,
+} from '@/app/_enums/enums';
+import Button from '@/app/_components/Button';
 
 type AfterServiceDetailType = {
   id: string;
@@ -44,17 +52,25 @@ const AfterServiceDetailDrawer = ({
   isOpen,
   onClose,
   afterServiceId,
+  onRefreshList,
+  onDelete,
 }: {
   isOpen: boolean;
   onClose: () => void;
   afterServiceId: string | null;
+  onRefreshList?: () => void;
+  onDelete?: () => void;
 }) => {
   const { open, close } = useModal();
+  const { isAdmin } = useUser();
   const [afterServiceDetail, setAfterServiceDetail] =
     useState<AfterServiceDetailType | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [logRefreshKey, setLogRefreshKey] = useState(0);
 
   useEffect(() => {
     if (!isOpen || !afterServiceId) {
@@ -101,6 +117,14 @@ const AfterServiceDetailDrawer = ({
       const updated = await getAfterServiceDetail(afterServiceId);
       setAfterServiceDetail(updated);
 
+      // 로그 목록 새로고침
+      setLogRefreshKey((prev) => prev + 1);
+
+      // AS 목록 새로고침
+      if (onRefreshList) {
+        onRefreshList();
+      }
+
       close();
       toast.success('상태가 업데이트되었습니다.');
     } catch (err) {
@@ -121,6 +145,90 @@ const AfterServiceDetailDrawer = ({
           onSubmit={handleStatusUpdate}
           onCancel={close}
           isSubmitting={isUpdatingStatus}
+        />
+      ),
+      options: { dismissOnBackdrop: false, dismissOnEsc: true },
+    });
+  };
+
+  const handleDelete = async () => {
+    if (!afterServiceId) return;
+
+    try {
+      setIsDeleting(true);
+      await deleteAfterService(afterServiceId);
+      toast.success('AS가 삭제되었습니다.');
+      close();
+      // AS 목록 새로고침
+      if (onRefreshList) {
+        onRefreshList();
+      }
+      // Drawer 닫기 (부모 컴포넌트에서 처리)
+      if (onDelete) {
+        onDelete();
+      }
+    } catch (err) {
+      console.error('Failed to delete AS:', err);
+      toast.error('AS 삭제에 실패했습니다. 다시 시도해 주세요.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleEdit = () => {
+    if (!afterServiceDetail) return;
+
+    open({
+      content: (
+        <AfterServiceCreateModal
+          mode="edit"
+          initialData={{
+            customerId: afterServiceDetail.customer_id,
+            customerName: afterServiceDetail.customers?.name || null,
+            customerPhone: afterServiceDetail.customers?.phone || null,
+            itemType:
+              afterServiceDetail.item_type as AfterServiceItemTypeEnumType['value'],
+            itemName: afterServiceDetail.item_name,
+            quantity: afterServiceDetail.quantity,
+            symptom: afterServiceDetail.symptom,
+            note: afterServiceDetail.note || undefined,
+          }}
+          onSubmit={async (values) => {
+            if (!afterServiceId) return;
+            try {
+              setIsUpdating(true);
+              await updateAfterService(afterServiceId, {
+                customerId: values.customerId || null,
+                itemType: values.itemType,
+                itemName: values.itemName,
+                quantity: values.quantity,
+                symptom: values.symptom,
+                note: values.note,
+              });
+              toast.success('AS 정보가 수정되었습니다.');
+              close();
+              // 상세 정보 새로고침
+              const updated = await getAfterServiceDetail(afterServiceId);
+              setAfterServiceDetail(updated);
+
+              // 로그 목록 새로고침
+              setLogRefreshKey((prev) => prev + 1);
+
+              // AS 목록 새로고침
+              if (onRefreshList) {
+                onRefreshList();
+              }
+            } catch (err) {
+              console.error('Failed to update AS:', err);
+              toast.error('AS 수정에 실패했습니다. 다시 시도해 주세요.');
+            } finally {
+              setIsUpdating(false);
+            }
+          }}
+          onDelete={handleDelete}
+          onCancel={close}
+          isSubmitting={isUpdating || isDeleting}
+          isAdmin={isAdmin}
         />
       ),
       options: { dismissOnBackdrop: false, dismissOnEsc: true },
@@ -171,9 +279,19 @@ const AfterServiceDetailDrawer = ({
 
               <div className="bg-white border border-brand-100 rounded-lg p-6 shadow-sm">
                 {/* 고객 정보 & AS 정보 */}
-                <h3 className="text-lg font-bold bg-gradient-to-r from-brand-600 to-brand-700 bg-clip-text text-transparent mb-4">
-                  주요 정보
-                </h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold bg-gradient-to-r from-brand-600 to-brand-700 bg-clip-text text-transparent">
+                    주요 정보
+                  </h3>
+                  <Button
+                    onClick={handleEdit}
+                    variant="secondary"
+                    size="sm"
+                    aria-label="AS 정보 수정"
+                  >
+                    ✏️
+                  </Button>
+                </div>
                 <div className="grid grid-cols-[2fr_1fr] grid-rows-2 gap-4 mb-6">
                   {/* AS 정보 카드 */}
                   <ASInfoCard
@@ -215,6 +333,7 @@ const AfterServiceDetailDrawer = ({
               {/* AS 이력 */}
               <AfterServiceLogList
                 afterServiceId={Number(afterServiceDetail.id)}
+                refreshKey={logRefreshKey}
               />
             </div>
           ) : null}

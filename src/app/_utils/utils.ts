@@ -22,6 +22,10 @@ export const getActionText = (action: string) => {
     return { text: `고객 추가`, color: 'text-green-700 bg-green-100' };
   }
 
+  if (action === 'update-after-service-info') {
+    return { text: `AS 정보 수정`, color: 'text-gray-700 bg-gray-100' };
+  }
+
   // AS 상태 액션 처리
   if (action.startsWith('after-service-')) {
     const statusValue = action.replace('after-service-', '');

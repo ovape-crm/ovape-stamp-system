@@ -124,6 +124,17 @@ const AfterServicesPage = () => {
           router.push(newSearch ? `${pathname}?${newSearch}` : pathname);
         }}
         afterServiceId={selectedAfterServiceId}
+        onRefreshList={() => {
+          // AS 목록 새로고침
+          setRefreshKey((prev) => prev + 1);
+        }}
+        onDelete={() => {
+          // Drawer 닫기 (쿼리 파라미터에서 id 제거)
+          const params = new URLSearchParams(searchParams.toString());
+          params.delete('id');
+          const newSearch = params.toString();
+          router.push(newSearch ? `${pathname}?${newSearch}` : pathname);
+        }}
       />
 
       {/* AS 목록 */}

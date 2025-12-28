@@ -183,3 +183,106 @@ export const updateAfterServiceStatus = async (
 
   return afterService;
 };
+
+/**
+ * AS 정보 업데이트
+ */
+export const updateAfterService = async (
+  id: string,
+  {
+    customerId,
+    itemType,
+    itemName,
+    quantity,
+    symptom,
+    note,
+  }: {
+    customerId: string | null;
+    itemType: AfterServiceItemTypeEnumType['value'];
+    itemName: string;
+    quantity: number;
+    symptom: string;
+    note?: string;
+  }
+) => {
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  if (sessionError || !session) {
+    throw new Error('세션을 찾을 수 없습니다');
+  }
+
+  // 기존 AS 정보 가져오기
+  const prevAfterService = await getAfterServiceDetail(id);
+
+  // AS 업데이트
+  const { data, error } = await supabase
+    .from('after_services')
+    .update({
+      customer_id: customerId ? String(customerId) : null,
+      item_type: itemType,
+      item_name: itemName,
+      quantity: quantity,
+      symptom: symptom,
+      note: note || null,
+    })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  // 변경사항 추적
+  const changeObj: Record<string, { old: string | number | null; new: string | number | null }> = {};
+  
+  const prevCustomerId = prevAfterService.customer_id ? String(prevAfterService.customer_id) : null;
+  const newCustomerId = customerId ? String(customerId) : null;
+  
+  if (prevCustomerId !== newCustomerId) {
+    changeObj.customer_id = { old: prevCustomerId, new: newCustomerId };
+  }
+  if (prevAfterService.item_type !== itemType) {
+    changeObj.item_type = { old: prevAfterService.item_type, new: itemType };
+  }
+  if (prevAfterService.item_name !== itemName) {
+    changeObj.item_name = { old: prevAfterService.item_name, new: itemName };
+  }
+  if (prevAfterService.quantity !== quantity) {
+    changeObj.quantity = { old: prevAfterService.quantity, new: quantity };
+  }
+  if (prevAfterService.symptom !== symptom) {
+    changeObj.symptom = { old: prevAfterService.symptom, new: symptom };
+  }
+  const prevNote = prevAfterService.note || '';
+  const newNote = note || '';
+  if (prevNote !== newNote) {
+    changeObj.note = { old: prevNote || null, new: newNote || null };
+  }
+
+  // 변경사항이 있을 때만 로그 생성
+  if (Object.keys(changeObj).length > 0) {
+    await createAfterServiceLog(
+      newCustomerId,
+      data.id,
+      'update-after-service-info',
+      '',
+      changeObj
+    );
+  }
+
+  return data;
+};
+
+/**
+ * AS 삭제
+ */
+export const deleteAfterService = async (id: string) => {
+  const { error } = await supabase
+    .from('after_services')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+};

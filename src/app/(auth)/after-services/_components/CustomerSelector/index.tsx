@@ -10,6 +10,7 @@ interface CustomerSelectorProps {
   onChange: (customerId: string | null, customer: CustomerType | null) => void;
   error?: string;
   required?: boolean;
+  initialCustomer?: CustomerType | null;
 }
 
 export default function CustomerSelector({
@@ -17,6 +18,7 @@ export default function CustomerSelector({
   onChange,
   error,
   required = false,
+  initialCustomer,
 }: CustomerSelectorProps) {
   const [searchKeyword, setSearchKeyword] = useState('');
   const [searchResults, setSearchResults] = useState<CustomerType[]>([]);
@@ -26,6 +28,15 @@ export default function CustomerSelector({
     null
   );
   const searchRef = useRef<HTMLDivElement>(null);
+
+  // initialCustomer가 변경되면 선택된 고객 정보 업데이트
+  useEffect(() => {
+    if (initialCustomer) {
+      setSelectedCustomer(initialCustomer);
+    } else if (!value) {
+      setSelectedCustomer(null);
+    }
+  }, [initialCustomer, value]);
 
   // ========================================================================
   // 고객 검색 기능
@@ -78,16 +89,6 @@ export default function CustomerSelector({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // value가 변경되면 선택된 고객 정보 업데이트
-  // value가 null이면 선택 해제
-  useEffect(() => {
-    if (!value && selectedCustomer) {
-      setSelectedCustomer(null);
-      setSearchKeyword('');
-    }
-    // value가 있지만 selectedCustomer가 없는 경우는 onChange에서 처리됨
-  }, [value, selectedCustomer]);
-
   // ========================================================================
   // 이벤트 핸들러
   // ========================================================================
@@ -119,12 +120,17 @@ export default function CustomerSelector({
         <div className="relative">
           <input
             type="text"
-            className="w-full rounded border border-brand-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
+            className={`w-full rounded border border-brand-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 ${
+              selectedCustomer
+                ? 'bg-gray-50 text-gray-500 cursor-not-allowed'
+                : 'bg-white'
+            }`}
             placeholder="이름 또는 전화번호로 검색하세요"
             value={searchKeyword}
             onChange={(e) => {
-              setSearchKeyword(e.target.value);
-              // 검색어 변경 시 선택된 고객은 유지 (검색창은 검색용)
+              if (!selectedCustomer) {
+                setSearchKeyword(e.target.value);
+              }
             }}
             onFocus={() => {
               // 고객이 선택되어 있지 않을 때만 검색 결과 표시
@@ -132,6 +138,7 @@ export default function CustomerSelector({
                 setShowResults(true);
               }
             }}
+            disabled={!!selectedCustomer}
           />
           {isSearching && (
             <div className="absolute right-3 top-1/2 -translate-y-1/2">

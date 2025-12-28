@@ -2,7 +2,7 @@
 
 import { Controller, Resolver, useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Button from '@/app/_components/Button';
 import {
   AfterServiceItemTypeEnum,
@@ -103,10 +103,27 @@ export default function AfterServiceCreateModal({
   onSubmit,
   onCancel,
   isSubmitting,
+  initialData,
+  mode = 'create',
+  onDelete,
+  isAdmin = false,
 }: {
   onSubmit: (values: FormValues) => Promise<void> | void;
   onCancel: () => void;
   isSubmitting: boolean;
+  initialData?: {
+    customerId?: string | null;
+    customerName?: string | null;
+    customerPhone?: string | null;
+    itemType: AfterServiceItemTypeEnumType['value'];
+    itemName: string;
+    quantity: number;
+    symptom: string;
+    note?: string | null;
+  };
+  mode?: 'create' | 'edit';
+  onDelete?: () => Promise<void> | void;
+  isAdmin?: boolean;
 }) {
   // ========================================================================
   // 상태 관리
@@ -119,6 +136,7 @@ export default function AfterServiceCreateModal({
   );
   const [selectedCustomerInfo, setSelectedCustomerInfo] =
     useState<CustomerType | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // ========================================================================
   // React Hook Form 설정
@@ -129,18 +147,57 @@ export default function AfterServiceCreateModal({
     formState: { errors, isValid },
     control,
     setValue,
+    reset,
   } = useForm<FormValues>({
     mode: 'onChange',
     resolver: safeResolver(schema) as Resolver<FormValues, unknown>,
     defaultValues: {
-      customerId: '',
-      itemType: AfterServiceItemTypeEnum.DEVICE.value,
-      itemName: '',
-      quantity: 1,
-      symptom: '',
-      note: '',
+      customerId: initialData?.customerId || '',
+      itemType: initialData?.itemType || AfterServiceItemTypeEnum.DEVICE.value,
+      itemName: initialData?.itemName || '',
+      quantity: initialData?.quantity || 1,
+      symptom: initialData?.symptom || '',
+      note: initialData?.note || '',
     },
   });
+
+  // 초기 데이터가 변경되면 폼 리셋
+  useEffect(() => {
+    if (initialData) {
+      const customerId = initialData.customerId || null;
+      setSelectedCustomerId(customerId);
+
+      // 고객 정보 설정
+      if (customerId && initialData.customerName) {
+        const customer: CustomerType = {
+          id: customerId,
+          name: initialData.customerName,
+          phone: initialData.customerPhone || '',
+          gender: 'male',
+          note: null,
+          created_at: '',
+          updated_at: '',
+          stamps: [],
+        };
+        setSelectedCustomerInfo(customer);
+      } else {
+        setSelectedCustomerInfo(null);
+      }
+
+      reset({
+        customerId: customerId || '',
+        itemType: initialData.itemType,
+        itemName: initialData.itemName,
+        quantity: initialData.quantity,
+        symptom: initialData.symptom,
+        note: initialData.note || '',
+      });
+    } else {
+      // initialData가 없으면 초기화
+      setSelectedCustomerId(null);
+      setSelectedCustomerInfo(null);
+    }
+  }, [initialData, reset]);
 
   // ========================================================================
   // 고객 선택 핸들러
@@ -255,7 +312,7 @@ export default function AfterServiceCreateModal({
 
         <div className="text-center py-4">
           <p className="text-gray-700 text-sm">
-            위 정보로 AS를 등록하시겠습니까?
+            위 정보로 AS를 {mode === 'edit' ? '수정' : '등록'}하시겠습니까?
           </p>
         </div>
 
@@ -273,7 +330,13 @@ export default function AfterServiceCreateModal({
             onClick={handleConfirm}
             size="sm"
           >
-            {isSubmitting ? '등록 중...' : '등록'}
+            {isSubmitting
+              ? mode === 'edit'
+                ? '수정 중...'
+                : '등록 중...'
+              : mode === 'edit'
+              ? '수정'
+              : '등록'}
           </Button>
         </div>
       </div>
@@ -289,7 +352,9 @@ export default function AfterServiceCreateModal({
       className="w-full"
       noValidate
     >
-      <h2 className="text-lg font-semibold mb-3">AS 추가</h2>
+      <h2 className="text-lg font-semibold mb-3">
+        {mode === 'edit' ? 'AS 수정' : 'AS 추가'}
+      </h2>
 
       <div className="space-y-3">
         {/* 고객 검색 */}
@@ -297,6 +362,7 @@ export default function AfterServiceCreateModal({
           value={selectedCustomerId}
           onChange={handleCustomerChange}
           error={errors.customerId?.message}
+          initialCustomer={selectedCustomerInfo}
         />
 
         {/* 기기 종류 선택 (Radio) */}
@@ -405,19 +471,81 @@ export default function AfterServiceCreateModal({
         </div>
       </div>
 
-      <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 mt-6">
-        <Button
-          size="sm"
-          variant="gray"
-          disabled={isSubmitting}
-          onClick={onCancel}
-        >
-          취소
-        </Button>
-        <Button size="sm" type="submit" disabled={isSubmitting}>
-          {isSubmitting ? '등록 중...' : '등록'}
-        </Button>
+      <div
+        className={`pt-4 border-t border-gray-200 flex mt-6 ${
+          mode === 'edit' && onDelete && isAdmin
+            ? 'justify-between'
+            : 'justify-end'
+        }`}
+      >
+        {mode === 'edit' && onDelete && isAdmin && (
+          <div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setShowDeleteConfirm(true)}
+              disabled={isSubmitting}
+            >
+              AS 삭제
+            </Button>
+          </div>
+        )}
+
+        <div className="flex gap-3">
+          <Button
+            size="sm"
+            variant="gray"
+            disabled={isSubmitting}
+            onClick={onCancel}
+          >
+            취소
+          </Button>
+          <Button size="sm" type="submit" disabled={isSubmitting}>
+            {isSubmitting
+              ? mode === 'edit'
+                ? '수정 중...'
+                : '등록 중...'
+              : mode === 'edit'
+              ? '수정'
+              : '등록'}
+          </Button>
+        </div>
       </div>
+
+      {/* 삭제 확인 모달 */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[2002] flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">AS 삭제 확인</h3>
+            <p className="text-gray-600 mb-6">
+              정말로 이 AS를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button
+                size="sm"
+                variant="gray"
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={isSubmitting}
+              >
+                취소
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={async () => {
+                  if (onDelete) {
+                    await onDelete();
+                    setShowDeleteConfirm(false);
+                  }
+                }}
+                disabled={isSubmitting}
+              >
+                삭제
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   );
 }

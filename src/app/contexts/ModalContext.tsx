@@ -10,6 +10,7 @@ import {
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { lockScroll, unlockScroll } from '@/app/_utils/scrollLock';
 
 type ModalOptions = {
   dismissOnBackdrop?: boolean;
@@ -56,10 +57,10 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
       }
     };
     document.addEventListener('keydown', handleKeyDown);
-    document.body.style.overflow = 'hidden';
+    lockScroll();
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = '';
+      unlockScroll();
     };
   }, [isOpen, options.dismissOnEsc]);
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import Button from '@/app/_components/Button';
 import Loading from '@/app/_components/Loading';
 import { useLogsByAfterServiceId } from '@/app/_hooks/useLogsByAfterServiceId';
@@ -8,16 +8,30 @@ import { updateLogNote } from '@/services/logService';
 import toast from 'react-hot-toast';
 import AfterServiceLogItem from './AfterServiceLogItem';
 import { AfterServiceLogType } from '@/app/_types/log.types';
+import {
+  ActionInfoLabel,
+  LogActorInfo,
+  ChangeFields,
+} from '@/app/(auth)/_components/HistoriesComponents';
 
 const PAGE_SIZE = 10;
 
 const AfterServiceLogList = ({
   afterServiceId,
+  refreshKey = 0,
 }: {
   afterServiceId: number;
+  refreshKey?: number;
 }) => {
   const { logs, isLoading, error, hasMore, loadMore, refresh } =
     useLogsByAfterServiceId(afterServiceId, PAGE_SIZE);
+
+  // refreshKey가 변경되면 로그 목록 새로고침
+  useEffect(() => {
+    if (refreshKey > 0) {
+      refresh();
+    }
+  }, [refreshKey, refresh]);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState('');
@@ -126,6 +140,31 @@ const AfterServiceLogList = ({
                 {/* 해당 날짜 로그들 */}
                 <div className="space-y-3">
                   {logsOfDate.map((log: AfterServiceLogType) => {
+                    // update-after-service-info 액션인 경우 CustomersDetailUpdateHistories와 동일한 형식으로 렌더링
+                    if (log.action === 'update-after-service-info') {
+                      return (
+                        <div
+                          key={log.id}
+                          className="flex items-center justify-between p-3 rounded border border-brand-50 hover:bg-brand-50/30 transition-colors text-sm"
+                        >
+                          <div className="flex items-center gap-6">
+                            <ActionInfoLabel action={log.action} />
+                            {log.jsonb && <ChangeFields jsonb={log.jsonb} />}
+                          </div>
+
+                          {log.users && (
+                            <div className="text-right">
+                              <LogActorInfo
+                                users={log.users}
+                                created_at={log.created_at}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+
+                    // 기존 로그 아이템 렌더링 (다른 액션들)
                     const isEditing = editingId === log.id;
                     const currentNote = isEditing ? noteDraft : log.note ?? '';
                     return (

@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { lockScroll, unlockScroll } from '@/app/_utils/scrollLock';
 
 interface DrawerProps {
   isOpen: boolean;
@@ -13,13 +14,11 @@ interface DrawerProps {
 const Drawer = ({ isOpen, onClose, children, width = 'w-96' }: DrawerProps) => {
   useEffect(() => {
     if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
+      lockScroll();
+      return () => {
+        unlockScroll();
+      };
     }
-    return () => {
-      document.body.style.overflow = '';
-    };
   }, [isOpen]);
 
   useEffect(() => {
