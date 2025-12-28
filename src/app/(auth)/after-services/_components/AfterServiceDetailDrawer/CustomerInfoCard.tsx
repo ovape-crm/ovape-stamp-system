@@ -7,21 +7,18 @@ interface CustomerInfoCardProps {
   customerId: string | null;
   customerName?: string | null;
   customerPhone?: string | null;
-  onClose: () => void;
 }
 
 const CustomerInfoCard = ({
   customerId,
   customerName,
   customerPhone,
-  onClose,
 }: CustomerInfoCardProps) => {
   const router = useRouter();
 
   const handleClick = () => {
     if (customerId) {
       router.push(`/customers/${customerId}`);
-      onClose();
     }
   };
 

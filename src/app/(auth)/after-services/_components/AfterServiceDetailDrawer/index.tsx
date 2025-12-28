@@ -195,7 +195,6 @@ const AfterServiceDetailDrawer = ({
                     customerId={afterServiceDetail.customer_id}
                     customerName={afterServiceDetail.customers?.name}
                     customerPhone={afterServiceDetail.customers?.phone}
-                    onClose={onClose}
                   />
                 </div>
 

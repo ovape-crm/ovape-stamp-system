@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import Button from '@/app/_components/Button';
 import { useModal } from '@/app/contexts/ModalContext';
 import AfterServiceCreateModal from './_components/AfterServiceCreateModal';
@@ -13,18 +14,21 @@ import AfterServiceSearchBox from './_components/AfterServiceSearchBox';
 import AfterServiceProgressBox from './_components/AfterServiceProgressBox';
 
 const AfterServicesPage = () => {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { open, close } = useModal();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [selectedAfterServiceId, setSelectedAfterServiceId] = useState<
-    string | null
-  >(null);
   const [filters, setFilters] = useState<{
     status?: string;
     searchTarget?: string;
     searchKeyword?: string;
   }>({});
+
+  // 쿼리 파라미터에서 id 가져오기
+  const selectedAfterServiceId = searchParams.get('id');
+  const isDrawerOpen = !!selectedAfterServiceId;
 
   // ========================================================================
   // AS 생성 핸들러
@@ -41,7 +45,8 @@ const AfterServicesPage = () => {
       setIsSubmitting(true);
 
       await createAfterService({
-        customerId: values.customerId.length > 0 ? String(values.customerId) : null,
+        customerId:
+          values.customerId.length > 0 ? String(values.customerId) : null,
         itemType: values.itemType,
         itemName: values.itemName,
         quantity: values.quantity,
@@ -112,8 +117,11 @@ const AfterServicesPage = () => {
       <AfterServiceDetailDrawer
         isOpen={isDrawerOpen}
         onClose={() => {
-          setIsDrawerOpen(false);
-          setSelectedAfterServiceId(null);
+          // 쿼리 파라미터에서 id 제거
+          const params = new URLSearchParams(searchParams.toString());
+          params.delete('id');
+          const newSearch = params.toString();
+          router.push(newSearch ? `${pathname}?${newSearch}` : pathname);
         }}
         afterServiceId={selectedAfterServiceId}
       />
@@ -123,8 +131,10 @@ const AfterServicesPage = () => {
         refreshKey={refreshKey}
         filters={filters}
         onRowClick={(id) => {
-          setSelectedAfterServiceId(id);
-          setIsDrawerOpen(true);
+          // 쿼리 파라미터에 id 추가
+          const params = new URLSearchParams(searchParams.toString());
+          params.set('id', id);
+          router.push(`${pathname}?${params.toString()}`);
         }}
       />
     </div>
