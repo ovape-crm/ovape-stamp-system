@@ -17,6 +17,10 @@ export type LogBaseType = {
   jsonb: Record<string, unknown>;
 };
 
+export type AfterServiceLogType = LogBaseType & {
+  after_service_id: number;
+};
+
 export type LogCustomerInfo = {
   name: string;
   phone: string;
@@ -24,6 +28,9 @@ export type LogCustomerInfo = {
 
 // 고객 상세 페이지의 로그
 export type CustomersLogsResType = LogBaseType[];
+
+// AS 상세 페이지의 로그
+export type AfterServiceLogsResType = AfterServiceLogType[];
 
 // 이력 페이지의 로그
 export type LogsResType = LogBaseType & {

@@ -59,7 +59,75 @@ export const LogCategoryEnum = {
     value: 'remark',
     name: '특이사항',
   },
+  AFTER_SERVICE: {
+    value: 'after_service',
+    name: 'AS',
+  },
 } as const;
 
 export type LogCategoryEnumType =
   (typeof LogCategoryEnum)[keyof typeof LogCategoryEnum];
+
+export const AfterServiceStatusEnum = {
+  RECEIVED: {
+    value: 'received',
+    name: '접수',
+  },
+  EXCHANGE: {
+    value: 'exchange',
+    name: '교환',
+  },
+  RENTAL: {
+    value: 'rental',
+    name: '대여',
+  },
+  SENT_FOR_REPAIR: {
+    value: 'sent_for_repair',
+    name: '수리 접수',
+  },
+  REPAIR_RETURNED: {
+    value: 'repair_returned',
+    name: '수리 수령',
+  },
+  REPAIR_REJECTED: {
+    value: 'repair_rejected',
+    name: 'AS 불가',
+  },
+  CUSTOMER_RECEIVED: {
+    value: 'customer_received',
+    name: '고객 수령',
+  },
+  RETURNED: {
+    value: 'returned',
+    name: '반품 처리',
+  },
+  OTHER: {
+    value: 'other',
+    name: '기타',
+  },
+} as const;
+
+export type AfterServiceStatusEnumType =
+  (typeof AfterServiceStatusEnum)[keyof typeof AfterServiceStatusEnum];
+
+export const AfterServiceItemTypeEnum = {
+  DEVICE: {
+    value: 'device',
+    name: '기기',
+  },
+  DISPOSABLE_DEVICE: {
+    value: 'disposable_device',
+    name: '일회용 기기',
+  },
+  LIQUID: {
+    value: 'liquid',
+    name: '액상',
+  },
+  CONSUMABLE: {
+    value: 'consumable',
+    name: '소모품',
+  },
+} as const;
+
+export type AfterServiceItemTypeEnumType =
+  (typeof AfterServiceItemTypeEnum)[keyof typeof AfterServiceItemTypeEnum];

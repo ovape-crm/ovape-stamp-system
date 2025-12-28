@@ -22,6 +22,56 @@ export const getActionText = (action: string) => {
     return { text: `고객 추가`, color: 'text-green-700 bg-green-100' };
   }
 
+  if (action === 'update-after-service-info') {
+    return { text: `AS 정보 수정`, color: 'text-gray-700 bg-gray-100' };
+  }
+
+  // AS 상태 액션 처리
+  if (action.startsWith('after-service-')) {
+    const statusValue = action.replace('after-service-', '');
+    const statusMap: Record<string, string> = {
+      received: '접수',
+      exchange: '교환',
+      rental: '대여',
+      sent_for_repair: '수리 접수',
+      repair_returned: '수리 수령',
+      repair_rejected: 'AS 불가',
+      customer_received: '고객 수령',
+      returned: '반품 처리',
+      other: '기타',
+    };
+    const statusName = statusMap[statusValue] || statusValue;
+
+    // 상태 그룹별 색상 분류 (AfterServiceProgressBox 참조)
+    const receivedStatuses = ['received'];
+    const inProgressStatuses = [
+      'exchange',
+      'rental',
+      'sent_for_repair',
+      'repair_returned',
+      'other',
+    ];
+    const completedStatuses = [
+      'repair_rejected',
+      'customer_received',
+      'returned',
+    ];
+
+    let color = 'text-gray-700 bg-gray-100'; // 기본값
+    if (receivedStatuses.includes(statusValue)) {
+      color = 'text-gray-700 bg-gray-100'; // 접수: 회색
+    } else if (inProgressStatuses.includes(statusValue)) {
+      color = 'text-blue-700 bg-blue-100'; // 진행: 파란색
+    } else if (completedStatuses.includes(statusValue)) {
+      color = 'text-green-700 bg-green-100'; // 완료: 녹색
+    }
+
+    return {
+      text: statusName,
+      color,
+    };
+  }
+
   return { text: action, color: 'text-gray-700 bg-gray-100' };
 };
 

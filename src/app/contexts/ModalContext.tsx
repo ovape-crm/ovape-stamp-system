@@ -10,6 +10,7 @@ import {
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { lockScroll, unlockScroll } from '@/app/_utils/scrollLock';
 
 type ModalOptions = {
   dismissOnBackdrop?: boolean;
@@ -56,10 +57,10 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
       }
     };
     document.addEventListener('keydown', handleKeyDown);
-    document.body.style.overflow = 'hidden';
+    lockScroll();
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = '';
+      unlockScroll();
     };
   }, [isOpen, options.dismissOnEsc]);
 
@@ -86,14 +87,14 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
       {isOpen &&
         modalRootRef.current &&
         createPortal(
-          <div className="fixed inset-0 z-[1000] flex items-center justify-center">
+          <div className="fixed inset-0 z-[2000] flex items-center justify-center">
             <div
               className="absolute inset-0 bg-black/50"
               onClick={() => {
                 if (options.dismissOnBackdrop !== false) close();
               }}
             />
-            <div className="relative z-[1001] max-h-[90vh] w-[90vw] max-w-md overflow-auto rounded-lg bg-white p-4 shadow-xl dark:bg-neutral-900">
+            <div className="relative z-[2001] max-h-[90vh] w-[90vw] max-w-md overflow-auto rounded-lg bg-white p-4 shadow-xl dark:bg-neutral-900">
               {content}
             </div>
           </div>,

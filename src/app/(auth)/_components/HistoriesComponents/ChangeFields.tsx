@@ -3,7 +3,19 @@ const fieldMap = {
   phone: '전화번호',
   gender: '성별',
   note: '특이사항',
+  customer_id: '고객 ID',
+  item_type: '기기 종류',
+  item_name: '품명',
+  quantity: '수량',
+  symptom: '증상',
 } as const;
+
+const itemTypeMap: Record<string, string> = {
+  device: '기기',
+  disposable_device: '일회용 기기',
+  liquid: '액상',
+  consumable: '소모품',
+};
 
 const ChangeFields = ({ jsonb }: { jsonb: Record<string, unknown> }) => {
   const validEntries = Object.entries(jsonb).filter(
@@ -16,11 +28,17 @@ const ChangeFields = ({ jsonb }: { jsonb: Record<string, unknown> }) => {
 
   if (validEntries.length === 0) return null;
 
-  const formatValue = (value: unknown) => {
+  const formatValue = (value: unknown, fieldName?: string) => {
     if (value === null || value === undefined || value === '') return '-';
 
-    if (value === 'male') return '남자';
-    if (value === 'female') return '여자';
+    if (fieldName === 'gender') {
+      if (value === 'male') return '남자';
+      if (value === 'female') return '여자';
+    }
+
+    if (fieldName === 'item_type') {
+      return itemTypeMap[String(value)] || String(value);
+    }
 
     return String(value);
   };
@@ -39,7 +57,7 @@ const ChangeFields = ({ jsonb }: { jsonb: Record<string, unknown> }) => {
             </span>
             {'old' in change && (
               <span className="px-2 py-0.5 rounded bg-gray-100 text-gray-500">
-                {formatValue(change.old)}
+                {formatValue(change.old, fieldName)}
               </span>
             )}
             {'old' in change && 'new' in change && (
@@ -47,7 +65,7 @@ const ChangeFields = ({ jsonb }: { jsonb: Record<string, unknown> }) => {
             )}
             {'new' in change && (
               <span className="px-2 py-0.5 rounded bg-brand-50 text-brand-700">
-                {formatValue(change.new)}
+                {formatValue(change.new, fieldName)}
               </span>
             )}
           </div>
