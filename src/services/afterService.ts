@@ -49,7 +49,7 @@ export const createAfterService = async ({
 
   if (error) throw error;
 
-  await createAfterServiceLog(customerId, data.id, 'after-service-recieved');
+  await createAfterServiceLog(customerId, data.id, 'after-service-received');
 
   return data;
 };

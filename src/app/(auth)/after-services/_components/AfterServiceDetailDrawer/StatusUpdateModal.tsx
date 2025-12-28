@@ -114,7 +114,7 @@ const StatusUpdateModal = ({
             name="status"
             control={control}
             render={({ field }) => (
-              <Dropdown usePortal>
+              <Dropdown>
                 <Dropdown.Trigger>
                   {statusOptions.find((opt) => opt.value === field.value)
                     ?.label || '상태를 선택하세요'}

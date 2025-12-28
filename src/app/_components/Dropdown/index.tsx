@@ -23,8 +23,6 @@ interface DropdownContextType {
   isOpen: boolean;
   toggleDropdown: () => void;
   closeDropdown: () => void;
-  openDropdown: () => void;
-  options: DropdownOption[];
   selectedOption: DropdownOption | null;
   handleSelect: (option: DropdownOption) => void;
   focusedIndex: number | null;
@@ -33,54 +31,39 @@ interface DropdownContextType {
   contentRef: React.RefObject<HTMLDivElement | null>;
   itemCount: number;
   setItemCount: (count: number) => void;
-  usePortal: boolean;
 }
 
 const DropdownContext = createContext<DropdownContextType | null>(null);
 
-const DropdownProvider = ({
-  children,
-  usePortal = false,
-}: {
-  children: React.ReactNode;
-  usePortal?: boolean;
-}) => {
+const DropdownProvider = ({ children }: { children: React.ReactNode }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedOption, setSelectedOption] = useState<DropdownOption | null>(
     null
   );
-  const [options, setOptions] = useState<DropdownOption[]>([]);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
   const [itemCount, setItemCount] = useState(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
 
   const closeDropdown = useCallback(() => {
     setIsOpen(false);
-  }, []);
-
-  const openDropdown = useCallback(() => {
-    setIsOpen(true);
-    setFocusedIndex(0);
+    setFocusedIndex(null);
   }, []);
 
   const toggleDropdown = useCallback(() => {
     if (isOpen) {
-      setIsOpen(false);
-      setFocusedIndex(null);
+      closeDropdown();
     } else {
       setIsOpen(true);
       setFocusedIndex(0);
     }
-  }, [isOpen]);
+  }, [isOpen, closeDropdown]);
 
   const handleSelect = useCallback(
     (option: DropdownOption) => {
       setSelectedOption(option);
       closeDropdown();
-      setFocusedIndex(null);
-      // 포커스를 다시 trigger로 이동
       setTimeout(() => {
         triggerRef.current?.focus();
       }, 0);
@@ -88,12 +71,15 @@ const DropdownProvider = ({
     [closeDropdown]
   );
 
+  // 외부 클릭 감지 (Portal로 렌더링된 content도 고려)
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
+      const target = event.target as Node;
+      const isInsideDropdown =
+        dropdownRef.current?.contains(target) ||
+        contentRef.current?.contains(target);
+
+      if (!isInsideDropdown) {
         closeDropdown();
       }
     };
@@ -101,41 +87,34 @@ const DropdownProvider = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [closeDropdown]);
 
+  // ESC 키 처리
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && isOpen) {
         closeDropdown();
-        setFocusedIndex(null);
         triggerRef.current?.focus();
       }
     };
-    if (isOpen) {
-      document.addEventListener('keydown', handleKeyDown);
-    }
+    document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, closeDropdown]);
 
-  // Arrow 키 네비게이션 (dropdown이 열려있을 때, 아이템에서만 처리)
+  // Arrow 키 네비게이션
   useEffect(() => {
     if (!isOpen || itemCount === 0) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
-      const isItem = target.getAttribute('role') === 'option';
-
-      // 아이템에서만 처리 (trigger는 자체 handler에서 처리)
-      if (!isItem) return;
+      if (target.getAttribute('role') !== 'option') return;
 
       if (event.key === 'ArrowDown') {
         event.preventDefault();
-        // 다음 아이템으로
         setFocusedIndex((prev) => {
           if (prev === null) return 0;
           return prev < itemCount - 1 ? prev + 1 : 0;
         });
       } else if (event.key === 'ArrowUp') {
         event.preventDefault();
-        // 이전 아이템으로
         setFocusedIndex((prev) => {
           if (prev === null) return itemCount - 1;
           return prev > 0 ? prev - 1 : itemCount - 1;
@@ -158,10 +137,7 @@ const DropdownProvider = ({
       isOpen,
       toggleDropdown,
       closeDropdown,
-      openDropdown,
       selectedOption,
-      options,
-      setOptions,
       handleSelect,
       focusedIndex,
       setFocusedIndex,
@@ -169,20 +145,15 @@ const DropdownProvider = ({
       contentRef,
       itemCount,
       setItemCount,
-      usePortal,
     }),
     [
       isOpen,
       toggleDropdown,
       closeDropdown,
-      openDropdown,
       selectedOption,
-      options,
-      setOptions,
       handleSelect,
       focusedIndex,
       itemCount,
-      usePortal,
     ]
   );
 
@@ -221,7 +192,6 @@ const DropdownTrigger = ({ children }: { children: React.ReactNode }) => {
       if (!isOpen) {
         toggleDropdown();
       } else {
-        // 이미 열려있으면 첫 번째 아이템으로 포커스
         setFocusedIndex(0);
       }
     } else if (e.key === 'ArrowUp' && isOpen) {
@@ -230,41 +200,13 @@ const DropdownTrigger = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const triggerClasses = [
-    'w-full',
-    'rounded-lg',
-    'font-medium',
-    'transition-colors',
-    'shadow-sm',
-    'outline-none',
-    'focus:ring-2',
-    'focus:ring-offset-2',
-    'focus:ring-brand-500',
-    'focus:border-brand-500',
-    'cursor-pointer',
-    'bg-white/70',
-    'border',
-    'border-brand-200',
-    'text-brand-700',
-    'hover:bg-brand-50',
-    'hover:border-brand-300',
-    'px-6',
-    'py-2',
-    'text-base',
-    'flex',
-    'items-center',
-    'justify-between',
-    'gap-2',
-    'text-left',
-  ].join(' ');
-
   return (
     <button
       ref={triggerRef}
       type="button"
       onClick={toggleDropdown}
       onKeyDown={handleKeyDown}
-      className={triggerClasses}
+      className="w-full rounded-lg font-medium transition-colors shadow-sm outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 focus:border-brand-500 cursor-pointer bg-white/70 border border-brand-200 text-brand-700 hover:bg-brand-50 hover:border-brand-300 px-6 py-2 text-base flex items-center justify-between gap-2 text-left"
       aria-expanded={isOpen}
       aria-haspopup="listbox"
       aria-label="Select an option"
@@ -291,20 +233,26 @@ const DropdownTrigger = ({ children }: { children: React.ReactNode }) => {
 };
 
 const DropdownContent = ({ children }: { children: React.ReactNode }) => {
-  const { isOpen, contentRef, setItemCount, triggerRef, usePortal } =
-    useDropdown();
+  const { isOpen, setItemCount, triggerRef, contentRef } = useDropdown();
   const [position, setPosition] = useState<{
     top: number;
     left: number;
     width: number;
   } | null>(null);
 
-  // 자동으로 index를 주입하고 아이템 개수 추적
-  const itemsWithIndex = useMemo(() => {
+  // 아이템 개수 추적
+  useEffect(() => {
     const items = Children.toArray(children).filter(
       (child) => isValidElement(child) && child.type === DropdownItem
     );
     setItemCount(items.length);
+  }, [children, setItemCount]);
+
+  // 자동으로 index를 주입
+  const itemsWithIndex = useMemo(() => {
+    const items = Children.toArray(children).filter(
+      (child) => isValidElement(child) && child.type === DropdownItem
+    );
     return Children.map(items, (child, index) => {
       if (isValidElement(child)) {
         return cloneElement(child, {
@@ -314,14 +262,12 @@ const DropdownContent = ({ children }: { children: React.ReactNode }) => {
       }
       return child;
     });
-  }, [children, setItemCount]);
+  }, [children]);
 
-  // trigger 위치 계산 (portal 사용 시에만)
+  // trigger 위치 계산 (Portal 사용)
   useEffect(() => {
-    if (!isOpen || !triggerRef.current || !usePortal) {
-      if (usePortal) {
-        setPosition(null);
-      }
+    if (!isOpen || !triggerRef.current) {
+      setPosition(null);
       return;
     }
 
@@ -329,14 +275,13 @@ const DropdownContent = ({ children }: { children: React.ReactNode }) => {
       if (triggerRef.current) {
         const rect = triggerRef.current.getBoundingClientRect();
         setPosition({
-          top: rect.bottom + window.scrollY + 8, // mt-2 = 8px
+          top: rect.bottom + window.scrollY + 8,
           left: rect.left + window.scrollX,
           width: rect.width,
         });
       }
     };
 
-    // 즉시 위치 계산
     updatePosition();
     window.addEventListener('scroll', updatePosition, true);
     window.addEventListener('resize', updatePosition);
@@ -345,69 +290,28 @@ const DropdownContent = ({ children }: { children: React.ReactNode }) => {
       window.removeEventListener('scroll', updatePosition, true);
       window.removeEventListener('resize', updatePosition);
     };
-  }, [isOpen, triggerRef, usePortal]);
-
-  const baseContentClasses = [
-    'rounded-lg',
-    'shadow-lg',
-    'bg-white',
-    'border',
-    'border-brand-200',
-    'overflow-hidden',
-    'transition-all',
-    'duration-200',
-  ].join(' ');
-
-  const animationClasses = usePortal
-    ? isOpen
-      ? 'opacity-100 scale-100'
-      : 'opacity-0 scale-95 pointer-events-none'
-    : isOpen
-    ? 'opacity-100 translate-y-0'
-    : 'opacity-0 -translate-y-2 pointer-events-none';
-
-  const contentClasses = usePortal
-    ? [baseContentClasses, 'fixed', 'z-[3000]', animationClasses].join(' ')
-    : [
-        baseContentClasses,
-        'absolute',
-        'z-50',
-        'w-full',
-        'mt-2',
-        animationClasses,
-      ].join(' ');
+  }, [isOpen, triggerRef]);
 
   if (!isOpen) return null;
-
-  // Portal 사용 시 위치가 계산되기 전까지는 렌더링하지 않음
-  if (usePortal && !position) return null;
+  if (!position) return null;
 
   const content = (
     <div
       ref={contentRef}
-      className={contentClasses}
+      className="fixed z-[3000] rounded-lg shadow-lg bg-white border border-brand-200 overflow-hidden transition-all duration-200 opacity-100 translate-y-0"
+      style={{
+        top: `${position.top}px`,
+        left: `${position.left}px`,
+        width: `${position.width}px`,
+      }}
       role="listbox"
-      style={
-        usePortal && position
-          ? {
-              top: `${position.top}px`,
-              left: `${position.left}px`,
-              width: `${position.width}px`,
-            }
-          : undefined
-      }
     >
-      <div className={`py-1 ${usePortal ? 'max-h-[300px] overflow-auto' : ''}`}>
-        {itemsWithIndex}
-      </div>
+      <div className="py-1 max-h-[300px] overflow-auto">{itemsWithIndex}</div>
     </div>
   );
 
-  if (usePortal && typeof window !== 'undefined') {
-    return createPortal(content, document.body);
-  }
-
-  return content;
+  if (typeof window === 'undefined') return null;
+  return createPortal(content, document.body);
 };
 
 const DropdownItem = ({
@@ -451,24 +355,6 @@ const DropdownItem = ({
     }
   };
 
-  const itemClasses = [
-    'px-6',
-    'py-2',
-    'text-base',
-    'cursor-pointer',
-    'transition-colors',
-    'text-brand-700',
-    'outline-none',
-    'focus:bg-brand-100',
-    'focus:ring-2',
-    'focus:ring-brand-500',
-    'focus:ring-inset',
-    isSelected ? 'bg-brand-50 text-brand-900 font-medium' : 'hover:bg-brand-50',
-    isFocused && !isSelected ? 'bg-brand-100' : '',
-  ]
-    .filter(Boolean)
-    .join(' ');
-
   return (
     <div
       ref={itemRef}
@@ -478,7 +364,11 @@ const DropdownItem = ({
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       onMouseEnter={() => setFocusedIndex(index)}
-      className={itemClasses}
+      className={`px-6 py-2 text-base cursor-pointer transition-colors text-brand-700 outline-none focus:bg-brand-100 focus:ring-2 focus:ring-brand-500 focus:ring-inset ${
+        isSelected
+          ? 'bg-brand-50 text-brand-900 font-medium'
+          : 'hover:bg-brand-50'
+      } ${isFocused && !isSelected ? 'bg-brand-100' : ''}`}
     >
       <div className="flex items-center justify-between">
         <span>{option.label}</span>
