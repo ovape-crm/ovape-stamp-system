@@ -35,6 +35,7 @@ export const getActionText = (action: string) => {
       rental: '대여',
       sent_for_repair: '수리 접수',
       repair_returned: '수리 수령',
+      repair_returned_completed: '수리 수령(재고 처리)',
       repair_rejected: 'AS 불가',
       customer_received: '고객 수령',
       returned: '반품 처리',
@@ -52,6 +53,7 @@ export const getActionText = (action: string) => {
       'other',
     ];
     const completedStatuses = [
+      'repair_returned_completed',
       'repair_rejected',
       'customer_received',
       'returned',

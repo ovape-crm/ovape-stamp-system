@@ -5,7 +5,6 @@ import { getAfterServices } from '@/services/afterService';
 import Loading from '@/app/_components/Loading';
 import {
   AfterServiceStatusEnum,
-  AfterServiceStatusEnumType,
   AfterServiceItemTypeEnum,
 } from '@/app/_enums/enums';
 import { useRouter } from 'next/navigation';
