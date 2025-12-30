@@ -89,6 +89,10 @@ export const AfterServiceStatusEnum = {
     value: 'repair_returned',
     name: '수리 수령',
   },
+  REPAIR_RETURNED_COMPLETED: {
+    value: 'repair_returned_completed',
+    name: '수리 수령 (재고 처리)',
+  },
   REPAIR_REJECTED: {
     value: 'repair_rejected',
     name: 'AS 불가',

@@ -35,6 +35,7 @@ const AfterServiceProgressBox = ({
         const completedStatuses = [
           'repair_rejected',
           'customer_received',
+          'repair_returned_completed',
           'returned',
         ];
 
