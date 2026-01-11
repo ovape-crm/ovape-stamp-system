@@ -2,9 +2,11 @@ import {
   AfterServiceItemTypeEnumType,
   AfterServiceStatusEnum,
   AfterServiceStatusEnumType,
+  AfterServiceStatusGroupEnumType,
 } from '@/app/_enums/enums';
 import supabase from '@/libs/supabaseClient';
 import { createAfterServiceLog } from './logService';
+import { getAfterServiceStatusGroups } from '@/app/_utils/utils';
 
 export const createAfterService = async ({
   customerId,
@@ -66,6 +68,7 @@ export const getAfterServices = async (
   offset = 0,
   filters?: {
     status?: AfterServiceStatusEnumType['value'];
+    groupStatus?: AfterServiceStatusGroupEnumType['value'];
     searchTarget?: 'name' | 'phone' | 'item_name';
     searchKeyword?: string;
     customerId?: string;
@@ -105,7 +108,21 @@ export const getAfterServices = async (
   }
 
   // status 필터링 (선택사항)
-  if (filters?.status) {
+  // groupStatus가 우선 (그룹 필터링이 있으면 그룹의 모든 status로 필터링)
+  if (filters?.groupStatus) {
+    const statusGroups = getAfterServiceStatusGroups();
+    let statusArray: string[] = [];
+    if (filters.groupStatus === 'received') {
+      statusArray = statusGroups.received;
+    } else if (filters.groupStatus === 'inProgress') {
+      statusArray = statusGroups.inProgress;
+    } else if (filters.groupStatus === 'completed') {
+      statusArray = statusGroups.completed;
+    }
+    if (statusArray.length > 0) {
+      query = query.in('status', statusArray);
+    }
+  } else if (filters?.status) {
     query = query.eq('status', filters.status);
   }
 
@@ -241,11 +258,16 @@ export const updateAfterService = async (
   if (error) throw error;
 
   // 변경사항 추적
-  const changeObj: Record<string, { old: string | number | null; new: string | number | null }> = {};
-  
-  const prevCustomerId = prevAfterService.customer_id ? String(prevAfterService.customer_id) : null;
+  const changeObj: Record<
+    string,
+    { old: string | number | null; new: string | number | null }
+  > = {};
+
+  const prevCustomerId = prevAfterService.customer_id
+    ? String(prevAfterService.customer_id)
+    : null;
   const newCustomerId = customerId ? String(customerId) : null;
-  
+
   if (prevCustomerId !== newCustomerId) {
     changeObj.customer_id = { old: prevCustomerId, new: newCustomerId };
   }
@@ -285,10 +307,7 @@ export const updateAfterService = async (
  * AS 삭제
  */
 export const deleteAfterService = async (id: string) => {
-  const { error } = await supabase
-    .from('after_services')
-    .delete()
-    .eq('id', id);
+  const { error } = await supabase.from('after_services').delete().eq('id', id);
 
   if (error) throw error;
 };

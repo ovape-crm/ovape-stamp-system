@@ -8,6 +8,7 @@ import { AfterServiceStatusEnum } from '@/app/_enums/enums';
 interface SearchBoxProps {
   onStatusChange?: (status: string) => void;
   onSearch?: (target: string, keyword: string) => void;
+  disabled?: boolean;
 }
 
 const targetOptions = [
@@ -27,6 +28,7 @@ const symptomOptions = [
 const AfterServiceSearchBox = ({
   onStatusChange,
   onSearch,
+  disabled = false,
 }: SearchBoxProps) => {
   const [target, setTarget] = useState('name');
   const [symptom, setSymptom] = useState('all');
@@ -55,7 +57,7 @@ const AfterServiceSearchBox = ({
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-gray-600">상태</label>
             <div className="w-[160px]">
-              <Dropdown>
+              <Dropdown disabled={disabled}>
                 <Dropdown.Trigger>
                   {
                     symptomOptions.find((option) => option.value === symptom)

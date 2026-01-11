@@ -18,6 +18,7 @@ interface AfterServiceListProps {
   onRowClick?: (afterServiceId: string) => void;
   filters?: {
     status?: string;
+    groupStatus?: 'received' | 'inProgress' | 'completed';
     searchTarget?: string;
     searchKeyword?: string;
   };
@@ -67,6 +68,7 @@ const AfterServiceList = ({
           filters?.status && filters.status !== 'all'
             ? (filters.status as AfterServiceStatusEnumType['value'])
             : undefined,
+        groupStatus: filters?.groupStatus,
         searchTarget: filters?.searchTarget as
           | 'name'
           | 'phone'
@@ -97,6 +99,7 @@ const AfterServiceList = ({
           filters?.status && filters.status !== 'all'
             ? (filters.status as AfterServiceStatusEnumType['value'])
             : undefined,
+        groupStatus: filters?.groupStatus,
         searchTarget: filters?.searchTarget as
           | 'name'
           | 'phone'

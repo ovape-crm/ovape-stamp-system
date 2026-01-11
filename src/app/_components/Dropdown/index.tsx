@@ -31,11 +31,20 @@ interface DropdownContextType {
   contentRef: React.RefObject<HTMLDivElement | null>;
   itemCount: number;
   setItemCount: (count: number) => void;
+  disabled: boolean;
 }
 
 const DropdownContext = createContext<DropdownContextType | null>(null);
 
-const DropdownProvider = ({ children }: { children: React.ReactNode }) => {
+interface DropdownProviderProps {
+  children: React.ReactNode;
+  disabled?: boolean;
+}
+
+const DropdownProvider = ({
+  children,
+  disabled = false,
+}: DropdownProviderProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedOption, setSelectedOption] = useState<DropdownOption | null>(
     null
@@ -52,13 +61,14 @@ const DropdownProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const toggleDropdown = useCallback(() => {
+    if (disabled) return;
     if (isOpen) {
       closeDropdown();
     } else {
       setIsOpen(true);
       setFocusedIndex(0);
     }
-  }, [isOpen, closeDropdown]);
+  }, [isOpen, closeDropdown, disabled]);
 
   const handleSelect = useCallback(
     (option: DropdownOption) => {
@@ -145,6 +155,7 @@ const DropdownProvider = ({ children }: { children: React.ReactNode }) => {
       contentRef,
       itemCount,
       setItemCount,
+      disabled,
     }),
     [
       isOpen,
@@ -154,6 +165,7 @@ const DropdownProvider = ({ children }: { children: React.ReactNode }) => {
       handleSelect,
       focusedIndex,
       itemCount,
+      disabled,
     ]
   );
 
@@ -181,9 +193,11 @@ const DropdownTrigger = ({ children }: { children: React.ReactNode }) => {
     triggerRef,
     setFocusedIndex,
     itemCount,
+    disabled,
   } = useDropdown();
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (disabled) return;
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       toggleDropdown();
@@ -204,12 +218,18 @@ const DropdownTrigger = ({ children }: { children: React.ReactNode }) => {
     <button
       ref={triggerRef}
       type="button"
-      onClick={toggleDropdown}
+      onClick={disabled ? undefined : toggleDropdown}
       onKeyDown={handleKeyDown}
-      className="w-full rounded-lg font-medium transition-colors shadow-sm outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 focus:border-brand-500 cursor-pointer bg-white/70 border border-brand-200 text-brand-700 hover:bg-brand-50 hover:border-brand-300 px-6 py-2 text-base flex items-center justify-between gap-2 text-left"
+      disabled={disabled}
+      className={`w-full rounded-lg font-medium transition-colors shadow-sm outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 focus:border-brand-500 bg-white/70 border border-brand-200 text-brand-700 px-6 py-2 text-base flex items-center justify-between gap-2 text-left ${
+        disabled
+          ? 'opacity-50 cursor-not-allowed'
+          : 'cursor-pointer hover:bg-brand-50 hover:border-brand-300'
+      }`}
       aria-expanded={isOpen}
       aria-haspopup="listbox"
       aria-label="Select an option"
+      aria-disabled={disabled}
     >
       <span>{selectedOption ? selectedOption.label : children}</span>
       <svg
