@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { getCustomers } from '@/services/customerService';
+import { getCustomers, getCustomersCount } from '@/services/customerService';
 import { CustomerType } from '@/app/_types/customer.types';
 import { formatPhoneNumber } from '@/app/_utils/utils';
 
@@ -50,10 +50,18 @@ export default function CustomerSelector({
 
     setIsSearching(true);
     try {
-      const results = await getCustomers({
-        target: 'all',
+      const searchParams = {
+        target: 'all' as const,
         keyword: keyword.trim(),
-      });
+        sortBy: 'name' as const,
+        sortOrder: 'asc' as const,
+      };
+
+      // 검색 결과의 총 개수를 먼저 확인
+      const totalCount = await getCustomersCount(searchParams);
+
+      // 모든 검색 결과를 가져오기
+      const results = await getCustomers(totalCount, 0, searchParams);
       setSearchResults(results);
       setShowResults(results.length > 0);
     } catch (error) {
