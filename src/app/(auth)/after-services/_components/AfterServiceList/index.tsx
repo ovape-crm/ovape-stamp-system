@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { getAfterServices } from '@/services/afterService';
+import { getAfterServices, getAfterServicesCount } from '@/services/afterService';
 import Loading from '@/app/_components/Loading';
 import Button from '@/app/_components/Button';
 import { formatPhoneNumber } from '@/app/_utils/utils';
@@ -55,6 +55,7 @@ const AfterServiceList = ({
   const [error, setError] = useState('');
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const [totalCount, setTotalCount] = useState<number | undefined>(undefined);
 
   const fetchAfterServices = useCallback(async () => {
     try {
@@ -63,7 +64,7 @@ const AfterServiceList = ({
       setOffset(0);
       setHasMore(true);
 
-      const data = await getAfterServices(PAGE_SIZE, 0, {
+      const filterParams = {
         status:
           filters?.status && filters.status !== 'all'
             ? (filters.status as AfterServiceStatusEnumType['value'])
@@ -75,13 +76,22 @@ const AfterServiceList = ({
           | 'item_name'
           | undefined,
         searchKeyword: filters?.searchKeyword,
-      });
+      };
+
+      // 총 개수와 데이터를 동시에 가져오기
+      const [data, count] = await Promise.all([
+        getAfterServices(PAGE_SIZE, 0, filterParams),
+        getAfterServicesCount(filterParams),
+      ]);
+
       setAfterServices(data);
+      setTotalCount(count);
       setOffset(data.length);
       setHasMore(data.length === PAGE_SIZE);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
       setAfterServices([]);
+      setTotalCount(undefined);
       setOffset(0);
       setHasMore(false);
     } finally {
@@ -149,11 +159,16 @@ const AfterServiceList = ({
     <div className="mb-10">
       <div className="flex justify-start items-center mb-3">
         <div className="text-sm text-gray-600">
-          총{' '}
           <span className="font-semibold text-brand-600">
             {afterServices.length}
           </span>
-          건
+
+          {totalCount !== undefined && totalCount > 0 && (
+            <>
+              {' / '}
+              <span className="font-semibold text-gray-600">{totalCount}</span>
+            </>
+          )}
         </div>
       </div>
       <div className="bg-white rounded-lg shadow-sm border border-brand-100 overflow-hidden overflow-x-auto">

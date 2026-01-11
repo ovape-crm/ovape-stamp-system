@@ -61,6 +61,82 @@ export const createAfterService = async ({
 };
 
 /**
+ * 전체 AS 수 조회
+ */
+export const getAfterServicesCount = async (filters?: {
+  status?: AfterServiceStatusEnumType['value'];
+  groupStatus?: AfterServiceStatusGroupEnumType['value'];
+  searchTarget?: 'name' | 'phone' | 'item_name';
+  searchKeyword?: string;
+  customerId?: string;
+}): Promise<number> => {
+  // customers 테이블로 필터링할 경우 inner join 사용
+  const needsInnerJoin =
+    filters?.searchKeyword &&
+    filters.searchKeyword.trim() &&
+    filters.searchTarget &&
+    (filters.searchTarget === 'name' || filters.searchTarget === 'phone');
+
+  // select 쿼리 조건부 설정
+  const selectQuery = needsInnerJoin
+    ? '*, customers!inner(name, phone)'
+    : '*';
+
+  let query = supabase
+    .from('after_services')
+    .select(selectQuery, {
+      count: 'exact',
+      head: true,
+    });
+
+  // customerId 필터링 (선택사항)
+  if (filters?.customerId) {
+    query = query.eq('customer_id', filters.customerId);
+  }
+
+  // status 필터링 (선택사항)
+  // groupStatus가 우선 (그룹 필터링이 있으면 그룹의 모든 status로 필터링)
+  if (filters?.groupStatus) {
+    const statusGroups = getAfterServiceStatusGroups();
+    let statusArray: string[] = [];
+    if (filters.groupStatus === 'received') {
+      statusArray = statusGroups.received;
+    } else if (filters.groupStatus === 'inProgress') {
+      statusArray = statusGroups.inProgress;
+    } else if (filters.groupStatus === 'completed') {
+      statusArray = statusGroups.completed;
+    }
+    if (statusArray.length > 0) {
+      query = query.in('status', statusArray);
+    }
+  } else if (filters?.status) {
+    query = query.eq('status', filters.status);
+  }
+
+  // 검색 필터링
+  if (
+    filters?.searchKeyword &&
+    filters.searchKeyword.trim() &&
+    filters.searchTarget
+  ) {
+    const keyword = filters.searchKeyword.trim();
+    if (filters.searchTarget === 'name') {
+      query = query.ilike('customers.name', `%${keyword}%`);
+    } else if (filters.searchTarget === 'phone') {
+      query = query.ilike('customers.phone', `%${keyword}%`);
+    } else if (filters.searchTarget === 'item_name') {
+      query = query.ilike('item_name', `%${keyword}%`);
+    }
+  }
+
+  const { count, error } = await query;
+
+  if (error) throw error;
+
+  return count || 0;
+};
+
+/**
  * 전체 AS 조회 (페이지네이션)
  */
 export const getAfterServices = async (
