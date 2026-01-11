@@ -7,14 +7,52 @@ import { getUpdateLogNote } from '@/app/_utils/utils';
 export interface SearchParams {
   target?: 'all' | 'name' | 'phone';
   keyword?: string;
+  sortBy?: 'name' | 'stamp' | 'created_at';
+  sortOrder?: 'asc' | 'desc';
 }
+
+/**
+ * 전체 고객 수 조회
+ */
+export const getCustomersCount = async (
+  params?: SearchParams
+): Promise<number> => {
+  let query = supabase.from('customers').select('*', {
+    count: 'exact',
+    head: true,
+  });
+
+  // 검색 조건 추가
+  if (params?.keyword) {
+    const { target, keyword } = params;
+
+    if (target === 'name') {
+      query = query.ilike('name', `%${keyword}%`);
+    } else if (target === 'phone') {
+      query = query.ilike('phone', `%${keyword}%`);
+    } else if (target === 'all') {
+      query = query.or(`name.ilike.%${keyword}%,phone.ilike.%${keyword}%`);
+    }
+  }
+
+  const { count, error } = await query;
+
+  if (error) throw error;
+
+  return count || 0;
+};
 
 /**
  * 고객 목록 조회
  */
 export const getCustomers = async (
+  limit = 10,
+  offset = 0,
   params?: SearchParams
 ): Promise<CustomerType[]> => {
+  const from = offset;
+  const to = offset + limit - 1;
+  
   let query = supabase.from('customers').select(`
     *,
     stamps(count)
@@ -33,8 +71,35 @@ export const getCustomers = async (
     }
   }
 
-  // 최신순 정렬
-  query = query.order('created_at', { ascending: false });
+  // 정렬 처리
+  const sortBy = params?.sortBy || 'name';
+  const sortOrder = params?.sortOrder || (sortBy === 'name' ? 'asc' : 'desc');
+
+  if (sortBy === 'stamp') {
+    // 스탬프 많은 순/적은 순은 클라이언트에서 정렬해야 함 (관계형 데이터이므로)
+    // 페이지네이션 없이 모든 데이터 가져오기
+    const { data: allData, error } = await query;
+
+    if (error) throw error;
+
+    // 클라이언트에서 정렬
+    const sortedData = [...allData].sort((a, b) => {
+      const aCount = a.stamps?.[0]?.count || 0;
+      const bCount = b.stamps?.[0]?.count || 0;
+      return sortOrder === 'desc' ? bCount - aCount : aCount - bCount;
+    });
+
+    // 정렬 후 페이지네이션 적용
+    return sortedData.slice(from, to + 1);
+  } else if (sortBy === 'created_at') {
+    query = query.order('created_at', { ascending: sortOrder === 'asc' });
+  } else {
+    // 기본: 이름 가나다 순
+    query = query.order('name', { ascending: sortOrder === 'asc' });
+  }
+
+  // 페이지네이션 적용
+  query = query.range(from, to);
 
   const { data, error } = await query;
 

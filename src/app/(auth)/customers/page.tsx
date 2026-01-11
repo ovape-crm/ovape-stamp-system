@@ -16,8 +16,20 @@ export default function CustomersPage() {
   // ========================================================================
   // Hooks 및 상태
   // ========================================================================
-  const { customers, isLoading, error, search, refresh, hasQuery } =
-    useCustomers();
+  const {
+    customers,
+    isLoading,
+    error,
+    search,
+    refresh,
+    loadMore,
+    hasMore,
+    isLoadingMore,
+    totalCount,
+    sortBy,
+    sortOrder,
+    setSort,
+  } = useCustomers();
   const { open, close } = useModal();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -122,19 +134,20 @@ export default function CustomersPage() {
         </Button>
       </div>
 
-      {/* 고객 목록 또는 안내 메시지 */}
-      {!hasQuery ? (
-        <div className="bg-white rounded-lg border border-brand-100 p-10 text-center text-gray-500">
-          검색어를 입력해주세요.
-        </div>
-      ) : (
-        <CustomerList
-          customers={customers}
-          isLoading={isLoading}
-          error={error}
-          onUpdate={refresh}
-        />
-      )}
+      {/* 고객 목록 */}
+      <CustomerList
+        customers={customers}
+        isLoading={isLoading}
+        error={error}
+        onUpdate={refresh}
+        loadMore={loadMore}
+        hasMore={hasMore}
+        isLoadingMore={isLoadingMore}
+        totalCount={totalCount}
+        sortBy={sortBy}
+        sortOrder={sortOrder}
+        onSortChange={setSort}
+      />
     </div>
   );
 }
