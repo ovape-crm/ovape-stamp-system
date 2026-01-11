@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { AfterServiceStatusEnum } from '@/app/_enums/enums';
+import { getActionText } from '@/app/_utils/utils';
 
 interface StatusBoxProps {
   status: string;
@@ -11,32 +11,35 @@ interface StatusBoxProps {
 const StatusBox = ({ status, onEdit }: StatusBoxProps) => {
   const [isHovered, setIsHovered] = useState(false);
 
-  const getStatusInfo = (statusValue: string) => {
-    const statusOption = Object.values(AfterServiceStatusEnum).find(
-      (opt) => opt.value === statusValue
-    );
-    return statusOption || { name: statusValue, value: statusValue };
-  };
-
-  // 상태 그룹별 색상 분류 (AfterServiceProgressBox 참조)
   const getStatusColor = (statusValue: string) => {
-    const receivedStatuses = ['received'];
-    const inProgressStatuses = [
-      'exchange',
-      'rental',
-      'sent_for_repair',
-      'repair_returned',
-      'other',
-    ];
-    const completedStatuses = [
-      'repair_rejected',
-      'customer_received',
-      'repair_returned_completed',
-      'returned',
-    ];
+    const actionInfo = getActionText(`after-service-${statusValue}`);
+    const colorClass = actionInfo.color;
 
-    if (receivedStatuses.includes(statusValue)) {
-      return {
+    // color 클래스에서 색상 타입 추출 (text-gray-700 bg-gray-100 -> gray)
+    let colorType = 'gray'; // 기본값
+    if (colorClass.includes('blue')) {
+      colorType = 'blue';
+    } else if (colorClass.includes('green')) {
+      colorType = 'green';
+    } else if (colorClass.includes('gray')) {
+      colorType = 'gray';
+    }
+
+    // 색상 타입별 스타일 매핑
+    const colorMap: Record<
+      string,
+      {
+        group: string;
+        bg: string;
+        border: string;
+        dot: string;
+        text: string;
+        icon: string;
+        groupBg: string;
+        groupText: string;
+      }
+    > = {
+      gray: {
         group: '접수',
         bg: 'from-gray-50/50 to-gray-50/30',
         border: 'border-gray-200 hover:border-gray-300',
@@ -45,9 +48,8 @@ const StatusBox = ({ status, onEdit }: StatusBoxProps) => {
         icon: 'text-gray-600',
         groupBg: 'bg-gray-100',
         groupText: 'text-gray-700',
-      };
-    } else if (inProgressStatuses.includes(statusValue)) {
-      return {
+      },
+      blue: {
         group: '진행 중',
         bg: 'from-blue-50/50 to-indigo-50/30',
         border: 'border-blue-200 hover:border-blue-300',
@@ -56,9 +58,8 @@ const StatusBox = ({ status, onEdit }: StatusBoxProps) => {
         icon: 'text-blue-600',
         groupBg: 'bg-blue-100',
         groupText: 'text-blue-700',
-      };
-    } else if (completedStatuses.includes(statusValue)) {
-      return {
+      },
+      green: {
         group: '처리 완료',
         bg: 'from-green-50/50 to-emerald-50/30',
         border: 'border-green-200 hover:border-green-300',
@@ -67,19 +68,10 @@ const StatusBox = ({ status, onEdit }: StatusBoxProps) => {
         icon: 'text-green-600',
         groupBg: 'bg-green-100',
         groupText: 'text-green-700',
-      };
-    }
-    // 기본값: 회색
-    return {
-      group: '접수',
-      bg: 'from-gray-50/50 to-gray-50/30',
-      border: 'border-gray-200 hover:border-gray-300',
-      dot: 'bg-gray-500 shadow-gray-500/50',
-      text: 'text-gray-700',
-      icon: 'text-gray-600',
-      groupBg: 'bg-gray-100',
-      groupText: 'text-gray-700',
+      },
     };
+
+    return colorMap[colorType] || colorMap.gray;
   };
 
   const colors = getStatusColor(status);
@@ -125,7 +117,7 @@ const StatusBox = ({ status, onEdit }: StatusBoxProps) => {
           </div>
         ) : (
           <span className={`text-2xl font-bold ${colors.text} tracking-wide`}>
-            {getStatusInfo(status).name}
+            {getActionText(`after-service-${status}`).text}
           </span>
         )}
       </div>

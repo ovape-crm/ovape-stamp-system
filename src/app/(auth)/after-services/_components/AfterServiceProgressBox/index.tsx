@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { getAfterServices } from '@/services/afterService';
+import { getAfterServiceStatusGroups } from '@/app/_utils/utils';
 
 const AfterServiceProgressBox = ({
   refreshKey = 0,
@@ -24,29 +25,16 @@ const AfterServiceProgressBox = ({
         const allAfterServices = await getAfterServices(1000, 0);
 
         // 상태 분류
-        const receivedStatuses = ['received'];
-        const inProgressStatuses = [
-          'exchange',
-          'rental',
-          'sent_for_repair',
-          'repair_returned',
-          'other',
-        ];
-        const completedStatuses = [
-          'repair_rejected',
-          'customer_received',
-          'repair_returned_completed',
-          'returned',
-        ];
+        const statusGroups = getAfterServiceStatusGroups();
 
         const receivedCount = allAfterServices.filter((as) =>
-          receivedStatuses.includes(as.status)
+          statusGroups.received.includes(as.status)
         ).length;
         const inProgressCount = allAfterServices.filter((as) =>
-          inProgressStatuses.includes(as.status)
+          statusGroups.inProgress.includes(as.status)
         ).length;
         const completedCount = allAfterServices.filter((as) =>
-          completedStatuses.includes(as.status)
+          statusGroups.completed.includes(as.status)
         ).length;
 
         const totalCount = allAfterServices.length;

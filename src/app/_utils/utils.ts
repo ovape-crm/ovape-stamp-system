@@ -1,3 +1,38 @@
+import {
+  AfterServiceStatusEnum,
+  AfterServiceStatusGroupEnum,
+  AfterServiceStatusGroupEnumType,
+} from '@/app/_enums/enums';
+
+// AS 상태 그룹 정의 (enum 기반)
+export const getAfterServiceStatusGroups = () => {
+  const received: string[] = [];
+  const inProgress: string[] = [];
+  const completed: string[] = [];
+
+  Object.values(AfterServiceStatusEnum).forEach((status) => {
+    if (status.group === AfterServiceStatusGroupEnum.RECEIVED.value) {
+      received.push(status.value);
+    } else if (status.group === AfterServiceStatusGroupEnum.IN_PROGRESS.value) {
+      inProgress.push(status.value);
+    } else if (status.group === AfterServiceStatusGroupEnum.COMPLETED.value) {
+      completed.push(status.value);
+    }
+  });
+
+  return { received, inProgress, completed };
+};
+
+// 상태가 속한 그룹 반환 (enum 기반)
+export const getAfterServiceStatusGroup = (
+  status: string
+): AfterServiceStatusGroupEnumType['value'] => {
+  const statusOption = Object.values(AfterServiceStatusEnum).find(
+    (opt) => opt.value === status
+  );
+  return statusOption?.group || AfterServiceStatusGroupEnum.RECEIVED.value; // 기본값
+};
+
 export const getActionText = (action: string) => {
   if (action.startsWith('add-')) {
     const amount = action.replace('add-', '');
@@ -29,42 +64,22 @@ export const getActionText = (action: string) => {
   // AS 상태 액션 처리
   if (action.startsWith('after-service-')) {
     const statusValue = action.replace('after-service-', '');
-    const statusMap: Record<string, string> = {
-      received: '접수',
-      exchange: '교환',
-      rental: '대여',
-      sent_for_repair: '수리 접수',
-      repair_returned: '수리 수령',
-      repair_returned_completed: '수리 수령(재고 처리)',
-      repair_rejected: 'AS 불가',
-      customer_received: '고객 수령',
-      returned: '반품 처리',
-      other: '기타',
-    };
-    const statusName = statusMap[statusValue] || statusValue;
 
-    // 상태 그룹별 색상 분류 (AfterServiceProgressBox 참조)
-    const receivedStatuses = ['received'];
-    const inProgressStatuses = [
-      'exchange',
-      'rental',
-      'sent_for_repair',
-      'repair_returned',
-      'other',
-    ];
-    const completedStatuses = [
-      'repair_returned_completed',
-      'repair_rejected',
-      'customer_received',
-      'returned',
-    ];
+    // enum에서 상태 정보 가져오기
+    const statusOption = Object.values(AfterServiceStatusEnum).find(
+      (opt) => opt.value === statusValue
+    );
+    const statusName = statusOption?.name || statusValue;
 
+    // 상태 그룹별 색상 분류 (enum 기반)
+    const statusGroup =
+      statusOption?.group || AfterServiceStatusGroupEnum.RECEIVED.value;
     let color = 'text-gray-700 bg-gray-100'; // 기본값
-    if (receivedStatuses.includes(statusValue)) {
+    if (statusGroup === AfterServiceStatusGroupEnum.RECEIVED.value) {
       color = 'text-gray-700 bg-gray-100'; // 접수: 회색
-    } else if (inProgressStatuses.includes(statusValue)) {
+    } else if (statusGroup === AfterServiceStatusGroupEnum.IN_PROGRESS.value) {
       color = 'text-blue-700 bg-blue-100'; // 진행: 파란색
-    } else if (completedStatuses.includes(statusValue)) {
+    } else if (statusGroup === AfterServiceStatusGroupEnum.COMPLETED.value) {
       color = 'text-green-700 bg-green-100'; // 완료: 녹색
     }
 
