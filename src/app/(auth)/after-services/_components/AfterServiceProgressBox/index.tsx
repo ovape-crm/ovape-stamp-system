@@ -2,17 +2,34 @@
 
 import { useEffect, useState } from 'react';
 import { getAfterServices } from '@/services/afterService';
+import { getAfterServiceStatusGroups } from '@/app/_utils/utils';
+
+interface AfterServiceProgressBoxProps {
+  refreshKey?: number;
+  onGroupClick?: (
+    group: 'all' | 'received' | 'inProgress' | 'completed'
+  ) => void;
+  selectedGroup?: 'received' | 'inProgress' | 'completed';
+  onClearGroup?: () => void;
+}
 
 const AfterServiceProgressBox = ({
   refreshKey = 0,
-}: {
-  refreshKey?: number;
-}) => {
-  const [stats, setStats] = useState([
-    { label: '전체', value: 0 },
-    { label: '접수', value: 0 },
-    { label: '진행 중', value: 0 },
-    { label: '처리 완료', value: 0 },
+  onGroupClick,
+  selectedGroup,
+  onClearGroup,
+}: AfterServiceProgressBoxProps) => {
+  const [stats, setStats] = useState<
+    Array<{
+      label: string;
+      value: number;
+      group: 'all' | 'received' | 'inProgress' | 'completed';
+    }>
+  >([
+    { label: '전체', value: 0, group: 'all' },
+    { label: '접수', value: 0, group: 'received' },
+    { label: '진행 중', value: 0, group: 'inProgress' },
+    { label: '처리 완료', value: 0, group: 'completed' },
   ]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -24,38 +41,25 @@ const AfterServiceProgressBox = ({
         const allAfterServices = await getAfterServices(1000, 0);
 
         // 상태 분류
-        const receivedStatuses = ['received'];
-        const inProgressStatuses = [
-          'exchange',
-          'rental',
-          'sent_for_repair',
-          'repair_returned',
-          'other',
-        ];
-        const completedStatuses = [
-          'repair_rejected',
-          'customer_received',
-          'repair_returned_completed',
-          'returned',
-        ];
+        const statusGroups = getAfterServiceStatusGroups();
 
         const receivedCount = allAfterServices.filter((as) =>
-          receivedStatuses.includes(as.status)
+          statusGroups.received.includes(as.status)
         ).length;
         const inProgressCount = allAfterServices.filter((as) =>
-          inProgressStatuses.includes(as.status)
+          statusGroups.inProgress.includes(as.status)
         ).length;
         const completedCount = allAfterServices.filter((as) =>
-          completedStatuses.includes(as.status)
+          statusGroups.completed.includes(as.status)
         ).length;
 
         const totalCount = allAfterServices.length;
 
         setStats([
-          { label: '전체', value: totalCount },
-          { label: '접수', value: receivedCount },
-          { label: '진행 중', value: inProgressCount },
-          { label: '처리 완료', value: completedCount },
+          { label: '전체', value: totalCount, group: 'all' },
+          { label: '접수', value: receivedCount, group: 'received' },
+          { label: '진행 중', value: inProgressCount, group: 'inProgress' },
+          { label: '처리 완료', value: completedCount, group: 'completed' },
         ]);
       } catch (error) {
         console.error('Failed to fetch AS stats:', error);
@@ -77,7 +81,7 @@ const AfterServiceProgressBox = ({
 
   if (isLoading) {
     return (
-      <div className="flex gap-4">
+      <div className="flex gap-4 items-start">
         {stats.map((stat, index) => (
           <div
             key={index}
@@ -94,22 +98,61 @@ const AfterServiceProgressBox = ({
   }
 
   return (
-    <div className="flex gap-4">
-      {stats.map((stat, index) => (
-        <div
-          key={index}
-          className="w-[160px] bg-white rounded-lg shadow-sm border border-brand-100 p-4"
-        >
-          <div className="flex flex-col">
-            <span className="text-xs font-medium text-gray-600 mb-1.5">
-              {stat.label}
-            </span>
-            <span className={`text-2xl font-bold ${getValueColor(stat.label)}`}>
-              {stat.value.toLocaleString()}
-            </span>
+    <div className="flex gap-4 items-start">
+      {stats.map((stat, index) => {
+        const isSelected = selectedGroup && stat.group === selectedGroup;
+        const isAllGroup = stat.group === 'all';
+        const isClickable = onGroupClick && !isAllGroup;
+        return (
+          <div
+            key={index}
+            className={`w-[160px] bg-white rounded-lg shadow-sm border p-4 relative ${
+              isSelected ? 'border-brand-500 border-2' : 'border-brand-100'
+            } ${
+              isClickable
+                ? 'cursor-pointer hover:shadow-md hover:border-brand-300 transition-all'
+                : ''
+            }`}
+            onClick={isClickable ? () => onGroupClick?.(stat.group) : undefined}
+          >
+            {isSelected && onClearGroup && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClearGroup();
+                }}
+                className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+                title="그룹 필터 해제"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            )}
+            <div className="flex flex-col">
+              <span className="text-xs font-medium text-gray-600 mb-1.5">
+                {stat.label}
+              </span>
+              <span
+                className={`text-2xl font-bold ${getValueColor(stat.label)}`}
+              >
+                {stat.value.toLocaleString()}
+              </span>
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 };

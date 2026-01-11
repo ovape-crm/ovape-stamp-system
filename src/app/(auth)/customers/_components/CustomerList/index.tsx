@@ -17,6 +17,13 @@ interface CustomerListProps {
   isLoading: boolean;
   error: string;
   onUpdate: () => void;
+  loadMore?: () => void;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
+  totalCount?: number;
+  sortBy?: 'name' | 'stamp' | 'created_at';
+  sortOrder?: 'asc' | 'desc';
+  onSortChange?: (sortBy: 'name' | 'stamp' | 'created_at') => void;
 }
 
 const CustomerList = ({
@@ -24,6 +31,13 @@ const CustomerList = ({
   isLoading,
   error,
   onUpdate,
+  loadMore,
+  hasMore,
+  isLoadingMore,
+  totalCount,
+  sortBy,
+  sortOrder,
+  onSortChange,
 }: CustomerListProps) => {
   const router = useRouter();
   const { open, close } = useModal();
@@ -106,14 +120,53 @@ const CustomerList = ({
 
   return (
     <div className="mb-10">
-      <div className="flex justify-start items-center mb-3">
+      <div className="flex justify-start items-center gap-3 mb-3">
         <div className="text-sm text-gray-600">
-          총{' '}
           <span className="font-semibold text-brand-600">
             {customers.length}
           </span>
-          명
+
+          {totalCount !== undefined && totalCount > 0 && (
+            <>
+              {' / '}
+              <span className="font-semibold text-gray-600">{totalCount}</span>
+            </>
+          )}
         </div>
+        {onSortChange && (
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => onSortChange('name')}
+              className={`px-2 py-1 text-xs rounded border transition-colors cursor-pointer ${
+                sortBy === 'name'
+                  ? 'bg-brand-100 border-brand-300 text-brand-700 font-medium'
+                  : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              가나다순
+            </button>
+            <button
+              onClick={() => onSortChange('stamp')}
+              className={`px-2 py-1 text-xs rounded border transition-colors cursor-pointer ${
+                sortBy === 'stamp'
+                  ? 'bg-brand-100 border-brand-300 text-brand-700 font-medium'
+                  : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              스탬프 많은 순
+            </button>
+            <button
+              onClick={() => onSortChange('created_at')}
+              className={`px-2 py-1 text-xs rounded border transition-colors cursor-pointer ${
+                sortBy === 'created_at'
+                  ? 'bg-brand-100 border-brand-300 text-brand-700 font-medium'
+                  : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              등록일 순
+            </button>
+          </div>
+        )}
       </div>
       <div className="bg-white rounded-lg shadow-sm border border-brand-100 overflow-hidden">
         <table className="min-w-full divide-y divide-brand-100">
@@ -313,6 +366,18 @@ const CustomerList = ({
           </tbody>
         </table>
       </div>
+      {hasMore && loadMore && (
+        <div className="flex justify-center mt-6">
+          <Button
+            size="sm"
+            onClick={loadMore}
+            disabled={isLoadingMore}
+            variant="secondary"
+          >
+            {isLoadingMore ? '불러오는 중...' : '더 불러오기'}
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

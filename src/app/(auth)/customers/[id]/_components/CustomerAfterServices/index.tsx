@@ -3,11 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getAfterServices } from '@/services/afterService';
 import Loading from '@/app/_components/Loading';
-import {
-  AfterServiceStatusEnum,
-  AfterServiceItemTypeEnum,
-} from '@/app/_enums/enums';
+import { AfterServiceItemTypeEnum } from '@/app/_enums/enums';
 import { useRouter } from 'next/navigation';
+import { getActionText } from '@/app/_utils/utils';
 
 interface CustomerAfterServicesProps {
   customerId: string;
@@ -64,37 +62,8 @@ const CustomerAfterServices = ({
     fetchAfterServices();
   }, [refreshKey, fetchAfterServices]);
 
-  const getStatusInfo = (status: string) => {
-    const statusOption = Object.values(AfterServiceStatusEnum).find(
-      (opt) => opt.value === status
-    );
-    return statusOption || { name: status, value: status };
-  };
-
   const getStatusColor = (status: string) => {
-    // 상태 그룹별 색상 분류 (AfterServiceProgressBox 참조)
-    const receivedStatuses = ['received'];
-    const inProgressStatuses = [
-      'exchange',
-      'rental',
-      'sent_for_repair',
-      'repair_returned',
-      'other',
-    ];
-    const completedStatuses = [
-      'repair_rejected',
-      'customer_received',
-      'returned',
-    ];
-
-    if (receivedStatuses.includes(status)) {
-      return 'bg-gray-100 text-gray-700'; // 접수: 회색
-    } else if (inProgressStatuses.includes(status)) {
-      return 'bg-blue-100 text-blue-700'; // 진행: 파란색
-    } else if (completedStatuses.includes(status)) {
-      return 'bg-green-100 text-green-700'; // 완료: 녹색
-    }
-    return 'bg-gray-100 text-gray-700'; // 기본값: 회색
+    return getActionText(`after-service-${status}`).color;
   };
 
   const handleRowClick = (afterServiceId: string) => {
@@ -155,7 +124,7 @@ const CustomerAfterServices = ({
         </thead>
         <tbody className="bg-white divide-y divide-brand-50">
           {afterServices.map((as, index) => {
-            const statusInfo = getStatusInfo(as.status);
+            const statusInfo = getActionText(`after-service-${as.status}`);
             const itemTypeInfo = getItemTypeInfo(as.item_type);
             const date = new Date(as.created_at);
             const year = String(date.getFullYear()).slice(-2);
@@ -178,7 +147,7 @@ const CustomerAfterServices = ({
                       as.status
                     )}`}
                   >
-                    {statusInfo.name}
+                    {statusInfo.text}
                   </span>
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-700">

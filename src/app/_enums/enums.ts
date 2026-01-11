@@ -68,46 +68,74 @@ export const LogCategoryEnum = {
 export type LogCategoryEnumType =
   (typeof LogCategoryEnum)[keyof typeof LogCategoryEnum];
 
-export const AfterServiceStatusEnum = {
+export const AfterServiceStatusGroupEnum = {
   RECEIVED: {
     value: 'received',
     name: '접수',
   },
+  IN_PROGRESS: {
+    value: 'inProgress',
+    name: '진행 중',
+  },
+  COMPLETED: {
+    value: 'completed',
+    name: '처리 완료',
+  },
+} as const;
+
+export type AfterServiceStatusGroupEnumType =
+  (typeof AfterServiceStatusGroupEnum)[keyof typeof AfterServiceStatusGroupEnum];
+
+export const AfterServiceStatusEnum = {
+  RECEIVED: {
+    value: 'received',
+    name: '접수',
+    group: AfterServiceStatusGroupEnum.RECEIVED.value,
+  },
   EXCHANGE: {
     value: 'exchange',
     name: '교환',
+    group: AfterServiceStatusGroupEnum.IN_PROGRESS.value,
   },
   RENTAL: {
     value: 'rental',
     name: '대여',
+    group: AfterServiceStatusGroupEnum.IN_PROGRESS.value,
   },
   SENT_FOR_REPAIR: {
     value: 'sent_for_repair',
     name: '수리 접수',
+    group: AfterServiceStatusGroupEnum.IN_PROGRESS.value,
   },
   REPAIR_RETURNED: {
     value: 'repair_returned',
     name: '수리 수령',
+    group: AfterServiceStatusGroupEnum.IN_PROGRESS.value,
   },
   REPAIR_RETURNED_COMPLETED: {
     value: 'repair_returned_completed',
     name: '수리 수령 (재고 처리)',
+    group: AfterServiceStatusGroupEnum.COMPLETED.value,
   },
   REPAIR_REJECTED: {
     value: 'repair_rejected',
     name: 'AS 불가',
+    group: AfterServiceStatusGroupEnum.COMPLETED.value,
   },
   CUSTOMER_RECEIVED: {
     value: 'customer_received',
     name: '고객 수령',
+    group: AfterServiceStatusGroupEnum.COMPLETED.value,
   },
   RETURNED: {
     value: 'returned',
     name: '반품 처리',
+    group: AfterServiceStatusGroupEnum.COMPLETED.value,
   },
   OTHER: {
     value: 'other',
     name: '기타',
+    group: AfterServiceStatusGroupEnum.COMPLETED.value,
   },
 } as const;
 

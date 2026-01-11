@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getAfterServices } from '@/services/afterService';
 import Loading from '@/app/_components/Loading';
+import Button from '@/app/_components/Button';
 import { formatPhoneNumber } from '@/app/_utils/utils';
 import {
   AfterServiceStatusEnumType,
@@ -10,11 +11,14 @@ import {
 } from '@/app/_enums/enums';
 import { ActionInfoLabel } from '@/app/(auth)/_components/HistoriesComponents';
 
+const PAGE_SIZE = 10;
+
 interface AfterServiceListProps {
   refreshKey?: number;
   onRowClick?: (afterServiceId: string) => void;
   filters?: {
     status?: string;
+    groupStatus?: 'received' | 'inProgress' | 'completed';
     searchTarget?: string;
     searchKeyword?: string;
   };
@@ -47,18 +51,24 @@ const AfterServiceList = ({
 }: AfterServiceListProps) => {
   const [afterServices, setAfterServices] = useState<AfterServiceType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState('');
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
 
   const fetchAfterServices = useCallback(async () => {
     try {
       setIsLoading(true);
       setError('');
+      setOffset(0);
+      setHasMore(true);
 
-      const data = await getAfterServices(100, 0, {
+      const data = await getAfterServices(PAGE_SIZE, 0, {
         status:
           filters?.status && filters.status !== 'all'
             ? (filters.status as AfterServiceStatusEnumType['value'])
             : undefined,
+        groupStatus: filters?.groupStatus,
         searchTarget: filters?.searchTarget as
           | 'name'
           | 'phone'
@@ -67,13 +77,45 @@ const AfterServiceList = ({
         searchKeyword: filters?.searchKeyword,
       });
       setAfterServices(data);
+      setOffset(data.length);
+      setHasMore(data.length === PAGE_SIZE);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
       setAfterServices([]);
+      setOffset(0);
+      setHasMore(false);
     } finally {
       setIsLoading(false);
     }
   }, [filters]);
+
+  const loadMore = useCallback(async () => {
+    if (isLoadingMore || !hasMore) return;
+
+    try {
+      setIsLoadingMore(true);
+      const data = await getAfterServices(PAGE_SIZE, offset, {
+        status:
+          filters?.status && filters.status !== 'all'
+            ? (filters.status as AfterServiceStatusEnumType['value'])
+            : undefined,
+        groupStatus: filters?.groupStatus,
+        searchTarget: filters?.searchTarget as
+          | 'name'
+          | 'phone'
+          | 'item_name'
+          | undefined,
+        searchKeyword: filters?.searchKeyword,
+      });
+      setAfterServices((prev) => [...prev, ...data]);
+      setOffset((prev) => prev + data.length);
+      setHasMore(data.length === PAGE_SIZE);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [offset, hasMore, isLoadingMore, filters]);
 
   useEffect(() => {
     fetchAfterServices();
@@ -114,29 +156,29 @@ const AfterServiceList = ({
           건
         </div>
       </div>
-      <div className="bg-white rounded-lg shadow-sm border border-brand-100 overflow-hidden">
-        <table className="min-w-full divide-y divide-brand-100">
+      <div className="bg-white rounded-lg shadow-sm border border-brand-100 overflow-hidden overflow-x-auto">
+        <table className="w-full divide-y divide-brand-100 table-auto">
           <thead className="bg-gradient-to-r from-brand-50 to-brand-100">
             <tr>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700">
+              <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700 whitespace-nowrap flex-shrink-0">
                 No
               </th>
-              <th className="px-6 py-4 text-center text-sm font-semibold text-brand-700">
+              <th className="px-6 py-4 text-center text-sm font-semibold text-brand-700 whitespace-nowrap">
                 상태
               </th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700">
+              <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700 whitespace-nowrap">
                 기기 종류
               </th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700">
+              <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700 whitespace-nowrap">
                 제품 이름 / 수량
               </th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700 w-64">
+              <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700 max-w-64 whitespace-nowrap">
                 증상
               </th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700">
+              <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700 whitespace-nowrap">
                 고객
               </th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700">
+              <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700 whitespace-nowrap">
                 등록일
               </th>
             </tr>
@@ -168,34 +210,36 @@ const AfterServiceList = ({
                     className="hover:bg-brand-50/50 transition-colors cursor-pointer"
                     onClick={() => onRowClick?.(as.id)}
                   >
-                    <td className="px-6 py-4 text-sm text-gray-700">
+                    <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">
                       {index + 1}
                     </td>
-                    <td className="px-6 py-4 text-center">
+                    <td className="px-6 py-4 text-center whitespace-nowrap">
                       <ActionInfoLabel action={getStatusAction(as.status)} />
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">
-                      {itemTypeInfo.name}
+                    <td className="px-6 py-4 text-sm whitespace-nowrap">
+                      <span className="inline-flex items-center px-3 py-1 rounded-md bg-gray-100 text-gray-700 text-xs font-medium">
+                        {itemTypeInfo.name}
+                      </span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">
+                    <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         <span>{as.item_name}</span>
                         <span className="text-gray-400">/</span>
                         <span className="font-medium">{as.quantity}개</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-700 w-64">
+                    <td className="px-6 py-4 text-sm text-gray-700 max-w-64">
                       <p className="truncate" title={as.symptom}>
                         {as.symptom}
                       </p>
                     </td>
-                    <td className="px-6 py-4 text-sm">
+                    <td className="px-6 py-4 text-sm whitespace-nowrap">
                       {as.customers ? (
                         <div>
                           <p className="font-medium text-gray-900">
                             {as.customers.name}
                           </p>
-                          <p className="text-xs text-gray-600">
+                          <p className="text-xs text-gray-600 whitespace-nowrap">
                             {formatPhoneNumber(as.customers.phone)}
                           </p>
                         </div>
@@ -207,7 +251,7 @@ const AfterServiceList = ({
                         </div>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">
+                    <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">
                       {createdAt}
                     </td>
                   </tr>
@@ -217,6 +261,18 @@ const AfterServiceList = ({
           </tbody>
         </table>
       </div>
+      {hasMore && (
+        <div className="flex justify-center mt-6">
+          <Button
+            size="sm"
+            onClick={loadMore}
+            disabled={isLoadingMore}
+            variant="secondary"
+          >
+            {isLoadingMore ? '불러오는 중...' : '더 불러오기'}
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

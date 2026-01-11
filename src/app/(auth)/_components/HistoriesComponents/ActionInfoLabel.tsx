@@ -4,7 +4,7 @@ const ActionInfoLabel = ({ action }: { action: string }) => {
   const actionInfo = getActionText(action);
   return (
     <span
-      className={`px-3 py-1 rounded-full text-xs font-semibold ${actionInfo.color}`}
+      className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${actionInfo.color}`}
     >
       {actionInfo.text}
     </span>
