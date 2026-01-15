@@ -17,7 +17,10 @@ import { useState } from 'react';
 import { LogCategoryEnum, LogCategoryEnumType } from '@/app/_enums/enums';
 import CustomersDetailStampsHistories from './_components/CustomersDetailStampsHistories';
 import CustomersDetailUpdateHistories from './_components/CustomersDetailUpdateHistories';
+import CustomersDetailRemarkHistories from './_components/CustomersDetailRemarkHistories';
 import CustomerAfterServices from './_components/CustomerAfterServices';
+import RemarkLogCreateModal from './_components/RemarkLogCreateModal';
+import { createLog } from '@/services/logService';
 
 const PAGE_SIZE = 10;
 
@@ -43,9 +46,19 @@ export default function CustomerDetailPage() {
     hasMore,
   } = useLogsByCustomerId(customerId, PAGE_SIZE, logCategory);
 
+  const {
+    logs: remarkLogs,
+    isLoading: remarkLogsLoading,
+    error: remarkLogsError,
+    refresh: refreshRemarkLogs,
+    loadMore: loadMoreRemarks,
+    hasMore: hasMoreRemarks,
+  } = useLogsByCustomerId(customerId, PAGE_SIZE, LogCategoryEnum.REMARK.value);
+
   const handleUpdate = () => {
     refresh();
     refreshLogs();
+    refreshRemarkLogs();
     setRefreshKey((prev) => prev + 1);
   };
 
@@ -82,6 +95,23 @@ export default function CustomerDetailPage() {
       handleUpdate();
     } catch {
       toast.error('고객 정보 삭제에 실패했습니다.');
+    }
+  };
+
+  const handleCreateRemarkLog = async (note: string) => {
+    try {
+      await createLog(
+        LogCategoryEnum.REMARK.value,
+        customerId,
+        'create-remark',
+        note
+      );
+      toast.success('특이사항 이력이 추가되었습니다.');
+      close();
+      refreshRemarkLogs();
+    } catch (error) {
+      console.error('Failed to create remark log:', error);
+      toast.error('특이사항 이력 추가에 실패했습니다.');
     }
   };
 
@@ -143,6 +173,55 @@ export default function CustomerDetailPage() {
           }}
           onUpdate={handleUpdate}
         />
+      </div>
+
+      {/* 특이사항 이력 섹션 */}
+      <div className="mb-6">
+        <div className="bg-white rounded-lg shadow-sm border border-brand-100 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold text-brand-700">
+              특이사항 이력
+            </h2>
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={() => {
+                open({
+                  content: (
+                    <RemarkLogCreateModal
+                      onSubmit={handleCreateRemarkLog}
+                      onCancel={close}
+                    />
+                  ),
+                  options: { dismissOnBackdrop: false, dismissOnEsc: true },
+                });
+              }}
+            >
+              + 이력 추가
+            </Button>
+          </div>
+          <div className="space-y-2.5">
+            <CustomersDetailRemarkHistories
+              logs={remarkLogs}
+              isLoading={remarkLogsLoading}
+              error={remarkLogsError}
+            />
+          </div>
+        </div>
+        {hasMoreRemarks && !remarkLogsLoading && (
+          <div className="mt-4 flex justify-center">
+            <Button
+              onClick={async () => {
+                const added = await loadMoreRemarks();
+                if (added > 0) toast.success(`${added}개 더 불러오기 성공!`);
+              }}
+              variant="secondary"
+              size="sm"
+            >
+              더 불러오기
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* 로그 섹션 */}
@@ -208,7 +287,7 @@ export default function CustomerDetailPage() {
       {/* AS 현황 섹션 */}
       <div className="mb-10">
         <div className="bg-white rounded-lg shadow-sm border border-brand-100 p-6">
-        <h2 className="text-xl font-semibold text-brand-700 mb-4">AS 현황</h2>
+          <h2 className="text-xl font-semibold text-brand-700 mb-4">AS 현황</h2>
           <CustomerAfterServices
             customerId={customerId}
             refreshKey={refreshKey}

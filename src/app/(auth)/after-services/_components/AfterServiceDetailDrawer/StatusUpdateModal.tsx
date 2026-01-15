@@ -92,6 +92,38 @@ const StatusUpdateModal = ({
     (opt) => opt.value === currentStatus
   );
 
+  // 상태별 메모 가이드 텍스트
+  const getStatusMemoGuide = (status: string): string => {
+    switch (status) {
+      case AfterServiceStatusEnum.RECEIVED.value:
+        return '고객구매일 : 00/00/00\n고객접수일 : 00/00/00\n도매처 : @';
+      case AfterServiceStatusEnum.EXCHANGE.value:
+        return '교환일 : 00/00/00\n교환 제품명,색깔 : @';
+      case AfterServiceStatusEnum.RENTAL.value:
+        return '대여일 : 00/00/00\n대여 제품명,색깔 : @';
+      case AfterServiceStatusEnum.SENT_FOR_REPAIR.value:
+        return '접수일 : 00/00/00';
+      case AfterServiceStatusEnum.REPAIR_RETURNED.value:
+      case AfterServiceStatusEnum.REPAIR_RETURNED_COMPLETED.value:
+        return '입고일 : 00/00/00';
+      case AfterServiceStatusEnum.REPAIR_REJECTED.value:
+      case AfterServiceStatusEnum.OTHER_COMPLETED.value:
+      case AfterServiceStatusEnum.OTHER_RECEIVED.value:
+        return '특이사항을 입력하세요.';
+      case AfterServiceStatusEnum.CUSTOMER_RECEIVED.value:
+        return '수령일 : 00/00/00';
+      case AfterServiceStatusEnum.RETURNED.value:
+        return '반품일 : 00/00/00';
+      default:
+        return '특이사항을 입력하세요.';
+    }
+  };
+
+  // 선택된 상태가 없으면 현재 상태를 사용 (초기 렌더링 대응)
+  const statusForGuide = selectedStatus || currentStatus;
+  const selectedStatusMemoGuide = getStatusMemoGuide(statusForGuide);
+  const placeholder = '위에 해당되는 날짜,특이사항을 입력해주세요.';
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="w-full" noValidate>
       <h2 className="text-lg font-semibold mb-3">상태 수정</h2>
@@ -142,11 +174,16 @@ const StatusUpdateModal = ({
 
         {/* 메모 */}
         <div>
-          <label className="block text-sm font-medium mb-1">메모</label>
+          <label className="block text-sm font-medium mb-1 text-gray-700">
+            메모
+            <span className="text-xs text-gray-500 whitespace-pre-line block mt-2 mb-2">
+              {selectedStatusMemoGuide}
+            </span>
+          </label>
           <textarea
             {...register('note')}
             className="w-full min-h-24 rounded border border-brand-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
-            placeholder="상태 변경 메모를 입력하세요 (선택사항)"
+            placeholder={placeholder}
             aria-invalid={!!errors.note || undefined}
             disabled={isSubmitting}
           />

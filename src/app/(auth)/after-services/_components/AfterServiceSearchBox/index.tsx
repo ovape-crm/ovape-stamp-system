@@ -56,7 +56,7 @@ const AfterServiceSearchBox = ({
         <div className="flex items-end gap-4">
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-gray-600">상태</label>
-            <div className="w-[160px]">
+            <div className="w-[250px]">
               <Dropdown disabled={disabled}>
                 <Dropdown.Trigger>
                   {
