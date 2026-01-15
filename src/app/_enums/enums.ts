@@ -109,12 +109,12 @@ export const AfterServiceStatusEnum = {
   },
   REPAIR_RETURNED: {
     value: 'repair_returned',
-    name: '수리 수령',
+    name: '수리 입고',
     group: AfterServiceStatusGroupEnum.IN_PROGRESS.value,
   },
   REPAIR_RETURNED_COMPLETED: {
     value: 'repair_returned_completed',
-    name: '수리 수령 (재고 처리)',
+    name: '수리 입고 (재고 처리)',
     group: AfterServiceStatusGroupEnum.COMPLETED.value,
   },
   REPAIR_REJECTED: {
