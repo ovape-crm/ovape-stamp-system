@@ -132,10 +132,15 @@ export const AfterServiceStatusEnum = {
     name: '반품 처리',
     group: AfterServiceStatusGroupEnum.COMPLETED.value,
   },
-  OTHER: {
+  OTHER_COMPLETED: {
     value: 'other',
-    name: '기타',
+    name: '기타 (완료)',
     group: AfterServiceStatusGroupEnum.COMPLETED.value,
+  },
+  OTHER_RECEIVED: {
+    value: 'other_in_progress',
+    name: '기타 (진행 중)',
+    group: AfterServiceStatusGroupEnum.IN_PROGRESS.value,
   },
 } as const;
 
