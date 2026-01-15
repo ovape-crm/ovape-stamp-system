@@ -5,6 +5,7 @@ import StampHistories from './_components/StampHistories';
 import { LogCategoryEnum, LogCategoryEnumType } from '@/app/_enums/enums';
 import Button from '@/app/_components/Button';
 import CustomerHistories from './_components/CustomerHistories';
+import RemarkHistories from './_components/RemarkHistories';
 
 export default function HistoriesPage() {
   const [logType, setLogType] = useState<LogCategoryEnumType['value']>(
@@ -33,11 +34,21 @@ export default function HistoriesPage() {
           >
             고객 이력
           </Button>
+          <Button
+            onClick={() => setLogType(LogCategoryEnum.REMARK.value)}
+            variant={
+              logType === LogCategoryEnum.REMARK.value ? 'primary' : 'secondary'
+            }
+          >
+            특이사항 이력
+          </Button>
         </div>
         {logType === LogCategoryEnum.STAMP.value ? (
           <StampHistories />
-        ) : (
+        ) : logType === LogCategoryEnum.CUSTOMER.value ? (
           <CustomerHistories />
+        ) : (
+          <RemarkHistories />
         )}
       </div>
     </section>
