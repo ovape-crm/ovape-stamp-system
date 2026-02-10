@@ -158,7 +158,7 @@ const AfterServiceList = ({
   return (
     <div className="mb-10">
       <div className="flex justify-start items-center mb-3">
-        <div className="text-sm text-gray-600">
+        <div className="text-xs sm:text-sm text-gray-600">
           <span className="font-semibold text-brand-600">
             {afterServices.length}
           </span>
@@ -172,28 +172,28 @@ const AfterServiceList = ({
         </div>
       </div>
       <div className="bg-white rounded-lg shadow-sm border border-brand-100 overflow-hidden overflow-x-auto">
-        <table className="w-full divide-y divide-brand-100 table-auto">
+        <table className="w-full min-w-[900px] divide-y divide-brand-100 table-auto">
           <thead className="bg-gradient-to-r from-brand-50 to-brand-100">
             <tr>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700 whitespace-nowrap flex-shrink-0">
+              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap flex-shrink-0">
                 No
               </th>
-              <th className="px-6 py-4 text-center text-sm font-semibold text-brand-700 whitespace-nowrap">
+              <th className="px-3 sm:px-6 py-2 sm:py-3 text-center text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
                 상태
               </th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700 whitespace-nowrap">
+              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
                 기기 종류
               </th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700 whitespace-nowrap">
+              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
                 제품 이름 / 수량
               </th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700 max-w-64 whitespace-nowrap">
+              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 max-w-64 whitespace-nowrap">
                 증상
               </th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700 whitespace-nowrap">
+              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
                 고객
               </th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700 whitespace-nowrap">
+              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
                 등록일
               </th>
             </tr>
@@ -203,7 +203,7 @@ const AfterServiceList = ({
               <tr>
                 <td
                   colSpan={7}
-                  className="px-6 py-10 text-center text-gray-500"
+                  className="px-3 sm:px-6 py-10 text-center text-gray-500 text-xs sm:text-sm"
                 >
                   AS 데이터가 없습니다.
                 </td>
@@ -225,48 +225,55 @@ const AfterServiceList = ({
                     className="hover:bg-brand-50/50 transition-colors cursor-pointer"
                     onClick={() => onRowClick?.(as.id)}
                   >
-                    <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">
+                    <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 whitespace-nowrap">
                       {index + 1}
                     </td>
-                    <td className="px-6 py-4 text-center whitespace-nowrap">
-                      <ActionInfoLabel action={getStatusAction(as.status)} />
+                    <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm text-center whitespace-nowrap">
+                      <div className="inline-block scale-90 sm:scale-100 origin-center">
+                        <ActionInfoLabel action={getStatusAction(as.status)} />
+                      </div>
                     </td>
-                    <td className="px-6 py-4 text-sm whitespace-nowrap">
-                      <span className="inline-flex items-center px-3 py-1 rounded-md bg-gray-100 text-gray-700 text-xs font-medium">
+                    <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">
+                      <span className="inline-flex items-center px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-md bg-gray-100 text-gray-700 text-[11px] sm:text-xs font-medium">
                         {itemTypeInfo.name}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
+                    <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 whitespace-nowrap">
+                      <div className="flex items-center gap-1.5 sm:gap-2">
                         <span>{as.item_name}</span>
                         <span className="text-gray-400">/</span>
                         <span className="font-medium">{as.quantity}개</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-700 max-w-64">
+                    <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 max-w-64">
                       <p className="truncate" title={as.symptom}>
                         {as.symptom}
                       </p>
                     </td>
-                    <td className="px-6 py-4 text-sm whitespace-nowrap">
-                      {as.customers ? (
-                        <div>
-                          <p className="font-medium text-gray-900">
-                            {as.customers.name}
-                          </p>
-                          <p className="text-xs text-gray-600 whitespace-nowrap">
-                            {formatPhoneNumber(as.customers.phone)}
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs text-gray-400">
-                            고객 정보 없음
-                          </span>
-                        </div>
-                      )}
+                    <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap align-middle">
+                      <div className="min-h-[40px] flex flex-col justify-center">
+                        {as.customers ? (
+                          <>
+                            <p className="font-medium text-gray-900">
+                              {as.customers.name}
+                            </p>
+                            <p className="text-[11px] sm:text-xs text-gray-600 whitespace-nowrap">
+                              {formatPhoneNumber(as.customers.phone)}
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="font-medium text-gray-400">
+                              고객 정보 없음
+                            </p>
+                            <p className="text-[11px] sm:text-xs text-gray-400 whitespace-nowrap">
+                              -
+                            </p>
+                          </>
+                        )}
+                      </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">
+                    <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 whitespace-nowrap">
                       {createdAt}
                     </td>
                   </tr>

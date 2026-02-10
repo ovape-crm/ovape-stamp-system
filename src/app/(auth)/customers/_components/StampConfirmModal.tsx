@@ -105,11 +105,12 @@ export default function StampConfirmModal({
           <span className="block text-sm font-medium mb-1">
             결제 유형 <span className="text-rose-600">*</span>
           </span>
-          <div className="flex items-center gap-2 mb-6">
+          {/* 모바일: 3열 그리드(두 줄로), sm 이상: 기존 가로 나열 */}
+          <div className="grid grid-cols-3 gap-2 mb-6 sm:flex sm:flex-wrap sm:gap-2">
             {paymentTypeOptions.map((option) => (
               <label
                 key={option.value}
-                className="inline-flex items-center gap-2 text-xs whitespace-nowrap"
+                className="inline-flex items-center justify-center gap-2 text-xs whitespace-nowrap"
               >
                 <input
                   type="radio"

@@ -133,7 +133,7 @@ export default function CustomerDetailPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10">
       {/* 헤더 */}
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-brand-600 to-brand-700 bg-clip-text text-transparent">
+        <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-brand-600 to-brand-700 bg-clip-text text-transparent">
           고객 상세
         </h1>
         <Button onClick={() => router.push('/customers')} variant="tertiary">
@@ -142,7 +142,7 @@ export default function CustomerDetailPage() {
       </div>
 
       {/* 메인 컨텐츠 */}
-      <div className="flex gap-6 mb-6 items-stretch">
+      <div className="flex flex-col md:flex-row gap-4 md:gap-6 mb-6 items-stretch">
         <div className="flex-1 self-stretch">
           <CustomerInfo
             customer={customer}
@@ -164,22 +164,24 @@ export default function CustomerDetailPage() {
             }}
           />
         </div>
-        <StampSection
-          stampCount={stampCount}
-          target={{
-            id: customerId,
-            name: customer.name,
-            phone: customer.phone,
-          }}
-          onUpdate={handleUpdate}
-        />
+        <div className="flex-1 self-stretch">
+          <StampSection
+            stampCount={stampCount}
+            target={{
+              id: customerId,
+              name: customer.name,
+              phone: customer.phone,
+            }}
+            onUpdate={handleUpdate}
+          />
+        </div>
       </div>
 
       {/* 특이사항 이력 섹션 */}
       <div className="mb-6">
         <div className="bg-white rounded-lg shadow-sm border border-brand-100 p-4">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-brand-700">
+            <h2 className="text-base sm:text-lg font-semibold text-brand-700">
               특이사항 이력
             </h2>
             <Button
@@ -287,7 +289,9 @@ export default function CustomerDetailPage() {
       {/* AS 현황 섹션 */}
       <div className="mb-10">
         <div className="bg-white rounded-lg shadow-sm border border-brand-100 p-6">
-          <h2 className="text-xl font-semibold text-brand-700 mb-4">AS 현황</h2>
+          <h2 className="text-lg sm:text-xl font-semibold text-brand-700 mb-4">
+            AS 현황
+          </h2>
           <CustomerAfterServices
             customerId={customerId}
             refreshKey={refreshKey}

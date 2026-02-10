@@ -236,11 +236,11 @@ const AfterServiceDetailDrawer = ({
   };
 
   return (
-    <Drawer isOpen={isOpen} onClose={onClose} width="w-[800px]">
+    <Drawer isOpen={isOpen} onClose={onClose} width="w-full sm:w-[800px]">
       <div className="h-full flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-brand-100">
-          <h2 className="text-xl font-bold bg-gradient-to-r from-brand-600 to-brand-700 bg-clip-text text-transparent">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-brand-100">
+          <h2 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-brand-600 to-brand-700 bg-clip-text text-transparent">
             AS 상세
           </h2>
           <button
@@ -248,7 +248,7 @@ const AfterServiceDetailDrawer = ({
             className="text-gray-400 hover:text-gray-600 transition-colors"
           >
             <svg
-              className="w-6 h-6"
+              className="w-5 h-5 sm:w-6 sm:h-6"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -264,7 +264,7 @@ const AfterServiceDetailDrawer = ({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           {isLoading ? (
             <div className="flex justify-center items-center py-20">
               <Loading size="lg" text="불러오는 중..." />
@@ -274,13 +274,13 @@ const AfterServiceDetailDrawer = ({
               <p className="text-red-500">{error}</p>
             </div>
           ) : afterServiceDetail ? (
-            <div className="space-y-5">
+            <div className="space-y-4 sm:space-y-5 text-xs sm:text-sm">
               {/* 통합 정보 섹션 */}
 
-              <div className="bg-white border border-brand-100 rounded-lg p-6 shadow-sm">
+              <div className="bg-white border border-brand-100 rounded-lg p-4 sm:p-6 shadow-sm">
                 {/* 고객 정보 & AS 정보 */}
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-bold bg-gradient-to-r from-brand-600 to-brand-700 bg-clip-text text-transparent">
+                <div className="flex items-center justify-between mb-3 sm:mb-4">
+                  <h3 className="text-base sm:text-lg font-bold bg-gradient-to-r from-brand-600 to-brand-700 bg-clip-text text-transparent">
                     주요 정보
                   </h3>
                   <Button
@@ -292,7 +292,7 @@ const AfterServiceDetailDrawer = ({
                     ✏️
                   </Button>
                 </div>
-                <div className="grid grid-cols-[2fr_1fr] grid-rows-2 gap-4 mb-6">
+                <div className="grid grid-cols-1 sm:grid-cols-[2fr_1fr] sm:grid-rows-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
                   {/* AS 정보 카드 */}
                   <ASInfoCard
                     itemType={afterServiceDetail.item_type}

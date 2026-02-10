@@ -36,7 +36,6 @@ const CustomerList = ({
   isLoadingMore,
   totalCount,
   sortBy,
-  sortOrder,
   onSortChange,
 }: CustomerListProps) => {
   const router = useRouter();
@@ -121,7 +120,7 @@ const CustomerList = ({
   return (
     <div className="mb-10">
       <div className="flex justify-start items-center gap-3 mb-3">
-        <div className="text-sm text-gray-600">
+        <div className="text-xs sm:text-sm text-gray-600">
           <span className="font-semibold text-brand-600">
             {customers.length}
           </span>
@@ -168,26 +167,26 @@ const CustomerList = ({
           </div>
         )}
       </div>
-      <div className="bg-white rounded-lg shadow-sm border border-brand-100 overflow-hidden">
-        <table className="min-w-full divide-y divide-brand-100">
+      <div className="bg-white rounded-lg shadow-sm border border-brand-100 overflow-hidden overflow-x-auto">
+        <table className="w-full min-w-[840px] divide-y divide-brand-100 table-auto">
           <thead className="bg-gradient-to-r from-brand-50 to-brand-100">
             <tr>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700">
+              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
                 No
               </th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700">
+              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
                 이름
               </th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700">
+              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
                 전화번호
               </th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700">
+              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
                 성별
               </th>
-              <th className="px-6 py-4 text-center text-sm font-semibold text-brand-700">
+              <th className="px-3 sm:px-6 py-2 sm:py-3 text-center text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
                 스탬프
               </th>
-              <th className="px-6 py-4 text-center text-sm font-semibold text-brand-700">
+              <th className="px-3 sm:px-6 py-2 sm:py-3 text-center text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
                 작업
               </th>
             </tr>
@@ -197,7 +196,7 @@ const CustomerList = ({
               <tr>
                 <td
                   colSpan={6}
-                  className="px-6 py-10 text-center text-gray-500"
+                  className="px-3 sm:px-6 py-10 text-center text-gray-500 text-xs sm:text-sm"
                 >
                   고객 데이터가 없습니다.
                 </td>
@@ -213,29 +212,29 @@ const CustomerList = ({
                     key={customer.id}
                     className="hover:bg-brand-50/50 transition-colors"
                   >
-                    <td className="px-6 py-4 text-sm text-gray-700">
+                    <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 whitespace-nowrap">
                       {index + 1}
                     </td>
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                    <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm font-medium text-gray-900 whitespace-nowrap">
                       {customer.name}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">
+                    <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 whitespace-nowrap">
                       {formatPhoneNumber(customer?.phone)}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">
+                    <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 whitespace-nowrap">
                       {customer.gender === 'male'
                         ? '남자'
                         : customer.gender === 'female'
                         ? '여자'
                         : '-'}
                     </td>
-                    <td className="px-6 py-4 text-center">
-                      <span className="inline-flex items-center justify-center px-3 py-1 rounded-full text-sm font-semibold bg-brand-100 text-brand-700">
+                    <td className="px-3 sm:px-6 py-2 sm:py-3 text-center whitespace-nowrap">
+                      <span className="inline-flex items-center justify-center px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs sm:text-sm font-semibold bg-brand-100 text-brand-700">
                         {stampCount}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-center gap-3">
+                    <td className="px-3 sm:px-6 py-2 sm:py-3 whitespace-nowrap">
+                      <div className="flex items-center justify-center gap-2 sm:gap-3 flex-nowrap">
                         <input
                           type="text"
                           value={amount}
@@ -249,7 +248,7 @@ const CustomerList = ({
                             }
                           }}
                           disabled={isThisLoading}
-                          className="w-10 px-2 py-1 border border-brand-200 rounded focus:outline-none focus:ring-1 focus:ring-brand-300 disabled:bg-gray-100"
+                          className="w-10 px-2 py-1 border border-brand-200 rounded focus:outline-none focus:ring-1 focus:ring-brand-300 disabled:bg-gray-100 text-xs sm:text-sm"
                         />
                         <Button
                           size="sm"
