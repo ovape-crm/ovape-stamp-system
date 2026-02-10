@@ -29,9 +29,9 @@ const SearchBox = ({ onSearch }: SearchBoxProps) => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-brand-100 p-6">
-      <div className="flex gap-3 items-center">
-        <div className="w-[150px]">
+    <div className="bg-white rounded-lg shadow-sm border border-brand-100 p-4 sm:p-6">
+      <div className="flex gap-2 sm:gap-3 items-center">
+        <div className="w-[120px] sm:w-[150px]">
           <Dropdown>
             <Dropdown.Trigger>
               {targetOptions.find((option) => option.value === target)?.label}
@@ -57,10 +57,12 @@ const SearchBox = ({ onSearch }: SearchBoxProps) => {
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
           onKeyPress={handleKeyPress}
-          className="flex-1 px-4 py-2 border border-brand-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-transparent"
+          className="flex-1 px-3 py-1.5 sm:px-4 sm:py-2 border border-brand-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-transparent text-xs sm:text-sm"
         />
 
-        <Button onClick={handleSearch}>검색</Button>
+        <Button size="sm" onClick={handleSearch}>
+          검색
+        </Button>
       </div>
     </div>
   );

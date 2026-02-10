@@ -15,9 +15,9 @@ interface CustomerHistoryItemProps {
 
 const CustomerHistoryItem = ({ log, onNavigate }: CustomerHistoryItemProps) => {
   return (
-    <div className="flex items-center justify-between p-4 rounded-lg border border-brand-50 hover:bg-brand-50/30 transition-colors">
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-4">
+    <div className="flex items-center justify-between p-2.5 sm:p-4 rounded-lg border border-brand-50 hover:bg-brand-50/30 transition-colors whitespace-nowrap text-xs sm:text-sm">
+      <div className="flex items-center gap-3 sm:gap-4">
+        <div className="flex items-center gap-3 sm:gap-4">
           <ActionInfoLabel action={log.action} />
           <CustomerInfo
             name={log.customers?.name}

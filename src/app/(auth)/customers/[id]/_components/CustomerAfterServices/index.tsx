@@ -98,26 +98,26 @@ const CustomerAfterServices = ({
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-brand-100 overflow-hidden">
-      <table className="min-w-full divide-y divide-brand-100">
+    <div className="bg-white rounded-lg shadow-sm border border-brand-100 overflow-hidden overflow-x-auto">
+      <table className="w-full min-w-[900px] divide-y divide-brand-100 text-xs sm:text-sm">
         <thead className="bg-gradient-to-r from-brand-50 to-brand-100">
           <tr>
-            <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700">
+            <th className="px-3 sm:px-6 py-2 sm:py-3 text-left font-semibold text-brand-700 whitespace-nowrap">
               No
             </th>
-            <th className="px-6 py-4 text-center text-sm font-semibold text-brand-700">
+            <th className="px-3 sm:px-6 py-2 sm:py-3 text-center font-semibold text-brand-700 whitespace-nowrap">
               상태
             </th>
-            <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700">
+            <th className="px-3 sm:px-6 py-2 sm:py-3 text-left font-semibold text-brand-700 whitespace-nowrap">
               기기 종류
             </th>
-            <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700">
+            <th className="px-3 sm:px-6 py-2 sm:py-3 text-left font-semibold text-brand-700 whitespace-nowrap">
               제품 이름 / 수량
             </th>
-            <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700 w-64">
+            <th className="px-3 sm:px-6 py-2 sm:py-3 text-left font-semibold text-brand-700 w-64 whitespace-nowrap">
               증상
             </th>
-            <th className="px-6 py-4 text-left text-sm font-semibold text-brand-700">
+            <th className="px-3 sm:px-6 py-2 sm:py-3 text-left font-semibold text-brand-700 whitespace-nowrap">
               등록일
             </th>
           </tr>
@@ -137,35 +137,39 @@ const CustomerAfterServices = ({
             return (
               <tr
                 key={as.id}
-                className="hover:bg-brand-50/50 transition-colors cursor-pointer"
+                className="hover:bg-brand-50/50 transition-colors cursor-pointer whitespace-nowrap"
                 onClick={() => handleRowClick(as.id)}
               >
-                <td className="px-6 py-4 text-sm text-gray-700">{index + 1}</td>
-                <td className="px-6 py-4 text-center">
+                <td className="px-3 sm:px-6 py-2 sm:py-3 text-gray-700">
+                  {index + 1}
+                </td>
+                <td className="px-3 sm:px-6 py-2 sm:py-3 text-center">
                   <span
-                    className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(
+                    className={`inline-flex items-center justify-center px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-[11px] sm:text-xs font-semibold ${getStatusColor(
                       as.status
                     )}`}
                   >
                     {statusInfo.text}
                   </span>
                 </td>
-                <td className="px-6 py-4 text-sm text-gray-700">
+                <td className="px-3 sm:px-6 py-2 sm:py-3 text-gray-700">
                   {itemTypeInfo.name}
                 </td>
-                <td className="px-6 py-4 text-sm text-gray-700">
-                  <div className="flex items-center gap-2">
+                <td className="px-3 sm:px-6 py-2 sm:py-3 text-gray-700">
+                  <div className="flex items-center gap-1.5 sm:gap-2">
                     <span>{as.item_name}</span>
                     <span className="text-gray-400">/</span>
                     <span className="font-medium">{as.quantity}개</span>
                   </div>
                 </td>
-                <td className="px-6 py-4 text-sm text-gray-700 w-64">
+                <td className="px-3 sm:px-6 py-2 sm:py-3 text-gray-700 w-64">
                   <p className="truncate" title={as.symptom}>
                     {as.symptom}
                   </p>
                 </td>
-                <td className="px-6 py-4 text-sm text-gray-700">{createdAt}</td>
+                <td className="px-3 sm:px-6 py-2 sm:py-3 text-gray-700">
+                  {createdAt}
+                </td>
               </tr>
             );
           })}

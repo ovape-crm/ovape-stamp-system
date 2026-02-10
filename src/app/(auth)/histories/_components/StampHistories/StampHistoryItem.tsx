@@ -45,8 +45,8 @@ const StampHistoryItem = ({
   const { copyLogToClipboard } = useCopy();
 
   return (
-    <div className="flex items-center justify-between p-4 rounded-lg border border-brand-50 hover:bg-brand-50/30 transition-colors">
-      <div className="flex items-center gap-4">
+    <div className="flex items-center justify-between p-2.5 sm:p-4 rounded-lg border border-brand-50 hover:bg-brand-50/30 transition-colors whitespace-nowrap text-xs sm:text-sm">
+      <div className="flex items-center gap-2 sm:gap-4">
         <ActionInfoLabel action={log.action} />
         <CustomerInfo
           name={log.customers?.name}
@@ -59,11 +59,11 @@ const StampHistoryItem = ({
         <PaymentTypeLabel jsonb={log.jsonb} />
       )}
 
-      <div className="flex-1 pl-4 ml-4 border-l border-brand-100">
+      <div className="flex-1 pl-3 ml-3 sm:pl-4 sm:ml-4 border-l border-brand-100">
         {isEditing ? (
           <div key="edit" className="flex flex-col gap-2 pr-4">
             <textarea
-              className="flex-1 text-sm px-2 py-2 rounded border border-brand-200 focus:outline-none focus:ring-2 focus:ring-brand-200 resize-none min-h-[60px]"
+              className="flex-1 text-xs sm:text-sm px-2 py-1.5 sm:py-2 rounded border border-brand-200 focus:outline-none focus:ring-2 focus:ring-brand-200 resize-none min-h-[50px] sm:min-h-[60px]"
               value={noteDraft}
               onChange={(e) => onNoteChange(e.target.value)}
               placeholder="메모를 입력하세요"
@@ -72,7 +72,7 @@ const StampHistoryItem = ({
             />
 
             {log.jsonb && 'paymentType' in log.jsonb && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 {paymentTypeOptions.map((option) => (
                   <label
                     key={option.value}
@@ -120,7 +120,7 @@ const StampHistoryItem = ({
             >
               ✏️
             </Button>
-            <span className="flex-1 text-sm text-gray-600 break-words whitespace-pre-line">
+            <span className="flex-1 text-xs sm:text-sm text-gray-600 break-words whitespace-pre-line">
               {currentNote || <span className="text-gray-400"> - </span>}
             </span>
           </div>

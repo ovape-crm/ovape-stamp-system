@@ -81,15 +81,15 @@ const AfterServiceProgressBox = ({
 
   if (isLoading) {
     return (
-      <div className="flex gap-4 items-start">
+      <div className="flex gap-1.5 sm:gap-4 items-start">
         {stats.map((stat, index) => (
           <div
             key={index}
-            className="w-[160px] bg-white rounded-lg shadow-sm border border-brand-100 p-4"
+            className="w-[72px] sm:w-[140px] bg-white rounded-lg shadow-sm border border-brand-100 p-2.5 sm:p-3"
           >
             <div className="flex flex-col">
-              <div className="h-4 w-12 bg-gray-200 rounded animate-pulse mb-1.5" />
-              <div className="h-8 w-16 bg-gray-200 rounded animate-pulse" />
+              <div className="h-3 sm:h-4 w-9 sm:w-12 bg-gray-200 rounded animate-pulse mb-1" />
+              <div className="h-5 sm:h-8 w-12 sm:w-16 bg-gray-200 rounded animate-pulse" />
             </div>
           </div>
         ))}
@@ -98,7 +98,7 @@ const AfterServiceProgressBox = ({
   }
 
   return (
-    <div className="flex gap-4 items-start">
+    <div className="flex gap-1.5 sm:gap-4 items-start">
       {stats.map((stat, index) => {
         const isSelected = selectedGroup && stat.group === selectedGroup;
         const isAllGroup = stat.group === 'all';
@@ -106,7 +106,7 @@ const AfterServiceProgressBox = ({
         return (
           <div
             key={index}
-            className={`w-[160px] bg-white rounded-lg shadow-sm border p-4 relative ${
+            className={`w-[72px] sm:w-[140px] bg-white rounded-lg shadow-sm border p-2.5 sm:p-3 relative ${
               isSelected ? 'border-brand-500 border-2' : 'border-brand-100'
             } ${
               isClickable
@@ -141,11 +141,13 @@ const AfterServiceProgressBox = ({
               </button>
             )}
             <div className="flex flex-col">
-              <span className="text-xs font-medium text-gray-600 mb-1.5">
+              <span className="text-[10px] sm:text-[13px] font-medium text-gray-600 mb-1">
                 {stat.label}
               </span>
               <span
-                className={`text-2xl font-bold ${getValueColor(stat.label)}`}
+                className={`text-lg sm:text-xl font-bold ${getValueColor(
+                  stat.label
+                )}`}
               >
                 {stat.value.toLocaleString()}
               </span>

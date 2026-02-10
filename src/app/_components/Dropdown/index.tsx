@@ -221,7 +221,7 @@ const DropdownTrigger = ({ children }: { children: React.ReactNode }) => {
       onClick={disabled ? undefined : toggleDropdown}
       onKeyDown={handleKeyDown}
       disabled={disabled}
-      className={`w-full rounded-lg font-medium transition-colors shadow-sm outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 focus:border-brand-500 bg-white/70 border border-brand-200 text-brand-700 px-6 py-2 text-base flex items-center justify-between gap-2 text-left ${
+      className={`w-full rounded-lg font-medium transition-colors shadow-sm outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 focus:border-brand-500 bg-white/70 border border-brand-200 text-brand-700 px-3 py-1.5 text-xs sm:px-6 sm:py-2 sm:text-base flex items-center justify-between gap-2 text-left ${
         disabled
           ? 'opacity-50 cursor-not-allowed'
           : 'cursor-pointer hover:bg-brand-50 hover:border-brand-300'
@@ -231,7 +231,9 @@ const DropdownTrigger = ({ children }: { children: React.ReactNode }) => {
       aria-label="Select an option"
       aria-disabled={disabled}
     >
-      <span>{selectedOption ? selectedOption.label : children}</span>
+      <span className="truncate">
+        {selectedOption ? selectedOption.label : children}
+      </span>
       <svg
         className={`w-4 h-4 transition-transform flex-shrink-0 ${
           isOpen ? 'rotate-180' : ''
@@ -384,7 +386,7 @@ const DropdownItem = ({
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       onMouseEnter={() => setFocusedIndex(index)}
-      className={`px-6 py-2 text-base cursor-pointer transition-colors text-brand-700 outline-none focus:bg-brand-100 focus:ring-2 focus:ring-brand-500 focus:ring-inset ${
+      className={`px-4 py-1.5 text-sm sm:px-6 sm:py-2 sm:text-base cursor-pointer transition-colors text-brand-700 outline-none focus:bg-brand-100 focus:ring-2 focus:ring-brand-500 focus:ring-inset ${
         isSelected
           ? 'bg-brand-50 text-brand-900 font-medium'
           : 'hover:bg-brand-50'

@@ -37,46 +37,50 @@ const CustomerHistories = () => {
   return (
     <>
       {error && (
-        <div className="text-center py-8 text-rose-600 text-sm">{error}</div>
+        <div className="text-center py-8 text-rose-600 text-xs sm:text-sm">
+          {error}
+        </div>
       )}
 
       {items.length === 0 && !isLoading ? (
-        <div className="text-center py-12 text-gray-500">
+        <div className="text-center py-12 text-gray-500 text-xs sm:text-sm">
           데이터가 없습니다.
         </div>
       ) : (
-        <div className="space-y-4">
-          {sortedDates.map((dateKey) => {
-            const logsOfDate = itemsByDate[dateKey];
-            const [yyyy, mm, dd] = dateKey.split('.').map((s) => s.trim());
-            const prettyDate = `${yyyy}년 ${mm}월 ${dd}일`;
+        <div className="overflow-x-auto">
+          <div className="min-w-[900px] space-y-3 sm:space-y-4 text-xs sm:text-sm">
+            {sortedDates.map((dateKey) => {
+              const logsOfDate = itemsByDate[dateKey];
+              const [yyyy, mm, dd] = dateKey.split('.').map((s) => s.trim());
+              const prettyDate = `${yyyy}년 ${mm}월 ${dd}일`;
 
-            return (
-              <div key={dateKey} className="space-y-3">
-                {/* 날짜 헤더 (StampHistories와 동일 스타일) */}
-                <div className="w-full py-1">
-                  <div className="w-full px-4 py-2 rounded-lg bg-brand-50/80 border border-brand-100 shadow-xs flex items-center justify-center">
-                    <span className="text-sm font-semibold text-brand-800 tracking-wide">
-                      {prettyDate}
-                    </span>
+              return (
+                <div key={dateKey} className="space-y-3">
+                  {/* 날짜 헤더 (StampHistories와 동일 스타일) */}
+                  <div className="w-full py-0.5 sm:py-1">
+                    <div className="w-full px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg bg-brand-50/80 border border-brand-100 shadow-xs flex items-center justify-start sm:justify-center">
+                      <span className="text-xs sm:text-sm font-semibold text-brand-800 tracking-wide whitespace-nowrap">
+                        {prettyDate}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 해당 날짜의 로그들 */}
+                  <div className="space-y-3">
+                    {logsOfDate.map((log, index) => (
+                      <CustomerHistoryItem
+                        key={`${log.id}-${index}`}
+                        log={log}
+                        onNavigate={() =>
+                          router.push(`/customers/${log.customer_id}`)
+                        }
+                      />
+                    ))}
                   </div>
                 </div>
-
-                {/* 해당 날짜의 로그들 */}
-                <div className="space-y-3">
-                  {logsOfDate.map((log, index) => (
-                    <CustomerHistoryItem
-                      key={`${log.id}-${index}`}
-                      log={log}
-                      onNavigate={() =>
-                        router.push(`/customers/${log.customer_id}`)
-                      }
-                    />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       )}
 

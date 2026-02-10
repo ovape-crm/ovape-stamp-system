@@ -53,44 +53,53 @@ const CustomersDetailUpdateHistories = ({
     (a, b) => new Date(b).getTime() - new Date(a).getTime()
   );
 
-  return sortedDates.map((dateKey) => {
-    const logsOfDate = logsByDate[dateKey];
-    const [yyyy, mm, dd] = dateKey.split('.').map((s) => s.trim());
-    const prettyDate = `${yyyy}년 ${mm}월 ${dd}일`;
+  return (
+    <div className="overflow-x-auto">
+      <div className="min-w-[900px] space-y-3 text-xs sm:text-sm">
+        {sortedDates.map((dateKey) => {
+          const logsOfDate = logsByDate[dateKey];
+          const [yyyy, mm, dd] = dateKey.split('.').map((s) => s.trim());
+          const prettyDate = `${yyyy}년 ${mm}월 ${dd}일`;
 
-    return (
-      <div key={dateKey} className="space-y-3">
-        {/* 날짜 헤더 (히스토리와 동일 스타일) */}
-        <div className="w-full py-1">
-          <div className="w-full px-4 py-2 rounded-lg bg-brand-50/80 border border-brand-100 shadow-xs flex items-center justify-center">
-            <span className="text-sm font-semibold text-brand-800 tracking-wide">
-              {prettyDate}
-            </span>
-          </div>
-        </div>
-
-        {/* 해당 날짜의 로그들 */}
-        {logsOfDate.map((log) => (
-          <div
-            key={log.id}
-            className="flex items-center justify-between p-3 rounded border border-brand-50 hover:bg-brand-50/30 transition-colors text-sm"
-          >
-            <div className="flex items-center gap-6">
-              <ActionInfoLabel action={log.action} />
-
-              {log.users && (
-                <div className="text-left">
-                  <LogActorInfo users={log.users} created_at={log.created_at} />
+          return (
+            <div key={dateKey} className="space-y-3">
+              {/* 날짜 헤더 (히스토리와 동일 스타일) */}
+              <div className="w-full py-1">
+                <div className="w-full px-4 py-2 rounded-lg bg-brand-50/80 border border-brand-100 shadow-xs flex items-center justify-center">
+                  <span className="text-xs sm:text-sm font-semibold text-brand-800 tracking-wide whitespace-nowrap">
+                    {prettyDate}
+                  </span>
                 </div>
-              )}
+              </div>
 
-              {log.jsonb && <ChangeFields jsonb={log.jsonb} />}
+              {/* 해당 날짜의 로그들 */}
+              {logsOfDate.map((log) => (
+                <div
+                  key={log.id}
+                  className="flex items-center justify-between p-3 rounded border border-brand-50 hover:bg-brand-50/30 transition-colors whitespace-nowrap"
+                >
+                  <div className="flex items-center gap-4 sm:gap-6">
+                    <ActionInfoLabel action={log.action} />
+
+                    {log.users && (
+                      <div className="text-left">
+                        <LogActorInfo
+                          users={log.users}
+                          created_at={log.created_at}
+                        />
+                      </div>
+                    )}
+
+                    {log.jsonb && <ChangeFields jsonb={log.jsonb} />}
+                  </div>
+                </div>
+              ))}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
-    );
-  });
+    </div>
+  );
 };
 
 export default CustomersDetailUpdateHistories;
