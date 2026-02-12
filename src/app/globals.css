@@ -18,7 +18,7 @@
   --brand-900: #891f43;
 }
 
-@theme inline {
+@theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
 

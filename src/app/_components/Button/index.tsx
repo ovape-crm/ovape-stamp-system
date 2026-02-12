@@ -29,6 +29,7 @@ const Button = ({
     'disabled:opacity-50',
     'disabled:cursor-not-allowed',
     'cursor-pointer',
+    'whitespace-nowrap',
   ];
 
   // variant별 스타일

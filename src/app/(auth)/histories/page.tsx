@@ -9,13 +9,13 @@ import RemarkHistories from './_components/RemarkHistories';
 
 export default function HistoriesPage() {
   const [logType, setLogType] = useState<LogCategoryEnumType['value']>(
-    LogCategoryEnum.STAMP.value
+    LogCategoryEnum.STAMP.value,
   );
 
   return (
     <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10 mb-10">
       <div className="bg-white rounded-lg shadow-sm border border-brand-100 p-6">
-        <div className="flex gap-3 mb-4 pb-3 border-b border-brand-100">
+        <div className="flex gap-1 sm:gap-3  mb-4 pb-3 border-b border-brand-100">
           <Button
             onClick={() => setLogType(LogCategoryEnum.STAMP.value)}
             variant={
