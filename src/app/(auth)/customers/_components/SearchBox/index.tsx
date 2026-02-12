@@ -51,18 +51,20 @@ const SearchBox = ({ onSearch }: SearchBoxProps) => {
             </Dropdown.Content>
           </Dropdown>
         </div>
-        <input
-          type="text"
-          placeholder="검색어 입력"
-          value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
-          onKeyPress={handleKeyPress}
-          className="flex-1 px-3 py-1.5 sm:px-4 sm:py-2 border border-brand-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-transparent text-xs sm:text-sm"
-        />
+        <div className="w-full flex gap-2">
+          <input
+            type="text"
+            placeholder="검색어 입력"
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            onKeyPress={handleKeyPress}
+            className="w-full px-3 py-1.5 sm:px-4 sm:py-2 border border-brand-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-transparent text-xs sm:text-sm"
+          />
 
-        <Button size="sm" onClick={handleSearch}>
-          검색
-        </Button>
+          <Button size="sm" onClick={handleSearch}>
+            검색
+          </Button>
+        </div>
       </div>
     </div>
   );

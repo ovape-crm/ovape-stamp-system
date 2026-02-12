@@ -62,7 +62,7 @@ const AfterServicesPage = () => {
     } catch (err) {
       console.error('AS 등록 실패:', err);
       toast.error(
-        err instanceof Error ? err.message : 'AS 등록에 실패했습니다.'
+        err instanceof Error ? err.message : 'AS 등록에 실패했습니다.',
       );
     } finally {
       setIsSubmitting(false);
@@ -89,7 +89,7 @@ const AfterServicesPage = () => {
   };
 
   const handleGroupClick = (
-    group: 'all' | 'received' | 'inProgress' | 'completed'
+    group: 'all' | 'received' | 'inProgress' | 'completed',
   ) => {
     if (group === 'all') {
       setFilters((prev) => {
@@ -112,7 +112,7 @@ const AfterServicesPage = () => {
         onSearch={handleSearch}
         disabled={!!filters.groupStatus}
       />
-      <div className="flex justify-between items-end">
+      <div className="flex flex-col gap-2 justify-between">
         <AfterServiceProgressBox
           refreshKey={refreshKey}
           onGroupClick={handleGroupClick}
@@ -124,7 +124,7 @@ const AfterServicesPage = () => {
             });
           }}
         />
-        <div className="flex gap-2">
+        <div className="flex justify-end">
           <Button
             size="sm"
             onClick={() => {

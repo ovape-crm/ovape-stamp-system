@@ -18,7 +18,7 @@
   --brand-900: #891f43;
 }
 
-@theme inline {
+@theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
 
@@ -33,13 +33,6 @@
   --color-brand-700: var(--brand-700);
   --color-brand-800: var(--brand-800);
   --color-brand-900: var(--brand-900);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {

@@ -41,14 +41,14 @@ const CustomerList = ({
   const router = useRouter();
   const { open, close } = useModal();
   const [loadingCustomerId, setLoadingCustomerId] = useState<string | null>(
-    null
+    null,
   );
   const [amounts, setAmounts] = useState<Record<string, number>>({});
 
   const handleAdd = async (
     customerId: string,
     modalNote?: string,
-    paymentType?: PaymentTypeEnumType['value']
+    paymentType?: PaymentTypeEnumType['value'],
   ) => {
     const amount = amounts[customerId] || 1;
     try {
@@ -76,7 +76,7 @@ const CustomerList = ({
     } catch (error) {
       console.error('스탬프 차감 실패:', error);
       toast.error(
-        error instanceof Error ? error.message : '스탬프 차감에 실패했습니다.'
+        error instanceof Error ? error.message : '스탬프 차감에 실패했습니다.',
       );
     } finally {
       setLoadingCustomerId(null);
@@ -86,7 +86,7 @@ const CustomerList = ({
   const handleUse10 = async (
     customerId: string,
     stampCount: number,
-    modalNote?: string
+    modalNote?: string,
   ) => {
     if (stampCount < 10) {
       toast.error('스탬프가 10개 미만입니다.');
@@ -136,7 +136,7 @@ const CustomerList = ({
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => onSortChange('name')}
-              className={`px-2 py-1 text-xs rounded border transition-colors cursor-pointer ${
+              className={`whitespace-nowrap px-2 py-1 text-xs rounded border transition-colors cursor-pointer ${
                 sortBy === 'name'
                   ? 'bg-brand-100 border-brand-300 text-brand-700 font-medium'
                   : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
@@ -146,7 +146,7 @@ const CustomerList = ({
             </button>
             <button
               onClick={() => onSortChange('stamp')}
-              className={`px-2 py-1 text-xs rounded border transition-colors cursor-pointer ${
+              className={`whitespace-nowrap px-2 py-1 text-xs rounded border transition-colors cursor-pointer ${
                 sortBy === 'stamp'
                   ? 'bg-brand-100 border-brand-300 text-brand-700 font-medium'
                   : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
@@ -156,7 +156,7 @@ const CustomerList = ({
             </button>
             <button
               onClick={() => onSortChange('created_at')}
-              className={`px-2 py-1 text-xs rounded border transition-colors cursor-pointer ${
+              className={`whitespace-nowrap px-2 py-1 text-xs rounded border transition-colors cursor-pointer ${
                 sortBy === 'created_at'
                   ? 'bg-brand-100 border-brand-300 text-brand-700 font-medium'
                   : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
@@ -225,8 +225,8 @@ const CustomerList = ({
                       {customer.gender === 'male'
                         ? '남자'
                         : customer.gender === 'female'
-                        ? '여자'
-                        : '-'}
+                          ? '여자'
+                          : '-'}
                     </td>
                     <td className="px-3 sm:px-6 py-2 sm:py-3 text-center whitespace-nowrap">
                       <span className="inline-flex items-center justify-center px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs sm:text-sm font-semibold bg-brand-100 text-brand-700">
@@ -270,12 +270,12 @@ const CustomerList = ({
                                   onCancel={close}
                                   onConfirm={async (
                                     modalNote?: string,
-                                    paymentType?: PaymentTypeEnumType['value']
+                                    paymentType?: PaymentTypeEnumType['value'],
                                   ) => {
                                     await handleAdd(
                                       customer.id,
                                       modalNote,
-                                      paymentType
+                                      paymentType,
                                     );
                                     close();
                                   }}
@@ -303,7 +303,7 @@ const CustomerList = ({
                                     await handleUse10(
                                       customer.id,
                                       stampCount,
-                                      modalNote
+                                      modalNote,
                                     );
                                     close();
                                   }}
