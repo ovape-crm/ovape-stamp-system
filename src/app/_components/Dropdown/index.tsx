@@ -39,16 +39,27 @@ const DropdownContext = createContext<DropdownContextType | null>(null);
 interface DropdownProviderProps {
   children: React.ReactNode;
   disabled?: boolean;
+  controlledValue?: string | number;
 }
 
 const DropdownProvider = ({
   children,
   disabled = false,
+  controlledValue,
 }: DropdownProviderProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedOption, setSelectedOption] = useState<DropdownOption | null>(
     null
   );
+
+  // 외부 controlledValue가 변경되면 내부 selectedOption을 초기화
+  useEffect(() => {
+    if (controlledValue !== undefined) {
+      if (selectedOption && selectedOption.value !== controlledValue) {
+        setSelectedOption(null);
+      }
+    }
+  }, [controlledValue]); // eslint-disable-line react-hooks/exhaustive-deps
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
   const [itemCount, setItemCount] = useState(0);
   const dropdownRef = useRef<HTMLDivElement>(null);

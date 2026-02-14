@@ -20,6 +20,7 @@ const AfterServicesPage = () => {
   const { open, close } = useModal();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [statusValue, setStatusValue] = useState('all');
   const [filters, setFilters] = useState<{
     status?: string;
     groupStatus?: 'received' | 'inProgress' | 'completed';
@@ -70,8 +71,8 @@ const AfterServicesPage = () => {
   };
 
   const handleStatusChange = (status: string) => {
+    setStatusValue(status);
     if (filters.groupStatus) {
-      // groupStatus가 활성화되어 있으면 status 필터 변경 무시
       return;
     }
     setFilters((prev) => ({
@@ -100,14 +101,16 @@ const AfterServicesPage = () => {
       setFilters((prev) => ({
         ...prev,
         groupStatus: group,
-        status: undefined, // groupStatus가 있으면 status는 무시
+        status: undefined,
       }));
+      setStatusValue('all');
     }
   };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10 space-y-4">
       <AfterServiceSearchBox
+        statusValue={statusValue}
         onStatusChange={handleStatusChange}
         onSearch={handleSearch}
         disabled={!!filters.groupStatus}

@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { AfterServiceStatusEnum } from '@/app/_enums/enums';
 
 interface SearchBoxProps {
+  statusValue: string;
   onStatusChange?: (status: string) => void;
   onSearch?: (target: string, keyword: string) => void;
   disabled?: boolean;
@@ -26,18 +27,13 @@ const symptomOptions = [
 ];
 
 const AfterServiceSearchBox = ({
+  statusValue,
   onStatusChange,
   onSearch,
   disabled = false,
 }: SearchBoxProps) => {
   const [target, setTarget] = useState('name');
-  const [symptom, setSymptom] = useState('all');
   const [keyword, setKeyword] = useState('');
-
-  const handleStatusChange = (newStatus: string) => {
-    setSymptom(newStatus);
-    onStatusChange?.(newStatus);
-  };
 
   const handleSearch = () => {
     onSearch?.(target, keyword);
@@ -57,10 +53,10 @@ const AfterServiceSearchBox = ({
           <div className="flex flex-col gap-1.5">
             <label className="font-medium text-gray-600">상태</label>
             <div className="w-full sm:w-[250px]">
-              <Dropdown disabled={disabled}>
+              <Dropdown disabled={disabled} controlledValue={statusValue}>
                 <Dropdown.Trigger>
                   {
-                    symptomOptions.find((option) => option.value === symptom)
+                    symptomOptions.find((option) => option.value === statusValue)
                       ?.label
                   }
                 </Dropdown.Trigger>
@@ -71,7 +67,7 @@ const AfterServiceSearchBox = ({
                         key={option.value}
                         option={option}
                         onSelect={(option: DropdownOption) =>
-                          handleStatusChange(option.value as string)
+                          onStatusChange?.(option.value as string)
                         }
                       />
                     );
