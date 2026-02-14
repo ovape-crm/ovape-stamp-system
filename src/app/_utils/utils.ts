@@ -110,26 +110,28 @@ export const formatPhoneNumber = (phone: string | null | undefined): string => {
 };
 
 /**
- * 로그 배열을 날짜별로 그룹핑하고 최신순으로 정렬된 날짜 키를 반환
+ * 로그 배열을 날짜별로 그룹핑하고 정렬된 날짜 키를 반환
+ * items의 순서를 보존 (DB에서 이미 정렬되어 온 순서 유지)
  */
 export const groupLogsByDate = <T extends { created_at: string }>(
   items: T[]
 ): { itemsByDate: Record<string, T[]>; sortedDates: string[] } => {
-  const itemsByDate = items.reduce<Record<string, T[]>>((acc, log) => {
+  const itemsByDate: Record<string, T[]> = {};
+  const sortedDates: string[] = [];
+
+  for (const log of items) {
     const dateKey = new Date(log.created_at).toLocaleDateString('ko-KR', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
     });
 
-    if (!acc[dateKey]) acc[dateKey] = [];
-    acc[dateKey].push(log);
-    return acc;
-  }, {});
-
-  const sortedDates = Object.keys(itemsByDate).sort(
-    (a, b) => new Date(b).getTime() - new Date(a).getTime()
-  );
+    if (!itemsByDate[dateKey]) {
+      itemsByDate[dateKey] = [];
+      sortedDates.push(dateKey);
+    }
+    itemsByDate[dateKey].push(log);
+  }
 
   return { itemsByDate, sortedDates };
 };

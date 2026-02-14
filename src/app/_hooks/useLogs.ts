@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { LogsResType } from '../_types/log.types';
 import { getLogs } from '@/services/logService';
 import toast from 'react-hot-toast';
@@ -6,7 +6,8 @@ import { LogCategoryEnum, LogCategoryEnumType } from '../_enums/enums';
 
 const useLogs = (
   pageSize = 10,
-  category: LogCategoryEnumType['value'] = LogCategoryEnum.STAMP.value
+  category: LogCategoryEnumType['value'] = LogCategoryEnum.STAMP.value,
+  dateRange?: { start: string; end: string } | null
 ) => {
   const [items, setItems] = useState<LogsResType[]>([]);
   const [offset, setOffset] = useState(0);
@@ -14,30 +15,63 @@ const useLogs = (
   const [error, setError] = useState('');
   const [hasMore, setHasMore] = useState(true);
 
-  const load = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError('');
-      const data = await getLogs(pageSize, offset, category);
-      setItems((prev) => [...prev, ...data]);
-      setHasMore(data.length === pageSize);
-      setOffset((prev) => prev + data.length);
-      if (offset > 0 && data.length > 0) {
-        toast.success(`${data.length}개 더 불러오기 성공!`);
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '에러가 발생했습니다');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [offset]);
+  const dateRangeRef = useRef(dateRange);
+  dateRangeRef.current = dateRange;
+  const categoryRef = useRef(category);
+  categoryRef.current = category;
 
+  const dateRangeKey = dateRange ? `${dateRange.start}_${dateRange.end}` : '';
+  const prevDateRangeKeyRef = useRef(dateRangeKey);
+
+  const fetchLogs = useCallback(
+    async (currentOffset: number, isLoadMore = false) => {
+      try {
+        setIsLoading(true);
+        setError('');
+        const data = await getLogs(
+          pageSize,
+          currentOffset,
+          categoryRef.current,
+          dateRangeRef.current ?? undefined
+        );
+        if (isLoadMore) {
+          setItems((prev) => [...prev, ...data]);
+        } else {
+          setItems(data);
+        }
+        setHasMore(data.length === pageSize);
+        setOffset(currentOffset + data.length);
+        if (isLoadMore && data.length > 0) {
+          toast.success(`${data.length}개 더 불러오기 성공!`);
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : '에러가 발생했습니다');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [pageSize]
+  );
+
+  // 더 불러오기
+  const load = useCallback(() => {
+    void fetchLogs(offset, true);
+  }, [fetchLogs, offset]);
+
+  // 초기 로드
   useEffect(() => {
-    // first load only
-    if (offset === 0 && items.length === 0 && !isLoading) {
-      void load();
+    void fetchLogs(0);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // dateRange 변경 시 처음부터 다시 로드
+  useEffect(() => {
+    if (prevDateRangeKeyRef.current !== dateRangeKey) {
+      prevDateRangeKeyRef.current = dateRangeKey;
+      setOffset(0);
+      setHasMore(true);
+      void fetchLogs(0);
     }
-  }, []); // 의존성 배열을 비워서 한 번만 실행
+  }, [dateRangeKey, fetchLogs]);
 
   return {
     items,

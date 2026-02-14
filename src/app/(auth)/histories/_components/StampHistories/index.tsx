@@ -14,10 +14,14 @@ import StampHistoryItem from './StampHistoryItem';
 
 const PAGE_SIZE = 10;
 
-const StampHistories = () => {
+interface StampHistoriesProps {
+  dateRange?: { start: string; end: string } | null;
+}
+
+const StampHistories = ({ dateRange }: StampHistoriesProps) => {
   const router = useRouter();
   const { items, setItems, isLoading, error, hasMore, load } =
-    useLogs(PAGE_SIZE);
+    useLogs(PAGE_SIZE, undefined, dateRange);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState('');

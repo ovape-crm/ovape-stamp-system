@@ -148,11 +148,12 @@ export const getLogsByAfterServiceId = async (
 export const getLogs = async (
   limit = 10,
   offset = 0,
-  category: LogCategoryEnumType['value'] = 'stamp'
+  category: LogCategoryEnumType['value'] = 'stamp',
+  dateRange?: { start: string; end: string }
 ): Promise<LogsResType[]> => {
   const from = offset;
   const to = offset + limit - 1;
-  const { data, error } = await supabase
+  let query = supabase
     .from('logs')
     .select(
       `
@@ -161,8 +162,16 @@ export const getLogs = async (
       customers(name, phone)
     `
     )
-    .eq('category', category)
-    .order('created_at', { ascending: false })
+    .eq('category', category);
+
+  if (dateRange) {
+    query = query
+      .gte('created_at', dateRange.start)
+      .lte('created_at', `${dateRange.end}T23:59:59.999Z`);
+  }
+
+  const { data, error } = await query
+    .order('created_at', { ascending: !!dateRange })
     .range(from, to);
 
   if (error) throw error;

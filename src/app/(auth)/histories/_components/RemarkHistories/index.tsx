@@ -14,11 +14,16 @@ import RemarkHistoryItem from './RemarkHistoryItem';
 
 const PAGE_SIZE = 10;
 
-const RemarkHistories = () => {
+interface RemarkHistoriesProps {
+  dateRange?: { start: string; end: string } | null;
+}
+
+const RemarkHistories = ({ dateRange }: RemarkHistoriesProps) => {
   const router = useRouter();
   const { items, setItems, isLoading, error, hasMore, load } = useLogs(
     PAGE_SIZE,
-    LogCategoryEnum.REMARK.value
+    LogCategoryEnum.REMARK.value,
+    dateRange
   );
 
   const [editingId, setEditingId] = useState<string | null>(null);

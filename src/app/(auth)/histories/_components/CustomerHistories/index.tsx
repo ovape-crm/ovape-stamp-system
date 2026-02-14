@@ -10,12 +10,17 @@ import CustomerHistoryItem from './CustomerHistoryItem';
 
 const PAGE_SIZE = 10;
 
-const CustomerHistories = () => {
+interface CustomerHistoriesProps {
+  dateRange?: { start: string; end: string } | null;
+}
+
+const CustomerHistories = ({ dateRange }: CustomerHistoriesProps) => {
   const router = useRouter();
 
   const { items, isLoading, error, hasMore, load } = useLogs(
     PAGE_SIZE,
-    LogCategoryEnum.CUSTOMER.value
+    LogCategoryEnum.CUSTOMER.value,
+    dateRange
   );
 
   const { itemsByDate, sortedDates } = groupLogsByDate(items);
