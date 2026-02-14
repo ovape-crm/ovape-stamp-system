@@ -109,6 +109,39 @@ export const formatPhoneNumber = (phone: string | null | undefined): string => {
   return phone;
 };
 
+/**
+ * 로그 배열을 날짜별로 그룹핑하고 최신순으로 정렬된 날짜 키를 반환
+ */
+export const groupLogsByDate = <T extends { created_at: string }>(
+  items: T[]
+): { itemsByDate: Record<string, T[]>; sortedDates: string[] } => {
+  const itemsByDate = items.reduce<Record<string, T[]>>((acc, log) => {
+    const dateKey = new Date(log.created_at).toLocaleDateString('ko-KR', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+
+    if (!acc[dateKey]) acc[dateKey] = [];
+    acc[dateKey].push(log);
+    return acc;
+  }, {});
+
+  const sortedDates = Object.keys(itemsByDate).sort(
+    (a, b) => new Date(b).getTime() - new Date(a).getTime()
+  );
+
+  return { itemsByDate, sortedDates };
+};
+
+/**
+ * 날짜 키(예: "25. 12. 02.")를 보기 좋은 형식(예: "25년 12월 02일")으로 변환
+ */
+export const formatDateKey = (dateKey: string): string => {
+  const [yyyy, mm, dd] = dateKey.split('.').map((s) => s.trim());
+  return `${yyyy}년 ${mm}월 ${dd}일`;
+};
+
 type CustomerValue = {
   name: string;
   phone: string;
@@ -144,3 +177,4 @@ export const getUpdateLogNote = (
 
   return changeObj;
 };
+
