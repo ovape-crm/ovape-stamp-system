@@ -6,6 +6,7 @@ import Loading from '@/app/_components/Loading';
 import { CustomersLogsResType } from '@/app/_types/log.types';
 import { updateLogNote } from '@/services/logService';
 import { useCallback, useState } from 'react';
+import { groupLogsByDate, formatDateKey } from '@/app/_utils/utils';
 import { toast } from 'react-hot-toast';
 
 const CustomersDetailRemarkHistories = ({
@@ -78,33 +79,14 @@ const CustomersDetailRemarkHistories = ({
     );
   }
 
-  // 날짜별 그룹핑
-  const logsByDate = logs.reduce<Record<string, CustomersLogsResType>>(
-    (acc, log) => {
-      const dateKey = new Date(log.created_at).toLocaleDateString('ko-KR', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      });
-
-      if (!acc[dateKey]) acc[dateKey] = [];
-      acc[dateKey].push(log);
-      return acc;
-    },
-    {}
-  );
-
-  const sortedDates = Object.keys(logsByDate).sort(
-    (a, b) => new Date(b).getTime() - new Date(a).getTime()
-  );
+  const { itemsByDate: logsByDate, sortedDates } = groupLogsByDate(logs);
 
   return (
     <div className="overflow-x-auto">
       <div className="min-w-[900px] space-y-3 text-xs sm:text-sm">
         {sortedDates.map((dateKey) => {
           const logsOfDate = logsByDate[dateKey];
-          const [yyyy, mm, dd] = dateKey.split('.').map((s) => s.trim());
-          const prettyDate = `${yyyy}년 ${mm}월 ${dd}일`;
+          const prettyDate = formatDateKey(dateKey);
 
           return (
             <div key={dateKey} className="space-y-3">

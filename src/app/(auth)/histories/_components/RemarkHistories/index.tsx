@@ -9,15 +9,21 @@ import { useRouter } from 'next/navigation';
 import { LogsResType } from '@/app/_types/log.types';
 import useLogs from '@/app/_hooks/useLogs';
 import { LogCategoryEnum } from '@/app/_enums/enums';
+import { groupLogsByDate, formatDateKey } from '@/app/_utils/utils';
 import RemarkHistoryItem from './RemarkHistoryItem';
 
 const PAGE_SIZE = 10;
 
-const RemarkHistories = () => {
+interface RemarkHistoriesProps {
+  dateRange?: { start: string; end: string } | null;
+}
+
+const RemarkHistories = ({ dateRange }: RemarkHistoriesProps) => {
   const router = useRouter();
   const { items, setItems, isLoading, error, hasMore, load } = useLogs(
     PAGE_SIZE,
-    LogCategoryEnum.REMARK.value
+    LogCategoryEnum.REMARK.value,
+    dateRange
   );
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -59,25 +65,7 @@ const RemarkHistories = () => {
     [noteDraft, setItems]
   );
 
-  // 날짜별 그룹핑
-  const itemsByDate = items.reduce<Record<string, LogsResType[]>>(
-    (acc, log) => {
-      const dateKey = new Date(log.created_at).toLocaleDateString('ko-KR', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      }); // 예: 25. 12. 02
-
-      if (!acc[dateKey]) acc[dateKey] = [];
-      acc[dateKey].push(log);
-      return acc;
-    },
-    {}
-  );
-
-  const sortedDates = Object.keys(itemsByDate).sort(
-    (a, b) => new Date(b).getTime() - new Date(a).getTime()
-  );
+  const { itemsByDate, sortedDates } = groupLogsByDate(items);
 
   return (
     <>
@@ -97,9 +85,7 @@ const RemarkHistories = () => {
             {sortedDates.map((dateKey) => {
               const logsOfDate = itemsByDate[dateKey];
 
-              // 보기 좋은 형식으로 변환 (예: "25년 12월 02일")
-              const [yyyy, mm, dd] = dateKey.split('.').map((s) => s.trim());
-              const prettyDate = `${yyyy}년 ${mm}월 ${dd}일`;
+              const prettyDate = formatDateKey(dateKey);
 
               return (
                 <div key={dateKey} className="space-y-4">
