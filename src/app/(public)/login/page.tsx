@@ -45,7 +45,7 @@ export default function LoginPage() {
     }
 
     if (data.session) {
-      router.push('/dashboard');
+      router.push('/customers');
     }
   };
 
