@@ -8,6 +8,8 @@ const fieldMap = {
   item_name: '품명',
   quantity: '수량',
   symptom: '증상',
+  shop_note: '매장 특이사항',
+  customer_note: '고객 특이사항',
 } as const;
 
 const itemTypeMap: Record<string, string> = {
@@ -23,7 +25,7 @@ const ChangeFields = ({ jsonb }: { jsonb: Record<string, unknown> }) => {
       value &&
       typeof value === 'object' &&
       ('old' in (value as Record<string, unknown>) ||
-        'new' in (value as Record<string, unknown>))
+        'new' in (value as Record<string, unknown>)),
   );
 
   if (validEntries.length === 0) return null;

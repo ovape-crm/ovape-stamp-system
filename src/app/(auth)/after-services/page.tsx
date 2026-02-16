@@ -41,7 +41,10 @@ const AfterServicesPage = () => {
     itemName: string;
     quantity: number;
     symptom: string;
-    note?: string;
+    shopNote?: string;
+    customerNote?: string;
+    isLoanerDeviceIssued: boolean;
+    receivedNote?: string;
   }) => {
     try {
       setIsSubmitting(true);
@@ -53,7 +56,10 @@ const AfterServicesPage = () => {
         itemName: values.itemName,
         quantity: values.quantity,
         symptom: values.symptom,
-        note: values.note,
+        shopNote: values.shopNote,
+        customerNote: values.customerNote,
+        isLoanerDeviceIssued: values.isLoanerDeviceIssued,
+        receivedNote: values.receivedNote,
       });
 
       toast.success('AS가 등록되었습니다.');

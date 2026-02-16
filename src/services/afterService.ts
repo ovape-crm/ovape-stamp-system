@@ -14,14 +14,20 @@ export const createAfterService = async ({
   itemName,
   quantity,
   symptom,
-  note = '',
+  shopNote = '',
+  customerNote = '',
+  isLoanerDeviceIssued = false,
+  receivedNote = '',
 }: {
   customerId: string | null;
   itemType: AfterServiceItemTypeEnumType['value'];
   itemName: string;
   quantity: number;
   symptom: string;
-  note?: string;
+  shopNote?: string;
+  customerNote?: string;
+  isLoanerDeviceIssued?: boolean;
+  receivedNote?: string;
 }) => {
   const {
     data: { session },
@@ -43,7 +49,9 @@ export const createAfterService = async ({
       item_name: itemName,
       quantity: quantity,
       symptom: symptom,
-      note: note,
+      shop_note: shopNote,
+      customer_note: customerNote,
+      is_loaner_device_issued: isLoanerDeviceIssued,
       status: AfterServiceStatusEnum.RECEIVED.value,
     })
     .select()
@@ -54,7 +62,8 @@ export const createAfterService = async ({
   await createAfterServiceLog(
     customerId ? String(customerId) : null,
     data.id,
-    'after-service-received'
+    'after-service-received',
+    receivedNote
   );
 
   return data;
@@ -294,14 +303,18 @@ export const updateAfterService = async (
     itemName,
     quantity,
     symptom,
-    note,
+    shopNote,
+    customerNote,
+    isLoanerDeviceIssued,
   }: {
     customerId: string | null;
     itemType: AfterServiceItemTypeEnumType['value'];
     itemName: string;
     quantity: number;
     symptom: string;
-    note?: string;
+    shopNote?: string;
+    customerNote?: string;
+    isLoanerDeviceIssued?: boolean;
   }
 ) => {
   const {
@@ -325,7 +338,9 @@ export const updateAfterService = async (
       item_name: itemName,
       quantity: quantity,
       symptom: symptom,
-      note: note || null,
+      shop_note: shopNote || null,
+      customer_note: customerNote || null,
+      is_loaner_device_issued: isLoanerDeviceIssued ?? false,
     })
     .eq('id', id)
     .select()
@@ -359,10 +374,20 @@ export const updateAfterService = async (
   if (prevAfterService.symptom !== symptom) {
     changeObj.symptom = { old: prevAfterService.symptom, new: symptom };
   }
-  const prevNote = prevAfterService.note || '';
-  const newNote = note || '';
-  if (prevNote !== newNote) {
-    changeObj.note = { old: prevNote || null, new: newNote || null };
+  const prevShopNote = prevAfterService.shop_note || '';
+  const newShopNote = shopNote || '';
+  if (prevShopNote !== newShopNote) {
+    changeObj.shop_note = { old: prevShopNote || null, new: newShopNote || null };
+  }
+  const prevCustomerNote = prevAfterService.customer_note || '';
+  const newCustomerNote = customerNote || '';
+  if (prevCustomerNote !== newCustomerNote) {
+    changeObj.customer_note = { old: prevCustomerNote || null, new: newCustomerNote || null };
+  }
+  const prevIsLoanerDeviceIssued = prevAfterService.is_loaner_device_issued ?? false;
+  const newIsLoanerDeviceIssued = isLoanerDeviceIssued ?? false;
+  if (prevIsLoanerDeviceIssued !== newIsLoanerDeviceIssued) {
+    changeObj.is_loaner_device_issued = { old: prevIsLoanerDeviceIssued ? 1 : 0, new: newIsLoanerDeviceIssued ? 1 : 0 };
   }
 
   // 변경사항이 있을 때만 로그 생성

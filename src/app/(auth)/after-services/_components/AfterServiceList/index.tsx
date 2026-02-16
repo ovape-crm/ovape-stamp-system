@@ -1,135 +1,43 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { getAfterServices, getAfterServicesCount } from '@/services/afterService';
+import { useEffect } from 'react';
 import Loading from '@/app/_components/Loading';
 import Button from '@/app/_components/Button';
 import { formatPhoneNumber } from '@/app/_utils/utils';
-import {
-  AfterServiceStatusEnumType,
-  AfterServiceItemTypeEnum,
-} from '@/app/_enums/enums';
+import { AfterServiceItemTypeEnum } from '@/app/_enums/enums';
 import { ActionInfoLabel } from '@/app/(auth)/_components/HistoriesComponents';
-
-const PAGE_SIZE = 10;
+import {
+  useAfterServices,
+  AfterServiceFilters,
+} from '@/app/_hooks/useAfterServices';
 
 interface AfterServiceListProps {
   refreshKey?: number;
   onRowClick?: (afterServiceId: string) => void;
-  filters?: {
-    status?: string;
-    groupStatus?: 'received' | 'inProgress' | 'completed';
-    searchTarget?: string;
-    searchKeyword?: string;
-  };
+  filters?: AfterServiceFilters;
 }
-
-type AfterServiceType = {
-  id: string;
-  customer_id: string;
-  item_type: string;
-  item_name: string;
-  quantity: number;
-  symptom: string;
-  note?: string | null;
-  status: string;
-  created_at: string;
-  users: {
-    name: string;
-    email: string;
-  } | null;
-  customers: {
-    name: string;
-    phone: string;
-  } | null;
-};
 
 const AfterServiceList = ({
   refreshKey,
   onRowClick,
   filters,
 }: AfterServiceListProps) => {
-  const [afterServices, setAfterServices] = useState<AfterServiceType[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [error, setError] = useState('');
-  const [offset, setOffset] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
-  const [totalCount, setTotalCount] = useState<number | undefined>(undefined);
-
-  const fetchAfterServices = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError('');
-      setOffset(0);
-      setHasMore(true);
-
-      const filterParams = {
-        status:
-          filters?.status && filters.status !== 'all'
-            ? (filters.status as AfterServiceStatusEnumType['value'])
-            : undefined,
-        groupStatus: filters?.groupStatus,
-        searchTarget: filters?.searchTarget as
-          | 'name'
-          | 'phone'
-          | 'item_name'
-          | undefined,
-        searchKeyword: filters?.searchKeyword,
-      };
-
-      // 총 개수와 데이터를 동시에 가져오기
-      const [data, count] = await Promise.all([
-        getAfterServices(PAGE_SIZE, 0, filterParams),
-        getAfterServicesCount(filterParams),
-      ]);
-
-      setAfterServices(data);
-      setTotalCount(count);
-      setOffset(data.length);
-      setHasMore(data.length === PAGE_SIZE);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-      setAfterServices([]);
-      setTotalCount(undefined);
-      setOffset(0);
-      setHasMore(false);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [filters]);
-
-  const loadMore = useCallback(async () => {
-    if (isLoadingMore || !hasMore) return;
-
-    try {
-      setIsLoadingMore(true);
-      const data = await getAfterServices(PAGE_SIZE, offset, {
-        status:
-          filters?.status && filters.status !== 'all'
-            ? (filters.status as AfterServiceStatusEnumType['value'])
-            : undefined,
-        groupStatus: filters?.groupStatus,
-        searchTarget: filters?.searchTarget as
-          | 'name'
-          | 'phone'
-          | 'item_name'
-          | undefined,
-        searchKeyword: filters?.searchKeyword,
-      });
-      setAfterServices((prev) => [...prev, ...data]);
-      setOffset((prev) => prev + data.length);
-      setHasMore(data.length === PAGE_SIZE);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
-      setIsLoadingMore(false);
-    }
-  }, [offset, hasMore, isLoadingMore, filters]);
+  const {
+    afterServices,
+    isLoading,
+    isLoadingMore,
+    error,
+    loadMore,
+    hasMore,
+    totalCount,
+    refresh,
+  } = useAfterServices(filters);
 
   useEffect(() => {
-    fetchAfterServices();
-  }, [refreshKey, fetchAfterServices]);
+    if (refreshKey !== undefined && refreshKey > 0) {
+      refresh();
+    }
+  }, [refreshKey]);
 
   if (isLoading) {
     return <Loading size="lg" text="AS 목록 불러오는 중..." />;
@@ -172,7 +80,7 @@ const AfterServiceList = ({
         </div>
       </div>
       <div className="bg-white rounded-lg shadow-sm border border-brand-100 overflow-hidden overflow-x-auto">
-        <table className="w-full min-w-[900px] divide-y divide-brand-100 table-auto">
+        <table className="w-full min-w-[1100px] divide-y divide-brand-100 table-auto">
           <thead className="bg-gradient-to-r from-brand-50 to-brand-100">
             <tr>
               <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap flex-shrink-0">
@@ -190,6 +98,12 @@ const AfterServiceList = ({
               <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 max-w-64 whitespace-nowrap">
                 증상
               </th>
+              <th className="px-3 sm:px-6 py-2 sm:py-3 text-center text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
+                재고처리
+              </th>
+              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 max-w-48 whitespace-nowrap">
+                고객 특이사항
+              </th>
               <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
                 고객
               </th>
@@ -202,7 +116,7 @@ const AfterServiceList = ({
             {afterServices.length === 0 ? (
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={9}
                   className="px-3 sm:px-6 py-10 text-center text-gray-500 text-xs sm:text-sm"
                 >
                   AS 데이터가 없습니다.
@@ -248,6 +162,26 @@ const AfterServiceList = ({
                     <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 max-w-64">
                       <p className="truncate" title={as.symptom}>
                         {as.symptom}
+                      </p>
+                    </td>
+                    <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm text-center whitespace-nowrap">
+                      {as.is_loaner_device_issued == null ? (
+                        <span className="text-gray-400">-</span>
+                      ) : (
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] sm:text-xs font-medium ${
+                            as.is_loaner_device_issued
+                              ? 'bg-brand-100 text-brand-700'
+                              : 'bg-gray-100 text-gray-500'
+                          }`}
+                        >
+                          {as.is_loaner_device_issued ? 'O' : 'X'}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 max-w-48">
+                      <p className="truncate" title={as.customer_note || ''}>
+                        {as.customer_note || '-'}
                       </p>
                     </td>
                     <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap align-middle">

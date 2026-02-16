@@ -22,7 +22,7 @@ const StampSection = ({ stampCount, target, onUpdate }: StampSectionProps) => {
 
   const handleAdd = async (
     memo?: string,
-    paymentType?: PaymentTypeEnumType['value']
+    paymentType?: PaymentTypeEnumType['value'],
   ) => {
     if (amount < 1) return;
 
@@ -52,7 +52,7 @@ const StampSection = ({ stampCount, target, onUpdate }: StampSectionProps) => {
     } catch (error) {
       console.error('스탬프 차감 실패:', error);
       toast.error(
-        error instanceof Error ? error.message : '스탬프 차감에 실패했습니다.'
+        error instanceof Error ? error.message : '스탬프 차감에 실패했습니다.',
       );
     } finally {
       setIsLoading(false);
@@ -96,7 +96,7 @@ const StampSection = ({ stampCount, target, onUpdate }: StampSectionProps) => {
             onChange={(e) => setAmount(Number(e.target.value))}
             placeholder="개수"
             disabled={isLoading}
-            className="flex-1 px-3 py-2 border border-brand-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-transparent disabled:bg-gray-100"
+            className="w-full min-w-0 px-3 py-2 border border-brand-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-transparent disabled:bg-gray-100"
           />
           <Button
             size="sm"
@@ -113,7 +113,7 @@ const StampSection = ({ stampCount, target, onUpdate }: StampSectionProps) => {
                     onCancel={close}
                     onConfirm={async (
                       modalNote?: string,
-                      paymentType?: PaymentTypeEnumType['value']
+                      paymentType?: PaymentTypeEnumType['value'],
                     ) => {
                       await handleAdd(modalNote, paymentType);
                       close();

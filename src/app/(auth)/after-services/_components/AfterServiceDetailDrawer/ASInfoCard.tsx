@@ -7,6 +7,7 @@ interface ASInfoCardProps {
   itemName: string;
   quantity: number;
   createdAt: string;
+  isLoanerDeviceIssued?: boolean | null;
   user?: {
     name: string;
     email: string;
@@ -18,11 +19,12 @@ const ASInfoCard = ({
   itemName,
   quantity,
   createdAt,
+  isLoanerDeviceIssued,
   user,
 }: ASInfoCardProps) => {
   const getItemTypeInfo = (itemTypeValue: string) => {
     const itemTypeOption = Object.values(AfterServiceItemTypeEnum).find(
-      (opt) => opt.value === itemTypeValue
+      (opt) => opt.value === itemTypeValue,
     );
     return itemTypeOption || { name: itemTypeValue, value: itemTypeValue };
   };
@@ -63,10 +65,23 @@ const ASInfoCard = ({
               </svg>
               {quantity}개
             </span>
+            {isLoanerDeviceIssued != null && (
+              <span
+                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${
+                  isLoanerDeviceIssued
+                    ? 'bg-amber-50 border border-amber-200 text-amber-700'
+                    : 'bg-gray-50 border border-gray-200 text-gray-500'
+                }`}
+              >
+                재고처리 {isLoanerDeviceIssued ? 'O' : 'X'}
+              </span>
+            )}
           </div>
           {/* 품명 - 크게 강조 */}
           <div className="flex items-baseline gap-2">
-            <span className="text-sm font-medium text-gray-500">제품명:</span>
+            <span className="text-sm font-medium text-gray-500 whitespace-nowrap">
+              제품명:
+            </span>
             <h2 className="text-3xl font-bold text-gray-900 tracking-tight leading-tight">
               {itemName}
             </h2>

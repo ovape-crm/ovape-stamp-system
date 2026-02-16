@@ -94,7 +94,7 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
                 if (options.dismissOnBackdrop !== false) close();
               }}
             />
-            <div className="relative z-[2001] max-h-[90vh] w-[90vw] max-w-md overflow-auto rounded-lg bg-white p-4 shadow-xl">
+            <div className="relative z-[2001] max-h-[90vh] w-[90vw] max-w-md flex flex-col rounded-lg bg-white p-4 shadow-xl">
               {content}
             </div>
           </div>,
