@@ -21,7 +21,7 @@ const DateRangePicker = ({
         type="date"
         value={startDate ?? ''}
         onChange={(e) => onChangeStart(e.target.value || null)}
-        className="px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm border border-brand-200 rounded-lg bg-white/70 text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+        className="appearance-none px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm border border-brand-200 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 [color-scheme:light]"
       />
       <span className="text-xs sm:text-sm text-gray-400">~</span>
       <input
@@ -29,7 +29,7 @@ const DateRangePicker = ({
         value={endDate ?? ''}
         onChange={(e) => onChangeEnd(e.target.value || null)}
         min={startDate ?? undefined}
-        className="px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm border border-brand-200 rounded-lg bg-white/70 text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+        className="appearance-none px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm border border-brand-200 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 [color-scheme:light]"
       />
       {hasFilter && (
         <button
