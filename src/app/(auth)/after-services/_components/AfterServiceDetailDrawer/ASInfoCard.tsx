@@ -24,7 +24,7 @@ const ASInfoCard = ({
 }: ASInfoCardProps) => {
   const getItemTypeInfo = (itemTypeValue: string) => {
     const itemTypeOption = Object.values(AfterServiceItemTypeEnum).find(
-      (opt) => opt.value === itemTypeValue
+      (opt) => opt.value === itemTypeValue,
     );
     return itemTypeOption || { name: itemTypeValue, value: itemTypeValue };
   };
@@ -79,7 +79,9 @@ const ASInfoCard = ({
           </div>
           {/* 품명 - 크게 강조 */}
           <div className="flex items-baseline gap-2">
-            <span className="text-sm font-medium text-gray-500">제품명:</span>
+            <span className="text-sm font-medium text-gray-500 whitespace-nowrap">
+              제품명:
+            </span>
             <h2 className="text-3xl font-bold text-gray-900 tracking-tight leading-tight">
               {itemName}
             </h2>
