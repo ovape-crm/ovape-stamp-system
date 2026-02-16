@@ -2,12 +2,11 @@
 
 import Drawer from '@/app/_components/Drawer';
 import {
-  getAfterServiceDetail,
   updateAfterServiceStatus,
   updateAfterService,
   deleteAfterService,
 } from '@/services/afterService';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useModal } from '@/app/contexts/ModalContext';
 import { useUser } from '@/app/contexts/UserContext';
 import Loading from '@/app/_components/Loading';
@@ -26,27 +25,7 @@ import {
   AfterServiceItemTypeEnumType,
 } from '@/app/_enums/enums';
 import Button from '@/app/_components/Button';
-
-type AfterServiceDetailType = {
-  id: string;
-  customer_id: string;
-  item_type: string;
-  item_name: string;
-  quantity: number;
-  symptom: string;
-  note?: string | null;
-  status: string;
-  created_at: string;
-  updated_at?: string;
-  users: {
-    name: string;
-    email: string;
-  } | null;
-  customers: {
-    name: string;
-    phone: string;
-  } | null;
-};
+import { useAfterService } from '@/app/_hooks/useAfterService';
 
 const AfterServiceDetailDrawer = ({
   isOpen,
@@ -63,41 +42,16 @@ const AfterServiceDetailDrawer = ({
 }) => {
   const { open, close } = useModal();
   const { isAdmin } = useUser();
-  const [afterServiceDetail, setAfterServiceDetail] =
-    useState<AfterServiceDetailType | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const {
+    afterService: afterServiceDetail,
+    isLoading,
+    error,
+    refresh: refreshDetail,
+  } = useAfterService(isOpen ? afterServiceId : null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [logRefreshKey, setLogRefreshKey] = useState(0);
-
-  useEffect(() => {
-    if (!isOpen || !afterServiceId) {
-      setAfterServiceDetail(null);
-      setError('');
-      return;
-    }
-
-    const fetchAfterServiceDetail = async () => {
-      try {
-        setIsLoading(true);
-        setError('');
-        const detail = await getAfterServiceDetail(afterServiceId);
-        setAfterServiceDetail(detail);
-      } catch (err) {
-        setError(
-          err instanceof Error
-            ? err.message
-            : 'AS 상세 정보를 불러오는데 실패했습니다.'
-        );
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchAfterServiceDetail();
-  }, [isOpen, afterServiceId]);
 
   const handleStatusUpdate = async (values: {
     status: AfterServiceStatusEnumType['value'];
@@ -114,8 +68,7 @@ const AfterServiceDetailDrawer = ({
       );
 
       // 상세 정보 새로고침
-      const updated = await getAfterServiceDetail(afterServiceId);
-      setAfterServiceDetail(updated);
+      await refreshDetail();
 
       // 로그 목록 새로고침
       setLogRefreshKey((prev) => prev + 1);
@@ -191,7 +144,9 @@ const AfterServiceDetailDrawer = ({
             itemName: afterServiceDetail.item_name,
             quantity: afterServiceDetail.quantity,
             symptom: afterServiceDetail.symptom,
-            note: afterServiceDetail.note || undefined,
+            shopNote: afterServiceDetail.shop_note || undefined,
+            customerNote: afterServiceDetail.customer_note || undefined,
+            isLoanerDeviceIssued: afterServiceDetail.is_loaner_device_issued ?? false,
           }}
           onSubmit={async (values) => {
             if (!afterServiceId) return;
@@ -203,13 +158,14 @@ const AfterServiceDetailDrawer = ({
                 itemName: values.itemName,
                 quantity: values.quantity,
                 symptom: values.symptom,
-                note: values.note,
+                shopNote: values.shopNote,
+                customerNote: values.customerNote,
+                isLoanerDeviceIssued: values.isLoanerDeviceIssued,
               });
               toast.success('AS 정보가 수정되었습니다.');
               close();
               // 상세 정보 새로고침
-              const updated = await getAfterServiceDetail(afterServiceId);
-              setAfterServiceDetail(updated);
+              await refreshDetail();
 
               // 로그 목록 새로고침
               setLogRefreshKey((prev) => prev + 1);
@@ -299,6 +255,7 @@ const AfterServiceDetailDrawer = ({
                     itemName={afterServiceDetail.item_name}
                     quantity={afterServiceDetail.quantity}
                     createdAt={afterServiceDetail.created_at}
+                    isLoanerDeviceIssued={afterServiceDetail.is_loaner_device_issued}
                     user={afterServiceDetail.users}
                   />
 
@@ -319,9 +276,20 @@ const AfterServiceDetailDrawer = ({
                 {/* 증상 카드 */}
                 <SymptomCard symptom={afterServiceDetail.symptom} />
 
-                {/* 메모 (있는 경우) */}
-                {afterServiceDetail.note && (
-                  <NoteCard note={afterServiceDetail.note} />
+                {/* 고객 특이사항 */}
+                {afterServiceDetail.customer_note && (
+                  <NoteCard
+                    note={afterServiceDetail.customer_note}
+                    title="고객 특이사항"
+                  />
+                )}
+
+                {/* 매장 특이사항 */}
+                {afterServiceDetail.shop_note && (
+                  <NoteCard
+                    note={afterServiceDetail.shop_note}
+                    title="매장 특이사항"
+                  />
                 )}
 
                 {/* 수정일 (있는 경우) */}
