@@ -56,8 +56,9 @@ const schema = z
           PaymentTypeEnum.CASH.value,
           PaymentTypeEnum.CASH_RECEIPT.value,
           PaymentTypeEnum.TRANSFER_CASH_RECEIPT.value,
+          PaymentTypeEnum.REMARK.value,
         ],
-        { message: '결제 유형을 선택하세요.' }
+        { message: '결제 유형을 선택하세요.' },
       )
       .optional(),
     stampNote: z.coerce
@@ -204,89 +205,91 @@ export default function CustomerCreateModal({
   // ========================================================================
   if (showConfirm && formData) {
     return (
-      <div className="w-full">
-        <h2 className="text-lg font-semibold mb-4">고객 정보 확인</h2>
+      <div className="w-full flex flex-col min-h-0">
+        <h2 className="text-lg font-semibold mb-4 shrink-0">고객 정보 확인</h2>
 
-        <div className="bg-gray-50 rounded-lg p-4 mb-6">
-          <div className="space-y-3">
-            <div>
-              <span className="text-sm font-medium text-gray-600">이름:</span>
-              <p className="text-base font-semibold text-gray-900">
-                {formData.name}
-              </p>
-            </div>
-            <div>
-              <span className="text-sm font-medium text-gray-600">
-                전화번호:
-              </span>
-              <p className="text-base font-semibold text-gray-900">
-                {formatPhoneNumber(formData?.phone)}
-              </p>
-            </div>
-            <div>
-              <span className="text-sm font-medium text-gray-600">성별:</span>
-              <p className="text-base font-semibold text-gray-900">
-                {formData.gender === 'male' ? '남자' : '여자'}
-              </p>
-            </div>
-            {formData.note && (
+        <div className="overflow-y-auto min-h-0 flex-1">
+          <div className="bg-gray-50 rounded-lg p-4 mb-6">
+            <div className="space-y-3">
               <div>
-                <span className="text-sm font-medium text-gray-600">
-                  특이사항:
-                </span>
-                <p className="text-base text-gray-900">{formData.note}</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {formData.isStampAdd && (
-          <div className="bg-brand-50 rounded-lg p-4 mb-6 border border-brand-200">
-            <h3 className="text-sm font-semibold text-brand-700 mb-3">
-              스탬프 정보
-            </h3>
-            <div className="space-y-2">
-              <div>
-                <span className="text-sm font-medium text-gray-600">
-                  스탬프 개수:
-                </span>
+                <span className="text-sm font-medium text-gray-600">이름:</span>
                 <p className="text-base font-semibold text-gray-900">
-                  {formData.stampAmount}개
+                  {formData.name}
                 </p>
               </div>
-              {formData.stampPaymentType && (
+              <div>
+                <span className="text-sm font-medium text-gray-600">
+                  전화번호:
+                </span>
+                <p className="text-base font-semibold text-gray-900">
+                  {formatPhoneNumber(formData?.phone)}
+                </p>
+              </div>
+              <div>
+                <span className="text-sm font-medium text-gray-600">성별:</span>
+                <p className="text-base font-semibold text-gray-900">
+                  {formData.gender === 'male' ? '남자' : '여자'}
+                </p>
+              </div>
+              {formData.note && (
                 <div>
                   <span className="text-sm font-medium text-gray-600">
-                    결제 유형:
+                    특이사항:
                   </span>
-                  <p className="text-base font-semibold text-gray-900">
-                    {paymentTypeOptions.find(
-                      (opt) => opt.value === formData.stampPaymentType
-                    )?.name || formData.stampPaymentType}
-                  </p>
-                </div>
-              )}
-              {formData.stampNote && (
-                <div>
-                  <span className="text-sm font-medium text-gray-600">
-                    메모:
-                  </span>
-                  <p className="text-xs text-gray-900 whitespace-pre-wrap">
-                    {formData.stampNote}
-                  </p>
+                  <p className="text-base text-gray-900">{formData.note}</p>
                 </div>
               )}
             </div>
           </div>
-        )}
 
-        <div className="text-center py-4">
-          <p className="text-gray-700 text-sm">
-            위 정보로 고객을 등록하시겠습니까?
-          </p>
+          {formData.isStampAdd && (
+            <div className="bg-brand-50 rounded-lg p-4 mb-6 border border-brand-200">
+              <h3 className="text-sm font-semibold text-brand-700 mb-3">
+                스탬프 정보
+              </h3>
+              <div className="space-y-2">
+                <div>
+                  <span className="text-sm font-medium text-gray-600">
+                    스탬프 개수:
+                  </span>
+                  <p className="text-base font-semibold text-gray-900">
+                    {formData.stampAmount}개
+                  </p>
+                </div>
+                {formData.stampPaymentType && (
+                  <div>
+                    <span className="text-sm font-medium text-gray-600">
+                      결제 유형:
+                    </span>
+                    <p className="text-base font-semibold text-gray-900">
+                      {paymentTypeOptions.find(
+                        (opt) => opt.value === formData.stampPaymentType,
+                      )?.name || formData.stampPaymentType}
+                    </p>
+                  </div>
+                )}
+                {formData.stampNote && (
+                  <div>
+                    <span className="text-sm font-medium text-gray-600">
+                      메모:
+                    </span>
+                    <p className="text-xs text-gray-900 whitespace-pre-wrap">
+                      {formData.stampNote}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="text-center py-4">
+            <p className="text-gray-700 text-sm">
+              위 정보로 고객을 등록하시겠습니까?
+            </p>
+          </div>
         </div>
 
-        <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+        <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 shrink-0">
           <Button
             onClick={() => setShowConfirm(false)}
             disabled={isSubmitting}
@@ -313,12 +316,12 @@ export default function CustomerCreateModal({
   return (
     <form
       onSubmit={handleSubmit(handleFormSubmit)}
-      className="w-full"
+      className="w-full flex flex-col min-h-0"
       noValidate
     >
-      <h2 className="text-lg font-semibold mb-3">고객 추가</h2>
+      <h2 className="text-lg font-semibold mb-3 shrink-0">고객 추가</h2>
 
-      <div className="space-y-3">
+      <div className="space-y-3 overflow-y-auto min-h-0 flex-1">
         {/* 기본 정보 입력 */}
         <div>
           <label className="block text-sm font-medium mb-1">
@@ -446,7 +449,7 @@ export default function CustomerCreateModal({
                 name="stampPaymentType"
                 control={control}
                 render={({ field }) => (
-                  <div className="flex items-center gap-4">
+                  <div className="grid grid-cols-3 gap-3">
                     {paymentTypeOptions.map((option) => (
                       <label
                         key={option.value}
@@ -499,7 +502,7 @@ export default function CustomerCreateModal({
         )}
       </div>
 
-      <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 mt-6">
+      <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 mt-6 shrink-0">
         <Button
           size="sm"
           variant="gray"
