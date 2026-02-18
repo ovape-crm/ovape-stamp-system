@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   getAfterServices,
   getAfterServicesCount,
-} from '@/services/afterService';
+} from '@/app/_services/afterService';
 import { AfterServiceStatusEnumType } from '@/app/_enums/enums';
 
 const PAGE_SIZE = 10;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { getAfterServices } from '@/services/afterService';
+import { getAfterServices } from '@/app/_services/afterService';
 import Loading from '@/app/_components/Loading';
 import { AfterServiceItemTypeEnum } from '@/app/_enums/enums';
 import { useRouter } from 'next/navigation';
@@ -92,7 +92,7 @@ const CustomerAfterServices = ({
 
   const getItemTypeInfo = (itemType: string) => {
     const itemTypeOption = Object.values(AfterServiceItemTypeEnum).find(
-      (opt) => opt.value === itemType
+      (opt) => opt.value === itemType,
     );
     return itemTypeOption || { name: itemType, value: itemType };
   };
@@ -146,7 +146,7 @@ const CustomerAfterServices = ({
                 <td className="px-3 sm:px-6 py-2 sm:py-3 text-center">
                   <span
                     className={`inline-flex items-center justify-center px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-[11px] sm:text-xs font-semibold ${getStatusColor(
-                      as.status
+                      as.status,
                     )}`}
                   >
                     {statusInfo.text}

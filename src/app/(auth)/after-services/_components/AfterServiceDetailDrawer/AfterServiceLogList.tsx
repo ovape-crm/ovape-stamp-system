@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import Button from '@/app/_components/Button';
 import Loading from '@/app/_components/Loading';
 import { useLogsByAfterServiceId } from '@/app/_hooks/useLogsByAfterServiceId';
-import { updateLogNote } from '@/services/logService';
+import { updateLogNote } from '@/app/_services/logService';
 import toast from 'react-hot-toast';
 import AfterServiceLogItem from './AfterServiceLogItem';
 import { AfterServiceLogType } from '@/app/_types/log.types';
@@ -63,7 +63,7 @@ const AfterServiceLogList = ({
         setIsSaving(false);
       }
     },
-    [noteDraft, refresh]
+    [noteDraft, refresh],
   );
 
   // 날짜별 그룹핑
@@ -79,11 +79,11 @@ const AfterServiceLogList = ({
       acc[dateKey].push(log);
       return acc;
     },
-    {}
+    {},
   );
 
   const sortedDates = Object.keys(logsByDate).sort(
-    (a, b) => new Date(b).getTime() - new Date(a).getTime()
+    (a, b) => new Date(b).getTime() - new Date(a).getTime(),
   );
 
   if (isLoading && logs.length === 0) {
@@ -171,7 +171,9 @@ const AfterServiceLogList = ({
 
                       // 기존 로그 아이템 렌더링 (다른 액션들)
                       const isEditing = editingId === log.id;
-                      const currentNote = isEditing ? noteDraft : log.note ?? '';
+                      const currentNote = isEditing
+                        ? noteDraft
+                        : (log.note ?? '');
                       return (
                         <AfterServiceLogItem
                           key={log.id}

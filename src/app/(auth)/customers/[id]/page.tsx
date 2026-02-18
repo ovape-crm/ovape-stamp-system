@@ -10,7 +10,10 @@ import CustomerEditModal from './_components/CustomerEditModal';
 import Loading from '@/app/_components/Loading';
 import toast from 'react-hot-toast';
 import { useModal } from '@/app/_contexts/ModalContext';
-import { updateCustomer, deleteCustomer } from '@/services/customerService';
+import {
+  updateCustomer,
+  deleteCustomer,
+} from '@/app/_services/customerService';
 import Button from '@/app/_components/Button';
 import { useUser } from '@/app/_contexts/UserContext';
 import { useState } from 'react';
@@ -20,7 +23,7 @@ import CustomersDetailUpdateHistories from './_components/CustomersDetailUpdateH
 import CustomersDetailRemarkHistories from './_components/CustomersDetailRemarkHistories';
 import CustomerAfterServices from './_components/CustomerAfterServices';
 import RemarkLogCreateModal from './_components/RemarkLogCreateModal';
-import { createLog } from '@/services/logService';
+import { createLog } from '@/app/_services/logService';
 
 const PAGE_SIZE = 10;
 

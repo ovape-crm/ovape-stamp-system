@@ -1,7 +1,10 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { getCustomers, getCustomersCount } from '@/services/customerService';
+import {
+  getCustomers,
+  getCustomersCount,
+} from '@/app/_services/customerService';
 import { CustomerType } from '@/app/_types/customer.types';
 import { formatPhoneNumber } from '@/app/_utils/utils';
 
@@ -25,7 +28,7 @@ export default function CustomerSelector({
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerType | null>(
-    null
+    null,
   );
   const searchRef = useRef<HTMLDivElement>(null);
 

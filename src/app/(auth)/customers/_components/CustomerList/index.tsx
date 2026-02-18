@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { CustomerType } from '@/app/_types/customer.types';
-import { addStamp, removeStamp } from '@/services/stampService';
+import { addStamp, removeStamp } from '@/app/_services/stampService';
 import Loading from '@/app/_components/Loading';
 import { useModal } from '@/app/_contexts/ModalContext';
 import StampConfirmModal from '../StampConfirmModal';

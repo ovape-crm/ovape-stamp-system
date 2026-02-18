@@ -7,7 +7,7 @@ import { useModal } from '@/app/_contexts/ModalContext';
 import AfterServiceCreateModal from './_components/AfterServiceCreateModal';
 import AfterServiceList from './_components/AfterServiceList';
 import AfterServiceDetailDrawer from './_components/AfterServiceDetailDrawer';
-import { createAfterService } from '@/services/afterService';
+import { createAfterService } from '@/app/_services/afterService';
 import toast from 'react-hot-toast';
 import { AfterServiceItemTypeEnumType } from '@/app/_enums/enums';
 import AfterServiceSearchBox from './_components/AfterServiceSearchBox';

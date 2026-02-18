@@ -3,7 +3,7 @@ import {
   getCustomers,
   getCustomersCount,
   SearchParams,
-} from '@/services/customerService';
+} from '@/app/_services/customerService';
 import { CustomerType } from '@/app/_types/customer.types';
 
 const PAGE_SIZE = 10;
@@ -17,7 +17,7 @@ export const useCustomers = (initialParams?: SearchParams) => {
   const [hasMore, setHasMore] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
   const [searchParams, setSearchParams] = useState<SearchParams>(
-    initialParams || {}
+    initialParams || {},
   );
   const [sortBy, setSortBy] = useState<'name' | 'stamp' | 'created_at'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');

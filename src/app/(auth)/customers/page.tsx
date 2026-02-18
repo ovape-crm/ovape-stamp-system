@@ -5,11 +5,11 @@ import CustomerList from './_components/CustomerList';
 import SearchBox from './_components/SearchBox';
 import { useModal } from '@/app/_contexts/ModalContext';
 import CustomerCreateModal from './_components/CustomerCreateModal';
-import { createCustomer } from '@/services/customerService';
+import { createCustomer } from '@/app/_services/customerService';
 import toast from 'react-hot-toast';
 import { useState } from 'react';
 import Button from '@/app/_components/Button';
-import { addStamp } from '@/services/stampService';
+import { addStamp } from '@/app/_services/stampService';
 import { PaymentTypeEnumType } from '@/app/_enums/enums';
 
 export default function CustomersPage() {

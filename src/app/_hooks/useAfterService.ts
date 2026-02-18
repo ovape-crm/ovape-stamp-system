@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getAfterServiceDetail } from '@/services/afterService';
+import { getAfterServiceDetail } from '@/app/_services/afterService';
 
 type AfterServiceDetailType = {
   id: string;

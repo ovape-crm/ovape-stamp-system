@@ -1,13 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getAfterServices } from '@/services/afterService';
+import { getAfterServices } from '@/app/_services/afterService';
 import { getAfterServiceStatusGroups } from '@/app/_utils/utils';
 
 interface AfterServiceProgressBoxProps {
   refreshKey?: number;
   onGroupClick?: (
-    group: 'all' | 'received' | 'inProgress' | 'completed'
+    group: 'all' | 'received' | 'inProgress' | 'completed',
   ) => void;
   selectedGroup?: 'received' | 'inProgress' | 'completed';
   onClearGroup?: () => void;
@@ -44,13 +44,13 @@ const AfterServiceProgressBox = ({
         const statusGroups = getAfterServiceStatusGroups();
 
         const receivedCount = allAfterServices.filter((as) =>
-          statusGroups.received.includes(as.status)
+          statusGroups.received.includes(as.status),
         ).length;
         const inProgressCount = allAfterServices.filter((as) =>
-          statusGroups.inProgress.includes(as.status)
+          statusGroups.inProgress.includes(as.status),
         ).length;
         const completedCount = allAfterServices.filter((as) =>
-          statusGroups.completed.includes(as.status)
+          statusGroups.completed.includes(as.status),
         ).length;
 
         const totalCount = allAfterServices.length;
@@ -146,7 +146,7 @@ const AfterServiceProgressBox = ({
               </span>
               <span
                 className={`text-lg sm:text-xl font-bold ${getValueColor(
-                  stat.label
+                  stat.label,
                 )}`}
               >
                 {stat.value.toLocaleString()}

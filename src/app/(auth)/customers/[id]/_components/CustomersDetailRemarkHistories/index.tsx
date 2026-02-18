@@ -1,10 +1,8 @@
-import {
-  LogActorInfo,
-} from '@/app/(auth)/_components/HistoriesComponents';
+import { LogActorInfo } from '@/app/(auth)/_components/HistoriesComponents';
 import Button from '@/app/_components/Button';
 import Loading from '@/app/_components/Loading';
 import { CustomersLogsResType } from '@/app/_types/log.types';
-import { updateLogNote } from '@/services/logService';
+import { updateLogNote } from '@/app/_services/logService';
 import { useCallback, useState } from 'react';
 import { groupLogsByDate, formatDateKey } from '@/app/_utils/utils';
 import { toast } from 'react-hot-toast';
@@ -28,7 +26,7 @@ const CustomersDetailRemarkHistories = ({
   const getCurrentNote = useCallback(
     (log: CustomersLogsResType[number]) =>
       noteOverridesById[log.id] ?? log.note ?? '',
-    [noteOverridesById]
+    [noteOverridesById],
   );
 
   const startEdit = useCallback(
@@ -36,7 +34,7 @@ const CustomersDetailRemarkHistories = ({
       setEditingId(log.id);
       setNoteDraft(getCurrentNote(log));
     },
-    [getCurrentNote]
+    [getCurrentNote],
   );
 
   const cancelEdit = useCallback(() => {
@@ -60,7 +58,7 @@ const CustomersDetailRemarkHistories = ({
         setIsSaving(false);
       }
     },
-    [noteDraft]
+    [noteDraft],
   );
 
   if (error) {

@@ -1,13 +1,13 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { LogsResType } from '../_types/log.types';
-import { getLogs } from '@/services/logService';
+import { getLogs } from '@/app/_services/logService';
 import toast from 'react-hot-toast';
 import { LogCategoryEnum, LogCategoryEnumType } from '../_enums/enums';
 
 const useLogs = (
   pageSize = 10,
   category: LogCategoryEnumType['value'] = LogCategoryEnum.STAMP.value,
-  dateRange?: { start: string; end: string } | null
+  dateRange?: { start: string; end: string } | null,
 ) => {
   const [items, setItems] = useState<LogsResType[]>([]);
   const [offset, setOffset] = useState(0);
@@ -32,7 +32,7 @@ const useLogs = (
           pageSize,
           currentOffset,
           categoryRef.current,
-          dateRangeRef.current ?? undefined
+          dateRangeRef.current ?? undefined,
         );
         if (isLoadMore) {
           setItems((prev) => [...prev, ...data]);
@@ -50,7 +50,7 @@ const useLogs = (
         setIsLoading(false);
       }
     },
-    [pageSize]
+    [pageSize],
   );
 
   // 더 불러오기

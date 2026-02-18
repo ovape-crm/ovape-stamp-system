@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { updateLogNote } from '@/services/logService';
+import { updateLogNote } from '@/app/_services/logService';
 import Loading from '@/app/_components/Loading';
 import Button from '@/app/_components/Button';
 import toast from 'react-hot-toast';
@@ -23,7 +23,7 @@ const RemarkHistories = ({ dateRange }: RemarkHistoriesProps) => {
   const { items, setItems, isLoading, error, hasMore, load } = useLogs(
     PAGE_SIZE,
     LogCategoryEnum.REMARK.value,
-    dateRange
+    dateRange,
   );
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -49,8 +49,8 @@ const RemarkHistories = ({ dateRange }: RemarkHistoriesProps) => {
           prev.map((item) =>
             item.id === log.id
               ? { ...item, note: updated.note, jsonb: updated.jsonb }
-              : item
-          )
+              : item,
+          ),
         );
         setEditingId(null);
         setNoteDraft('');
@@ -62,7 +62,7 @@ const RemarkHistories = ({ dateRange }: RemarkHistoriesProps) => {
         setIsSaving(false);
       }
     },
-    [noteDraft, setItems]
+    [noteDraft, setItems],
   );
 
   const { itemsByDate, sortedDates } = groupLogsByDate(items);
@@ -102,7 +102,9 @@ const RemarkHistories = ({ dateRange }: RemarkHistoriesProps) => {
                   <div className="space-y-3">
                     {logsOfDate.map((log, index) => {
                       const isEditing = editingId === log.id;
-                      const currentNote = isEditing ? noteDraft : log.note ?? '';
+                      const currentNote = isEditing
+                        ? noteDraft
+                        : (log.note ?? '');
                       return (
                         <RemarkHistoryItem
                           key={`${log.id}-${index}-${

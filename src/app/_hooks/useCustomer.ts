@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getCustomerById } from '@/services/customerService';
+import { getCustomerById } from '@/app/_services/customerService';
 import { CustomerType } from '@/app/_types/customer.types';
 
 export const useCustomer = (id: string) => {

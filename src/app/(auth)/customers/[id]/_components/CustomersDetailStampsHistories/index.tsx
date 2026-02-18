@@ -7,7 +7,7 @@ import Button from '@/app/_components/Button';
 import Loading from '@/app/_components/Loading';
 import useCopy from '@/app/_hooks/useCopy';
 import { CustomersLogsResType } from '@/app/_types/log.types';
-import { updateLogNote } from '@/services/logService';
+import { updateLogNote } from '@/app/_services/logService';
 import { useCallback, useState } from 'react';
 import { PaymentTypeEnum, PaymentTypeEnumType } from '@/app/_enums/enums';
 import { groupLogsByDate, formatDateKey } from '@/app/_utils/utils';
@@ -42,14 +42,14 @@ const CustomersDetailStampsHistories = ({
   const getCurrentNote = useCallback(
     (log: CustomersLogsResType[number]) =>
       noteOverridesById[log.id] ?? log.note ?? '',
-    [noteOverridesById]
+    [noteOverridesById],
   );
 
   const getCurrentPaymentType = useCallback(
     (log: CustomersLogsResType[number]) =>
       paymentTypeOverridesById[log.id] ??
       (log.jsonb?.paymentType as PaymentTypeEnumType['value'] | undefined),
-    [paymentTypeOverridesById]
+    [paymentTypeOverridesById],
   );
 
   const startEdit = useCallback(
@@ -58,7 +58,7 @@ const CustomersDetailStampsHistories = ({
       setNoteDraft(getCurrentNote(log));
       setPaymentTypeDraft(getCurrentPaymentType(log));
     },
-    [getCurrentNote, getCurrentPaymentType]
+    [getCurrentNote, getCurrentPaymentType],
   );
 
   const cancelEdit = useCallback(() => {
@@ -74,7 +74,7 @@ const CustomersDetailStampsHistories = ({
         const updated = await updateLogNote(
           log.id,
           noteDraft,
-          paymentTypeDraft
+          paymentTypeDraft,
         );
         setNoteOverridesById((prev) => ({ ...prev, [log.id]: updated.note }));
         setPaymentTypeOverridesById((prev) => ({
@@ -94,7 +94,7 @@ const CustomersDetailStampsHistories = ({
         setIsSaving(false);
       }
     },
-    [noteDraft, paymentTypeDraft]
+    [noteDraft, paymentTypeDraft],
   );
 
   if (error) {
@@ -146,7 +146,9 @@ const CustomersDetailStampsHistories = ({
 
                 const effectiveJsonb = {
                   ...(log.jsonb || {}),
-                  ...(currentPaymentType ? { paymentType: currentPaymentType } : {}),
+                  ...(currentPaymentType
+                    ? { paymentType: currentPaymentType }
+                    : {}),
                 };
 
                 return (
@@ -191,8 +193,12 @@ const CustomersDetailStampsHistories = ({
                                     type="radio"
                                     name={`paymentType-${log.id}`}
                                     value={option.value}
-                                    checked={effectivePaymentType === option.value}
-                                    onChange={() => setPaymentTypeDraft(option.value)}
+                                    checked={
+                                      effectivePaymentType === option.value
+                                    }
+                                    onChange={() =>
+                                      setPaymentTypeDraft(option.value)
+                                    }
                                   />
                                   {option.name}
                                 </label>

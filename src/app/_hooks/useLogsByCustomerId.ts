@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getLogsByCustomer } from '@/services/logService';
+import { getLogsByCustomer } from '@/app/_services/logService';
 import { CustomersLogsResType } from '@/app/_types/log.types';
 import { LogCategoryEnum, LogCategoryEnumType } from '../_enums/enums';
 
 export const useLogsByCustomerId = (
   customerId: string,
   pageSize = 10,
-  category: LogCategoryEnumType['value'] = LogCategoryEnum.STAMP.value
+  category: LogCategoryEnumType['value'] = LogCategoryEnum.STAMP.value,
 ) => {
   const [logs, setLogs] = useState<CustomersLogsResType>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -40,7 +40,7 @@ export const useLogsByCustomerId = (
         category,
         customerId,
         pageSize,
-        offset
+        offset,
       );
       setLogs((prev) => [...prev, ...more]);
       setOffset((prev) => prev + more.length);

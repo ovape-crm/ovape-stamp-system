@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AfterServiceLogsResType } from '../_types/log.types';
-import { getLogsByAfterServiceId } from '@/services/logService';
+import { getLogsByAfterServiceId } from '@/app/_services/logService';
 
 export const useLogsByAfterServiceId = (
   afterServiceId: number,
-  pageSize = 10
+  pageSize = 10,
 ) => {
   const [logs, setLogs] = useState<AfterServiceLogsResType>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -37,7 +37,7 @@ export const useLogsByAfterServiceId = (
       const more = await getLogsByAfterServiceId(
         afterServiceId,
         pageSize,
-        offset
+        offset,
       );
       setLogs((prev) => [...prev, ...more]);
       setOffset((prev) => prev + more.length);

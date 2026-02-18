@@ -5,7 +5,7 @@ import {
   updateAfterServiceStatus,
   updateAfterService,
   deleteAfterService,
-} from '@/services/afterService';
+} from '@/app/_services/afterService';
 import { useState } from 'react';
 import { useModal } from '@/app/_contexts/ModalContext';
 import { useUser } from '@/app/_contexts/UserContext';

@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { PaymentTypeEnumType } from '@/app/_enums/enums';
-import { updateLogNote } from '@/services/logService';
+import { updateLogNote } from '@/app/_services/logService';
 import Loading from '@/app/_components/Loading';
 import Button from '@/app/_components/Button';
 import toast from 'react-hot-toast';
@@ -20,8 +20,11 @@ interface StampHistoriesProps {
 
 const StampHistories = ({ dateRange }: StampHistoriesProps) => {
   const router = useRouter();
-  const { items, setItems, isLoading, error, hasMore, load } =
-    useLogs(PAGE_SIZE, undefined, dateRange);
+  const { items, setItems, isLoading, error, hasMore, load } = useLogs(
+    PAGE_SIZE,
+    undefined,
+    dateRange,
+  );
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState('');
@@ -34,7 +37,7 @@ const StampHistories = ({ dateRange }: StampHistoriesProps) => {
     setEditingId(log.id);
     setNoteDraft(log.note ?? '');
     setPaymentTypeDraft(
-      log.jsonb?.paymentType as PaymentTypeEnumType['value'] | undefined
+      log.jsonb?.paymentType as PaymentTypeEnumType['value'] | undefined,
     );
   }, []);
 
@@ -51,14 +54,14 @@ const StampHistories = ({ dateRange }: StampHistoriesProps) => {
         const updated = await updateLogNote(
           log.id,
           noteDraft,
-          paymentTypeDraft
+          paymentTypeDraft,
         );
         setItems((prev) =>
           prev.map((item) =>
             item.id === log.id
               ? { ...item, note: updated.note, jsonb: updated.jsonb }
-              : item
-          )
+              : item,
+          ),
         );
         setEditingId(null);
         setNoteDraft('');
@@ -71,7 +74,7 @@ const StampHistories = ({ dateRange }: StampHistoriesProps) => {
         setIsSaving(false);
       }
     },
-    [noteDraft, paymentTypeDraft, setItems]
+    [noteDraft, paymentTypeDraft, setItems],
   );
 
   const { itemsByDate, sortedDates } = groupLogsByDate(items);
@@ -111,7 +114,9 @@ const StampHistories = ({ dateRange }: StampHistoriesProps) => {
                   <div className="space-y-3">
                     {logsOfDate.map((log, index) => {
                       const isEditing = editingId === log.id;
-                      const currentNote = isEditing ? noteDraft : log.note ?? '';
+                      const currentNote = isEditing
+                        ? noteDraft
+                        : (log.note ?? '');
                       return (
                         <StampHistoryItem
                           key={`${log.id}-${index}-${
