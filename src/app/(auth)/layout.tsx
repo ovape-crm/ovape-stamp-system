@@ -1,5 +1,5 @@
 import Header from './_components/Header';
-import { UserProvider } from '@/app/contexts/UserContext';
+import { UserProvider } from '@/app/_contexts/UserContext';
 
 export default function CustomersLayout({
   children,

@@ -3,7 +3,7 @@
 import { useCustomers } from '@/app/_hooks/useCustomers';
 import CustomerList from './_components/CustomerList';
 import SearchBox from './_components/SearchBox';
-import { useModal } from '@/app/contexts/ModalContext';
+import { useModal } from '@/app/_contexts/ModalContext';
 import CustomerCreateModal from './_components/CustomerCreateModal';
 import { createCustomer } from '@/services/customerService';
 import toast from 'react-hot-toast';
@@ -73,7 +73,7 @@ export default function CustomersPage() {
             data.id,
             Number(values.stampAmount),
             values.stampNote ?? '',
-            values.stampPaymentType
+            values.stampPaymentType,
           );
           toast.success('스탬프가 적립되었습니다.');
         } catch (stampError) {
@@ -81,7 +81,7 @@ export default function CustomersPage() {
           toast.error(
             stampError instanceof Error
               ? stampError.message
-              : '스탬프 적립에 실패했습니다.'
+              : '스탬프 적립에 실패했습니다.',
           );
           throw stampError;
         }
@@ -95,7 +95,7 @@ export default function CustomersPage() {
         toast.error('이미 존재하는 전화번호입니다.');
       } else {
         toast.error(
-          err instanceof Error ? err.message : '고객 추가에 실패했습니다.'
+          err instanceof Error ? err.message : '고객 추가에 실패했습니다.',
         );
       }
     } finally {

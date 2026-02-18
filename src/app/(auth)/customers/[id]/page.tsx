@@ -9,10 +9,10 @@ import StampSection from './_components/StampSection';
 import CustomerEditModal from './_components/CustomerEditModal';
 import Loading from '@/app/_components/Loading';
 import toast from 'react-hot-toast';
-import { useModal } from '@/app/contexts/ModalContext';
+import { useModal } from '@/app/_contexts/ModalContext';
 import { updateCustomer, deleteCustomer } from '@/services/customerService';
 import Button from '@/app/_components/Button';
-import { useUser } from '@/app/contexts/UserContext';
+import { useUser } from '@/app/_contexts/UserContext';
 import { useState } from 'react';
 import { LogCategoryEnum, LogCategoryEnumType } from '@/app/_enums/enums';
 import CustomersDetailStampsHistories from './_components/CustomersDetailStampsHistories';
@@ -34,7 +34,7 @@ export default function CustomerDetailPage() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const [logCategory, setLogCategory] = useState<LogCategoryEnumType['value']>(
-    LogCategoryEnum.STAMP.value
+    LogCategoryEnum.STAMP.value,
   );
 
   const {
@@ -104,7 +104,7 @@ export default function CustomerDetailPage() {
         LogCategoryEnum.REMARK.value,
         customerId,
         'create-remark',
-        note
+        note,
       );
       toast.success('특이사항 이력이 추가되었습니다.');
       close();

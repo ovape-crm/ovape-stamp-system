@@ -7,8 +7,8 @@ import {
   deleteAfterService,
 } from '@/services/afterService';
 import { useState } from 'react';
-import { useModal } from '@/app/contexts/ModalContext';
-import { useUser } from '@/app/contexts/UserContext';
+import { useModal } from '@/app/_contexts/ModalContext';
+import { useUser } from '@/app/_contexts/UserContext';
 import Loading from '@/app/_components/Loading';
 import toast from 'react-hot-toast';
 import AfterServiceLogList from './AfterServiceLogList';
@@ -64,7 +64,7 @@ const AfterServiceDetailDrawer = ({
       await updateAfterServiceStatus(
         afterServiceId,
         values.status,
-        values.note
+        values.note,
       );
 
       // 상세 정보 새로고침
@@ -146,7 +146,8 @@ const AfterServiceDetailDrawer = ({
             symptom: afterServiceDetail.symptom,
             shopNote: afterServiceDetail.shop_note || undefined,
             customerNote: afterServiceDetail.customer_note || undefined,
-            isLoanerDeviceIssued: afterServiceDetail.is_loaner_device_issued ?? false,
+            isLoanerDeviceIssued:
+              afterServiceDetail.is_loaner_device_issued ?? false,
           }}
           onSubmit={async (values) => {
             if (!afterServiceId) return;
@@ -255,7 +256,9 @@ const AfterServiceDetailDrawer = ({
                     itemName={afterServiceDetail.item_name}
                     quantity={afterServiceDetail.quantity}
                     createdAt={afterServiceDetail.created_at}
-                    isLoanerDeviceIssued={afterServiceDetail.is_loaner_device_issued}
+                    isLoanerDeviceIssued={
+                      afterServiceDetail.is_loaner_device_issued
+                    }
                     user={afterServiceDetail.users}
                   />
 

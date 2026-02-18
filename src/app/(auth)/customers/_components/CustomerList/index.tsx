@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import { CustomerType } from '@/app/_types/customer.types';
 import { addStamp, removeStamp } from '@/services/stampService';
 import Loading from '@/app/_components/Loading';
-import { useModal } from '@/app/contexts/ModalContext';
+import { useModal } from '@/app/_contexts/ModalContext';
 import StampConfirmModal from '../StampConfirmModal';
 import Button from '@/app/_components/Button';
 import { formatPhoneNumber } from '@/app/_utils/utils';

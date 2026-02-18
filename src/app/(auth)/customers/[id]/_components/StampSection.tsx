@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import StampCards from './StampCards';
 import { addStamp, removeStamp } from '@/services/stampService';
 import { PaymentTypeEnumType } from '@/app/_enums/enums';
-import { useModal } from '@/app/contexts/ModalContext';
+import { useModal } from '@/app/_contexts/ModalContext';
 import StampConfirmModal from '../../_components/StampConfirmModal';
 import Button from '@/app/_components/Button';
 

@@ -1,6 +1,6 @@
 import Button from '@/app/_components/Button';
 import { formatPhoneNumber } from '@/app/_utils/utils';
-import { useUser } from '@/app/contexts/UserContext';
+import { useUser } from '@/app/_contexts/UserContext';
 
 interface CustomerInfoProps {
   customer: {
@@ -57,8 +57,8 @@ const CustomerInfo = ({ customer, onEdit }: CustomerInfoProps) => {
             {customer.gender === 'male'
               ? '남자'
               : customer.gender === 'female'
-              ? '여자'
-              : '-'}
+                ? '여자'
+                : '-'}
           </p>
         </div>
 

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Noto_Sans_KR } from 'next/font/google';
 import './globals.css';
-import { ModalProvider } from './contexts/ModalContext';
+import { ModalProvider } from './_contexts/ModalContext';
 import { Toaster } from 'react-hot-toast';
 
 const notoSansKR = Noto_Sans_KR({

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import Button from '@/app/_components/Button';
-import { useModal } from '@/app/contexts/ModalContext';
+import { useModal } from '@/app/_contexts/ModalContext';
 import AfterServiceCreateModal from './_components/AfterServiceCreateModal';
 import AfterServiceList from './_components/AfterServiceList';
 import AfterServiceDetailDrawer from './_components/AfterServiceDetailDrawer';
