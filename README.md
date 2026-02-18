@@ -100,21 +100,21 @@ src/
 │   │   └── ModalContext.tsx         # 전역 모달 관리
 │   ├── _enums/                     # Enum 상수 정의
 │   ├── _hooks/                     # 커스텀 훅
+│   ├── _services/                  # Supabase 서비스 레이어
+│   │   ├── customerService.ts
+│   │   ├── stampService.ts
+│   │   ├── afterService.ts
+│   │   └── logService.ts
 │   ├── _types/                     # TypeScript 타입 정의
 │   └── _utils/                     # 유틸리티 함수
 ├── libs/                           # 라이브러리 초기화
-└── services/                       # Supabase 서비스 레이어
-    ├── customerService.ts
-    ├── stampService.ts
-    ├── afterService.ts
-    └── logService.ts
 ```
 
 ---
 
 ## 서비스 레이어
 
-모든 Supabase 연동은 `src/services/` 하위 서비스 파일에서 처리합니다.
+모든 Supabase 연동은 `src/app/_services/` 하위 서비스 파일에서 처리합니다.
 
 | 파일 | 주요 함수 |
 |------|-----------|
