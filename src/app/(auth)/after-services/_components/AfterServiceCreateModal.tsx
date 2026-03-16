@@ -24,7 +24,7 @@ const itemTypeOptions = Object.values(AfterServiceItemTypeEnum);
 // ============================================================================
 
 const schema = z.object({
-  customerId: z.string().trim().optional(),
+  customerId: z.string().trim(),
   itemType: z.enum(
     [
       AfterServiceItemTypeEnum.DEVICE.value,
@@ -63,7 +63,8 @@ const schema = z.object({
     .string()
     .trim()
     .min(1, { message: '접수 메모를 입력하세요.' })
-    .max(500, { message: '접수 메모는 500자 이하로 입력하세요.' }),
+    .max(500, { message: '접수 메모는 500자 이하로 입력하세요.' })
+    .optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
