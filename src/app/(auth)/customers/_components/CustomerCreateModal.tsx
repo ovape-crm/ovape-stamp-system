@@ -1,11 +1,12 @@
 'use client';
 
-import { Controller, Resolver, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useState, useRef } from 'react';
 import Button from '@/app/_components/Button';
 import { formatPhoneNumber } from '@/app/_utils/utils';
-import { PaymentTypeEnum, PaymentTypeEnumType } from '@/app/_enums/enums';
+import { PaymentTypeEnum } from '@/app/_enums/enums';
 
 // ============================================================================
 // 상수 및 타입 정의
@@ -13,38 +14,27 @@ import { PaymentTypeEnum, PaymentTypeEnumType } from '@/app/_enums/enums';
 
 const paymentTypeOptions = Object.values(PaymentTypeEnum);
 
-type FormValues = {
-  name: string;
-  phone: string;
-  gender: 'male' | 'female';
-  note?: string;
-  isStampAdd: boolean;
-  stampAmount?: number;
-  stampPaymentType?: PaymentTypeEnumType['value'];
-  stampNote?: string;
-};
-
 // ============================================================================
 // 폼 검증 스키마
 // ============================================================================
 
 const schema = z
   .object({
-    name: z.coerce.string().trim().min(1, { message: '이름을 입력하세요.' }),
-    phone: z.coerce
+    name: z.string().trim().min(1, { message: '이름을 입력하세요.' }),
+    phone: z
       .string()
       .trim()
       .min(1, { message: '전화번호를 입력하세요.' })
       .regex(/^[0-9]{10,11}$/, { message: '10-11자리 숫자만 입력하세요.' }),
     gender: z.enum(['male', 'female']),
-    note: z.coerce
+    note: z
       .string()
       .trim()
       .max(500, { message: '메모는 500자 이하로 입력하세요.' })
       .optional(),
     isStampAdd: z.boolean(),
-    stampAmount: z.coerce
-      .number()
+    stampAmount: z
+      .number({ error: '스탬프 개수를 입력하세요.' })
       .min(0, { message: '스탬프 개수를 입력하세요.' })
       .max(100, { message: '스탬프 개수는 100개 이하로 입력하세요.' })
       .optional(),
@@ -61,7 +51,7 @@ const schema = z
         { message: '결제 유형을 선택하세요.' },
       )
       .optional(),
-    stampNote: z.coerce
+    stampNote: z
       .string()
       .trim()
       .max(500, { message: '메모는 500자 이하로 입력하세요.' })
@@ -73,7 +63,7 @@ const schema = z
     if (data.stampAmount === 0) {
       ctx.addIssue({
         path: ['stampAmount'],
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: '스탬프 개수를 입력하세요.',
       });
     }
@@ -81,43 +71,13 @@ const schema = z
     if (!data.stampPaymentType) {
       ctx.addIssue({
         path: ['stampPaymentType'],
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: '결제 유형을 선택하세요.',
       });
     }
   });
 
-// ============================================================================
-// React Hook Form Resolver
-// ============================================================================
-
-/**
- * Zod 스키마를 React Hook Form과 호환되도록 변환하는 커스텀 resolver
- */
-const safeResolver = (schema: z.ZodTypeAny) => async (data: unknown) => {
-  try {
-    const parsed = await schema.safeParseAsync(data);
-    if (parsed.success) return { values: parsed.data, errors: {} };
-
-    // Zod 에러를 react-hook-form 형식으로 변환
-    const formattedErrors = parsed.error.format();
-    const errors: Record<string, { type: string; message: string }> = {};
-
-    Object.keys(formattedErrors).forEach((key) => {
-      if (key !== '_errors' && formattedErrors[key]?._errors?.length > 0) {
-        errors[key] = {
-          type: 'validation',
-          message: formattedErrors[key]._errors[0],
-        };
-      }
-    });
-
-    return { values: {}, errors };
-  } catch (err) {
-    console.error('[safeResolver Error]', err);
-    return { values: {}, errors: {} };
-  }
-};
+type FormValues = z.infer<typeof schema>;
 
 // ============================================================================
 // 컴포넌트
@@ -150,7 +110,7 @@ export default function CustomerCreateModal({
     watch,
   } = useForm<FormValues>({
     mode: 'onChange',
-    resolver: safeResolver(schema) as Resolver<FormValues, unknown>,
+    resolver: zodResolver(schema),
     defaultValues: {
       name: '',
       phone: '',
@@ -433,7 +393,7 @@ export default function CustomerCreateModal({
                 min="0"
                 max="100"
                 className="w-20 rounded border border-brand-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
-                {...register('stampAmount')}
+                {...register('stampAmount', { valueAsNumber: true })}
               />
               {errors.stampAmount && (
                 <p className="mt-1 text-xs text-rose-600">

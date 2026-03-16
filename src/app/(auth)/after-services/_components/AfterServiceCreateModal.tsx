@@ -1,6 +1,7 @@
 'use client';
 
-import { Controller, Resolver, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useState, useRef, useEffect } from 'react';
 import Button from '@/app/_components/Button';
@@ -18,24 +19,12 @@ import { formatPhoneNumber } from '@/app/_utils/utils';
 
 const itemTypeOptions = Object.values(AfterServiceItemTypeEnum);
 
-type FormValues = {
-  customerId: string;
-  itemType: AfterServiceItemTypeEnumType['value'];
-  itemName: string;
-  quantity: number;
-  symptom: string;
-  isLoanerDeviceIssued: boolean;
-  customerNote?: string;
-  shopNote?: string;
-  receivedNote?: string;
-};
-
 // ============================================================================
 // 폼 검증 스키마
 // ============================================================================
 
 const schema = z.object({
-  customerId: z.coerce.string().trim().optional(),
+  customerId: z.string().trim().optional(),
   itemType: z.enum(
     [
       AfterServiceItemTypeEnum.DEVICE.value,
@@ -50,8 +39,8 @@ const schema = z.object({
     .trim()
     .min(1, { message: '기기/제품 이름을 입력하세요.' })
     .max(100, { message: '기기/제품 이름은 100자 이하로 입력하세요.' }),
-  quantity: z.coerce
-    .number()
+  quantity: z
+    .number({ error: '수량을 입력하세요.' })
     .min(1, { message: '수량은 1개 이상이어야 합니다.' })
     .max(1000, { message: '수량은 1000개 이하로 입력하세요.' }),
   symptom: z
@@ -60,54 +49,24 @@ const schema = z.object({
     .min(1, { message: '증상을 입력하세요.' })
     .max(500, { message: '증상은 500자 이하로 입력하세요.' }),
   isLoanerDeviceIssued: z.boolean(),
-  customerNote: z.coerce
+  customerNote: z
     .string()
     .trim()
     .max(500, { message: '고객 특이사항은 500자 이하로 입력하세요.' })
     .optional(),
-  shopNote: z.coerce
+  shopNote: z
     .string()
     .trim()
     .max(500, { message: '매장 특이사항은 500자 이하로 입력하세요.' })
     .optional(),
-  receivedNote: z.coerce
+  receivedNote: z
     .string()
     .trim()
     .min(1, { message: '접수 메모를 입력하세요.' })
     .max(500, { message: '접수 메모는 500자 이하로 입력하세요.' }),
 });
 
-// ============================================================================
-// React Hook Form Resolver
-// ============================================================================
-
-/**
- * Zod 스키마를 React Hook Form과 호환되도록 변환하는 커스텀 resolver
- */
-const safeResolver = (schema: z.ZodTypeAny) => async (data: unknown) => {
-  try {
-    const parsed = await schema.safeParseAsync(data);
-    if (parsed.success) return { values: parsed.data, errors: {} };
-
-    // Zod 에러를 react-hook-form 형식으로 변환
-    const formattedErrors = parsed.error.format();
-    const errors: Record<string, { type: string; message: string }> = {};
-
-    Object.keys(formattedErrors).forEach((key) => {
-      if (key !== '_errors' && formattedErrors[key]?._errors?.length > 0) {
-        errors[key] = {
-          type: 'validation',
-          message: formattedErrors[key]._errors[0],
-        };
-      }
-    });
-
-    return { values: {}, errors };
-  } catch (err) {
-    console.error('[safeResolver Error]', err);
-    return { values: {}, errors: {} };
-  }
-};
+type FormValues = z.infer<typeof schema>;
 
 // ============================================================================
 // 컴포넌트
@@ -166,7 +125,7 @@ export default function AfterServiceCreateModal({
     reset,
   } = useForm<FormValues>({
     mode: 'onChange',
-    resolver: safeResolver(schema) as Resolver<FormValues, unknown>,
+    resolver: zodResolver(schema),
     defaultValues: {
       customerId: initialData?.customerId || '',
       itemType: initialData?.itemType || AfterServiceItemTypeEnum.DEVICE.value,
@@ -485,7 +444,7 @@ export default function AfterServiceCreateModal({
             max="1000"
             className="w-20 rounded border border-brand-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
             aria-invalid={!!errors.quantity || undefined}
-            {...register('quantity')}
+            {...register('quantity', { valueAsNumber: true })}
           />
           {errors.quantity && (
             <p className="mt-1 text-xs text-rose-600">
