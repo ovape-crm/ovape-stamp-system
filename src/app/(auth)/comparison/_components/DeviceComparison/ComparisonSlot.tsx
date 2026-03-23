@@ -1,0 +1,67 @@
+'use client';
+
+import { ComparisonColumnType, ComparisonDeviceType } from '@/app/_types/comparison.types';
+
+type ValueMap = Record<string, string>;
+
+interface EmptySlotProps {
+  onAdd: () => void;
+}
+
+interface FilledSlotProps {
+  device: ComparisonDeviceType;
+  columns: ComparisonColumnType[];
+  valueMap: ValueMap;
+  onRemove: () => void;
+}
+
+export function EmptySlot({ onAdd }: EmptySlotProps) {
+  return (
+    <div
+      className="flex-1 min-w-[220px] flex flex-col items-center justify-center border-2 border-dashed border-brand-200 rounded-xl p-8 cursor-pointer hover:bg-brand-50/40 hover:border-brand-400 transition-colors"
+      onClick={onAdd}
+    >
+      <div className="w-12 h-12 rounded-full bg-brand-100 flex items-center justify-center mb-3">
+        <span className="text-2xl text-brand-500 leading-none">+</span>
+      </div>
+      <p className="text-sm text-brand-500 font-medium">기기 추가</p>
+    </div>
+  );
+}
+
+export function FilledSlot({
+  device,
+  columns,
+  valueMap,
+  onRemove,
+}: FilledSlotProps) {
+  return (
+    <div className="flex-1 min-w-[220px] flex flex-col border border-brand-100 rounded-xl shadow-sm bg-white overflow-hidden">
+      {/* 카드 헤더 */}
+      <div className="flex items-center justify-between px-4 py-3 bg-brand-50 border-b border-brand-100">
+        <span className="text-xs text-brand-400 font-medium tracking-wide uppercase">
+          기기
+        </span>
+        <button
+          onClick={onRemove}
+          className="text-gray-400 hover:text-rose-500 transition-colors text-lg leading-none"
+          aria-label="기기 제거"
+        >
+          ×
+        </button>
+      </div>
+
+      {/* 컬럼-값 목록 */}
+      <div className="flex flex-col divide-y divide-brand-50 flex-1 overflow-y-auto">
+        {columns.map((col) => (
+          <div key={col.id} className="flex flex-col px-4 py-3 gap-0.5">
+            <span className="text-xs text-gray-400 font-medium">{col.name}</span>
+            <span className="text-sm text-gray-800 font-semibold break-words">
+              {valueMap[col.id] ?? <span className="text-gray-300 font-normal">-</span>}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
