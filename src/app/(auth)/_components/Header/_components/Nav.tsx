@@ -10,10 +10,11 @@ const Nav = () => {
     { href: '/customers', label: '고객' },
     { href: '/histories', label: '이력' },
     { href: '/after-services', label: 'AS 현황' },
+    { href: '/comparison', label: '기기 비교' },
   ];
 
   return (
-    <nav className="flex gap-2">
+    <nav className="flex gap-0.5 sm:gap-2">
       {navLinks.map((link) => {
         const isActive = pathname?.startsWith(link.href);
         return (
@@ -21,7 +22,7 @@ const Nav = () => {
             key={link.href}
             href={link.href}
             className={`
-              px-4 py-2 rounded-lg font-medium
+              px-2 py-1.5 sm:px-4 sm:py-2 rounded-lg font-medium
               transition-colors duration-150
               ${
                 isActive
