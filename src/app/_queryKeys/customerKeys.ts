@@ -1,5 +1,5 @@
 export type CustomerListParams = {
-  target?: 'name' | 'phone';
+  target?: 'all' | 'name' | 'phone';
   keyword?: string;
   sortBy?: 'name' | 'stamp' | 'created_at';
   sortOrder?: 'asc' | 'desc';
