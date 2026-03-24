@@ -7,4 +7,6 @@ export const logKeys = {
   }) => ['logs', 'list', params] as const,
   byAfterService: (afterServiceId: number) =>
     ['logs', 'byAfterService', afterServiceId] as const,
+  byCustomer: (customerId: string, category: string) =>
+    ['logs', 'byCustomer', customerId, category] as const,
 };

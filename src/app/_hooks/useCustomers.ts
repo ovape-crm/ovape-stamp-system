@@ -1,111 +1,76 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import {
   getCustomers,
   getCustomersCount,
   SearchParams,
 } from '@/app/_services/customerService';
 import { CustomerType } from '@/app/_types/customer.types';
+import { customerKeys } from '@/app/_queryKeys/customerKeys';
 
 const PAGE_SIZE = 10;
 
 export const useCustomers = (initialParams?: SearchParams) => {
-  const [customers, setCustomers] = useState<CustomerType[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [error, setError] = useState('');
-  const [offset, setOffset] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
-  const [totalCount, setTotalCount] = useState(0);
   const [searchParams, setSearchParams] = useState<SearchParams>(
     initialParams || {},
   );
   const [sortBy, setSortBy] = useState<'name' | 'stamp' | 'created_at'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
-  const fetchCustomers = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError('');
-      setOffset(0);
-      setHasMore(true);
+  const queryKey = customerKeys.list({ ...searchParams, sortBy, sortOrder });
 
-      // 정렬 파라미터 추가
-      const paramsWithSort = {
-        ...searchParams,
-        sortBy,
-        sortOrder,
-      };
+  const {
+    data,
+    isPending,
+    isError,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+  } = useInfiniteQuery({
+    queryKey,
+    queryFn: async ({ pageParam }) => {
+      const paramsWithSort = { ...searchParams, sortBy, sortOrder };
+      if (pageParam === 0) {
+        const [items, totalCount] = await Promise.all([
+          getCustomers(PAGE_SIZE, 0, paramsWithSort),
+          getCustomersCount(searchParams),
+        ]);
+        return { items: items as CustomerType[], totalCount };
+      }
+      const items = await getCustomers(
+        PAGE_SIZE,
+        pageParam as number,
+        paramsWithSort,
+      );
+      return { items: items as CustomerType[], totalCount: undefined };
+    },
+    getNextPageParam: (lastPage, allPages) => {
+      if (lastPage.items.length < PAGE_SIZE) return undefined;
+      return allPages.reduce((sum, page) => sum + page.items.length, 0);
+    },
+    initialPageParam: 0,
+  });
 
-      // 전체 갯수와 목록을 병렬로 가져오기
-      const [data, count] = await Promise.all([
-        getCustomers(PAGE_SIZE, 0, paramsWithSort),
-        getCustomersCount(searchParams),
-      ]);
-
-      setCustomers(data);
-      setTotalCount(count);
-      setOffset(data.length);
-      setHasMore(data.length === PAGE_SIZE);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-      setCustomers([]);
-      setTotalCount(0);
-      setOffset(0);
-      setHasMore(false);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [searchParams, sortBy, sortOrder]);
-
-  const loadMore = useCallback(async () => {
-    if (isLoadingMore || !hasMore) return;
-
-    try {
-      setIsLoadingMore(true);
-      const paramsWithSort = {
-        ...searchParams,
-        sortBy,
-        sortOrder,
-      };
-      const data = await getCustomers(PAGE_SIZE, offset, paramsWithSort);
-      setCustomers((prev) => [...prev, ...data]);
-      setOffset((prev) => prev + data.length);
-      setHasMore(data.length === PAGE_SIZE);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
-      setIsLoadingMore(false);
-    }
-  }, [offset, hasMore, isLoadingMore, searchParams, sortBy, sortOrder]);
-
-  useEffect(() => {
-    // 항상 데이터 가져오기 (검색어가 없어도 초기 10개 표시)
-    fetchCustomers();
-  }, [fetchCustomers]);
+  const customers = data?.pages.flatMap((p) => p.items) ?? [];
+  const totalCount = data?.pages[0]?.totalCount ?? 0;
 
   const search = (target: string, keyword: string) => {
     setSearchParams({ target: target as SearchParams['target'], keyword });
   };
 
-  const refresh = () => {
-    fetchCustomers();
-  };
-
   const setSort = (by: 'name' | 'stamp' | 'created_at') => {
     setSortBy(by);
-    // 가나다순은 asc, 나머지는 desc
     setSortOrder(by === 'name' ? 'asc' : 'desc');
   };
 
   return {
     customers,
-    isLoading,
-    isLoadingMore,
-    error,
+    isLoading: isPending,
+    isLoadingMore: isFetchingNextPage,
+    error: isError ? '데이터를 불러오는데 실패했습니다.' : '',
     search,
-    refresh,
-    loadMore,
-    hasMore,
+    loadMore: fetchNextPage,
+    hasMore: hasNextPage ?? false,
     totalCount,
     sortBy,
     sortOrder,

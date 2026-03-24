@@ -1,6 +1,7 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCustomer } from '@/app/_hooks/useCustomer';
 import { useLogsByCustomerId } from '@/app/_hooks/useLogsByCustomerId';
 import NotFoundView from '@/app/_components/NotFoundView';
@@ -24,6 +25,8 @@ import CustomersDetailRemarkHistories from './_components/CustomersDetailRemarkH
 import CustomerAfterServices from './_components/CustomerAfterServices';
 import RemarkLogCreateModal from './_components/RemarkLogCreateModal';
 import { createLog } from '@/app/_services/logService';
+import { customerKeys } from '@/app/_queryKeys/customerKeys';
+import { logKeys } from '@/app/_queryKeys/logKeys';
 
 const PAGE_SIZE = 10;
 
@@ -33,8 +36,8 @@ export default function CustomerDetailPage() {
   const router = useRouter();
   const customerId = params.id as string;
   const { open, close } = useModal();
-  const { customer, isLoading, error, refresh } = useCustomer(customerId);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const queryClient = useQueryClient();
+  const { customer, isLoading, error } = useCustomer(customerId);
 
   const [logCategory, setLogCategory] = useState<LogCategoryEnumType['value']>(
     LogCategoryEnum.STAMP.value,
@@ -44,7 +47,6 @@ export default function CustomerDetailPage() {
     logs,
     isLoading: logsLoading,
     error: logsError,
-    refresh: refreshLogs,
     loadMore,
     hasMore,
   } = useLogsByCustomerId(customerId, PAGE_SIZE, logCategory);
@@ -53,16 +55,21 @@ export default function CustomerDetailPage() {
     logs: remarkLogs,
     isLoading: remarkLogsLoading,
     error: remarkLogsError,
-    refresh: refreshRemarkLogs,
     loadMore: loadMoreRemarks,
     hasMore: hasMoreRemarks,
   } = useLogsByCustomerId(customerId, PAGE_SIZE, LogCategoryEnum.REMARK.value);
 
   const handleUpdate = () => {
-    refresh();
-    refreshLogs();
-    refreshRemarkLogs();
-    setRefreshKey((prev) => prev + 1);
+    queryClient.invalidateQueries({ queryKey: customerKeys.detail(customerId) });
+    queryClient.invalidateQueries({
+      queryKey: logKeys.byCustomer(customerId, logCategory),
+    });
+    queryClient.invalidateQueries({
+      queryKey: logKeys.byCustomer(customerId, LogCategoryEnum.REMARK.value),
+    });
+    queryClient.invalidateQueries({
+      queryKey: customerKeys.afterServices(customerId),
+    });
   };
 
   const handleEditCustomer = async (values: {
@@ -111,7 +118,9 @@ export default function CustomerDetailPage() {
       );
       toast.success('특이사항 이력이 추가되었습니다.');
       close();
-      refreshRemarkLogs();
+      queryClient.invalidateQueries({
+        queryKey: logKeys.byCustomer(customerId, LogCategoryEnum.REMARK.value),
+      });
     } catch (error) {
       console.error('Failed to create remark log:', error);
       toast.error('특이사항 이력 추가에 실패했습니다.');
@@ -295,10 +304,7 @@ export default function CustomerDetailPage() {
           <h2 className="text-lg sm:text-xl font-semibold text-brand-700 mb-4">
             AS 현황
           </h2>
-          <CustomerAfterServices
-            customerId={customerId}
-            refreshKey={refreshKey}
-          />
+          <CustomerAfterServices customerId={customerId} />
         </div>
       </div>
     </div>

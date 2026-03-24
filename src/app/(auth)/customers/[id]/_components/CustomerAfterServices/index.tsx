@@ -1,15 +1,15 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { getAfterServices } from '@/app/_services/afterService';
 import Loading from '@/app/_components/Loading';
 import { AfterServiceItemTypeEnum } from '@/app/_enums/enums';
 import { useRouter } from 'next/navigation';
 import { getActionText } from '@/app/_utils/utils';
+import { customerKeys } from '@/app/_queryKeys/customerKeys';
 
 interface CustomerAfterServicesProps {
   customerId: string;
-  refreshKey?: number;
 }
 
 type AfterServiceType = {
@@ -32,35 +32,15 @@ type AfterServiceType = {
   } | null;
 };
 
-const CustomerAfterServices = ({
-  customerId,
-  refreshKey = 0,
-}: CustomerAfterServicesProps) => {
+const CustomerAfterServices = ({ customerId }: CustomerAfterServicesProps) => {
   const router = useRouter();
-  const [afterServices, setAfterServices] = useState<AfterServiceType[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
 
-  const fetchAfterServices = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError('');
-
-      const data = await getAfterServices(100, 0, {
-        customerId,
-      });
-      setAfterServices(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-      setAfterServices([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [customerId]);
-
-  useEffect(() => {
-    fetchAfterServices();
-  }, [refreshKey, fetchAfterServices]);
+  const { data: afterServices = [], isPending: isLoading, isError } = useQuery({
+    queryKey: customerKeys.afterServices(customerId),
+    queryFn: () =>
+      getAfterServices(100, 0, { customerId }) as Promise<AfterServiceType[]>,
+    enabled: !!customerId,
+  });
 
   const getStatusColor = (status: string) => {
     return getActionText(`after-service-${status}`).color;
@@ -74,10 +54,10 @@ const CustomerAfterServices = ({
     return <Loading size="lg" text="AS 목록 불러오는 중..." />;
   }
 
-  if (error) {
+  if (isError) {
     return (
       <div className="flex justify-center items-center py-20">
-        <p className="text-red-500">{error}</p>
+        <p className="text-red-500">데이터를 불러오는데 실패했습니다.</p>
       </div>
     );
   }
