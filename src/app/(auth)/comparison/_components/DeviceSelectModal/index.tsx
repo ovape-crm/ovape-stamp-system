@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import Button from '@/app/_components/Button';
 import Loading from '@/app/_components/Loading';
 import { getComparisonDevicesWithValues } from '@/app/_services/comparisonDeviceService';
@@ -8,6 +9,7 @@ import {
   ComparisonColumnType,
   ComparisonDeviceType,
 } from '@/app/_types/comparison.types';
+import { comparisonKeys } from '@/app/_queryKeys/comparisonKeys';
 
 type ValueMap = Record<string, string>;
 
@@ -22,37 +24,21 @@ export default function DeviceSelectModal({
   onSelect,
   onCancel,
 }: DeviceSelectModalProps) {
-  const [columns, setColumns] = useState<ComparisonColumnType[]>([]);
-  const [devices, setDevices] = useState<ComparisonDeviceType[]>([]);
-  const [valueMapByDevice, setValueMapByDevice] = useState<
-    Record<string, ValueMap>
-  >({});
-  const [isLoading, setIsLoading] = useState(true);
   const [query, setQuery] = useState('');
 
-  useEffect(() => {
-    const fetch = async () => {
-      try {
-        const { devices, columns, values } =
-          await getComparisonDevicesWithValues();
+  const { data, isPending } = useQuery({
+    queryKey: comparisonKeys.devices(),
+    queryFn: getComparisonDevicesWithValues,
+  });
 
-        const map: Record<string, ValueMap> = {};
-        values.forEach((v) => {
-          if (!map[v.device_id]) map[v.device_id] = {};
-          map[v.device_id][v.column_id] = v.value;
-        });
+  const columns: ComparisonColumnType[] = data?.columns ?? [];
+  const valueMapByDevice: Record<string, ValueMap> = {};
+  data?.values.forEach((v) => {
+    if (!valueMapByDevice[v.device_id]) valueMapByDevice[v.device_id] = {};
+    valueMapByDevice[v.device_id][v.column_id] = v.value;
+  });
 
-        setDevices(devices);
-        setColumns(columns);
-        setValueMapByDevice(map);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    void fetch();
-  }, []);
-
-  const availableDevices = devices
+  const availableDevices = (data?.devices ?? [])
     .filter((d) => !excludeDeviceIds.includes(d.id))
     .filter((d) => {
       if (!query.trim()) return true;
@@ -74,7 +60,7 @@ export default function DeviceSelectModal({
       />
 
       <div className="overflow-y-auto min-h-0 flex-1">
-        {isLoading ? (
+        {isPending ? (
           <div className="flex justify-center py-8">
             <Loading size="sm" text="불러오는 중..." />
           </div>
