@@ -116,16 +116,9 @@ export default function DeviceComparison() {
           )}
         </div>
         {filledSlots.length > 0 && (
-          <button
-            onClick={() => setIsExpanded(true)}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition-colors cursor-pointer"
-            aria-label="확대 보기"
-            title="확대 보기"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-            </svg>
-          </button>
+          <Button size="sm" variant="secondary" onClick={() => setIsExpanded(true)}>
+            비교하기
+          </Button>
         )}
       </div>
 

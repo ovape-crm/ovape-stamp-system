@@ -38,6 +38,15 @@ export default function ComparisonExpandView({
 
       {/* 패널 */}
       <div className="relative z-10 w-full max-w-5xl mx-4 bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+        {/* 워터마크 */}
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-20">
+          <img
+            src="/logo.PNG"
+            alt=""
+            className="w-64 opacity-[0.06] select-none mix-blend-multiply"
+            draggable={false}
+          />
+        </div>
         {/* 헤더 */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-brand-100 shrink-0">
           <h2 className="text-base font-semibold text-gray-800">기기 비교</h2>
@@ -52,15 +61,6 @@ export default function ComparisonExpandView({
 
         {/* 테이블 */}
         <div className="overflow-auto flex-1 relative">
-          {/* 워터마크 */}
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-20">
-            <img
-              src="/logo.PNG"
-              alt=""
-              className="w-64 opacity-[0.06] select-none mix-blend-multiply"
-              draggable={false}
-            />
-          </div>
           <table className="min-w-full text-sm border-separate border-spacing-0 relative z-10">
             <thead>
               <tr className="bg-brand-50">
@@ -83,7 +83,7 @@ export default function ComparisonExpandView({
                   key={col.id}
                   className={colIdx % 2 === 1 ? 'bg-gray-50/60' : 'bg-white'}
                 >
-                  <td className="sticky left-0 z-10 px-5 py-3.5 text-xs font-semibold text-gray-500 whitespace-nowrap border-b border-r border-brand-50 bg-inherit">
+                  <td className={`sticky left-0 z-10 px-5 py-3.5 text-xs font-semibold text-gray-500 whitespace-nowrap border-b border-r border-brand-50 ${colIdx % 2 === 1 ? 'bg-gray-50' : 'bg-white'}`}>
                     {col.name}
                   </td>
                   {filledSlots.map((slot) => (
