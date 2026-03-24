@@ -20,7 +20,7 @@ interface RemarkHistoriesProps {
 
 const RemarkHistories = ({ dateRange }: RemarkHistoriesProps) => {
   const router = useRouter();
-  const { items, setItems, isLoading, error, hasMore, load } = useLogs(
+  const { items, updateItem, isLoading, error, hasMore, load } = useLogs(
     PAGE_SIZE,
     LogCategoryEnum.REMARK.value,
     dateRange,
@@ -45,13 +45,11 @@ const RemarkHistories = ({ dateRange }: RemarkHistoriesProps) => {
       try {
         setIsSaving(true);
         const updated = await updateLogNote(log.id, noteDraft);
-        setItems((prev) =>
-          prev.map((item) =>
-            item.id === log.id
-              ? { ...item, note: updated.note, jsonb: updated.jsonb }
-              : item,
-          ),
-        );
+        updateItem(log.id, (item) => ({
+          ...item,
+          note: updated.note,
+          jsonb: updated.jsonb,
+        }));
         setEditingId(null);
         setNoteDraft('');
         toast.success('노트를 저장했습니다.');
@@ -62,7 +60,7 @@ const RemarkHistories = ({ dateRange }: RemarkHistoriesProps) => {
         setIsSaving(false);
       }
     },
-    [noteDraft, setItems],
+    [noteDraft, updateItem],
   );
 
   const { itemsByDate, sortedDates } = groupLogsByDate(items);

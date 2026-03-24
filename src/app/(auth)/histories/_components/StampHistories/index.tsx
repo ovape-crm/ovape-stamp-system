@@ -20,7 +20,7 @@ interface StampHistoriesProps {
 
 const StampHistories = ({ dateRange }: StampHistoriesProps) => {
   const router = useRouter();
-  const { items, setItems, isLoading, error, hasMore, load } = useLogs(
+  const { items, updateItem, isLoading, error, hasMore, load } = useLogs(
     PAGE_SIZE,
     undefined,
     dateRange,
@@ -56,13 +56,11 @@ const StampHistories = ({ dateRange }: StampHistoriesProps) => {
           noteDraft,
           paymentTypeDraft,
         );
-        setItems((prev) =>
-          prev.map((item) =>
-            item.id === log.id
-              ? { ...item, note: updated.note, jsonb: updated.jsonb }
-              : item,
-          ),
-        );
+        updateItem(log.id, (item) => ({
+          ...item,
+          note: updated.note,
+          jsonb: updated.jsonb,
+        }));
         setEditingId(null);
         setNoteDraft('');
         setPaymentTypeDraft(undefined);
@@ -74,7 +72,7 @@ const StampHistories = ({ dateRange }: StampHistoriesProps) => {
         setIsSaving(false);
       }
     },
-    [noteDraft, paymentTypeDraft, setItems],
+    [noteDraft, paymentTypeDraft, updateItem],
   );
 
   const { itemsByDate, sortedDates } = groupLogsByDate(items);
