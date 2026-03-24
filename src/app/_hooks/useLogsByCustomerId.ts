@@ -1,68 +1,54 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { getLogsByCustomer } from '@/app/_services/logService';
 import { CustomersLogsResType } from '@/app/_types/log.types';
 import { LogCategoryEnum, LogCategoryEnumType } from '../_enums/enums';
+import { logKeys } from '@/app/_queryKeys/logKeys';
 
 export const useLogsByCustomerId = (
   customerId: string,
   pageSize = 10,
   category: LogCategoryEnumType['value'] = LogCategoryEnum.STAMP.value,
 ) => {
-  const [logs, setLogs] = useState<CustomersLogsResType>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [offset, setOffset] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
+  const queryClient = useQueryClient();
+  const queryKey = logKeys.byCustomer(customerId, category);
 
-  const fetchLogs = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError('');
-
-      const data = await getLogsByCustomer(category, customerId, pageSize, 0);
-      setLogs(data);
-      setOffset(data.length);
-      setHasMore(data.length === pageSize);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-      setLogs([]);
-      setOffset(0);
-      setHasMore(false);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [customerId, pageSize, category]);
-
-  const loadMore = useCallback(async (): Promise<number> => {
-    try {
-      setIsLoading(true);
-      const more = await getLogsByCustomer(
+  const {
+    data,
+    isPending,
+    isError,
+    hasNextPage,
+    fetchNextPage,
+  } = useInfiniteQuery({
+    queryKey,
+    queryFn: ({ pageParam }) =>
+      getLogsByCustomer(
         category,
         customerId,
         pageSize,
-        offset,
-      );
-      setLogs((prev) => [...prev, ...more]);
-      setOffset((prev) => prev + more.length);
-      setHasMore(more.length === pageSize);
-      return more.length;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [customerId, pageSize, offset, category]);
+        pageParam as number,
+      ) as Promise<CustomersLogsResType>,
+    getNextPageParam: (lastPage, allPages) => {
+      if ((lastPage as unknown[]).length < pageSize) return undefined;
+      return allPages.flat().length;
+    },
+    initialPageParam: 0,
+    enabled: !!customerId,
+  });
 
-  useEffect(() => {
-    if (customerId) {
-      fetchLogs();
-    }
-  }, [customerId, fetchLogs]);
+  const logs = (data?.pages.flat() ?? []) as CustomersLogsResType;
+
+  const loadMore = async (): Promise<number> => {
+    const result = await fetchNextPage();
+    const newPage = result.data?.pages.at(-1) ?? [];
+    return (newPage as unknown[]).length;
+  };
 
   return {
     logs,
-    isLoading,
-    error,
-    refresh: fetchLogs,
+    isLoading: isPending,
+    error: isError ? 'An error occurred' : '',
+    hasMore: hasNextPage ?? false,
     loadMore,
-    hasMore,
+    refresh: () => queryClient.invalidateQueries({ queryKey }),
   };
 };

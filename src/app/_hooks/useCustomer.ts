@@ -1,37 +1,18 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { getCustomerById } from '@/app/_services/customerService';
 import { CustomerType } from '@/app/_types/customer.types';
+import { customerKeys } from '@/app/_queryKeys/customerKeys';
 
 export const useCustomer = (id: string) => {
-  const [customer, setCustomer] = useState<CustomerType | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  const fetchCustomer = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError('');
-
-      const data = await getCustomerById(id);
-      setCustomer(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-      setCustomer(null);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [id]);
-
-  useEffect(() => {
-    if (id) {
-      fetchCustomer();
-    }
-  }, [id, fetchCustomer]);
+  const { data, isPending, isError } = useQuery({
+    queryKey: customerKeys.detail(id),
+    queryFn: () => getCustomerById(id) as Promise<CustomerType>,
+    enabled: !!id,
+  });
 
   return {
-    customer,
-    isLoading,
-    error,
-    refresh: fetchCustomer,
+    customer: data ?? null,
+    isLoading: !!id && isPending,
+    error: isError ? '고객 정보를 불러오는데 실패했습니다.' : '',
   };
 };

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import Button from '@/app/_components/Button';
 import Loading from '@/app/_components/Loading';
 import { useLogsByAfterServiceId } from '@/app/_hooks/useLogsByAfterServiceId';
@@ -18,20 +18,11 @@ const PAGE_SIZE = 10;
 
 const AfterServiceLogList = ({
   afterServiceId,
-  refreshKey = 0,
 }: {
   afterServiceId: number;
-  refreshKey?: number;
 }) => {
   const { logs, isLoading, error, hasMore, loadMore, refresh } =
     useLogsByAfterServiceId(afterServiceId, PAGE_SIZE);
-
-  // refreshKey가 변경되면 로그 목록 새로고침
-  useEffect(() => {
-    if (refreshKey > 0) {
-      refresh();
-    }
-  }, [refreshKey, refresh]);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState('');
@@ -52,7 +43,7 @@ const AfterServiceLogList = ({
       try {
         setIsSaving(true);
         await updateLogNote(log.id, noteDraft);
-        await refresh(); // 로그 목록 새로고침
+        refresh();
         setEditingId(null);
         setNoteDraft('');
         toast.success('노트를 저장했습니다.');

@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
 import Loading from '@/app/_components/Loading';
 import Button from '@/app/_components/Button';
 import { formatPhoneNumber } from '@/app/_utils/utils';
@@ -12,13 +11,11 @@ import {
 } from '@/app/_hooks/useAfterServices';
 
 interface AfterServiceListProps {
-  refreshKey?: number;
   onRowClick?: (afterServiceId: string) => void;
   filters?: AfterServiceFilters;
 }
 
 const AfterServiceList = ({
-  refreshKey,
   onRowClick,
   filters,
 }: AfterServiceListProps) => {
@@ -30,14 +27,7 @@ const AfterServiceList = ({
     loadMore,
     hasMore,
     totalCount,
-    refresh,
   } = useAfterServices(filters);
-
-  useEffect(() => {
-    if (refreshKey !== undefined && refreshKey > 0) {
-      refresh();
-    }
-  }, [refreshKey]);
 
   if (isLoading) {
     return <Loading size="lg" text="AS 목록 불러오는 중..." />;

@@ -1,20 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
   getComparisonDevicesWithValues,
   deleteComparisonDevice,
 } from '@/app/_services/comparisonDeviceService';
-import {
-  ComparisonColumnType,
-  ComparisonDeviceType,
-  ComparisonDeviceValueType,
-} from '@/app/_types/comparison.types';
 import { useModal } from '@/app/_contexts/ModalContext';
 import Loading from '@/app/_components/Loading';
 import Button from '@/app/_components/Button';
 import DeviceEditModal from '../DeviceEditModal';
+import { comparisonKeys } from '@/app/_queryKeys/comparisonKeys';
 
 type ValueMap = Record<string, Record<string, string>>;
 
@@ -24,48 +20,40 @@ interface DeviceListProps {
 
 const DeviceList = ({ refreshKey }: DeviceListProps) => {
   const { open, close } = useModal();
-  const [columns, setColumns] = useState<ComparisonColumnType[]>([]);
-  const [devices, setDevices] = useState<ComparisonDeviceType[]>([]);
-  const [valueMap, setValueMap] = useState<ValueMap>({});
-  const [isLoading, setIsLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const loadData = async () => {
-    try {
-      setIsLoading(true);
-      const { devices, columns, values } = await getComparisonDevicesWithValues();
+  const { data, isPending, isError } = useQuery({
+    queryKey: [...comparisonKeys.devices(), refreshKey],
+    queryFn: getComparisonDevicesWithValues,
+  });
 
-      const map: ValueMap = {};
-      values.forEach((v: ComparisonDeviceValueType) => {
-        if (!map[v.device_id]) map[v.device_id] = {};
-        map[v.device_id][v.column_id] = v.value;
-      });
+  const columns = data?.columns ?? [];
+  const devices = data?.devices ?? [];
+  const valueMap: ValueMap = {};
+  data?.values.forEach((v) => {
+    if (!valueMap[v.device_id]) valueMap[v.device_id] = {};
+    valueMap[v.device_id][v.column_id] = v.value;
+  });
 
-      setDevices(devices);
-      setColumns(columns);
-      setValueMap(map);
-    } catch {
-      setError('데이터를 불러오는 데 실패했습니다.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const deleteMutation = useMutation({
+    mutationFn: deleteComparisonDevice,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: comparisonKeys.devices() });
+      toast.success('기기가 삭제됐습니다.');
+    },
+    onError: () => toast.error('기기 삭제에 실패했습니다.'),
+  });
 
-  useEffect(() => {
-    void loadData();
-  }, [refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const handleEdit = (device: ComparisonDeviceType) => {
+  const handleEdit = (deviceId: string) => {
     open({
       content: (
         <DeviceEditModal
-          deviceId={device.id}
-          initialValues={valueMap[device.id] ?? {}}
+          deviceId={deviceId}
+          initialValues={valueMap[deviceId] ?? {}}
           onCancel={close}
           onSuccess={() => {
             close();
-            void loadData();
+            queryClient.invalidateQueries({ queryKey: comparisonKeys.devices() });
           }}
         />
       ),
@@ -73,20 +61,7 @@ const DeviceList = ({ refreshKey }: DeviceListProps) => {
     });
   };
 
-  const handleDelete = async (deviceId: string) => {
-    try {
-      setDeletingId(deviceId);
-      await deleteComparisonDevice(deviceId);
-      setDevices((prev) => prev.filter((d) => d.id !== deviceId));
-      toast.success('기기가 삭제됐습니다.');
-    } catch {
-      toast.error('기기 삭제에 실패했습니다.');
-    } finally {
-      setDeletingId(null);
-    }
-  };
-
-  if (isLoading) {
+  if (isPending) {
     return (
       <div className="flex justify-center py-12">
         <Loading size="sm" text="불러오는 중..." />
@@ -94,10 +69,10 @@ const DeviceList = ({ refreshKey }: DeviceListProps) => {
     );
   }
 
-  if (error) {
+  if (isError) {
     return (
       <div className="text-center py-8 text-rose-600 text-xs sm:text-sm">
-        {error}
+        데이터를 불러오는 데 실패했습니다.
       </div>
     );
   }
@@ -149,16 +124,16 @@ const DeviceList = ({ refreshKey }: DeviceListProps) => {
                 <Button
                   size="xs"
                   variant="gray"
-                  disabled={deletingId === device.id}
-                  onClick={() => handleEdit(device)}
+                  disabled={deleteMutation.isPending}
+                  onClick={() => handleEdit(device.id)}
                 >
                   수정
                 </Button>
                 <Button
                   size="xs"
                   variant="secondary"
-                  disabled={deletingId === device.id}
-                  onClick={() => handleDelete(device.id)}
+                  disabled={deleteMutation.isPending}
+                  onClick={() => deleteMutation.mutate(device.id)}
                 >
                   삭제
                 </Button>

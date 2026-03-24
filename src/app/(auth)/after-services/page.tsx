@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import Button from '@/app/_components/Button';
 import { useModal } from '@/app/_contexts/ModalContext';
 import AfterServiceCreateModal from './_components/AfterServiceCreateModal';
@@ -12,14 +13,15 @@ import toast from 'react-hot-toast';
 import { AfterServiceItemTypeEnumType } from '@/app/_enums/enums';
 import AfterServiceSearchBox from './_components/AfterServiceSearchBox';
 import AfterServiceProgressBox from './_components/AfterServiceProgressBox';
+import { afterServiceKeys } from '@/app/_queryKeys/afterServiceKeys';
 
 const AfterServicesPage = () => {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
   const { open, close } = useModal();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
   const [statusValue, setStatusValue] = useState('all');
   const [filters, setFilters] = useState<{
     status?: string;
@@ -64,8 +66,8 @@ const AfterServicesPage = () => {
 
       toast.success('AS가 등록되었습니다.');
       close();
-      // AS 목록 새로고침
-      setRefreshKey((prev) => prev + 1);
+      queryClient.invalidateQueries({ queryKey: afterServiceKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: afterServiceKeys.stats() });
     } catch (err) {
       console.error('AS 등록 실패:', err);
       toast.error(
@@ -123,7 +125,6 @@ const AfterServicesPage = () => {
       />
       <div className="flex flex-col gap-2 justify-between">
         <AfterServiceProgressBox
-          refreshKey={refreshKey}
           onGroupClick={handleGroupClick}
           selectedGroup={filters.groupStatus}
           onClearGroup={() => {
@@ -159,19 +160,13 @@ const AfterServicesPage = () => {
       <AfterServiceDetailDrawer
         isOpen={isDrawerOpen}
         onClose={() => {
-          // 쿼리 파라미터에서 id 제거
           const params = new URLSearchParams(searchParams.toString());
           params.delete('id');
           const newSearch = params.toString();
           router.push(newSearch ? `${pathname}?${newSearch}` : pathname);
         }}
         afterServiceId={selectedAfterServiceId}
-        onRefreshList={() => {
-          // AS 목록 새로고침
-          setRefreshKey((prev) => prev + 1);
-        }}
         onDelete={() => {
-          // Drawer 닫기 (쿼리 파라미터에서 id 제거)
           const params = new URLSearchParams(searchParams.toString());
           params.delete('id');
           const newSearch = params.toString();
@@ -181,7 +176,6 @@ const AfterServicesPage = () => {
 
       {/* AS 목록 */}
       <AfterServiceList
-        refreshKey={refreshKey}
         filters={filters}
         onRowClick={(id) => {
           // 쿼리 파라미터에 id 추가

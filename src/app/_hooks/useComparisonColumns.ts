@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getComparisonColumns,
   createComparisonColumn,
@@ -6,113 +6,86 @@ import {
   updateComparisonColumnOrders,
   deleteComparisonColumn,
 } from '@/app/_services/comparisonColumnService';
-import { ComparisonColumnType } from '@/app/_types/comparison.types';
+import { comparisonKeys } from '@/app/_queryKeys/comparisonKeys';
 
 export const useComparisonColumns = () => {
-  const [columns, setColumns] = useState<ComparisonColumnType[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState('');
+  const queryClient = useQueryClient();
 
-  const fetchColumns = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError('');
-      const data = await getComparisonColumns();
-      setColumns(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-      setColumns([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const { data: columns = [], isPending: isLoading } = useQuery({
+    queryKey: comparisonKeys.columns(),
+    queryFn: getComparisonColumns,
+  });
 
-  useEffect(() => {
-    fetchColumns();
-  }, [fetchColumns]);
-
-  const refresh = () => {
-    fetchColumns();
-  };
-
-  const addColumn = async (values: { name: string }) => {
-    try {
-      setIsSubmitting(true);
-      const sort_order = columns.length + 1;
+  const addMutation = useMutation({
+    mutationFn: (values: { name: string }) => {
       const key = Math.random().toString(36).slice(2, 10);
-      const data = await createComparisonColumn({ ...values, key, sort_order });
-      setColumns((prev) => [...prev, data]);
-    } catch (err) {
-      throw err;
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+      const sort_order = columns.length + 1;
+      return createComparisonColumn({ ...values, key, sort_order });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: comparisonKeys.columns() });
+    },
+  });
 
-  const editColumn = async (
-    id: string,
-    updates: { name?: string },
-  ) => {
-    try {
-      setIsSubmitting(true);
-      const data = await updateComparisonColumn(id, updates);
-      setColumns((prev) => prev.map((col) => (col.id === id ? data : col)));
-    } catch (err) {
-      throw err;
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  const editMutation = useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: { name?: string } }) =>
+      updateComparisonColumn(id, updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: comparisonKeys.columns() });
+    },
+  });
 
-  const removeColumn = async (id: string) => {
-    try {
-      setIsSubmitting(true);
-      await deleteComparisonColumn(id);
-      setColumns((prev) => {
-        const filtered = prev.filter((col) => col.id !== id);
-        return filtered.map((col, idx) => ({ ...col, sort_order: idx + 1 }));
-      });
-    } catch (err) {
-      throw err;
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  const removeMutation = useMutation({
+    mutationFn: (id: string) => deleteComparisonColumn(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: comparisonKeys.columns() });
+    },
+  });
 
-  const moveColumn = async (id: string, direction: 'up' | 'down') => {
-    const idx = columns.findIndex((col) => col.id === id);
-    if (direction === 'up' && idx <= 0) return;
-    if (direction === 'down' && idx >= columns.length - 1) return;
+  const moveMutation = useMutation({
+    mutationFn: async ({ id, direction }: { id: string; direction: 'up' | 'down' }) => {
+      const idx = columns.findIndex((col) => col.id === id);
+      if (direction === 'up' && idx <= 0) return;
+      if (direction === 'down' && idx >= columns.length - 1) return;
 
-    const next = [...columns];
-    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
-    [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
-    const reordered = next.map((col, i) => ({ ...col, sort_order: i + 1 }));
+      const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+      const a = columns[idx];
+      const b = columns[swapIdx];
 
-    // 낙관적 업데이트
-    setColumns(reordered);
+      // 낙관적 업데이트
+      const next = [...columns];
+      [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
+      queryClient.setQueryData(comparisonKeys.columns(), next);
 
-    try {
-      setIsSubmitting(true);
-      await updateComparisonColumnOrders(
-        reordered.map(({ id, sort_order }) => ({ id, sort_order })),
-      );
-    } catch (err) {
-      // 실패 시 롤백
-      setColumns(columns);
-      throw err;
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+      // 교환되는 두 컬럼의 sort_order만 업데이트
+      await updateComparisonColumnOrders([
+        { id: a.id, sort_order: b.sort_order },
+        { id: b.id, sort_order: a.sort_order },
+      ]);
+    },
+    onError: () => {
+      // 실패 시 서버 데이터로 롤백
+      queryClient.invalidateQueries({ queryKey: comparisonKeys.columns() });
+    },
+  });
+
+  const isSubmitting =
+    addMutation.isPending ||
+    editMutation.isPending ||
+    removeMutation.isPending ||
+    moveMutation.isPending;
+
+  const addColumn = (values: { name: string }) => addMutation.mutateAsync(values);
+  const editColumn = (id: string, updates: { name?: string }) =>
+    editMutation.mutateAsync({ id, updates });
+  const removeColumn = (id: string) => removeMutation.mutateAsync(id);
+  const moveColumn = (id: string, direction: 'up' | 'down') =>
+    moveMutation.mutateAsync({ id, direction });
 
   return {
     columns,
     isLoading,
     isSubmitting,
-    error,
-    refresh,
     addColumn,
     editColumn,
     removeColumn,

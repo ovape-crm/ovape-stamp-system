@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { getAfterServiceDetail } from '@/app/_services/afterService';
+import { afterServiceKeys } from '@/app/_queryKeys/afterServiceKeys';
 
 type AfterServiceDetailType = {
   id: string;
@@ -25,43 +26,15 @@ type AfterServiceDetailType = {
 };
 
 export const useAfterService = (id: string | null) => {
-  const [afterService, setAfterService] =
-    useState<AfterServiceDetailType | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  const fetchAfterService = useCallback(async () => {
-    if (!id) {
-      setAfterService(null);
-      setError('');
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      setError('');
-      const data = await getAfterServiceDetail(id);
-      setAfterService(data);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'AS 상세 정보를 불러오는데 실패했습니다.',
-      );
-      setAfterService(null);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [id]);
-
-  useEffect(() => {
-    fetchAfterService();
-  }, [fetchAfterService]);
+  const { data, isPending, isError } = useQuery({
+    queryKey: afterServiceKeys.detail(id),
+    queryFn: () => getAfterServiceDetail(id!),
+    enabled: !!id,
+  });
 
   return {
-    afterService,
-    isLoading,
-    error,
-    refresh: fetchAfterService,
+    afterService: (data as AfterServiceDetailType | undefined) ?? null,
+    isLoading: !!id && isPending,
+    error: isError ? 'AS 상세 정보를 불러오는데 실패했습니다.' : '',
   };
 };

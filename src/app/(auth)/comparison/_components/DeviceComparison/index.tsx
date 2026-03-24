@@ -1,12 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useModal } from '@/app/_contexts/ModalContext';
 import { getComparisonColumns } from '@/app/_services/comparisonColumnService';
-import {
-  ComparisonColumnType,
-  ComparisonDeviceType,
-} from '@/app/_types/comparison.types';
+import { ComparisonDeviceType } from '@/app/_types/comparison.types';
+import { comparisonKeys } from '@/app/_queryKeys/comparisonKeys';
 import { EmptySlot, FilledSlot } from './ComparisonSlot';
 import DeviceSelectModal from '../DeviceSelectModal';
 import ComparisonExpandView from './ComparisonExpandView';
@@ -23,7 +22,10 @@ const INITIAL_SLOTS = 2;
 
 export default function DeviceComparison() {
   const { open, close } = useModal();
-  const [columns, setColumns] = useState<ComparisonColumnType[]>([]);
+  const { data: columns = [] } = useQuery({
+    queryKey: comparisonKeys.columns(),
+    queryFn: getComparisonColumns,
+  });
   const [slots, setSlots] = useState<Slot[]>(
     Array.from({ length: INITIAL_SLOTS }, () => ({ type: 'empty' })),
   );
@@ -31,12 +33,6 @@ export default function DeviceComparison() {
   // 모달에서 선택된 슬롯 인덱스를 클로저 없이 참조하기 위해 ref 사용
   const targetSlotRef = useRef<number | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
-
-  useEffect(() => {
-    getComparisonColumns()
-      .then(setColumns)
-      .catch(() => {});
-  }, []);
 
   const filledSlots = slots.filter(
     (s): s is Extract<Slot, { type: 'filled' }> => s.type === 'filled',

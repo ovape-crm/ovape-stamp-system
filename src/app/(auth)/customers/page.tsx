@@ -11,6 +11,8 @@ import { useState } from 'react';
 import Button from '@/app/_components/Button';
 import { addStamp } from '@/app/_services/stampService';
 import { PaymentTypeEnumType } from '@/app/_enums/enums';
+import { useQueryClient } from '@tanstack/react-query';
+import { customerKeys } from '@/app/_queryKeys/customerKeys';
 
 export default function CustomersPage() {
   // ========================================================================
@@ -21,7 +23,6 @@ export default function CustomersPage() {
     isLoading,
     error,
     search,
-    refresh,
     loadMore,
     hasMore,
     isLoadingMore,
@@ -31,6 +32,7 @@ export default function CustomersPage() {
     setSort,
   } = useCustomers();
   const { open, close } = useModal();
+  const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // ========================================================================
@@ -88,7 +90,7 @@ export default function CustomersPage() {
       }
 
       close();
-      refresh();
+      queryClient.invalidateQueries({ queryKey: customerKeys.lists() });
     } catch (err) {
       console.error('고객 추가 실패:', err);
       if (err instanceof Error && err.message === 'DUPLICATE_CUSTOMER') {
@@ -139,7 +141,9 @@ export default function CustomersPage() {
         customers={customers}
         isLoading={isLoading}
         error={error}
-        onUpdate={refresh}
+        onUpdate={() =>
+          queryClient.invalidateQueries({ queryKey: customerKeys.lists() })
+        }
         loadMore={loadMore}
         hasMore={hasMore}
         isLoadingMore={isLoadingMore}
