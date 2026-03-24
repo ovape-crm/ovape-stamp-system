@@ -41,7 +41,7 @@ export const useLogsByAfterServiceId = (
     isLoadingMore: isFetchingNextPage,
     error: isError ? 'An error occurred' : '',
     hasMore: hasNextPage ?? false,
-    loadMore: fetchNextPage,
+    loadMore: () => fetchNextPage(),
     refresh: () => queryClient.invalidateQueries({ queryKey }),
   };
 };

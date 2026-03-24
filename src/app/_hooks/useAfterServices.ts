@@ -90,7 +90,7 @@ export const useAfterServices = (filters?: AfterServiceFilters) => {
     isLoading: isPending,
     isLoadingMore: isFetchingNextPage,
     error: isError ? '데이터를 불러오는데 실패했습니다.' : '',
-    loadMore: fetchNextPage,
+    loadMore: () => fetchNextPage(),
     hasMore: hasNextPage ?? false,
     totalCount,
   };
