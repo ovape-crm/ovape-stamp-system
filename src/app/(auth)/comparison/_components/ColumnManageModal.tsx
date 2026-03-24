@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
 import Button from '@/app/_components/Button';
+import Loading from '@/app/_components/Loading';
 import { useComparisonColumns } from '@/app/_hooks/useComparisonColumns';
 
 // ============================================================================
@@ -116,7 +117,7 @@ export default function ColumnManageModal({
       <div className="overflow-y-auto min-h-0 flex-1 space-y-4">
         {/* 컬럼 목록 */}
         {isLoading ? (
-          <p className="text-sm text-gray-500 text-center py-6">불러오는 중...</p>
+          <Loading size="sm" text="불러오는 중..." />
         ) : columns.length === 0 ? (
           <p className="text-sm text-gray-500 text-center py-6">
             등록된 컬럼이 없습니다.
@@ -160,7 +161,7 @@ export default function ColumnManageModal({
                     <td className="py-2 px-2 text-gray-400 font-mono text-xs">
                       {col.key}
                     </td>
-                    <td className="py-2 px-2 text-right space-x-1">
+                    <td className="py-2 px-2 text-right space-x-1 whitespace-nowrap">
                       <Button
                         size="xs"
                         disabled={isSubmitting}
@@ -204,7 +205,7 @@ export default function ColumnManageModal({
                     <td className="py-2 px-2 text-gray-400 font-mono text-xs">
                       {col.key}
                     </td>
-                    <td className="py-2 px-2 text-right space-x-1">
+                    <td className="py-2 px-2 text-right space-x-1 whitespace-nowrap">
                       <Button
                         size="xs"
                         variant="gray"
@@ -229,11 +230,11 @@ export default function ColumnManageModal({
           </table>
         )}
 
-        {/* 컬럼 추가 폼 */}
-        <form
-          onSubmit={handleAddSubmit(handleAdd)}
-          className="border-t border-gray-200 pt-4"
-        >
+      </div>
+
+      {/* 컬럼 추가 폼 + 닫기 */}
+      <div className="shrink-0 border-t border-gray-200 pt-4 space-y-3">
+        <form onSubmit={handleAddSubmit(handleAdd)}>
           <p className="text-sm font-medium mb-2">컬럼 추가</p>
           <div className="flex gap-2 items-start">
             <div className="flex-1">
@@ -252,14 +253,12 @@ export default function ColumnManageModal({
               추가
             </Button>
           </div>
-          <div className="pb-2" />
         </form>
-      </div>
-
-      <div className="flex justify-end pt-4 border-t border-gray-200 shrink-0">
-        <Button size="sm" variant="gray" onClick={onCancel}>
-          닫기
-        </Button>
+        <div className="flex justify-end border-t border-gray-200 pt-3">
+          <Button size="sm" variant="gray" onClick={onCancel}>
+            닫기
+          </Button>
+        </div>
       </div>
     </div>
   );

@@ -112,21 +112,21 @@ const DeviceList = ({ refreshKey }: DeviceListProps) => {
 
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full text-xs sm:text-sm">
+      <table className="min-w-full text-xs sm:text-sm border-separate border-spacing-0">
         <thead>
-          <tr className="border-b border-brand-100">
-            <th className="px-3 py-2 text-left font-semibold text-gray-500 whitespace-nowrap w-10">
+          <tr className="bg-brand-50">
+            <th className="px-3 py-2.5 text-left font-semibold text-gray-500 whitespace-nowrap w-10 border-b border-r border-brand-100">
               #
             </th>
             {columns.map((col) => (
               <th
                 key={col.id}
-                className="px-3 py-2 text-left font-semibold text-gray-500 whitespace-nowrap"
+                className="px-3 py-2.5 text-left font-semibold text-gray-500 whitespace-nowrap border-b border-r border-brand-100"
               >
                 {col.name}
               </th>
             ))}
-            <th className="px-3 py-2 text-right font-semibold text-gray-500 whitespace-nowrap">
+            <th className="px-3 py-2.5 text-right font-semibold text-gray-500 whitespace-nowrap border-b border-brand-100">
               작업
             </th>
           </tr>
@@ -135,17 +135,17 @@ const DeviceList = ({ refreshKey }: DeviceListProps) => {
           {devices.map((device, index) => (
             <tr
               key={device.id}
-              className="border-b border-brand-50 hover:bg-brand-50/30 transition-colors"
+              className={`hover:bg-brand-50/50 transition-colors ${index % 2 === 1 ? 'bg-gray-50/60' : 'bg-white'}`}
             >
-              <td className="px-3 py-2.5 text-gray-400">{index + 1}</td>
+              <td className="px-3 py-2.5 text-gray-400 border-b border-r border-brand-50">{index + 1}</td>
               {columns.map((col) => (
-                <td key={col.id} className="px-3 py-2.5 text-gray-700">
+                <td key={col.id} className="px-3 py-2.5 text-gray-700 whitespace-nowrap border-b border-r border-brand-50">
                   {valueMap[device.id]?.[col.id] ?? (
                     <span className="text-gray-300">-</span>
                   )}
                 </td>
               ))}
-              <td className="px-3 py-2.5 text-right whitespace-nowrap space-x-1">
+              <td className="px-3 py-2.5 text-right whitespace-nowrap space-x-1 border-b border-brand-50">
                 <Button
                   size="xs"
                   variant="gray"
