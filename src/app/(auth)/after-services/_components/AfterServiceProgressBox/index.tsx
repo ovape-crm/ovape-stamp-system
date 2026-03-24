@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { getAfterServices } from '@/app/_services/afterService';
 import { getAfterServiceStatusGroups } from '@/app/_utils/utils';
+import { afterServiceKeys } from '@/app/_queryKeys/afterServiceKeys';
 
 interface AfterServiceProgressBoxProps {
-  refreshKey?: number;
   onGroupClick?: (
     group: 'all' | 'received' | 'inProgress' | 'completed',
   ) => void;
@@ -13,63 +13,42 @@ interface AfterServiceProgressBoxProps {
   onClearGroup?: () => void;
 }
 
+const DEFAULT_STATS = [
+  { label: '전체', value: 0, group: 'all' as const },
+  { label: '접수', value: 0, group: 'received' as const },
+  { label: '진행 중', value: 0, group: 'inProgress' as const },
+  { label: '처리 완료', value: 0, group: 'completed' as const },
+];
+
 const AfterServiceProgressBox = ({
-  refreshKey = 0,
   onGroupClick,
   selectedGroup,
   onClearGroup,
 }: AfterServiceProgressBoxProps) => {
-  const [stats, setStats] = useState<
-    Array<{
-      label: string;
-      value: number;
-      group: 'all' | 'received' | 'inProgress' | 'completed';
-    }>
-  >([
-    { label: '전체', value: 0, group: 'all' },
-    { label: '접수', value: 0, group: 'received' },
-    { label: '진행 중', value: 0, group: 'inProgress' },
-    { label: '처리 완료', value: 0, group: 'completed' },
-  ]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: stats = DEFAULT_STATS, isPending: isLoading } = useQuery({
+    queryKey: afterServiceKeys.stats(),
+    queryFn: async () => {
+      const allAfterServices = await getAfterServices(1000, 0);
+      const statusGroups = getAfterServiceStatusGroups();
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        setIsLoading(true);
-        // 전체 AS 목록 가져오기 (필터 없이)
-        const allAfterServices = await getAfterServices(1000, 0);
+      const receivedCount = allAfterServices.filter((as) =>
+        statusGroups.received.includes(as.status),
+      ).length;
+      const inProgressCount = allAfterServices.filter((as) =>
+        statusGroups.inProgress.includes(as.status),
+      ).length;
+      const completedCount = allAfterServices.filter((as) =>
+        statusGroups.completed.includes(as.status),
+      ).length;
 
-        // 상태 분류
-        const statusGroups = getAfterServiceStatusGroups();
-
-        const receivedCount = allAfterServices.filter((as) =>
-          statusGroups.received.includes(as.status),
-        ).length;
-        const inProgressCount = allAfterServices.filter((as) =>
-          statusGroups.inProgress.includes(as.status),
-        ).length;
-        const completedCount = allAfterServices.filter((as) =>
-          statusGroups.completed.includes(as.status),
-        ).length;
-
-        const totalCount = allAfterServices.length;
-
-        setStats([
-          { label: '전체', value: totalCount, group: 'all' },
-          { label: '접수', value: receivedCount, group: 'received' },
-          { label: '진행 중', value: inProgressCount, group: 'inProgress' },
-          { label: '처리 완료', value: completedCount, group: 'completed' },
-        ]);
-      } catch (error) {
-        console.error('Failed to fetch AS stats:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchStats();
-  }, [refreshKey]);
+      return [
+        { label: '전체', value: allAfterServices.length, group: 'all' as const },
+        { label: '접수', value: receivedCount, group: 'received' as const },
+        { label: '진행 중', value: inProgressCount, group: 'inProgress' as const },
+        { label: '처리 완료', value: completedCount, group: 'completed' as const },
+      ];
+    },
+  });
 
   const getValueColor = (label: string) => {
     if (label === '전체') return 'text-gray-900';
@@ -82,7 +61,7 @@ const AfterServiceProgressBox = ({
   if (isLoading) {
     return (
       <div className="flex gap-1.5 sm:gap-4 items-start">
-        {stats.map((stat, index) => (
+        {DEFAULT_STATS.map((stat, index) => (
           <div
             key={index}
             className="w-[72px] sm:w-[140px] bg-white rounded-lg shadow-sm border border-brand-100 p-2.5 sm:p-3"

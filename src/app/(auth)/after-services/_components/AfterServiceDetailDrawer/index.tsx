@@ -7,6 +7,7 @@ import {
   deleteAfterService,
 } from '@/app/_services/afterService';
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useModal } from '@/app/_contexts/ModalContext';
 import { useUser } from '@/app/_contexts/UserContext';
 import Loading from '@/app/_components/Loading';
@@ -26,32 +27,44 @@ import {
 } from '@/app/_enums/enums';
 import Button from '@/app/_components/Button';
 import { useAfterService } from '@/app/_hooks/useAfterService';
+import { afterServiceKeys } from '@/app/_queryKeys/afterServiceKeys';
+import { logKeys } from '@/app/_queryKeys/logKeys';
 
 const AfterServiceDetailDrawer = ({
   isOpen,
   onClose,
   afterServiceId,
-  onRefreshList,
   onDelete,
 }: {
   isOpen: boolean;
   onClose: () => void;
   afterServiceId: string | null;
-  onRefreshList?: () => void;
   onDelete?: () => void;
 }) => {
+  const queryClient = useQueryClient();
   const { open, close } = useModal();
   const { isAdmin } = useUser();
   const {
     afterService: afterServiceDetail,
     isLoading,
     error,
-    refresh: refreshDetail,
   } = useAfterService(isOpen ? afterServiceId : null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [logRefreshKey, setLogRefreshKey] = useState(0);
+
+  const invalidateAfterServiceQueries = () => {
+    queryClient.invalidateQueries({ queryKey: afterServiceKeys.lists() });
+    queryClient.invalidateQueries({ queryKey: afterServiceKeys.stats() });
+    queryClient.invalidateQueries({
+      queryKey: afterServiceKeys.detail(afterServiceId),
+    });
+    if (afterServiceId) {
+      queryClient.invalidateQueries({
+        queryKey: logKeys.byAfterService(Number(afterServiceId)),
+      });
+    }
+  };
 
   const handleStatusUpdate = async (values: {
     status: AfterServiceStatusEnumType['value'];
@@ -67,17 +80,7 @@ const AfterServiceDetailDrawer = ({
         values.note,
       );
 
-      // 상세 정보 새로고침
-      await refreshDetail();
-
-      // 로그 목록 새로고침
-      setLogRefreshKey((prev) => prev + 1);
-
-      // AS 목록 새로고침
-      if (onRefreshList) {
-        onRefreshList();
-      }
-
+      invalidateAfterServiceQueries();
       close();
       toast.success('상태가 업데이트되었습니다.');
     } catch (err) {
@@ -112,11 +115,8 @@ const AfterServiceDetailDrawer = ({
       await deleteAfterService(afterServiceId);
       toast.success('AS가 삭제되었습니다.');
       close();
-      // AS 목록 새로고침
-      if (onRefreshList) {
-        onRefreshList();
-      }
-      // Drawer 닫기 (부모 컴포넌트에서 처리)
+      queryClient.invalidateQueries({ queryKey: afterServiceKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: afterServiceKeys.stats() });
       if (onDelete) {
         onDelete();
       }
@@ -165,16 +165,7 @@ const AfterServiceDetailDrawer = ({
               });
               toast.success('AS 정보가 수정되었습니다.');
               close();
-              // 상세 정보 새로고침
-              await refreshDetail();
-
-              // 로그 목록 새로고침
-              setLogRefreshKey((prev) => prev + 1);
-
-              // AS 목록 새로고침
-              if (onRefreshList) {
-                onRefreshList();
-              }
+              invalidateAfterServiceQueries();
             } catch (err) {
               console.error('Failed to update AS:', err);
               toast.error('AS 수정에 실패했습니다. 다시 시도해 주세요.');
@@ -304,7 +295,6 @@ const AfterServiceDetailDrawer = ({
               {/* AS 이력 */}
               <AfterServiceLogList
                 afterServiceId={Number(afterServiceDetail.id)}
-                refreshKey={logRefreshKey}
               />
             </div>
           ) : null}

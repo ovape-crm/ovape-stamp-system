@@ -1,18 +1,17 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import {
   getAfterServices,
   getAfterServicesCount,
 } from '@/app/_services/afterService';
 import { AfterServiceStatusEnumType } from '@/app/_enums/enums';
+import {
+  afterServiceKeys,
+  AfterServiceFilters,
+} from '@/app/_queryKeys/afterServiceKeys';
+
+export type { AfterServiceFilters };
 
 const PAGE_SIZE = 10;
-
-export type AfterServiceFilters = {
-  status?: string;
-  groupStatus?: 'received' | 'inProgress' | 'completed';
-  searchTarget?: string;
-  searchKeyword?: string;
-};
 
 type AfterServiceType = {
   id: string;
@@ -51,72 +50,48 @@ const buildFilterParams = (filters?: AfterServiceFilters) => ({
 });
 
 export const useAfterServices = (filters?: AfterServiceFilters) => {
-  const [afterServices, setAfterServices] = useState<AfterServiceType[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [error, setError] = useState('');
-  const [offset, setOffset] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
-  const [totalCount, setTotalCount] = useState<number | undefined>(undefined);
-
-  const fetchAfterServices = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError('');
-      setOffset(0);
-      setHasMore(true);
-
+  const {
+    data,
+    isPending,
+    isError,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+  } = useInfiniteQuery({
+    queryKey: afterServiceKeys.list(filters),
+    queryFn: async ({ pageParam }) => {
       const filterParams = buildFilterParams(filters);
+      if (pageParam === 0) {
+        const [items, totalCount] = await Promise.all([
+          getAfterServices(PAGE_SIZE, 0, filterParams),
+          getAfterServicesCount(filterParams),
+        ]);
+        return { items: items as AfterServiceType[], totalCount };
+      }
+      const items = await getAfterServices(
+        PAGE_SIZE,
+        pageParam as number,
+        filterParams,
+      );
+      return { items: items as AfterServiceType[], totalCount: undefined };
+    },
+    getNextPageParam: (lastPage, allPages) => {
+      if (lastPage.items.length < PAGE_SIZE) return undefined;
+      return allPages.reduce((sum, page) => sum + page.items.length, 0);
+    },
+    initialPageParam: 0,
+  });
 
-      const [data, count] = await Promise.all([
-        getAfterServices(PAGE_SIZE, 0, filterParams),
-        getAfterServicesCount(filterParams),
-      ]);
-
-      setAfterServices(data);
-      setTotalCount(count);
-      setOffset(data.length);
-      setHasMore(data.length === PAGE_SIZE);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-      setAfterServices([]);
-      setTotalCount(undefined);
-      setOffset(0);
-      setHasMore(false);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [filters]);
-
-  const loadMore = useCallback(async () => {
-    if (isLoadingMore || !hasMore) return;
-
-    try {
-      setIsLoadingMore(true);
-      const filterParams = buildFilterParams(filters);
-      const data = await getAfterServices(PAGE_SIZE, offset, filterParams);
-      setAfterServices((prev) => [...prev, ...data]);
-      setOffset((prev) => prev + data.length);
-      setHasMore(data.length === PAGE_SIZE);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
-      setIsLoadingMore(false);
-    }
-  }, [offset, hasMore, isLoadingMore, filters]);
-
-  useEffect(() => {
-    fetchAfterServices();
-  }, [fetchAfterServices]);
+  const afterServices = data?.pages.flatMap((p) => p.items) ?? [];
+  const totalCount = data?.pages[0]?.totalCount;
 
   return {
     afterServices,
-    isLoading,
-    isLoadingMore,
-    error,
-    loadMore,
-    hasMore,
+    isLoading: isPending,
+    isLoadingMore: isFetchingNextPage,
+    error: isError ? '데이터를 불러오는데 실패했습니다.' : '',
+    loadMore: fetchNextPage,
+    hasMore: hasNextPage ?? false,
     totalCount,
-    refresh: fetchAfterServices,
   };
 };

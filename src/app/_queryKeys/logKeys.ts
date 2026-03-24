@@ -5,4 +5,6 @@ export const logKeys = {
     category: LogCategoryEnumType['value'];
     dateRange?: { start: string; end: string } | null;
   }) => ['logs', 'list', params] as const,
+  byAfterService: (afterServiceId: number) =>
+    ['logs', 'byAfterService', afterServiceId] as const,
 };
