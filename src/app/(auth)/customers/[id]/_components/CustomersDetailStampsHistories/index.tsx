@@ -7,23 +7,30 @@ import Button from '@/app/_components/Button';
 import Loading from '@/app/_components/Loading';
 import useCopy from '@/app/_hooks/useCopy';
 import { CustomersLogsResType } from '@/app/_types/log.types';
-import { updateLogNote } from '@/app/_services/logService';
+import { updateLogNote, deleteLog } from '@/app/_services/logService';
 import { useCallback, useState } from 'react';
 import { PaymentTypeEnum, PaymentTypeEnumType } from '@/app/_enums/enums';
 import { groupLogsByDate, formatDateKey } from '@/app/_utils/utils';
 import { toast } from 'react-hot-toast';
+import { useModal } from '@/app/_contexts/ModalContext';
+import DeleteConfirmModal from '@/app/(auth)/_components/DeleteConfirmModal';
 
 const CustomersDetailStampsHistories = ({
   targetUser,
   logs,
   isLoading,
   error,
+  isAdmin,
+  onDeleteLog,
 }: {
   targetUser: { phone: string; name: string; gender?: 'male' | 'female' | null };
   isLoading: boolean;
   error: string;
   logs: CustomersLogsResType;
+  isAdmin: boolean;
+  onDeleteLog: (id: string) => void;
 }) => {
+  const { open, close } = useModal();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState<string>('');
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -66,6 +73,28 @@ const CustomersDetailStampsHistories = ({
     setNoteDraft('');
     setPaymentTypeDraft(undefined);
   }, []);
+
+  const handleDelete = useCallback(
+    (log: CustomersLogsResType[number]) => {
+      const handleConfirm = async () => {
+        try {
+          await deleteLog(log.id);
+          onDeleteLog(log.id);
+          close();
+          toast.success('로그를 삭제했습니다.');
+        } catch (e) {
+          console.error(e);
+          toast.error('로그 삭제에 실패했습니다. 다시 시도해 주세요.');
+          close();
+        }
+      };
+      open({
+        content: <DeleteConfirmModal onConfirm={handleConfirm} onCancel={close} />,
+        options: { dismissOnBackdrop: false },
+      });
+    },
+    [onDeleteLog, open, close],
+  );
 
   const saveNote = useCallback(
     async (log: CustomersLogsResType[number]) => {
@@ -242,7 +271,7 @@ const CustomersDetailStampsHistories = ({
                         </div>
                       )}
                     </div>
-                    <div className="ml-3 flex-shrink-0">
+                    <div className="ml-3 flex-shrink-0 flex items-center gap-2">
                       <Button
                         variant="secondary"
                         size="xs"
@@ -257,6 +286,16 @@ const CustomersDetailStampsHistories = ({
                       >
                         복사
                       </Button>
+                      {isAdmin && (
+                        <Button
+                          variant="danger"
+                          size="xs"
+                          onClick={() => handleDelete(log)}
+                          disabled={isSaving}
+                        >
+                          삭제
+                        </Button>
+                      )}
                     </div>
                   </div>
                 );

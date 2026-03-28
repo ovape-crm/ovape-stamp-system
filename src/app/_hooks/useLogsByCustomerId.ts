@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient, InfiniteData } from '@tanstack/react-query';
 import { getLogsByCustomer } from '@/app/_services/logService';
 import { CustomersLogsResType } from '@/app/_types/log.types';
 import { LogCategoryEnum, LogCategoryEnumType } from '../_enums/enums';
@@ -43,6 +43,21 @@ export const useLogsByCustomerId = (
     return (newPage as unknown[]).length;
   };
 
+  const removeItem = (id: string) => {
+    queryClient.setQueryData(
+      queryKey,
+      (old: InfiniteData<CustomersLogsResType> | undefined) => {
+        if (!old) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page) =>
+            (page as CustomersLogsResType).filter((item) => item.id !== id),
+          ),
+        };
+      },
+    );
+  };
+
   return {
     logs,
     isLoading: isPending,
@@ -50,5 +65,6 @@ export const useLogsByCustomerId = (
     hasMore: hasNextPage ?? false,
     loadMore,
     refresh: () => queryClient.invalidateQueries({ queryKey }),
+    removeItem,
   };
 };

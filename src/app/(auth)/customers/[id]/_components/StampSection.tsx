@@ -38,12 +38,12 @@ const StampSection = ({ stampCount, target, onUpdate, onAddRemark }: StampSectio
     }
   };
 
-  const handleRemove = async (memo?: string) => {
+  const handleRemove = async (memo?: string, amount: number = 1) => {
     try {
       setIsLoading(true);
-      await removeStamp('remove', target.id, 1, memo ?? '');
+      await removeStamp('remove', target.id, amount, memo ?? '');
       onUpdate();
-      toast.success(`스탬프 1개 차감 완료!`);
+      toast.success(`스탬프 ${amount}개 차감 완료!`);
     } catch (error) {
       console.error('스탬프 차감 실패:', error);
       toast.error(
@@ -145,8 +145,8 @@ const StampSection = ({ stampCount, target, onUpdate, onAddRemark }: StampSectio
                     target={{ name: target.name, phone: target.phone }}
                     mode="remove"
                     onCancel={close}
-                    onConfirm={async (modalNote?: string) => {
-                      await handleRemove(modalNote);
+                    onConfirm={async (modalNote?: string, _paymentType?: PaymentTypeEnumType['value'], amount?: number) => {
+                      await handleRemove(modalNote, amount);
                       close();
                     }}
                   />

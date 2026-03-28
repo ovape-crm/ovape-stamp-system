@@ -3,19 +3,53 @@ import {
   LogActorInfo,
   ChangeFields,
 } from '@/app/(auth)/_components/HistoriesComponents';
+import Button from '@/app/_components/Button';
 import Loading from '@/app/_components/Loading';
 import { CustomersLogsResType } from '@/app/_types/log.types';
+import { deleteLog } from '@/app/_services/logService';
+import { useCallback } from 'react';
 import { groupLogsByDate, formatDateKey } from '@/app/_utils/utils';
+import { toast } from 'react-hot-toast';
+import { useModal } from '@/app/_contexts/ModalContext';
+import DeleteConfirmModal from '@/app/(auth)/_components/DeleteConfirmModal';
 
 const CustomersDetailUpdateHistories = ({
   logs,
   isLoading,
   error,
+  isAdmin,
+  onDeleteLog,
 }: {
   isLoading: boolean;
   error: string;
   logs: CustomersLogsResType;
+  isAdmin: boolean;
+  onDeleteLog: (id: string) => void;
 }) => {
+  const { open, close } = useModal();
+
+  const handleDelete = useCallback(
+    (log: CustomersLogsResType[number]) => {
+      const handleConfirm = async () => {
+        try {
+          await deleteLog(log.id);
+          onDeleteLog(log.id);
+          close();
+          toast.success('로그를 삭제했습니다.');
+        } catch (e) {
+          console.error(e);
+          toast.error('로그 삭제에 실패했습니다. 다시 시도해 주세요.');
+          close();
+        }
+      };
+      open({
+        content: <DeleteConfirmModal onConfirm={handleConfirm} onCancel={close} />,
+        options: { dismissOnBackdrop: false },
+      });
+    },
+    [onDeleteLog, open, close],
+  );
+
   if (error) {
     return (
       <div className="text-center py-8 text-rose-600 text-sm">{error}</div>
@@ -74,6 +108,15 @@ const CustomersDetailUpdateHistories = ({
 
                     {log.jsonb && <ChangeFields jsonb={log.jsonb} />}
                   </div>
+                  {isAdmin && (
+                    <Button
+                      variant="danger"
+                      size="xs"
+                      onClick={() => handleDelete(log)}
+                    >
+                      삭제
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>

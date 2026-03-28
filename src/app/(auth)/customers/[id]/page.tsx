@@ -49,6 +49,7 @@ export default function CustomerDetailPage() {
     error: logsError,
     loadMore,
     hasMore,
+    removeItem: removeLog,
   } = useLogsByCustomerId(customerId, PAGE_SIZE, logCategory);
 
   const {
@@ -57,6 +58,7 @@ export default function CustomerDetailPage() {
     error: remarkLogsError,
     loadMore: loadMoreRemarks,
     hasMore: hasMoreRemarks,
+    removeItem: removeRemarkLog,
   } = useLogsByCustomerId(customerId, PAGE_SIZE, LogCategoryEnum.REMARK.value);
 
   const handleUpdate = () => {
@@ -233,6 +235,8 @@ export default function CustomerDetailPage() {
                 logs={logs}
                 isLoading={logsLoading}
                 error={logsError}
+                isAdmin={isAdmin}
+                onDeleteLog={removeLog}
               />
             )}
             {logCategory === LogCategoryEnum.REMARK.value && (
@@ -241,6 +245,8 @@ export default function CustomerDetailPage() {
                 isLoading={remarkLogsLoading}
                 error={remarkLogsError}
                 targetUser={{ name: customer.name, phone: customer.phone, gender: customer.gender }}
+                isAdmin={isAdmin}
+                onDeleteLog={removeRemarkLog}
               />
             )}
             {logCategory === LogCategoryEnum.CUSTOMER.value && (
@@ -248,6 +254,8 @@ export default function CustomerDetailPage() {
                 logs={logs}
                 isLoading={logsLoading}
                 error={logsError}
+                isAdmin={isAdmin}
+                onDeleteLog={removeLog}
               />
             )}
           </div>

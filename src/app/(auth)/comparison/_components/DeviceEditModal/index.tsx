@@ -21,6 +21,7 @@ export default function DeviceEditModal({
 }: DeviceEditModalProps) {
   const { columns, isLoading } = useComparisonColumns();
   const [values, setValues] = useState<Record<string, string>>(initialValues);
+  const isDirty = columns.some((col) => (values[col.id] ?? '') !== (initialValues[col.id] ?? ''));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -102,7 +103,7 @@ export default function DeviceEditModal({
         </Button>
         <Button
           size="sm"
-          disabled={isSubmitting || isLoading || columns.length === 0}
+          disabled={isSubmitting || isLoading || columns.length === 0 || !isDirty}
           onClick={handleSubmit}
         >
           {isSubmitting ? '저장 중...' : '저장'}

@@ -2,24 +2,31 @@ import { LogActorInfo } from '@/app/(auth)/_components/HistoriesComponents';
 import Button from '@/app/_components/Button';
 import Loading from '@/app/_components/Loading';
 import { CustomersLogsResType } from '@/app/_types/log.types';
-import { updateLogNote } from '@/app/_services/logService';
+import { updateLogNote, deleteLog } from '@/app/_services/logService';
 import { useCallback, useState } from 'react';
 import { groupLogsByDate, formatDateKey } from '@/app/_utils/utils';
 import { toast } from 'react-hot-toast';
 import useCopy from '@/app/_hooks/useCopy';
+import { useModal } from '@/app/_contexts/ModalContext';
+import DeleteConfirmModal from '@/app/(auth)/_components/DeleteConfirmModal';
 
 const CustomersDetailRemarkHistories = ({
   logs,
   isLoading,
   error,
   targetUser,
+  isAdmin,
+  onDeleteLog,
 }: {
   isLoading: boolean;
   error: string;
   logs: CustomersLogsResType;
   targetUser: { name: string; phone: string; gender?: 'male' | 'female' | null };
+  isAdmin: boolean;
+  onDeleteLog: (id: string) => void;
 }) => {
   const { copyLogToClipboard } = useCopy();
+  const { open, close } = useModal();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState<string>('');
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -31,6 +38,28 @@ const CustomersDetailRemarkHistories = ({
     (log: CustomersLogsResType[number]) =>
       noteOverridesById[log.id] ?? log.note ?? '',
     [noteOverridesById],
+  );
+
+  const handleDelete = useCallback(
+    (log: CustomersLogsResType[number]) => {
+      const handleConfirm = async () => {
+        try {
+          await deleteLog(log.id);
+          onDeleteLog(log.id);
+          close();
+          toast.success('로그를 삭제했습니다.');
+        } catch (e) {
+          console.error(e);
+          toast.error('로그 삭제에 실패했습니다. 다시 시도해 주세요.');
+          close();
+        }
+      };
+      open({
+        content: <DeleteConfirmModal onConfirm={handleConfirm} onCancel={close} />,
+        options: { dismissOnBackdrop: false },
+      });
+    },
+    [onDeleteLog, open, close],
   );
 
   const startEdit = useCallback(
@@ -176,7 +205,7 @@ const CustomersDetailRemarkHistories = ({
                         </div>
                       )}
                     </div>
-                    <div className="ml-3 flex-shrink-0">
+                    <div className="ml-3 flex-shrink-0 flex items-center gap-2">
                       <Button
                         variant="secondary"
                         size="xs"
@@ -187,6 +216,16 @@ const CustomersDetailRemarkHistories = ({
                       >
                         복사
                       </Button>
+                      {isAdmin && (
+                        <Button
+                          variant="danger"
+                          size="xs"
+                          onClick={() => handleDelete(log)}
+                          disabled={isSaving}
+                        >
+                          삭제
+                        </Button>
+                      )}
                     </div>
                   </div>
                 );

@@ -137,16 +137,18 @@ export const createCustomer = async (customer: {
   gender: 'male' | 'female';
   note?: string;
 }) => {
-  // duplicate check by phone only
-  const { data: existing, error: existingError } = await supabase
-    .from('customers')
-    .select('id')
-    .eq('phone', customer.phone)
-    .maybeSingle();
+  // X는 중복 체크 제외
+  if (customer.phone !== 'X') {
+    const { data: existing, error: existingError } = await supabase
+      .from('customers')
+      .select('id')
+      .eq('phone', customer.phone)
+      .maybeSingle();
 
-  if (existingError) throw existingError;
-  if (existing) {
-    throw new Error('DUPLICATE_CUSTOMER');
+    if (existingError) throw existingError;
+    if (existing) {
+      throw new Error('DUPLICATE_CUSTOMER');
+    }
   }
 
   const { data, error } = await supabase
@@ -180,8 +182,8 @@ export const updateCustomer = async (
     note?: string;
   }
 ) => {
-  // 중복 체크
-  if (updates.phone) {
+  // 중복 체크 (X는 제외)
+  if (updates.phone && updates.phone !== 'X') {
     const { data: existing, error: existingError } = await supabase
       .from('customers')
       .select('id')
