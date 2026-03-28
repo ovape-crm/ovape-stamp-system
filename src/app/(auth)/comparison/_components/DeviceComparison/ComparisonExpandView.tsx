@@ -1,6 +1,15 @@
 'use client';
 
 import { useEffect } from 'react';
+
+function isUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
 import { createPortal } from 'react-dom';
 import { ComparisonColumnType, ComparisonDeviceType } from '@/app/_types/comparison.types';
 
@@ -25,6 +34,13 @@ export default function ComparisonExpandView({
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
   }, [onClose]);
+
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, []);
 
   if (typeof window === 'undefined') return null;
 
@@ -64,7 +80,7 @@ export default function ComparisonExpandView({
           <table className="min-w-full text-sm border-separate border-spacing-0 relative z-10">
             <thead>
               <tr className="bg-brand-50">
-                <th className="sticky left-0 z-10 bg-brand-50 px-5 py-3 text-left font-semibold text-gray-500 whitespace-nowrap border-b border-r border-brand-100 min-w-[120px]">
+                <th className="sticky left-0 z-10 bg-brand-50 px-3 py-3 text-left font-semibold text-gray-500 whitespace-nowrap border-b border-r border-brand-100 min-w-[80px] w-[80px]">
                   컬럼
                 </th>
                 {filledSlots.map((slot, i) => (
@@ -83,7 +99,7 @@ export default function ComparisonExpandView({
                   key={col.id}
                   className={colIdx % 2 === 1 ? 'bg-gray-50/60' : 'bg-white'}
                 >
-                  <td className={`sticky left-0 z-10 px-5 py-3.5 text-xs font-semibold text-gray-500 whitespace-nowrap border-b border-r border-brand-50 ${colIdx % 2 === 1 ? 'bg-gray-50' : 'bg-white'}`}>
+                  <td className={`sticky left-0 z-10 px-3 py-3.5 text-xs font-semibold text-gray-500 whitespace-nowrap border-b border-r border-brand-50 w-[80px] ${colIdx % 2 === 1 ? 'bg-gray-50' : 'bg-white'}`}>
                     {col.name}
                   </td>
                   {filledSlots.map((slot) => (
@@ -91,7 +107,20 @@ export default function ComparisonExpandView({
                       key={slot.device.id}
                       className="px-5 py-3.5 text-gray-800 font-medium whitespace-nowrap border-b border-r border-brand-50"
                     >
-                      {slot.valueMap[col.id] ?? (
+                      {slot.valueMap[col.id] ? (
+                        isUrl(slot.valueMap[col.id]) ? (
+                          <a
+                            href={slot.valueMap[col.id]}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-brand-500 underline underline-offset-2 hover:text-brand-700 break-all"
+                          >
+                            {slot.valueMap[col.id]}
+                          </a>
+                        ) : (
+                          slot.valueMap[col.id]
+                        )
+                      ) : (
                         <span className="text-gray-300 font-normal">-</span>
                       )}
                     </td>

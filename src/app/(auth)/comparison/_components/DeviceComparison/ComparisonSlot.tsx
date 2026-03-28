@@ -2,6 +2,15 @@
 
 import { ComparisonColumnType, ComparisonDeviceType } from '@/app/_types/comparison.types';
 
+function isUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 type ValueMap = Record<string, string>;
 
 interface EmptySlotProps {
@@ -57,7 +66,22 @@ export function FilledSlot({
           <div key={col.id} className="flex flex-col px-4 py-3 gap-0.5">
             <span className="text-xs text-gray-400 font-medium">{col.name}</span>
             <span className="text-sm text-gray-800 font-semibold break-words">
-              {valueMap[col.id] ?? <span className="text-gray-300 font-normal">-</span>}
+              {valueMap[col.id] ? (
+                isUrl(valueMap[col.id]) ? (
+                  <a
+                    href={valueMap[col.id]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-brand-500 underline underline-offset-2 hover:text-brand-700 break-all"
+                  >
+                    {valueMap[col.id]}
+                  </a>
+                ) : (
+                  valueMap[col.id]
+                )
+              ) : (
+                <span className="text-gray-300 font-normal">-</span>
+              )}
             </span>
           </div>
         ))}
