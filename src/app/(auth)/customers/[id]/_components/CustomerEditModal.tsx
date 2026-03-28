@@ -14,12 +14,19 @@ type FormValues = {
 };
 
 const schema = z.object({
-  name: z.coerce.string().trim().min(1, { message: '이름을 입력하세요.' }),
+  name: z.coerce
+    .string()
+    .trim()
+    .min(1, { message: '이름을 입력하세요.' })
+    .transform((v) => (v.toUpperCase() === 'X' ? 'X' : v)),
   phone: z.coerce
     .string()
     .trim()
     .min(1, { message: '전화번호를 입력하세요.' })
-    .regex(/^[0-9]{10,11}$/, { message: '10-11자리 숫자만 입력하세요.' }),
+    .refine((v) => v.toUpperCase() === 'X' || /^[0-9]{10,11}$/.test(v), {
+      message: '10-11자리 숫자만 입력하세요. (정보 없을 경우 X 입력)',
+    })
+    .transform((v) => (v.toUpperCase() === 'X' ? 'X' : v)),
   gender: z.enum(['male', 'female']),
   note: z.coerce
     .string()
@@ -192,7 +199,7 @@ export default function CustomerEditModal({
                 전화번호:
               </span>
               <p className="text-base font-semibold text-gray-900">
-                {formatPhoneNumber(formData?.phone)}
+                {formData.phone === 'X' ? 'X' : formatPhoneNumber(formData.phone)}
               </p>
             </div>
             <div>
@@ -267,9 +274,9 @@ export default function CustomerEditModal({
             전화번호 <span className="text-rose-600">*</span>
           </label>
           <input
-            type="number"
+            type="text"
             className="w-full rounded border border-brand-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
-            placeholder="'-' 없이 숫자만 (ex: 01012345678)"
+            placeholder="'-' 없이 숫자만 (ex: 01012345678) / 정보 없을 경우 X"
             aria-invalid={!!errors.phone || undefined}
             {...register('phone')}
           />
