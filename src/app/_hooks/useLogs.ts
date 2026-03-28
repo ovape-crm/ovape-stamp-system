@@ -51,6 +51,19 @@ const useLogs = (
     );
   };
 
+  const removeItem = (id: string) => {
+    queryClient.setQueryData(
+      queryKey,
+      (old: InfiniteData<LogsResType[]> | undefined) => {
+        if (!old) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page) => page.filter((item) => item.id !== id)),
+        };
+      },
+    );
+  };
+
   const load = async () => {
     const result = await fetchNextPage();
     const newPage = result.data?.pages.at(-1) ?? [];
@@ -66,6 +79,7 @@ const useLogs = (
     hasMore: hasNextPage ?? false,
     load,
     updateItem,
+    removeItem,
   };
 };
 

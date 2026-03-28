@@ -159,7 +159,7 @@ export const getLogs = async (
       `
       *,
       users!admin_id(name, email),
-      customers(name, phone)
+      customers(name, phone, gender)
     `
     )
     .eq('category', category);
@@ -176,6 +176,14 @@ export const getLogs = async (
 
   if (error) throw error;
   return data;
+};
+
+/**
+ * 로그 삭제
+ */
+export const deleteLog = async (logId: string) => {
+  const { error } = await supabase.from('logs').delete().eq('id', logId);
+  if (error) throw error;
 };
 
 /**

@@ -34,7 +34,7 @@ export default function HistoriesPage() {
                 logType === LogCategoryEnum.STAMP.value ? 'primary' : 'secondary'
               }
             >
-              스탬프 이력
+              구매 이력
             </Button>
             <Button
               onClick={() => setLogType(LogCategoryEnum.CUSTOMER.value)}

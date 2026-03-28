@@ -19,7 +19,7 @@ const CustomersDetailStampsHistories = ({
   isLoading,
   error,
 }: {
-  targetUser: { phone: string; name: string };
+  targetUser: { phone: string; name: string; gender?: 'male' | 'female' | null };
   isLoading: boolean;
   error: string;
   logs: CustomersLogsResType;
@@ -250,6 +250,7 @@ const CustomersDetailStampsHistories = ({
                           copyLogToClipboard(log, {
                             name: targetUser.name,
                             phone: targetUser.phone,
+                            gender: targetUser.gender,
                           })
                         }
                         disabled={isSaving}

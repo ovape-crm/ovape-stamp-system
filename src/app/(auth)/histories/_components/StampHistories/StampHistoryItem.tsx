@@ -24,6 +24,8 @@ interface StampHistoryItemProps {
   onEdit: () => void;
   onNavigate: () => void;
   isSaving: boolean;
+  isAdmin: boolean;
+  onDelete: () => void;
 }
 
 const paymentTypeOptions = Object.values(PaymentTypeEnum);
@@ -41,6 +43,8 @@ const StampHistoryItem = ({
   onEdit,
   onNavigate,
   isSaving,
+  isAdmin,
+  onDelete,
 }: StampHistoryItemProps) => {
   const { copyLogToClipboard } = useCopy();
 
@@ -133,7 +137,7 @@ const StampHistoryItem = ({
         )}
       </div>
 
-      <div className="ml-4">
+      <div className="ml-4 flex items-center gap-2">
         <Button
           variant="secondary"
           size="sm"
@@ -141,12 +145,23 @@ const StampHistoryItem = ({
             copyLogToClipboard(log, {
               name: log.customers?.name,
               phone: log.customers?.phone,
+              gender: log.customers?.gender,
             })
           }
           disabled={isSaving}
         >
           복사
         </Button>
+        {isAdmin && (
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={onDelete}
+            disabled={isSaving}
+          >
+            삭제
+          </Button>
+        )}
       </div>
     </div>
   );

@@ -34,6 +34,9 @@ export const getAfterServiceStatusGroup = (
 };
 
 export const getActionText = (action: string) => {
+  if (action === 'no-stamp') {
+    return { text: '미적립', color: 'text-gray-500 bg-gray-100' };
+  }
   if (action.startsWith('add-')) {
     const amount = action.replace('add-', '');
     return {

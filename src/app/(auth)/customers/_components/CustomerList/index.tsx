@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
+import { useQueryClient } from '@tanstack/react-query';
 import { CustomerType } from '@/app/_types/customer.types';
 import { addStamp, removeStamp } from '@/app/_services/stampService';
 import Loading from '@/app/_components/Loading';
@@ -10,7 +11,11 @@ import { useModal } from '@/app/_contexts/ModalContext';
 import StampConfirmModal from '../StampConfirmModal';
 import Button from '@/app/_components/Button';
 import { formatPhoneNumber } from '@/app/_utils/utils';
-import { PaymentTypeEnumType } from '@/app/_enums/enums';
+import { LogCategoryEnum, PaymentTypeEnumType } from '@/app/_enums/enums';
+import { logKeys } from '@/app/_queryKeys/logKeys';
+import { createLog } from '@/app/_services/logService';
+import RemarkLogCreateModal from '../../[id]/_components/RemarkLogCreateModal';
+
 
 interface CustomerListProps {
   customers: CustomerType[];
@@ -40,23 +45,32 @@ const CustomerList = ({
 }: CustomerListProps) => {
   const router = useRouter();
   const { open, close } = useModal();
+  const queryClient = useQueryClient();
   const [loadingCustomerId, setLoadingCustomerId] = useState<string | null>(
     null,
   );
-  const [amounts, setAmounts] = useState<Record<string, number>>({});
+  const handleCreateRemark = async (customerId: string, note: string) => {
+    try {
+      await createLog(LogCategoryEnum.REMARK.value, customerId, 'create-remark', note);
+      queryClient.invalidateQueries({ queryKey: logKeys.byCustomer(customerId, LogCategoryEnum.REMARK.value) });
+      toast.success('특이사항 이력이 추가되었습니다.');
+    } catch {
+      toast.error('특이사항 이력 추가에 실패했습니다.');
+    }
+  };
 
   const handleAdd = async (
     customerId: string,
     modalNote?: string,
     paymentType?: PaymentTypeEnumType['value'],
+    amount: number = 1,
   ) => {
-    const amount = amounts[customerId] || 1;
     try {
       setLoadingCustomerId(customerId);
       await addStamp(customerId, amount, modalNote ?? '', paymentType);
       onUpdate();
-      toast.success(`스탬프 ${amount}개 적립 완료!`);
-      setAmounts({ ...amounts, [customerId]: 1 });
+      queryClient.invalidateQueries({ queryKey: logKeys.byCustomer(customerId, 'stamp') });
+      toast.success(amount === 0 ? '미적립으로 기록되었습니다.' : `스탬프 ${amount}개 적립 완료!`);
     } catch (error) {
       console.error('스탬프 적립 실패:', error);
       toast.error('스탬프 적립에 실패했습니다.');
@@ -66,13 +80,11 @@ const CustomerList = ({
   };
 
   const handleRemove = async (customerId: string, modalNote?: string) => {
-    const amount = amounts[customerId] || 1;
     try {
       setLoadingCustomerId(customerId);
-      await removeStamp('remove', customerId, amount, modalNote ?? '');
+      await removeStamp('remove', customerId, 1, modalNote ?? '');
       onUpdate();
-      toast.success(`스탬프 ${amount}개 차감 완료!`);
-      setAmounts({ ...amounts, [customerId]: 1 });
+      toast.success(`스탬프 1개 차감 완료!`);
     } catch (error) {
       console.error('스탬프 차감 실패:', error);
       toast.error(
@@ -205,7 +217,6 @@ const CustomerList = ({
               customers.map((customer, index) => {
                 const stampCount = customer.stamps?.[0]?.count || 0;
                 const isThisLoading = loadingCustomerId === customer.id;
-                const amount = amounts[customer.id] || 0;
 
                 return (
                   <tr
@@ -235,29 +246,9 @@ const CustomerList = ({
                     </td>
                     <td className="px-3 sm:px-6 py-2 sm:py-3 whitespace-nowrap">
                       <div className="flex items-center justify-center gap-2 sm:gap-3 flex-nowrap">
-                        <input
-                          type="text"
-                          value={amount}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            if (value === '' || /^[0-9]+$/.test(value)) {
-                              setAmounts({
-                                ...amounts,
-                                [customer.id]: value === '' ? 0 : Number(value),
-                              });
-                            }
-                          }}
-                          disabled={isThisLoading}
-                          className="w-10 px-2 py-1 border border-brand-200 rounded focus:outline-none focus:ring-1 focus:ring-brand-300 disabled:bg-gray-100 text-xs sm:text-sm"
-                        />
                         <Button
                           size="sm"
                           onClick={() => {
-                            if (amount === 0) {
-                              toast.error('스탬프 개수를 입력해주세요.');
-                              return;
-                            }
-
                             open({
                               content: (
                                 <StampConfirmModal
@@ -266,16 +257,17 @@ const CustomerList = ({
                                     phone: customer.phone,
                                   }}
                                   mode="add"
-                                  amount={amount}
                                   onCancel={close}
                                   onConfirm={async (
                                     modalNote?: string,
                                     paymentType?: PaymentTypeEnumType['value'],
+                                    amount?: number,
                                   ) => {
                                     await handleAdd(
                                       customer.id,
                                       modalNote,
                                       paymentType,
+                                      amount,
                                     );
                                     close();
                                   }}
@@ -286,7 +278,7 @@ const CustomerList = ({
                           }}
                           disabled={isThisLoading}
                         >
-                          적립
+                          구매
                         </Button>
                         <Button
                           onClick={() =>
@@ -328,7 +320,6 @@ const CustomerList = ({
                                     phone: customer.phone,
                                   }}
                                   mode="remove"
-                                  amount={amount}
                                   onCancel={close}
                                   onConfirm={async (modalNote?: string) => {
                                     await handleRemove(customer.id, modalNote);
@@ -343,7 +334,28 @@ const CustomerList = ({
                           size="sm"
                           variant="tertiary"
                         >
-                          차감
+                          스탬프 차감
+                        </Button>
+                        <Button
+                          onClick={() =>
+                            open({
+                              content: (
+                                <RemarkLogCreateModal
+                                  onSubmit={async (note) => {
+                                    await handleCreateRemark(customer.id, note);
+                                    close();
+                                  }}
+                                  onCancel={close}
+                                />
+                              ),
+                              options: { dismissOnBackdrop: false },
+                            })
+                          }
+                          disabled={isThisLoading}
+                          size="sm"
+                          variant="tertiary"
+                        >
+                          특이사항
                         </Button>
 
                         <Button

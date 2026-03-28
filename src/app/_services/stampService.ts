@@ -27,7 +27,10 @@ export const addStamp = async (
 
   let result;
 
-  if (existing) {
+  if (amount === 0) {
+    // 미적립: 스탬프 카운트 변경 없이 로그만 기록
+    result = existing ?? null;
+  } else if (existing) {
     // 기존 레코드가 있으면 count 증가
     const { data, error } = await supabase
       .from('stamps')
@@ -54,7 +57,7 @@ export const addStamp = async (
   await createLog(
     LogCategoryEnum.STAMP.value,
     customerId,
-    `add-${amount}`,
+    amount === 0 ? 'no-stamp' : `add-${amount}`,
     note,
     { paymentType }
   );

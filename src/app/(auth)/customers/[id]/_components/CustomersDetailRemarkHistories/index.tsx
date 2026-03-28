@@ -6,16 +6,20 @@ import { updateLogNote } from '@/app/_services/logService';
 import { useCallback, useState } from 'react';
 import { groupLogsByDate, formatDateKey } from '@/app/_utils/utils';
 import { toast } from 'react-hot-toast';
+import useCopy from '@/app/_hooks/useCopy';
 
 const CustomersDetailRemarkHistories = ({
   logs,
   isLoading,
   error,
+  targetUser,
 }: {
   isLoading: boolean;
   error: string;
   logs: CustomersLogsResType;
+  targetUser: { name: string; phone: string; gender?: 'male' | 'female' | null };
 }) => {
+  const { copyLogToClipboard } = useCopy();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState<string>('');
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -171,6 +175,18 @@ const CustomersDetailRemarkHistories = ({
                           </span>
                         </div>
                       )}
+                    </div>
+                    <div className="ml-3 flex-shrink-0">
+                      <Button
+                        variant="secondary"
+                        size="xs"
+                        onClick={() =>
+                          copyLogToClipboard(log, targetUser, '특이사항')
+                        }
+                        disabled={isSaving}
+                      >
+                        복사
+                      </Button>
                     </div>
                   </div>
                 );
