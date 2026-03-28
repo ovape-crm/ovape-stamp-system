@@ -10,6 +10,38 @@ function isUrl(value: string): boolean {
     return false;
   }
 }
+
+function renderValue(value: string) {
+  if (isUrl(value)) {
+    return (
+      <a
+        href={value}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-brand-500 underline underline-offset-2 hover:text-brand-700 break-all"
+      >
+        {value}
+      </a>
+    );
+  }
+
+  const parts = value.split(/(<red>.*?<\/red>|<bold>.*?<\/bold>|<line>.*?<\/line>)/g);
+  if (parts.length === 1) return value;
+
+  return (
+    <>
+      {parts.map((part, i) => {
+        const redMatch = part.match(/^<red>(.*)<\/red>$/);
+        if (redMatch) return <span key={i} className="text-red-500">{redMatch[1]}</span>;
+        const boldMatch = part.match(/^<bold>(.*)<\/bold>$/);
+        if (boldMatch) return <span key={i} className="font-extrabold">{boldMatch[1]}</span>;
+        const lineMatch = part.match(/^<line>(.*)<\/line>$/);
+        if (lineMatch) return <span key={i} className="line-through">{lineMatch[1]}</span>;
+        return part || null;
+      })}
+    </>
+  );
+}
 import { createPortal } from 'react-dom';
 import { ComparisonColumnType, ComparisonDeviceType } from '@/app/_types/comparison.types';
 
@@ -108,18 +140,7 @@ export default function ComparisonExpandView({
                       className="px-5 py-3.5 text-gray-800 font-medium whitespace-nowrap border-b border-r border-brand-50"
                     >
                       {slot.valueMap[col.id] ? (
-                        isUrl(slot.valueMap[col.id]) ? (
-                          <a
-                            href={slot.valueMap[col.id]}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-brand-500 underline underline-offset-2 hover:text-brand-700 break-all"
-                          >
-                            {slot.valueMap[col.id]}
-                          </a>
-                        ) : (
-                          slot.valueMap[col.id]
-                        )
+                        renderValue(slot.valueMap[col.id])
                       ) : (
                         <span className="text-gray-300 font-normal">-</span>
                       )}

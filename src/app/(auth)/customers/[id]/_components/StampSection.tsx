@@ -13,25 +13,23 @@ interface StampSectionProps {
   stampCount: number;
   target: { id: string; name: string; phone: string };
   onUpdate: () => void;
+  onAddRemark: () => void;
 }
 
-const StampSection = ({ stampCount, target, onUpdate }: StampSectionProps) => {
-  const [amount, setAmount] = useState(1);
+const StampSection = ({ stampCount, target, onUpdate, onAddRemark }: StampSectionProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const { open, close } = useModal();
 
   const handleAdd = async (
     memo?: string,
     paymentType?: PaymentTypeEnumType['value'],
+    amount: number = 0,
   ) => {
-    if (amount < 1) return;
-
     try {
       setIsLoading(true);
       await addStamp(target.id, amount, memo ?? '', paymentType);
-      onUpdate(); // 데이터 새로고침
-      toast.success(`스탬프 ${amount}개 적립 완료!`);
-      setAmount(1); // 입력값 초기화
+      onUpdate();
+      toast.success(amount === 0 ? '미적립으로 기록되었습니다.' : `스탬프 ${amount}개 적립 완료!`);
     } catch (error) {
       console.error('스탬프 적립 실패:', error);
       toast.error('스탬프 적립에 실패했습니다.');
@@ -41,14 +39,11 @@ const StampSection = ({ stampCount, target, onUpdate }: StampSectionProps) => {
   };
 
   const handleRemove = async (memo?: string) => {
-    if (amount < 1) return;
-
     try {
       setIsLoading(true);
-      await removeStamp('remove', target.id, amount, memo ?? '');
-      onUpdate(); // 데이터 새로고침
-      toast.success(`스탬프 ${amount}개 차감 완료!`);
-      setAmount(1); // 입력값 초기화
+      await removeStamp('remove', target.id, 1, memo ?? '');
+      onUpdate();
+      toast.success(`스탬프 1개 차감 완료!`);
     } catch (error) {
       console.error('스탬프 차감 실패:', error);
       toast.error(
@@ -86,36 +81,24 @@ const StampSection = ({ stampCount, target, onUpdate }: StampSectionProps) => {
 
       <StampCards count={stampCount} />
 
-      <div className="mt-6 pt-6 border-t border-brand-200 space-y-3">
-        {/* 입력 + 추가/제거 버튼 */}
+      <div className="mt-6 pt-6 border-t border-brand-200">
         <div className="flex gap-2">
-          <input
-            type="number"
-            min="1"
-            value={amount}
-            onChange={(e) => setAmount(Number(e.target.value))}
-            placeholder="개수"
-            disabled={isLoading}
-            className="w-full min-w-0 px-3 py-2 border border-brand-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-transparent disabled:bg-gray-100"
-          />
           <Button
             size="sm"
+            className="flex-1"
             onClick={() =>
               open({
                 content: (
                   <StampConfirmModal
-                    target={{
-                      name: target.name,
-                      phone: target.phone,
-                    }}
+                    target={{ name: target.name, phone: target.phone }}
                     mode="add"
-                    amount={amount}
                     onCancel={close}
                     onConfirm={async (
                       modalNote?: string,
                       paymentType?: PaymentTypeEnumType['value'],
+                      amount?: number,
                     ) => {
-                      await handleAdd(modalNote, paymentType);
+                      await handleAdd(modalNote, paymentType, amount);
                       close();
                     }}
                   />
@@ -125,48 +108,17 @@ const StampSection = ({ stampCount, target, onUpdate }: StampSectionProps) => {
             }
             disabled={isLoading}
           >
-            {isLoading ? '...' : '적립'}
+            구매
           </Button>
           <Button
-            variant="secondary"
             size="sm"
+            variant="tertiary"
+            className="flex-1"
             onClick={() =>
               open({
                 content: (
                   <StampConfirmModal
-                    target={{
-                      name: target.name,
-                      phone: target.phone,
-                    }}
-                    mode="remove"
-                    amount={amount}
-                    onCancel={close}
-                    onConfirm={async (modalNote?: string) => {
-                      await handleRemove(modalNote);
-                      close();
-                    }}
-                  />
-                ),
-                options: { dismissOnBackdrop: false },
-              })
-            }
-            disabled={isLoading}
-          >
-            {isLoading ? '...' : '차감'}
-          </Button>
-        </div>
-
-        {/* 10개 사용처리 버튼 */}
-        <div>
-          <Button
-            onClick={() =>
-              open({
-                content: (
-                  <StampConfirmModal
-                    target={{
-                      name: target.name,
-                      phone: target.phone,
-                    }}
+                    target={{ name: target.name, phone: target.phone }}
                     mode="use10"
                     onCancel={close}
                     onConfirm={async (modalNote?: string) => {
@@ -179,10 +131,41 @@ const StampSection = ({ stampCount, target, onUpdate }: StampSectionProps) => {
               })
             }
             disabled={isLoading || stampCount < 10}
-            variant="secondary"
-            className="w-full"
           >
-            {isLoading ? '처리 중...' : '쿠폰 사용'}
+            쿠폰사용
+          </Button>
+          <Button
+            size="sm"
+            variant="tertiary"
+            className="flex-1"
+            onClick={() =>
+              open({
+                content: (
+                  <StampConfirmModal
+                    target={{ name: target.name, phone: target.phone }}
+                    mode="remove"
+                    onCancel={close}
+                    onConfirm={async (modalNote?: string) => {
+                      await handleRemove(modalNote);
+                      close();
+                    }}
+                  />
+                ),
+                options: { dismissOnBackdrop: false },
+              })
+            }
+            disabled={isLoading}
+          >
+            스탬프 차감
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            className="flex-1"
+            onClick={onAddRemark}
+            disabled={isLoading}
+          >
+            특이사항
           </Button>
         </div>
       </div>

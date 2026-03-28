@@ -6,6 +6,7 @@ import {
   CustomerInfo,
   LogActorInfo,
 } from '@/app/(auth)/_components/HistoriesComponents';
+import useCopy from '@/app/_hooks/useCopy';
 
 interface RemarkHistoryItemProps {
   log: LogsResType;
@@ -18,6 +19,8 @@ interface RemarkHistoryItemProps {
   onEdit: () => void;
   onNavigate: () => void;
   isSaving: boolean;
+  isAdmin: boolean;
+  onDelete: () => void;
 }
 
 const RemarkHistoryItem = ({
@@ -31,7 +34,11 @@ const RemarkHistoryItem = ({
   onEdit,
   onNavigate,
   isSaving,
+  isAdmin,
+  onDelete,
 }: RemarkHistoryItemProps) => {
+  const { copyLogToClipboard } = useCopy();
+
   return (
     <div className="flex items-center justify-between p-2.5 sm:p-4 rounded-lg border border-brand-50 hover:bg-brand-50/30 transition-colors whitespace-nowrap text-xs sm:text-sm">
       {/* Label - 항상 "특이사항" */}
@@ -99,6 +106,33 @@ const RemarkHistoryItem = ({
       <div className="text-right">
         {log.users && (
           <LogActorInfo users={log.users} created_at={log.created_at} />
+        )}
+      </div>
+
+      <div className="ml-4 flex items-center gap-2">
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() =>
+            copyLogToClipboard(
+              log,
+              { name: log.customers?.name, phone: log.customers?.phone, gender: log.customers?.gender },
+              '특이사항',
+            )
+          }
+          disabled={isSaving}
+        >
+          복사
+        </Button>
+        {isAdmin && (
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={onDelete}
+            disabled={isSaving}
+          >
+            삭제
+          </Button>
         )}
       </div>
     </div>

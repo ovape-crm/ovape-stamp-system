@@ -185,48 +185,78 @@ export default function CustomerDetailPage() {
               phone: customer.phone,
             }}
             onUpdate={handleUpdate}
+            onAddRemark={() =>
+              open({
+                content: (
+                  <RemarkLogCreateModal
+                    onSubmit={handleCreateRemarkLog}
+                    onCancel={close}
+                  />
+                ),
+                options: { dismissOnBackdrop: false, dismissOnEsc: true },
+              })
+            }
           />
         </div>
       </div>
 
-      {/* 특이사항 이력 섹션 */}
+      {/* 로그 섹션 */}
       <div className="mb-6">
         <div className="bg-white rounded-lg shadow-sm border border-brand-100 p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base sm:text-lg font-semibold text-brand-700">
-              특이사항 이력
-            </h2>
+          <div className="mb-3 pb-2 border-b border-brand-100 flex gap-2 text-xs">
             <Button
+              variant={logCategory === LogCategoryEnum.STAMP.value ? 'primary' : 'secondary'}
               size="sm"
-              variant="primary"
-              onClick={() => {
-                open({
-                  content: (
-                    <RemarkLogCreateModal
-                      onSubmit={handleCreateRemarkLog}
-                      onCancel={close}
-                    />
-                  ),
-                  options: { dismissOnBackdrop: false, dismissOnEsc: true },
-                });
-              }}
+              onClick={() => setLogCategory(LogCategoryEnum.STAMP.value)}
             >
-              + 이력 추가
+              구매 이력
+            </Button>
+            <Button
+              variant={logCategory === LogCategoryEnum.REMARK.value ? 'primary' : 'secondary'}
+              size="sm"
+              onClick={() => setLogCategory(LogCategoryEnum.REMARK.value)}
+            >
+              특이사항
+            </Button>
+            <Button
+              variant={logCategory === LogCategoryEnum.CUSTOMER.value ? 'primary' : 'secondary'}
+              size="sm"
+              onClick={() => setLogCategory(LogCategoryEnum.CUSTOMER.value)}
+            >
+              고객 이력
             </Button>
           </div>
           <div className="space-y-2.5">
-            <CustomersDetailRemarkHistories
-              logs={remarkLogs}
-              isLoading={remarkLogsLoading}
-              error={remarkLogsError}
-            />
+            {logCategory === LogCategoryEnum.STAMP.value && (
+              <CustomersDetailStampsHistories
+                targetUser={{ phone: customer.phone, name: customer.name, gender: customer.gender }}
+                logs={logs}
+                isLoading={logsLoading}
+                error={logsError}
+              />
+            )}
+            {logCategory === LogCategoryEnum.REMARK.value && (
+              <CustomersDetailRemarkHistories
+                logs={remarkLogs}
+                isLoading={remarkLogsLoading}
+                error={remarkLogsError}
+                targetUser={{ name: customer.name, phone: customer.phone, gender: customer.gender }}
+              />
+            )}
+            {logCategory === LogCategoryEnum.CUSTOMER.value && (
+              <CustomersDetailUpdateHistories
+                logs={logs}
+                isLoading={logsLoading}
+                error={logsError}
+              />
+            )}
           </div>
         </div>
-        {hasMoreRemarks && !remarkLogsLoading && (
+        {logCategory !== LogCategoryEnum.REMARK.value && hasMore && !logsLoading && (
           <div className="mt-4 flex justify-center">
             <Button
               onClick={async () => {
-                const added = await loadMoreRemarks();
+                const added = await loadMore();
                 if (added > 0) toast.success(`${added}개 더 불러오기 성공!`);
               }}
               variant="secondary"
@@ -236,57 +266,11 @@ export default function CustomerDetailPage() {
             </Button>
           </div>
         )}
-      </div>
-
-      {/* 로그 섹션 */}
-      <div className="mb-6">
-        <div className="bg-white rounded-lg shadow-sm border border-brand-100 p-4">
-          <div className="mb-3 pb-2 border-b border-brand-100 flex gap-2 text-xs">
-            <Button
-              variant={
-                logCategory === LogCategoryEnum.STAMP.value
-                  ? 'primary'
-                  : 'secondary'
-              }
-              size="sm"
-              onClick={() => setLogCategory(LogCategoryEnum.STAMP.value)}
-            >
-              스탬프 이력
-            </Button>
-            <Button
-              variant={
-                logCategory === LogCategoryEnum.CUSTOMER.value
-                  ? 'primary'
-                  : 'secondary'
-              }
-              size="sm"
-              onClick={() => setLogCategory(LogCategoryEnum.CUSTOMER.value)}
-            >
-              고객 이력
-            </Button>
-          </div>
-          <div className="space-y-2.5">
-            {logCategory === LogCategoryEnum.STAMP.value ? (
-              <CustomersDetailStampsHistories
-                targetUser={{ phone: customer.phone, name: customer.name }}
-                logs={logs}
-                isLoading={logsLoading}
-                error={logsError}
-              />
-            ) : (
-              <CustomersDetailUpdateHistories
-                logs={logs}
-                isLoading={logsLoading}
-                error={logsError}
-              />
-            )}
-          </div>
-        </div>
-        {hasMore && !logsLoading && (
+        {logCategory === LogCategoryEnum.REMARK.value && hasMoreRemarks && !remarkLogsLoading && (
           <div className="mt-4 flex justify-center">
             <Button
               onClick={async () => {
-                const added = await loadMore();
+                const added = await loadMoreRemarks();
                 if (added > 0) toast.success(`${added}개 더 불러오기 성공!`);
               }}
               variant="secondary"

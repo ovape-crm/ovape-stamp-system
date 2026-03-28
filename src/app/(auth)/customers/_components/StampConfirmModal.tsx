@@ -15,7 +15,7 @@ const paymentTypeOptions = Object.values(PaymentTypeEnum);
 export default function StampConfirmModal({
   target,
   mode,
-  amount,
+  amount: amountProp,
   onConfirm,
   onCancel,
 }: {
@@ -24,7 +24,8 @@ export default function StampConfirmModal({
   amount?: number;
   onConfirm: (
     note?: string,
-    paymentType?: PaymentTypeEnumType['value']
+    paymentType?: PaymentTypeEnumType['value'],
+    amount?: number,
   ) => Promise<void> | void;
   onCancel: () => void;
 }) {
@@ -40,19 +41,20 @@ export default function StampConfirmModal({
     PaymentTypeEnumType['value'] | ''
   >('');
 
+  const [amount, setAmount] = useState<number>(amountProp ?? 0);
+
   const title =
     mode === 'add'
-      ? '스탬프 적립'
+      ? '구매 이력 추가'
       : mode === 'remove'
       ? '스탬프 차감'
       : '쿠폰 사용';
-  const displayAmount = mode === 'use10' ? 10 : amount ?? 1;
   const description =
     mode === 'use10'
       ? '쿠폰을 사용 처리 하시겠습니까? (10개 차감)'
-      : `스탬프를 ${displayAmount}개 ${
-          mode === 'add' ? '적립' : '차감'
-        }하시겠습니까?`;
+      : mode === 'remove'
+      ? `스탬프를 1개 차감하시겠습니까?`
+      : null;
 
   const labelTitle =
     mode === 'add'
@@ -71,7 +73,7 @@ export default function StampConfirmModal({
   const handleConfirm = async () => {
     try {
       setIsSubmitting(true);
-      await onConfirm(note, paymentType as PaymentTypeEnumType['value']);
+      await onConfirm(note, paymentType as PaymentTypeEnumType['value'], amount);
     } finally {
       setIsSubmitting(false);
     }
@@ -93,15 +95,54 @@ export default function StampConfirmModal({
           </p>
         </div>
 
-        <div className="text-center py-4">
-          <p className="text-gray-700 text-base leading-relaxed">
-            {description}
-          </p>
-        </div>
+        {description && (
+          <div className="text-center py-4">
+            <p className="text-gray-700 text-base leading-relaxed">
+              {description}
+            </p>
+          </div>
+        )}
       </div>
 
       {mode === 'add' && (
         <div>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              스탬프 개수 <span className="text-rose-600">*</span>
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={amount}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === '' || /^[0-9]+$/.test(v)) {
+                    setAmount(v === '' ? 0 : Number(v));
+                  }
+                }}
+                className="w-16 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm text-center"
+              />
+              <button
+                type="button"
+                onClick={() => setAmount((v) => Math.max(0, v - 1))}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 active:bg-gray-100 transition-colors text-lg leading-none"
+              >
+                −
+              </button>
+              <button
+                type="button"
+                onClick={() => setAmount((v) => v + 1)}
+                className="w-8 h-8 flex items-center justify-center rounded-lg bg-brand-500 text-white hover:bg-brand-600 active:bg-brand-700 transition-colors text-lg leading-none"
+              >
+                +
+              </button>
+            </div>
+            {amount === 0 && (
+              <p className="mt-1.5 text-xs text-gray-400">
+                0개 입력 시 <span className="font-medium text-gray-500">미적립</span>으로 기록됩니다.
+              </p>
+            )}
+          </div>
           <span className="block text-sm font-medium mb-1">
             결제 유형 <span className="text-rose-600">*</span>
           </span>

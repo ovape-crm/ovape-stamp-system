@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { updateLogNote } from '@/app/_services/logService';
+import { updateLogNote, deleteLog } from '@/app/_services/logService';
 import Loading from '@/app/_components/Loading';
 import Button from '@/app/_components/Button';
 import toast from 'react-hot-toast';
@@ -11,6 +11,9 @@ import useLogs from '@/app/_hooks/useLogs';
 import { LogCategoryEnum } from '@/app/_enums/enums';
 import { groupLogsByDate, formatDateKey } from '@/app/_utils/utils';
 import RemarkHistoryItem from './RemarkHistoryItem';
+import { useUser } from '@/app/_contexts/UserContext';
+import { useModal } from '@/app/_contexts/ModalContext';
+import DeleteConfirmModal from '@/app/(auth)/_components/DeleteConfirmModal';
 
 const PAGE_SIZE = 10;
 
@@ -20,7 +23,9 @@ interface RemarkHistoriesProps {
 
 const RemarkHistories = ({ dateRange }: RemarkHistoriesProps) => {
   const router = useRouter();
-  const { items, updateItem, isLoading, error, hasMore, load } = useLogs(
+  const { isAdmin } = useUser();
+  const { open, close } = useModal();
+  const { items, updateItem, removeItem, isLoading, error, hasMore, load } = useLogs(
     PAGE_SIZE,
     LogCategoryEnum.REMARK.value,
     dateRange,
@@ -61,6 +66,31 @@ const RemarkHistories = ({ dateRange }: RemarkHistoriesProps) => {
       }
     },
     [noteDraft, updateItem],
+  );
+
+  const deleteItem = useCallback(
+    (log: LogsResType) => {
+      const handleConfirm = async () => {
+        try {
+          await deleteLog(log.id);
+          removeItem(log.id);
+          close();
+          toast.success('로그를 삭제했습니다.');
+        } catch (e) {
+          console.error('Failed to delete log:', e);
+          toast.error('로그 삭제에 실패했습니다. 다시 시도해 주세요.');
+          close();
+        }
+      };
+
+      open({
+        content: (
+          <DeleteConfirmModal onConfirm={handleConfirm} onCancel={close} />
+        ),
+        options: { dismissOnBackdrop: false },
+      });
+    },
+    [removeItem, open, close],
   );
 
   const { itemsByDate, sortedDates } = groupLogsByDate(items);
@@ -120,6 +150,8 @@ const RemarkHistories = ({ dateRange }: RemarkHistoriesProps) => {
                             router.push(`/customers/${log.customer_id}`)
                           }
                           isSaving={isSaving}
+                          isAdmin={isAdmin}
+                          onDelete={() => deleteItem(log)}
                         />
                       );
                     })}

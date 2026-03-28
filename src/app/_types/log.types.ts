@@ -24,6 +24,7 @@ export type AfterServiceLogType = LogBaseType & {
 export type LogCustomerInfo = {
   name: string;
   phone: string;
+  gender?: 'male' | 'female' | null;
 };
 
 // 고객 상세 페이지의 로그

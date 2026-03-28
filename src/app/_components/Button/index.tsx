@@ -1,5 +1,5 @@
 interface ButtonProps {
-  variant?: 'primary' | 'secondary' | 'tertiary' | 'gray';
+  variant?: 'primary' | 'secondary' | 'tertiary' | 'gray' | 'danger';
   size?: 'xs' | 'sm' | 'md' | 'lg';
   type?: 'button' | 'submit' | 'reset';
   children: React.ReactNode;
@@ -74,6 +74,17 @@ const Button = ({
       'border-gray-300',
       'hover:bg-gray-50',
       'focus-visible:ring-gray-500',
+      'disabled:bg-gray-100',
+      'disabled:border-gray-200',
+    ],
+    danger: [
+      'bg-white/70',
+      'border',
+      'border-rose-300',
+      'text-rose-600',
+      'hover:bg-rose-50',
+      'hover:border-rose-400',
+      'focus-visible:ring-rose-500',
       'disabled:bg-gray-100',
       'disabled:border-gray-200',
     ],

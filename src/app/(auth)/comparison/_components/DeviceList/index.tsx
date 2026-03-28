@@ -11,6 +11,8 @@ import Loading from '@/app/_components/Loading';
 import Button from '@/app/_components/Button';
 import DeviceEditModal from '../DeviceEditModal';
 import { comparisonKeys } from '@/app/_queryKeys/comparisonKeys';
+import { useUser } from '@/app/_contexts/UserContext';
+import DeleteConfirmModal from '@/app/(auth)/_components/DeleteConfirmModal';
 
 type ValueMap = Record<string, Record<string, string>>;
 
@@ -20,6 +22,7 @@ interface DeviceListProps {
 
 const DeviceList = ({ refreshKey }: DeviceListProps) => {
   const { open, close } = useModal();
+  const { isAdmin } = useUser();
   const queryClient = useQueryClient();
 
   const { data, isPending, isError } = useQuery({
@@ -43,6 +46,23 @@ const DeviceList = ({ refreshKey }: DeviceListProps) => {
     },
     onError: () => toast.error('기기 삭제에 실패했습니다.'),
   });
+
+  const handleDelete = (deviceId: string) => {
+    open({
+      content: (
+        <DeleteConfirmModal
+          title="기기 삭제"
+          description="이 기기를 삭제하시겠습니까?"
+          onConfirm={async () => {
+            await deleteMutation.mutateAsync(deviceId);
+            close();
+          }}
+          onCancel={close}
+        />
+      ),
+      options: { dismissOnBackdrop: false },
+    });
+  };
 
   const handleEdit = (deviceId: string) => {
     open({
@@ -93,6 +113,9 @@ const DeviceList = ({ refreshKey }: DeviceListProps) => {
             <th className="px-3 py-2.5 text-left font-semibold text-gray-500 whitespace-nowrap w-10 border-b border-r border-brand-100">
               #
             </th>
+            <th className="px-3 py-2.5 text-left font-semibold text-gray-500 whitespace-nowrap border-b border-r border-brand-100">
+              작업
+            </th>
             {columns.map((col) => (
               <th
                 key={col.id}
@@ -101,9 +124,6 @@ const DeviceList = ({ refreshKey }: DeviceListProps) => {
                 {col.name}
               </th>
             ))}
-            <th className="px-3 py-2.5 text-right font-semibold text-gray-500 whitespace-nowrap border-b border-brand-100">
-              작업
-            </th>
           </tr>
         </thead>
         <tbody>
@@ -113,14 +133,7 @@ const DeviceList = ({ refreshKey }: DeviceListProps) => {
               className={`hover:bg-brand-50/50 transition-colors ${index % 2 === 1 ? 'bg-gray-50/60' : 'bg-white'}`}
             >
               <td className="px-3 py-2.5 text-gray-400 border-b border-r border-brand-50">{index + 1}</td>
-              {columns.map((col) => (
-                <td key={col.id} className="px-3 py-2.5 text-gray-700 whitespace-nowrap border-b border-r border-brand-50">
-                  {valueMap[device.id]?.[col.id] ?? (
-                    <span className="text-gray-300">-</span>
-                  )}
-                </td>
-              ))}
-              <td className="px-3 py-2.5 text-right whitespace-nowrap space-x-1 border-b border-brand-50">
+              <td className="px-3 py-2.5 whitespace-nowrap space-x-1 border-b border-r border-brand-50">
                 <Button
                   size="xs"
                   variant="gray"
@@ -129,15 +142,23 @@ const DeviceList = ({ refreshKey }: DeviceListProps) => {
                 >
                   수정
                 </Button>
-                <Button
-                  size="xs"
-                  variant="secondary"
-                  disabled={deleteMutation.isPending}
-                  onClick={() => deleteMutation.mutate(device.id)}
-                >
-                  삭제
-                </Button>
+                {isAdmin && (
+                  <Button
+                    size="xs"
+                    variant="danger"
+                    onClick={() => handleDelete(device.id)}
+                  >
+                    삭제
+                  </Button>
+                )}
               </td>
+              {columns.map((col) => (
+                <td key={col.id} className="px-3 py-2.5 text-gray-700 whitespace-nowrap border-b border-r border-brand-50">
+                  {valueMap[device.id]?.[col.id] ?? (
+                    <span className="text-gray-300">-</span>
+                  )}
+                </td>
+              ))}
             </tr>
           ))}
         </tbody>

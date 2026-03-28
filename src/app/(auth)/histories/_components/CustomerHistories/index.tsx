@@ -1,12 +1,19 @@
 'use client';
 
+import { useCallback } from 'react';
 import Loading from '@/app/_components/Loading';
 import { useRouter } from 'next/navigation';
 import Button from '@/app/_components/Button';
+import toast from 'react-hot-toast';
 import useLogs from '@/app/_hooks/useLogs';
 import { LogCategoryEnum } from '@/app/_enums/enums';
 import { groupLogsByDate, formatDateKey } from '@/app/_utils/utils';
 import CustomerHistoryItem from './CustomerHistoryItem';
+import { deleteLog } from '@/app/_services/logService';
+import { useUser } from '@/app/_contexts/UserContext';
+import { LogsResType } from '@/app/_types/log.types';
+import { useModal } from '@/app/_contexts/ModalContext';
+import DeleteConfirmModal from '@/app/(auth)/_components/DeleteConfirmModal';
 
 const PAGE_SIZE = 10;
 
@@ -16,11 +23,38 @@ interface CustomerHistoriesProps {
 
 const CustomerHistories = ({ dateRange }: CustomerHistoriesProps) => {
   const router = useRouter();
+  const { isAdmin } = useUser();
+  const { open, close } = useModal();
 
-  const { items, isLoading, error, hasMore, load } = useLogs(
+  const { items, removeItem, isLoading, error, hasMore, load } = useLogs(
     PAGE_SIZE,
     LogCategoryEnum.CUSTOMER.value,
     dateRange
+  );
+
+  const deleteItem = useCallback(
+    (log: LogsResType) => {
+      const handleConfirm = async () => {
+        try {
+          await deleteLog(log.id);
+          removeItem(log.id);
+          close();
+          toast.success('로그를 삭제했습니다.');
+        } catch (e) {
+          console.error('Failed to delete log:', e);
+          toast.error('로그 삭제에 실패했습니다. 다시 시도해 주세요.');
+          close();
+        }
+      };
+
+      open({
+        content: (
+          <DeleteConfirmModal onConfirm={handleConfirm} onCancel={close} />
+        ),
+        options: { dismissOnBackdrop: false },
+      });
+    },
+    [removeItem, open, close],
   );
 
   const { itemsByDate, sortedDates } = groupLogsByDate(items);
@@ -64,6 +98,8 @@ const CustomerHistories = ({ dateRange }: CustomerHistoriesProps) => {
                         onNavigate={() =>
                           router.push(`/customers/${log.customer_id}`)
                         }
+                        isAdmin={isAdmin}
+                        onDelete={() => deleteItem(log)}
                       />
                     ))}
                   </div>
