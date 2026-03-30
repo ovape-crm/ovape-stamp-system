@@ -25,7 +25,7 @@ function renderValue(value: string) {
     );
   }
 
-  const parts = value.split(/(<red>.*?<\/red>|<bold>.*?<\/bold>|<line>.*?<\/line>)/g);
+  const parts = value.split(/(<red>.*?<\/red>|<bold>.*?<\/bold>|<line>.*?<\/line>|<link url="[^"]*">.*?<\/link>)/g);
   if (parts.length === 1) return value;
 
   return (
@@ -37,6 +37,8 @@ function renderValue(value: string) {
         if (boldMatch) return <span key={i} className="font-extrabold">{boldMatch[1]}</span>;
         const lineMatch = part.match(/^<line>(.*)<\/line>$/);
         if (lineMatch) return <span key={i} className="line-through">{lineMatch[1]}</span>;
+        const linkMatch = part.match(/^<link url="([^"]*)">(.*)<\/link>$/);
+        if (linkMatch) return <a key={i} href={linkMatch[1]} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline underline-offset-2 hover:text-blue-700">{linkMatch[2]}</a>;
         return part || null;
       })}
     </>
