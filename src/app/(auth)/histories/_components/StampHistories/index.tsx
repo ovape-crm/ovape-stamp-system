@@ -65,6 +65,7 @@ const StampHistories = ({ dateRange }: StampHistoriesProps) => {
           ...item,
           note: updated.note,
           jsonb: updated.jsonb,
+          updated_at: updated.updated_at,
         }));
         setEditingId(null);
         setNoteDraft('');

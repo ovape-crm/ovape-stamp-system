@@ -12,6 +12,7 @@ export type LogBaseType = {
   action: string;
   note: string;
   created_at: string;
+  updated_at: string;
   category: LogCategoryEnumType['value'];
   users?: LogActorUserInfo;
   jsonb: Record<string, unknown>;

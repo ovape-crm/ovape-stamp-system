@@ -34,7 +34,7 @@ const CustomerHistoryItem = ({ log, onNavigate, isAdmin, onDelete }: CustomerHis
       <div className="flex items-center gap-4">
         <div className="text-right">
           {log.users && (
-            <LogActorInfo users={log.users} created_at={log.created_at} />
+            <LogActorInfo users={log.users} created_at={log.created_at} updated_at={log.updated_at} />
           )}
         </div>
         {isAdmin && (
