@@ -1,5 +1,5 @@
 import supabase from '@/libs/supabaseClient';
-import { ComparisonColumnType } from '@/app/_types/comparison.types';
+import { ComparisonColumnType } from '@/app/_domains/_comparison/_types/comparison.types';
 
 /**
  * 활성 컬럼 목록 조회 (sort_order 오름차순)

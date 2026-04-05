@@ -1,6 +1,6 @@
-import { CustomerType } from '@/app/_types/customer.types';
+import { CustomerType } from '@/app/_domains/_customer/_types/customer.types';
 import supabase from '@/libs/supabaseClient';
-import { createLog } from './logService';
+import { createLog } from '@/app/_domains/_log/_services/logService';
 import { LogCategoryEnum } from '@/app/_enums/enums';
 import { getUpdateLogNote } from '@/app/_utils/utils';
 

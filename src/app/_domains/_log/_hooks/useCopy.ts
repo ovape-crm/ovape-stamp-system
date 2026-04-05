@@ -1,6 +1,6 @@
-import { PaymentTypeEnum, PaymentTypeEnumType } from '../_enums/enums';
+import { PaymentTypeEnum, PaymentTypeEnumType } from '@/app/_enums/enums';
 import { LogBaseType } from '../_types/log.types';
-import { formatPhoneNumber } from '../_utils/utils';
+import { formatPhoneNumber } from '@/app/_utils/utils';
 import toast from 'react-hot-toast';
 
 const paymentTypeNameByValue = Object.values(PaymentTypeEnum).reduce(

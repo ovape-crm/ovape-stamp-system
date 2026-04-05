@@ -1,18 +1,18 @@
 'use client';
 
-import { useCustomers } from '@/app/_hooks/useCustomers';
+import { useCustomers } from '@/app/_domains/_customer/_hooks/useCustomers';
 import CustomerList from './_components/CustomerList';
 import SearchBox from './_components/SearchBox';
 import { useModal } from '@/app/_contexts/ModalContext';
 import CustomerCreateModal from './_components/CustomerCreateModal';
-import { createCustomer } from '@/app/_services/customerService';
+import { createCustomer } from '@/app/_domains/_customer/_services/customerService';
 import toast from 'react-hot-toast';
 import { useState } from 'react';
 import Button from '@/app/_components/Button';
-import { addStamp } from '@/app/_services/stampService';
+import { addStamp } from '@/app/_domains/_stamp/_services/stampService';
 import { PaymentTypeEnumType } from '@/app/_enums/enums';
 import { useQueryClient } from '@tanstack/react-query';
-import { customerKeys } from '@/app/_queryKeys/customerKeys';
+import { customerKeys } from '@/app/_domains/_customer/_queryKeys/customerKeys';
 
 export default function CustomersPage() {
   // ========================================================================

@@ -2,12 +2,12 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import {
   getAfterServices,
   getAfterServicesCount,
-} from '@/app/_services/afterService';
+} from '@/app/_domains/_afterService/_services/afterService';
 import { AfterServiceStatusEnumType } from '@/app/_enums/enums';
 import {
   afterServiceKeys,
   AfterServiceFilters,
-} from '@/app/_queryKeys/afterServiceKeys';
+} from '@/app/_domains/_afterService/_queryKeys/afterServiceKeys';
 
 export type { AfterServiceFilters };
 

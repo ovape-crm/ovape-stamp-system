@@ -4,12 +4,12 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Button from '@/app/_components/Button';
 import Loading from '@/app/_components/Loading';
-import { getComparisonDevicesWithValues } from '@/app/_services/comparisonDeviceService';
+import { getComparisonDevicesWithValues } from '@/app/_domains/_comparison/_services/comparisonDeviceService';
 import {
   ComparisonColumnType,
   ComparisonDeviceType,
-} from '@/app/_types/comparison.types';
-import { comparisonKeys } from '@/app/_queryKeys/comparisonKeys';
+} from '@/app/_domains/_comparison/_types/comparison.types';
+import { comparisonKeys } from '@/app/_domains/_comparison/_queryKeys/comparisonKeys';
 
 type ValueMap = Record<string, string>;
 

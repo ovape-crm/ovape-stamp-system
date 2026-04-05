@@ -4,16 +4,16 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { useQueryClient } from '@tanstack/react-query';
-import { CustomerType } from '@/app/_types/customer.types';
-import { addStamp, removeStamp } from '@/app/_services/stampService';
+import { CustomerType } from '@/app/_domains/_customer/_types/customer.types';
+import { addStamp, removeStamp } from '@/app/_domains/_stamp/_services/stampService';
 import Loading from '@/app/_components/Loading';
 import { useModal } from '@/app/_contexts/ModalContext';
 import StampConfirmModal from '../StampConfirmModal';
 import Button from '@/app/_components/Button';
 import { formatPhoneNumber } from '@/app/_utils/utils';
 import { LogCategoryEnum, PaymentTypeEnumType } from '@/app/_enums/enums';
-import { logKeys } from '@/app/_queryKeys/logKeys';
-import { createLog } from '@/app/_services/logService';
+import { logKeys } from '@/app/_domains/_log/_queryKeys/logKeys';
+import { createLog } from '@/app/_domains/_log/_services/logService';
 import RemarkLogCreateModal from '../../[id]/_components/RemarkLogCreateModal';
 
 

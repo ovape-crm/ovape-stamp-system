@@ -1,4 +1,4 @@
-import { LogCategoryEnumType } from '../_enums/enums';
+import { LogCategoryEnumType } from '@/app/_enums/enums';
 
 export type LogActorUserInfo = {
   name: string;

@@ -5,13 +5,13 @@ import Loading from '@/app/_components/Loading';
 import { useRouter } from 'next/navigation';
 import Button from '@/app/_components/Button';
 import toast from 'react-hot-toast';
-import useLogs from '@/app/_hooks/useLogs';
+import useLogs from '@/app/_domains/_log/_hooks/useLogs';
 import { LogCategoryEnum } from '@/app/_enums/enums';
 import { groupLogsByDate, formatDateKey } from '@/app/_utils/utils';
 import CustomerHistoryItem from './CustomerHistoryItem';
-import { deleteLog } from '@/app/_services/logService';
+import { deleteLog } from '@/app/_domains/_log/_services/logService';
 import { useUser } from '@/app/_contexts/UserContext';
-import { LogsResType } from '@/app/_types/log.types';
+import { LogsResType } from '@/app/_domains/_log/_types/log.types';
 import { useModal } from '@/app/_contexts/ModalContext';
 import DeleteConfirmModal from '@/app/(auth)/_components/DeleteConfirmModal';
 

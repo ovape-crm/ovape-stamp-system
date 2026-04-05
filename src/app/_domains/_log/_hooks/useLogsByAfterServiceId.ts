@@ -1,7 +1,7 @@
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { AfterServiceLogsResType } from '../_types/log.types';
-import { getLogsByAfterServiceId } from '@/app/_services/logService';
-import { logKeys } from '@/app/_queryKeys/logKeys';
+import { getLogsByAfterServiceId } from '@/app/_domains/_log/_services/logService';
+import { logKeys } from '@/app/_domains/_log/_queryKeys/logKeys';
 
 export const useLogsByAfterServiceId = (
   afterServiceId: number,

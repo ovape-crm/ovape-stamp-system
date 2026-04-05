@@ -1,6 +1,6 @@
 'use client';
 
-import { ComparisonColumnType, ComparisonDeviceType } from '@/app/_types/comparison.types';
+import { ComparisonColumnType, ComparisonDeviceType } from '@/app/_domains/_comparison/_types/comparison.types';
 
 function isUrl(value: string): boolean {
   try {

@@ -5,9 +5,9 @@ import {
 } from '@/app/(auth)/_components/HistoriesComponents';
 import Button from '@/app/_components/Button';
 import Loading from '@/app/_components/Loading';
-import useCopy from '@/app/_hooks/useCopy';
-import { CustomersLogsResType } from '@/app/_types/log.types';
-import { updateLogNote, deleteLog } from '@/app/_services/logService';
+import useCopy from '@/app/_domains/_log/_hooks/useCopy';
+import { CustomersLogsResType } from '@/app/_domains/_log/_types/log.types';
+import { updateLogNote, deleteLog } from '@/app/_domains/_log/_services/logService';
 import { useCallback, useState } from 'react';
 import { PaymentTypeEnum, PaymentTypeEnumType } from '@/app/_enums/enums';
 import { groupLogsByDate, formatDateKey } from '@/app/_utils/utils';

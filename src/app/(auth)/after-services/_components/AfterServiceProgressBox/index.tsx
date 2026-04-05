@@ -1,9 +1,9 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { getAfterServices } from '@/app/_services/afterService';
+import { getAfterServices } from '@/app/_domains/_afterService/_services/afterService';
 import { getAfterServiceStatusGroups } from '@/app/_utils/utils';
-import { afterServiceKeys } from '@/app/_queryKeys/afterServiceKeys';
+import { afterServiceKeys } from '@/app/_domains/_afterService/_queryKeys/afterServiceKeys';
 
 interface AfterServiceProgressBoxProps {
   onGroupClick?: (

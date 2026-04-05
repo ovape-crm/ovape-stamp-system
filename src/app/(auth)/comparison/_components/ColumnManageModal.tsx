@@ -7,7 +7,7 @@ import { z } from 'zod';
 import toast from 'react-hot-toast';
 import Button from '@/app/_components/Button';
 import Loading from '@/app/_components/Loading';
-import { useComparisonColumns } from '@/app/_hooks/useComparisonColumns';
+import { useComparisonColumns } from '@/app/_domains/_comparison/_hooks/useComparisonColumns';
 
 // ============================================================================
 // 폼 검증 스키마

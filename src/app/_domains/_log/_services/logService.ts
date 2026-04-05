@@ -7,7 +7,7 @@ import {
   AfterServiceLogsResType,
   CustomersLogsResType,
   LogsResType,
-} from '@/app/_types/log.types';
+} from '@/app/_domains/_log/_types/log.types';
 import supabase from '@/libs/supabaseClient';
 
 /**

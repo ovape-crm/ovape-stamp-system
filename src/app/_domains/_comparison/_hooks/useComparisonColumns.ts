@@ -5,8 +5,8 @@ import {
   updateComparisonColumn,
   updateComparisonColumnOrders,
   deleteComparisonColumn,
-} from '@/app/_services/comparisonColumnService';
-import { comparisonKeys } from '@/app/_queryKeys/comparisonKeys';
+} from '@/app/_domains/_comparison/_services/comparisonColumnService';
+import { comparisonKeys } from '@/app/_domains/_comparison/_queryKeys/comparisonKeys';
 
 export const useComparisonColumns = () => {
   const queryClient = useQueryClient();

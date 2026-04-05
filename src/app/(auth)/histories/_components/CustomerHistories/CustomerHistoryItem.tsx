@@ -1,6 +1,6 @@
 'use client';
 
-import { LogsResType } from '@/app/_types/log.types';
+import { LogsResType } from '@/app/_domains/_log/_types/log.types';
 import {
   ActionInfoLabel,
   CustomerInfo,

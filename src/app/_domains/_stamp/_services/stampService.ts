@@ -1,5 +1,5 @@
 import supabase from '@/libs/supabaseClient';
-import { createLog } from './logService';
+import { createLog } from '@/app/_domains/_log/_services/logService';
 import { LogCategoryEnum, PaymentTypeEnumType } from '@/app/_enums/enums';
 
 export interface Stamp {

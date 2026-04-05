@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { getAfterServiceDetail } from '@/app/_services/afterService';
-import { afterServiceKeys } from '@/app/_queryKeys/afterServiceKeys';
+import { getAfterServiceDetail } from '@/app/_domains/_afterService/_services/afterService';
+import { afterServiceKeys } from '@/app/_domains/_afterService/_queryKeys/afterServiceKeys';
 
 type AfterServiceDetailType = {
   id: string;

@@ -1,8 +1,8 @@
 import { useInfiniteQuery, useQueryClient, InfiniteData } from '@tanstack/react-query';
 import { LogsResType } from '../_types/log.types';
-import { getLogs } from '@/app/_services/logService';
-import { LogCategoryEnum, LogCategoryEnumType } from '../_enums/enums';
-import { logKeys } from '@/app/_queryKeys/logKeys';
+import { getLogs } from '@/app/_domains/_log/_services/logService';
+import { LogCategoryEnum, LogCategoryEnumType } from '@/app/_enums/enums';
+import { logKeys } from '@/app/_domains/_log/_queryKeys/logKeys';
 import toast from 'react-hot-toast';
 
 const useLogs = (

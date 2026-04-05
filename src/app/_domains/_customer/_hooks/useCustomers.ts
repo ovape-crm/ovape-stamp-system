@@ -4,9 +4,9 @@ import {
   getCustomers,
   getCustomersCount,
   SearchParams,
-} from '@/app/_services/customerService';
-import { CustomerType } from '@/app/_types/customer.types';
-import { customerKeys } from '@/app/_queryKeys/customerKeys';
+} from '@/app/_domains/_customer/_services/customerService';
+import { CustomerType } from '@/app/_domains/_customer/_types/customer.types';
+import { customerKeys } from '@/app/_domains/_customer/_queryKeys/customerKeys';
 
 const PAGE_SIZE = 10;
 

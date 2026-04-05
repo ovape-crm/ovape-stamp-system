@@ -5,7 +5,7 @@ import {
   updateAfterServiceStatus,
   updateAfterService,
   deleteAfterService,
-} from '@/app/_services/afterService';
+} from '@/app/_domains/_afterService/_services/afterService';
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useModal } from '@/app/_contexts/ModalContext';
@@ -26,9 +26,9 @@ import {
   AfterServiceItemTypeEnumType,
 } from '@/app/_enums/enums';
 import Button from '@/app/_components/Button';
-import { useAfterService } from '@/app/_hooks/useAfterService';
-import { afterServiceKeys } from '@/app/_queryKeys/afterServiceKeys';
-import { logKeys } from '@/app/_queryKeys/logKeys';
+import { useAfterService } from '@/app/_domains/_afterService/_hooks/useAfterService';
+import { afterServiceKeys } from '@/app/_domains/_afterService/_queryKeys/afterServiceKeys';
+import { logKeys } from '@/app/_domains/_log/_queryKeys/logKeys';
 
 const AfterServiceDetailDrawer = ({
   isOpen,

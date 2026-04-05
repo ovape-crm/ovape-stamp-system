@@ -5,7 +5,7 @@ import {
   AfterServiceStatusGroupEnumType,
 } from '@/app/_enums/enums';
 import supabase from '@/libs/supabaseClient';
-import { createAfterServiceLog } from './logService';
+import { createAfterServiceLog } from '@/app/_domains/_log/_services/logService';
 import { getAfterServiceStatusGroups } from '@/app/_utils/utils';
 
 export const createAfterService = async ({

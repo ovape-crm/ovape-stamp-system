@@ -1,4 +1,4 @@
-import { LogActorUserInfo } from '@/app/_types/log.types';
+import { LogActorUserInfo } from '@/app/_domains/_log/_types/log.types';
 
 const LogActorInfo = ({
   users,

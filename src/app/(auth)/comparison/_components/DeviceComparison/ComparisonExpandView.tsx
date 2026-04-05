@@ -45,7 +45,7 @@ function renderValue(value: string) {
   );
 }
 import { createPortal } from 'react-dom';
-import { ComparisonColumnType, ComparisonDeviceType } from '@/app/_types/comparison.types';
+import { ComparisonColumnType, ComparisonDeviceType } from '@/app/_domains/_comparison/_types/comparison.types';
 
 type ValueMap = Record<string, string>;
 type FilledSlot = { device: ComparisonDeviceType; valueMap: ValueMap };

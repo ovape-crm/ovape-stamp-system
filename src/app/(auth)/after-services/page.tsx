@@ -8,12 +8,12 @@ import { useModal } from '@/app/_contexts/ModalContext';
 import AfterServiceCreateModal from './_components/AfterServiceCreateModal';
 import AfterServiceList from './_components/AfterServiceList';
 import AfterServiceDetailDrawer from './_components/AfterServiceDetailDrawer';
-import { createAfterService } from '@/app/_services/afterService';
+import { createAfterService } from '@/app/_domains/_afterService/_services/afterService';
 import toast from 'react-hot-toast';
 import { AfterServiceItemTypeEnumType } from '@/app/_enums/enums';
 import AfterServiceSearchBox from './_components/AfterServiceSearchBox';
 import AfterServiceProgressBox from './_components/AfterServiceProgressBox';
-import { afterServiceKeys } from '@/app/_queryKeys/afterServiceKeys';
+import { afterServiceKeys } from '@/app/_domains/_afterService/_queryKeys/afterServiceKeys';
 
 const AfterServicesPage = () => {
   const router = useRouter();

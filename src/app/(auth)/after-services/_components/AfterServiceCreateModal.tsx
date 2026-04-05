@@ -10,7 +10,7 @@ import {
   AfterServiceItemTypeEnumType,
 } from '@/app/_enums/enums';
 import CustomerSelector from './CustomerSelector';
-import { CustomerType } from '@/app/_types/customer.types';
+import { CustomerType } from '@/app/_domains/_customer/_types/customer.types';
 import { formatPhoneNumber } from '@/app/_utils/utils';
 
 // ============================================================================

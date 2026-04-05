@@ -1,14 +1,14 @@
 'use client';
 
 import Button from '@/app/_components/Button';
-import { LogsResType } from '@/app/_types/log.types';
+import { LogsResType } from '@/app/_domains/_log/_types/log.types';
 import {
   ActionInfoLabel,
   CustomerInfo,
   LogActorInfo,
   PaymentTypeLabel,
 } from '@/app/(auth)/_components/HistoriesComponents';
-import useCopy from '@/app/_hooks/useCopy';
+import useCopy from '@/app/_domains/_log/_hooks/useCopy';
 import { PaymentTypeEnum, PaymentTypeEnumType } from '@/app/_enums/enums';
 
 interface StampHistoryItemProps {

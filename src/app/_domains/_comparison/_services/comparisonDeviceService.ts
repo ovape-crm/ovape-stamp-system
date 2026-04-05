@@ -3,7 +3,7 @@ import {
   ComparisonColumnType,
   ComparisonDeviceType,
   ComparisonDeviceValueType,
-} from '@/app/_types/comparison.types';
+} from '@/app/_domains/_comparison/_types/comparison.types';
 
 /**
  * 기기 생성 (기기 row + 컬럼 값 일괄 삽입)

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { getCustomerById } from '@/app/_services/customerService';
-import { CustomerType } from '@/app/_types/customer.types';
-import { customerKeys } from '@/app/_queryKeys/customerKeys';
+import { getCustomerById } from '@/app/_domains/_customer/_services/customerService';
+import { CustomerType } from '@/app/_domains/_customer/_types/customer.types';
+import { customerKeys } from '@/app/_domains/_customer/_queryKeys/customerKeys';
 
 export const useCustomer = (id: string) => {
   const { data, isPending, isError } = useQuery({
