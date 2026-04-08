@@ -14,7 +14,7 @@
 |------|------|------|
 | id | uuid | PK |
 | name | text NOT NULL | 카테고리명 |
-| order | int4 | 정렬 순서 |
+| order_index | int4 | 정렬 순서 |
 | created_at | timestamptz | 생성 시간 |
 
 예시

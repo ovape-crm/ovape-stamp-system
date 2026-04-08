@@ -11,6 +11,7 @@ const Nav = () => {
     { href: '/histories', label: '이력' },
     { href: '/after-services', label: 'AS 현황' },
     { href: '/comparison', label: '기기 비교' },
+    { href: '/items', label: '품목 관리' },
   ];
 
   return (

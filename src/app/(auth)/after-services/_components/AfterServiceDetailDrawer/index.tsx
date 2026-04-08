@@ -136,7 +136,7 @@ const AfterServiceDetailDrawer = ({
         <AfterServiceCreateModal
           mode="edit"
           initialData={{
-            customerId: afterServiceDetail.customer_id,
+            customerId: afterServiceDetail.customer_id ? String(afterServiceDetail.customer_id) : null,
             customerName: afterServiceDetail.customers?.name || null,
             customerPhone: afterServiceDetail.customers?.phone || null,
             itemType:
