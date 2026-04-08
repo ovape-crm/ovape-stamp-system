@@ -5,7 +5,7 @@ import StampHistories from './_components/StampHistories';
 import { LogCategoryEnum, LogCategoryEnumType } from '@/app/_enums/enums';
 import Button from '@/app/_components/Button';
 import CustomerHistories from './_components/CustomerHistories';
-import RemarkHistories from './_components/RemarkHistories';
+// import RemarkHistories from './_components/RemarkHistories';
 import DateRangePicker from '@/app/_components/DateRangePicker';
 
 export default function HistoriesPage() {
@@ -31,10 +31,12 @@ export default function HistoriesPage() {
             <Button
               onClick={() => setLogType(LogCategoryEnum.STAMP.value)}
               variant={
-                logType === LogCategoryEnum.STAMP.value ? 'primary' : 'secondary'
+                logType === LogCategoryEnum.STAMP.value
+                  ? 'primary'
+                  : 'secondary'
               }
             >
-              구매 이력
+              출고 이력
             </Button>
             <Button
               onClick={() => setLogType(LogCategoryEnum.CUSTOMER.value)}
@@ -46,14 +48,14 @@ export default function HistoriesPage() {
             >
               고객 이력
             </Button>
-            <Button
+            {/* <Button
               onClick={() => setLogType(LogCategoryEnum.REMARK.value)}
               variant={
                 logType === LogCategoryEnum.REMARK.value ? 'primary' : 'secondary'
               }
             >
               특이사항 이력
-            </Button>
+            </Button> */}
           </div>
           <DateRangePicker
             startDate={startDate}
@@ -65,10 +67,8 @@ export default function HistoriesPage() {
         </div>
         {logType === LogCategoryEnum.STAMP.value ? (
           <StampHistories dateRange={dateRange} />
-        ) : logType === LogCategoryEnum.CUSTOMER.value ? (
-          <CustomerHistories dateRange={dateRange} />
         ) : (
-          <RemarkHistories dateRange={dateRange} />
+          <CustomerHistories dateRange={dateRange} />
         )}
       </div>
     </section>

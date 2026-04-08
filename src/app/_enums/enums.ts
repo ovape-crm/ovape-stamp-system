@@ -41,6 +41,10 @@ export const PaymentTypeEnum = {
     value: 'remark',
     name: '특이사항',
   },
+  KAKAOTALK: {
+    value: 'kakaotalk',
+    name: '카카오톡',
+  },
 } as const;
 
 export type PaymentTypeEnumType =

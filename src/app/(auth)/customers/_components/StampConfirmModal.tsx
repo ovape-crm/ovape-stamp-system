@@ -10,7 +10,9 @@ import {
 import { formatPhoneNumber } from '@/app/_utils/utils';
 import { useState } from 'react';
 
-const paymentTypeOptions = Object.values(PaymentTypeEnum);
+const paymentTypeOptions = Object.values(PaymentTypeEnum).filter(
+  (o) => o.value !== PaymentTypeEnum.REMARK.value,
+);
 
 export default function StampConfirmModal({
   target,
@@ -38,7 +40,7 @@ export default function StampConfirmModal({
   const [amount, setAmount] = useState<number>(amountProp ?? (mode === 'remove' ? 1 : 0));
 
   const title =
-    mode === 'add' ? '구매 이력 추가' : mode === 'remove' ? '스탬프 차감' : '쿠폰 사용';
+    mode === 'add' ? '출고 이력 추가' : mode === 'remove' ? '스탬프 차감' : '쿠폰 사용';
 
   const labelTitle =
     mode === 'add' ? '입력 순서' : '특이 사항';

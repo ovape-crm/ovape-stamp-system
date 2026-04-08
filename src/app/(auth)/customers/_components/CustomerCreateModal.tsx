@@ -12,7 +12,9 @@ import { PaymentTypeEnum } from '@/app/_enums/enums';
 // 상수 및 타입 정의
 // ============================================================================
 
-const paymentTypeOptions = Object.values(PaymentTypeEnum);
+const paymentTypeOptions = Object.values(PaymentTypeEnum).filter(
+  (o) => o.value !== PaymentTypeEnum.REMARK.value,
+);
 
 // ============================================================================
 // 폼 검증 스키마
@@ -40,6 +42,7 @@ const schema = z
       .max(500, { message: '메모는 500자 이하로 입력하세요.' })
       .optional(),
     isStampAdd: z.boolean(),
+    isRemark: z.boolean(),
     stampAmount: z
       .number({ error: '스탬프 개수를 입력하세요.' })
       .min(0, { message: '스탬프 개수를 입력하세요.' })
@@ -53,7 +56,7 @@ const schema = z
           PaymentTypeEnum.CASH.value,
           PaymentTypeEnum.CASH_RECEIPT.value,
           PaymentTypeEnum.TRANSFER_CASH_RECEIPT.value,
-          PaymentTypeEnum.REMARK.value,
+          PaymentTypeEnum.KAKAOTALK.value,
         ],
         { message: '결제 유형을 선택하세요.' },
       )
@@ -67,15 +70,7 @@ const schema = z
   .superRefine((data, ctx) => {
     if (!data.isStampAdd) return;
 
-    if (data.stampAmount === 0) {
-      ctx.addIssue({
-        path: ['stampAmount'],
-        code: 'custom',
-        message: '스탬프 개수를 입력하세요.',
-      });
-    }
-
-    if (!data.stampPaymentType) {
+    if (!data.isRemark && !data.stampPaymentType) {
       ctx.addIssue({
         path: ['stampPaymentType'],
         code: 'custom',
@@ -115,6 +110,7 @@ export default function CustomerCreateModal({
     formState: { errors, isValid },
     control,
     watch,
+    setValue,
   } = useForm<FormValues>({
     mode: 'onChange',
     resolver: zodResolver(schema),
@@ -124,6 +120,7 @@ export default function CustomerCreateModal({
       gender: 'male',
       note: '',
       isStampAdd: false,
+      isRemark: false,
       stampAmount: 0,
       stampPaymentType: undefined,
       stampNote: '',
@@ -131,6 +128,8 @@ export default function CustomerCreateModal({
   });
 
   const isStampAdd = watch('isStampAdd');
+  const isRemark = watch('isRemark');
+  const stampAmount = watch('stampAmount');
 
   // ========================================================================
   // 이벤트 핸들러
@@ -220,21 +219,21 @@ export default function CustomerCreateModal({
                     스탬프 개수:
                   </span>
                   <p className="text-base font-semibold text-gray-900">
-                    {formData.stampAmount}개
+                    {formData.stampAmount === 0 ? '미적립' : `${formData.stampAmount}개`}
                   </p>
                 </div>
-                {formData.stampPaymentType && (
-                  <div>
-                    <span className="text-sm font-medium text-gray-600">
-                      결제 유형:
-                    </span>
-                    <p className="text-base font-semibold text-gray-900">
-                      {paymentTypeOptions.find(
-                        (opt) => opt.value === formData.stampPaymentType,
-                      )?.name || formData.stampPaymentType}
-                    </p>
-                  </div>
-                )}
+                <div>
+                  <span className="text-sm font-medium text-gray-600">
+                    결제 유형:
+                  </span>
+                  <p className="text-base font-semibold text-gray-900">
+                    {formData.isRemark
+                      ? '특이사항'
+                      : paymentTypeOptions.find(
+                          (opt) => opt.value === formData.stampPaymentType,
+                        )?.name || formData.stampPaymentType}
+                  </p>
+                </div>
                 {formData.stampNote && (
                   <div>
                     <span className="text-sm font-medium text-gray-600">
@@ -358,7 +357,7 @@ export default function CustomerCreateModal({
         {/* 스탬프 추가 옵션 */}
         <div>
           <span className="block text-sm font-medium mb-2">
-            스탬프 추가 <span className="text-rose-600">*</span>
+            출고 이력 추가 <span className="text-rose-600">*</span>
           </span>
           <Controller
             name="isStampAdd"
@@ -402,6 +401,11 @@ export default function CustomerCreateModal({
                 className="w-20 rounded border border-brand-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
                 {...register('stampAmount', { valueAsNumber: true })}
               />
+              {stampAmount === 0 && (
+                <p className="mt-1.5 text-xs text-gray-400">
+                  0개 입력 시 <span className="font-medium text-gray-500">미적립</span>으로 기록됩니다.
+                </p>
+              )}
               {errors.stampAmount && (
                 <p className="mt-1 text-xs text-rose-600">
                   {errors.stampAmount.message}
@@ -410,7 +414,7 @@ export default function CustomerCreateModal({
             </div>
             <div>
               <span className="block text-sm font-medium mb-1">
-                결제 유형 <span className="text-rose-600">*</span>
+                결제 유형 {!isRemark && <span className="text-rose-600">*</span>}
               </span>
               <Controller
                 name="stampPaymentType"
@@ -420,13 +424,16 @@ export default function CustomerCreateModal({
                     {paymentTypeOptions.map((option) => (
                       <label
                         key={option.value}
-                        className="inline-flex items-center gap-2 text-xs whitespace-nowrap cursor-pointer"
+                        className={`inline-flex items-center gap-2 text-xs whitespace-nowrap ${
+                          isRemark ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'
+                        }`}
                       >
                         <input
                           type="radio"
                           value={option.value}
-                          checked={field.value === option.value}
+                          checked={!isRemark && field.value === option.value}
                           onChange={() => field.onChange(option.value)}
+                          disabled={isRemark}
                           className="w-4 h-4 text-brand-600 focus:ring-brand-500 focus:ring-2"
                         />
                         {option.name}
@@ -443,20 +450,55 @@ export default function CustomerCreateModal({
             </div>
 
             <div>
+              <span className="block text-sm font-medium mb-2">특이사항</span>
+              <Controller
+                name="isRemark"
+                control={control}
+                render={({ field }) => (
+                  <div className="flex items-center gap-4">
+                    <label className="inline-flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        checked={field.value === true}
+                        onChange={() => {
+                          field.onChange(true);
+                          setValue('stampPaymentType', undefined);
+                        }}
+                        className="w-4 h-4 text-brand-600 focus:ring-brand-500 focus:ring-2"
+                      />
+                      <span className="text-sm text-gray-700">예</span>
+                    </label>
+                    <label className="inline-flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        checked={field.value === false}
+                        onChange={() => field.onChange(false)}
+                        className="w-4 h-4 text-brand-600 focus:ring-brand-500 focus:ring-2"
+                      />
+                      <span className="text-sm text-gray-700">아니오</span>
+                    </label>
+                  </div>
+                )}
+              />
+            </div>
+
+            <div>
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  입력 순서
-                  <span className="text-xs text-gray-500 whitespace-pre-line">
-                    <br />
-                    [리뷰/할인/(숫자)병쿠폰] ) [기기이름] [숫자] 개
-                    <br />
-                    [액상이름][30/60]ml [숫자] 병 , [기기이름] [옴] [코일/팟] 개
-                  </span>
+                  {isRemark ? '특이사항' : '입력 순서'}
+                  {!isRemark && (
+                    <span className="text-xs text-gray-500 whitespace-pre-line">
+                      <br />
+                      [리뷰/할인/(숫자)병쿠폰] ) [기기이름] [숫자] 개
+                      <br />
+                      [액상이름][30/60]ml [숫자] 병 , [기기이름] [옴] [코일/팟] 개
+                    </span>
+                  )}
                 </label>
                 <textarea
                   {...register('stampNote')}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-colors text-xs"
-                  placeholder={'위에 해당되는 내용을 입력해주세요.'}
+                  placeholder={isRemark ? '특이사항을 입력해주세요.' : '위에 해당되는 내용을 입력해주세요.'}
                 />
                 {errors.stampNote && (
                   <p className="mt-1 text-xs text-rose-600">

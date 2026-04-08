@@ -21,10 +21,12 @@ import { useState } from 'react';
 import { LogCategoryEnum, LogCategoryEnumType } from '@/app/_enums/enums';
 import CustomersDetailStampsHistories from './_components/CustomersDetailStampsHistories';
 import CustomersDetailUpdateHistories from './_components/CustomersDetailUpdateHistories';
-import CustomersDetailRemarkHistories from './_components/CustomersDetailRemarkHistories';
+// import CustomersDetailRemarkHistories from './_components/CustomersDetailRemarkHistories';
 import CustomerAfterServices from './_components/CustomerAfterServices';
 import RemarkLogCreateModal from './_components/RemarkLogCreateModal';
-import { createLog } from '@/app/_domains/_log/_services/logService';
+import { addStamp } from '@/app/_domains/_stamp/_services/stampService';
+// import { createLog } from '@/app/_domains/_log/_services/logService';
+import { PaymentTypeEnum } from '@/app/_enums/enums';
 import { customerKeys } from '@/app/_domains/_customer/_queryKeys/customerKeys';
 import { logKeys } from '@/app/_domains/_log/_queryKeys/logKeys';
 
@@ -52,17 +54,19 @@ export default function CustomerDetailPage() {
     removeItem: removeLog,
   } = useLogsByCustomerId(customerId, PAGE_SIZE, logCategory);
 
-  const {
-    logs: remarkLogs,
-    isLoading: remarkLogsLoading,
-    error: remarkLogsError,
-    loadMore: loadMoreRemarks,
-    hasMore: hasMoreRemarks,
-    removeItem: removeRemarkLog,
-  } = useLogsByCustomerId(customerId, PAGE_SIZE, LogCategoryEnum.REMARK.value);
+  // const {
+  //   logs: remarkLogs,
+  //   isLoading: remarkLogsLoading,
+  //   error: remarkLogsError,
+  //   loadMore: loadMoreRemarks,
+  //   hasMore: hasMoreRemarks,
+  //   removeItem: removeRemarkLog,
+  // } = useLogsByCustomerId(customerId, PAGE_SIZE, LogCategoryEnum.REMARK.value);
 
   const handleUpdate = () => {
-    queryClient.invalidateQueries({ queryKey: customerKeys.detail(customerId) });
+    queryClient.invalidateQueries({
+      queryKey: customerKeys.detail(customerId),
+    });
     queryClient.invalidateQueries({
       queryKey: logKeys.byCustomer(customerId, logCategory),
     });
@@ -112,20 +116,13 @@ export default function CustomerDetailPage() {
 
   const handleCreateRemarkLog = async (note: string) => {
     try {
-      await createLog(
-        LogCategoryEnum.REMARK.value,
-        customerId,
-        'create-remark',
-        note,
-      );
-      toast.success('특이사항 이력이 추가되었습니다.');
+      await addStamp(customerId, 0, note, PaymentTypeEnum.REMARK.value);
+      toast.success('특이사항이 추가되었습니다.');
       close();
-      queryClient.invalidateQueries({
-        queryKey: logKeys.byCustomer(customerId, LogCategoryEnum.REMARK.value),
-      });
+      handleUpdate();
     } catch (error) {
       console.error('Failed to create remark log:', error);
-      toast.error('특이사항 이력 추가에 실패했습니다.');
+      toast.error('특이사항 추가에 실패했습니다.');
     }
   };
 
@@ -207,21 +204,29 @@ export default function CustomerDetailPage() {
         <div className="bg-white rounded-lg shadow-sm border border-brand-100 p-4">
           <div className="mb-3 pb-2 border-b border-brand-100 flex gap-2 text-xs">
             <Button
-              variant={logCategory === LogCategoryEnum.STAMP.value ? 'primary' : 'secondary'}
+              variant={
+                logCategory === LogCategoryEnum.STAMP.value
+                  ? 'primary'
+                  : 'secondary'
+              }
               size="sm"
               onClick={() => setLogCategory(LogCategoryEnum.STAMP.value)}
             >
-              구매 이력
+              출고 이력
             </Button>
-            <Button
+            {/* <Button
               variant={logCategory === LogCategoryEnum.REMARK.value ? 'primary' : 'secondary'}
               size="sm"
               onClick={() => setLogCategory(LogCategoryEnum.REMARK.value)}
             >
               특이사항
-            </Button>
+            </Button> */}
             <Button
-              variant={logCategory === LogCategoryEnum.CUSTOMER.value ? 'primary' : 'secondary'}
+              variant={
+                logCategory === LogCategoryEnum.CUSTOMER.value
+                  ? 'primary'
+                  : 'secondary'
+              }
               size="sm"
               onClick={() => setLogCategory(LogCategoryEnum.CUSTOMER.value)}
             >
@@ -231,22 +236,16 @@ export default function CustomerDetailPage() {
           <div className="space-y-2.5">
             {logCategory === LogCategoryEnum.STAMP.value && (
               <CustomersDetailStampsHistories
-                targetUser={{ phone: customer.phone, name: customer.name, gender: customer.gender }}
+                targetUser={{
+                  phone: customer.phone,
+                  name: customer.name,
+                  gender: customer.gender,
+                }}
                 logs={logs}
                 isLoading={logsLoading}
                 error={logsError}
                 isAdmin={isAdmin}
                 onDeleteLog={removeLog}
-              />
-            )}
-            {logCategory === LogCategoryEnum.REMARK.value && (
-              <CustomersDetailRemarkHistories
-                logs={remarkLogs}
-                isLoading={remarkLogsLoading}
-                error={remarkLogsError}
-                targetUser={{ name: customer.name, phone: customer.phone, gender: customer.gender }}
-                isAdmin={isAdmin}
-                onDeleteLog={removeRemarkLog}
               />
             )}
             {logCategory === LogCategoryEnum.CUSTOMER.value && (
@@ -260,34 +259,38 @@ export default function CustomerDetailPage() {
             )}
           </div>
         </div>
-        {logCategory !== LogCategoryEnum.REMARK.value && hasMore && !logsLoading && (
-          <div className="mt-4 flex justify-center">
-            <Button
-              onClick={async () => {
-                const added = await loadMore();
-                if (added > 0) toast.success(`${added}개 더 불러오기 성공!`);
-              }}
-              variant="secondary"
-              size="sm"
-            >
-              더 불러오기
-            </Button>
-          </div>
-        )}
-        {logCategory === LogCategoryEnum.REMARK.value && hasMoreRemarks && !remarkLogsLoading && (
-          <div className="mt-4 flex justify-center">
-            <Button
-              onClick={async () => {
-                const added = await loadMoreRemarks();
-                if (added > 0) toast.success(`${added}개 더 불러오기 성공!`);
-              }}
-              variant="secondary"
-              size="sm"
-            >
-              더 불러오기
-            </Button>
-          </div>
-        )}
+        {logCategory !== LogCategoryEnum.REMARK.value &&
+          hasMore &&
+          !logsLoading && (
+            <div className="mt-4 flex justify-center">
+              <Button
+                onClick={async () => {
+                  const added = await loadMore();
+                  if (added > 0) toast.success(`${added}개 더 불러오기 성공!`);
+                }}
+                variant="secondary"
+                size="sm"
+              >
+                더 불러오기
+              </Button>
+            </div>
+          )}
+        {/* {logCategory === LogCategoryEnum.REMARK.value &&
+          hasMoreRemarks &&
+          !remarkLogsLoading && (
+            <div className="mt-4 flex justify-center">
+              <Button
+                onClick={async () => {
+                  const added = await loadMoreRemarks();
+                  if (added > 0) toast.success(`${added}개 더 불러오기 성공!`);
+                }}
+                variant="secondary"
+                size="sm"
+              >
+                더 불러오기
+              </Button>
+            </div>
+          )} */}
       </div>
 
       {/* AS 현황 섹션 */}

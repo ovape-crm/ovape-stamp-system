@@ -108,7 +108,7 @@ const StampSection = ({ stampCount, target, onUpdate, onAddRemark }: StampSectio
             }
             disabled={isLoading}
           >
-            구매
+            출고 이력
           </Button>
           <Button
             size="sm"

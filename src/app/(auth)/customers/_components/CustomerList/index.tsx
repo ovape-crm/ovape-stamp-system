@@ -11,7 +11,7 @@ import { useModal } from '@/app/_contexts/ModalContext';
 import StampConfirmModal from '../StampConfirmModal';
 import Button from '@/app/_components/Button';
 import { formatPhoneNumber } from '@/app/_utils/utils';
-import { LogCategoryEnum, PaymentTypeEnumType } from '@/app/_enums/enums';
+import { LogCategoryEnum, PaymentTypeEnum, PaymentTypeEnumType } from '@/app/_enums/enums';
 import { logKeys } from '@/app/_domains/_log/_queryKeys/logKeys';
 import { createLog } from '@/app/_domains/_log/_services/logService';
 import RemarkLogCreateModal from '../../[id]/_components/RemarkLogCreateModal';
@@ -51,11 +51,11 @@ const CustomerList = ({
   );
   const handleCreateRemark = async (customerId: string, note: string) => {
     try {
-      await createLog(LogCategoryEnum.REMARK.value, customerId, 'create-remark', note);
-      queryClient.invalidateQueries({ queryKey: logKeys.byCustomer(customerId, LogCategoryEnum.REMARK.value) });
-      toast.success('특이사항 이력이 추가되었습니다.');
+      await addStamp(customerId, 0, note, PaymentTypeEnum.REMARK.value);
+      queryClient.invalidateQueries({ queryKey: logKeys.byCustomer(customerId, LogCategoryEnum.STAMP.value) });
+      toast.success('특이사항이 추가되었습니다.');
     } catch {
-      toast.error('특이사항 이력 추가에 실패했습니다.');
+      toast.error('특이사항 추가에 실패했습니다.');
     }
   };
 
@@ -278,7 +278,7 @@ const CustomerList = ({
                           }}
                           disabled={isThisLoading}
                         >
-                          구매
+                          출고 이력
                         </Button>
                         <Button
                           onClick={() =>
