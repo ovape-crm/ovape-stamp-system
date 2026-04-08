@@ -4,16 +4,16 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { useQueryClient } from '@tanstack/react-query';
-import { CustomerType } from '@/app/_types/customer.types';
-import { addStamp, removeStamp } from '@/app/_services/stampService';
+import { CustomerType } from '@/app/_domains/_customer/_types/customer.types';
+import { addStamp, removeStamp } from '@/app/_domains/_stamp/_services/stampService';
 import Loading from '@/app/_components/Loading';
 import { useModal } from '@/app/_contexts/ModalContext';
 import StampConfirmModal from '../StampConfirmModal';
 import Button from '@/app/_components/Button';
 import { formatPhoneNumber } from '@/app/_utils/utils';
 import { LogCategoryEnum, PaymentTypeEnumType } from '@/app/_enums/enums';
-import { logKeys } from '@/app/_queryKeys/logKeys';
-import { createLog } from '@/app/_services/logService';
+import { logKeys } from '@/app/_domains/_log/_queryKeys/logKeys';
+import { createLog } from '@/app/_domains/_log/_services/logService';
 import RemarkLogCreateModal from '../../[id]/_components/RemarkLogCreateModal';
 
 
@@ -79,12 +79,12 @@ const CustomerList = ({
     }
   };
 
-  const handleRemove = async (customerId: string, modalNote?: string) => {
+  const handleRemove = async (customerId: string, modalNote?: string, amount: number = 1) => {
     try {
       setLoadingCustomerId(customerId);
-      await removeStamp('remove', customerId, 1, modalNote ?? '');
+      await removeStamp('remove', customerId, amount, modalNote ?? '');
       onUpdate();
-      toast.success(`스탬프 1개 차감 완료!`);
+      toast.success(`스탬프 ${amount}개 차감 완료!`);
     } catch (error) {
       console.error('스탬프 차감 실패:', error);
       toast.error(
@@ -321,8 +321,8 @@ const CustomerList = ({
                                   }}
                                   mode="remove"
                                   onCancel={close}
-                                  onConfirm={async (modalNote?: string) => {
-                                    await handleRemove(customer.id, modalNote);
+                                  onConfirm={async (modalNote?: string, _paymentType?: PaymentTypeEnumType['value'], amount?: number) => {
+                                    await handleRemove(customer.id, modalNote, amount);
                                     close();
                                   }}
                                 />

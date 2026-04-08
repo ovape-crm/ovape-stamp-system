@@ -1,12 +1,12 @@
 import { LogActorInfo } from '@/app/(auth)/_components/HistoriesComponents';
 import Button from '@/app/_components/Button';
 import Loading from '@/app/_components/Loading';
-import { CustomersLogsResType } from '@/app/_types/log.types';
-import { updateLogNote, deleteLog } from '@/app/_services/logService';
+import { CustomersLogsResType } from '@/app/_domains/_log/_types/log.types';
+import { updateLogNote, deleteLog } from '@/app/_domains/_log/_services/logService';
 import { useCallback, useState } from 'react';
 import { groupLogsByDate, formatDateKey } from '@/app/_utils/utils';
 import { toast } from 'react-hot-toast';
-import useCopy from '@/app/_hooks/useCopy';
+import useCopy from '@/app/_domains/_log/_hooks/useCopy';
 import { useModal } from '@/app/_contexts/ModalContext';
 import DeleteConfirmModal from '@/app/(auth)/_components/DeleteConfirmModal';
 

@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { updateLogNote, deleteLog } from '@/app/_services/logService';
+import { updateLogNote, deleteLog } from '@/app/_domains/_log/_services/logService';
 import Loading from '@/app/_components/Loading';
 import Button from '@/app/_components/Button';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
-import { LogsResType } from '@/app/_types/log.types';
-import useLogs from '@/app/_hooks/useLogs';
+import { LogsResType } from '@/app/_domains/_log/_types/log.types';
+import useLogs from '@/app/_domains/_log/_hooks/useLogs';
 import { LogCategoryEnum } from '@/app/_enums/enums';
 import { groupLogsByDate, formatDateKey } from '@/app/_utils/utils';
 import RemarkHistoryItem from './RemarkHistoryItem';

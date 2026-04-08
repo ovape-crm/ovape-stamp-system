@@ -3,9 +3,9 @@
 import { useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useModal } from '@/app/_contexts/ModalContext';
-import { getComparisonColumns } from '@/app/_services/comparisonColumnService';
-import { ComparisonDeviceType } from '@/app/_types/comparison.types';
-import { comparisonKeys } from '@/app/_queryKeys/comparisonKeys';
+import { getComparisonColumns } from '@/app/_domains/_comparison/_services/comparisonColumnService';
+import { ComparisonDeviceType } from '@/app/_domains/_comparison/_types/comparison.types';
+import { comparisonKeys } from '@/app/_domains/_comparison/_queryKeys/comparisonKeys';
 import { EmptySlot, FilledSlot } from './ComparisonSlot';
 import DeviceSelectModal from '../DeviceSelectModal';
 import ComparisonExpandView from './ComparisonExpandView';

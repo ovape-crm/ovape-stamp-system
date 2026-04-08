@@ -5,12 +5,12 @@ import toast from 'react-hot-toast';
 import {
   getComparisonDevicesWithValues,
   deleteComparisonDevice,
-} from '@/app/_services/comparisonDeviceService';
+} from '@/app/_domains/_comparison/_services/comparisonDeviceService';
 import { useModal } from '@/app/_contexts/ModalContext';
 import Loading from '@/app/_components/Loading';
 import Button from '@/app/_components/Button';
 import DeviceEditModal from '../DeviceEditModal';
-import { comparisonKeys } from '@/app/_queryKeys/comparisonKeys';
+import { comparisonKeys } from '@/app/_domains/_comparison/_queryKeys/comparisonKeys';
 import { useUser } from '@/app/_contexts/UserContext';
 import DeleteConfirmModal from '@/app/(auth)/_components/DeleteConfirmModal';
 

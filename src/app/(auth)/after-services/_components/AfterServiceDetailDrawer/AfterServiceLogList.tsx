@@ -3,11 +3,11 @@
 import { useState, useCallback } from 'react';
 import Button from '@/app/_components/Button';
 import Loading from '@/app/_components/Loading';
-import { useLogsByAfterServiceId } from '@/app/_hooks/useLogsByAfterServiceId';
-import { updateLogNote } from '@/app/_services/logService';
+import { useLogsByAfterServiceId } from '@/app/_domains/_log/_hooks/useLogsByAfterServiceId';
+import { updateLogNote } from '@/app/_domains/_log/_services/logService';
 import toast from 'react-hot-toast';
 import AfterServiceLogItem from './AfterServiceLogItem';
-import { AfterServiceLogType } from '@/app/_types/log.types';
+import { AfterServiceLogType } from '@/app/_domains/_log/_types/log.types';
 import {
   ActionInfoLabel,
   LogActorInfo,

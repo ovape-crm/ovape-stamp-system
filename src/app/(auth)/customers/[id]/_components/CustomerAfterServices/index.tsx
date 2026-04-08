@@ -1,12 +1,12 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { getAfterServices } from '@/app/_services/afterService';
+import { getAfterServices } from '@/app/_domains/_afterService/_services/afterService';
 import Loading from '@/app/_components/Loading';
 import { AfterServiceItemTypeEnum } from '@/app/_enums/enums';
 import { useRouter } from 'next/navigation';
 import { getActionText } from '@/app/_utils/utils';
-import { customerKeys } from '@/app/_queryKeys/customerKeys';
+import { customerKeys } from '@/app/_domains/_customer/_queryKeys/customerKeys';
 
 interface CustomerAfterServicesProps {
   customerId: string;

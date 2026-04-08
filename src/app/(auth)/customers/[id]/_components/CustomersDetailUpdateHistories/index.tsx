@@ -5,8 +5,8 @@ import {
 } from '@/app/(auth)/_components/HistoriesComponents';
 import Button from '@/app/_components/Button';
 import Loading from '@/app/_components/Loading';
-import { CustomersLogsResType } from '@/app/_types/log.types';
-import { deleteLog } from '@/app/_services/logService';
+import { CustomersLogsResType } from '@/app/_domains/_log/_types/log.types';
+import { deleteLog } from '@/app/_domains/_log/_services/logService';
 import { useCallback } from 'react';
 import { groupLogsByDate, formatDateKey } from '@/app/_utils/utils';
 import { toast } from 'react-hot-toast';

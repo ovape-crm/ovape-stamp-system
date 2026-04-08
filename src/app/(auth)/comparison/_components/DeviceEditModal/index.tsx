@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import Button from '@/app/_components/Button';
-import { useComparisonColumns } from '@/app/_hooks/useComparisonColumns';
-import { updateComparisonDevice } from '@/app/_services/comparisonDeviceService';
+import { useComparisonColumns } from '@/app/_domains/_comparison/_hooks/useComparisonColumns';
+import { updateComparisonDevice } from '@/app/_domains/_comparison/_services/comparisonDeviceService';
 
 interface DeviceEditModalProps {
   deviceId: string;

@@ -2,8 +2,8 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCustomer } from '@/app/_hooks/useCustomer';
-import { useLogsByCustomerId } from '@/app/_hooks/useLogsByCustomerId';
+import { useCustomer } from '@/app/_domains/_customer/_hooks/useCustomer';
+import { useLogsByCustomerId } from '@/app/_domains/_log/_hooks/useLogsByCustomerId';
 import NotFoundView from '@/app/_components/NotFoundView';
 import CustomerInfo from './_components/CustomerInfo';
 import StampSection from './_components/StampSection';
@@ -14,7 +14,7 @@ import { useModal } from '@/app/_contexts/ModalContext';
 import {
   updateCustomer,
   deleteCustomer,
-} from '@/app/_services/customerService';
+} from '@/app/_domains/_customer/_services/customerService';
 import Button from '@/app/_components/Button';
 import { useUser } from '@/app/_contexts/UserContext';
 import { useState } from 'react';
@@ -24,9 +24,9 @@ import CustomersDetailUpdateHistories from './_components/CustomersDetailUpdateH
 import CustomersDetailRemarkHistories from './_components/CustomersDetailRemarkHistories';
 import CustomerAfterServices from './_components/CustomerAfterServices';
 import RemarkLogCreateModal from './_components/RemarkLogCreateModal';
-import { createLog } from '@/app/_services/logService';
-import { customerKeys } from '@/app/_queryKeys/customerKeys';
-import { logKeys } from '@/app/_queryKeys/logKeys';
+import { createLog } from '@/app/_domains/_log/_services/logService';
+import { customerKeys } from '@/app/_domains/_customer/_queryKeys/customerKeys';
+import { logKeys } from '@/app/_domains/_log/_queryKeys/logKeys';
 
 const PAGE_SIZE = 10;
 

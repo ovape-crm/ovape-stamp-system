@@ -8,7 +8,7 @@ import { ActionInfoLabel } from '@/app/(auth)/_components/HistoriesComponents';
 import {
   useAfterServices,
   AfterServiceFilters,
-} from '@/app/_hooks/useAfterServices';
+} from '@/app/_domains/_afterService/_hooks/useAfterServices';
 
 interface AfterServiceListProps {
   onRowClick?: (afterServiceId: string) => void;

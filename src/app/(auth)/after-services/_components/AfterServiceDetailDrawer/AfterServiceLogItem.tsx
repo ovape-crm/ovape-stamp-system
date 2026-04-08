@@ -5,7 +5,7 @@ import {
   ActionInfoLabel,
   LogActorInfo,
 } from '@/app/(auth)/_components/HistoriesComponents';
-import { AfterServiceLogType } from '@/app/_types/log.types';
+import { AfterServiceLogType } from '@/app/_domains/_log/_types/log.types';
 
 interface AfterServiceLogItemProps {
   log: AfterServiceLogType;

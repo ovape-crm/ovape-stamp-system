@@ -4,8 +4,8 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   getCustomers,
   getCustomersCount,
-} from '@/app/_services/customerService';
-import { CustomerType } from '@/app/_types/customer.types';
+} from '@/app/_domains/_customer/_services/customerService';
+import { CustomerType } from '@/app/_domains/_customer/_types/customer.types';
 import { formatPhoneNumber } from '@/app/_utils/utils';
 
 interface CustomerSelectorProps {

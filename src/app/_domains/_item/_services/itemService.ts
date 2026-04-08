@@ -1,0 +1,134 @@
+import supabase from '@/libs/supabaseClient';
+import { ItemType } from '../_types/item.types';
+
+type ItemFiltersParam = {
+  categoryId?: string;
+  searchTarget?: string;
+  searchKeyword?: string;
+  isUse?: boolean;
+  excludePurchasePrice?: boolean;
+};
+
+const buildQuery = (filters?: ItemFiltersParam) => {
+  let query = supabase
+    .from('items')
+    .select('*, item_categories(id, name, order_index, created_at)');
+
+  if (filters?.categoryId) {
+    query = query.eq('category_id', filters.categoryId);
+  }
+
+  if (filters?.searchKeyword && filters?.searchTarget) {
+    query = query.ilike(filters.searchTarget, `%${filters.searchKeyword}%`);
+  }
+
+  if (filters?.isUse !== undefined) {
+    query = query.eq('is_use', filters.isUse);
+  }
+
+  return query;
+};
+
+export const getItems = async (
+  limit: number,
+  offset: number,
+  filters?: ItemFiltersParam,
+): Promise<ItemType[]> => {
+  const { data, error } = await buildQuery(filters)
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) throw error;
+  const items = (data ?? []) as ItemType[];
+  if (filters?.excludePurchasePrice) {
+    return items.map((item) => ({ ...item, purchase_price: null }));
+  }
+  return items;
+};
+
+export const getItemsCount = async (
+  filters?: ItemFiltersParam,
+): Promise<number> => {
+  let query = supabase
+    .from('items')
+    .select('*', { count: 'exact', head: true });
+
+  if (filters?.categoryId) {
+    query = query.eq('category_id', filters.categoryId);
+  }
+
+  if (filters?.searchKeyword && filters?.searchTarget) {
+    query = query.ilike(filters.searchTarget, `%${filters.searchKeyword}%`);
+  }
+
+  if (filters?.isUse !== undefined) {
+    query = query.eq('is_use', filters.isUse);
+  }
+
+  const { count, error } = await query;
+  if (error) throw error;
+  return count ?? 0;
+};
+
+export const createItem = async (values: {
+  categoryId: string | null;
+  itemCode: string;
+  itemName: string;
+  purchasePrice: number | null;
+  sellingPrice: number | null;
+  liquidType: string;
+  liquidFlavor: string;
+  note: string;
+}): Promise<void> => {
+  const { error } = await supabase.from('items').insert({
+    category_id: values.categoryId,
+    item_code: values.itemCode,
+    item_name: values.itemName,
+    purchase_price: values.purchasePrice,
+    selling_price: values.sellingPrice,
+    liquid_type: values.liquidType || null,
+    liquid_flavor: values.liquidFlavor || null,
+    note: values.note || null,
+    is_use: true,
+  });
+
+  if (error) throw error;
+};
+
+export const updateItem = async (
+  id: string,
+  values: {
+    categoryId: string | null;
+    itemCode: string;
+    itemName: string;
+    purchasePrice: number | null;
+    sellingPrice: number | null;
+    liquidType: string;
+    liquidFlavor: string;
+    note: string;
+    isUse: boolean;
+  },
+): Promise<void> => {
+  const { error } = await supabase
+    .from('items')
+    .update({
+      category_id: values.categoryId,
+      item_code: values.itemCode,
+      item_name: values.itemName,
+      purchase_price: values.purchasePrice,
+      selling_price: values.sellingPrice,
+      liquid_type: values.liquidType || null,
+      liquid_flavor: values.liquidFlavor || null,
+      note: values.note || null,
+      is_use: values.isUse,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id);
+
+  if (error) throw error;
+};
+
+export const deleteItem = async (id: string): Promise<void> => {
+  const { error } = await supabase.from('items').delete().eq('id', id);
+  if (error) throw error;
+};

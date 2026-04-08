@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import supabase from '@/libs/supabaseClient';
 import Loading from '@/app/_components/Loading';
-import { UserType } from '@/app/_types/user.types';
+import { UserType } from '@/app/_domains/_user/_types/user.types';
 
 interface UserContextType {
   user: UserType | null;
