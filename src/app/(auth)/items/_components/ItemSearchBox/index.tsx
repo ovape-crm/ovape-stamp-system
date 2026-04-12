@@ -3,14 +3,15 @@
 import Button from '@/app/_components/Button';
 import { Dropdown, DropdownOption } from '@/app/_components/Dropdown';
 import { useState } from 'react';
+import toast from 'react-hot-toast';
 import { ItemCategoryType } from '@/app/_domains/_item/_types/item.types';
+import { SearchCondition } from '@/app/_domains/_item/_queryKeys/itemKeys';
 
 interface ItemSearchBoxProps {
   categories: ItemCategoryType[];
   onSearch?: (filters: {
     categoryId?: string;
-    searchTarget?: string;
-    searchKeyword?: string;
+    searchConditions?: SearchCondition[];
   }) => void;
 }
 
@@ -21,26 +22,54 @@ const searchTargetOptions = [
   { label: '액상 맛', value: 'liquid_flavor' },
 ];
 
+const getTargetLabel = (value: string) =>
+  searchTargetOptions.find((o) => o.value === value)?.label ?? value;
+
 const ItemSearchBox = ({ categories, onSearch }: ItemSearchBoxProps) => {
   const [categoryId, setCategoryId] = useState('');
   const [searchTarget, setSearchTarget] = useState('item_name');
   const [keyword, setKeyword] = useState('');
+  const [conditions, setConditions] = useState<SearchCondition[]>([]);
 
   const categoryOptions = [
     { label: '전체', value: '' },
     ...categories.map((c) => ({ label: c.name, value: c.id })),
   ];
 
-  const handleSearch = () => {
+  const fireSearch = (
+    nextCategoryId: string,
+    nextConditions: SearchCondition[],
+  ) => {
     onSearch?.({
-      categoryId: categoryId || undefined,
-      searchTarget: keyword ? searchTarget : undefined,
-      searchKeyword: keyword || undefined,
+      categoryId: nextCategoryId || undefined,
+      searchConditions: nextConditions.length ? nextConditions : undefined,
     });
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') handleSearch();
+  const handleAddCondition = () => {
+    if (!keyword.trim()) return;
+    if (conditions.some((c) => c.searchTarget === searchTarget)) {
+      toast.error(`"${getTargetLabel(searchTarget)}" 필터를 제거 후 다시 검색해주세요.`);
+      return;
+    }
+    const next = [
+      ...conditions,
+      { searchTarget, searchKeyword: keyword.trim() },
+    ];
+    setConditions(next);
+    setKeyword('');
+    fireSearch(categoryId, next);
+  };
+
+  const handleRemoveCondition = (index: number) => {
+    const next = conditions.filter((_, i) => i !== index);
+    setConditions(next);
+    fireSearch(categoryId, next);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.nativeEvent.isComposing) return;
+    if (e.key === 'Enter') handleAddCondition();
   };
 
   return (
@@ -48,25 +77,21 @@ const ItemSearchBox = ({ categories, onSearch }: ItemSearchBoxProps) => {
       <div className="flex flex-col gap-4 text-xs sm:text-sm">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 sm:gap-4">
           <div className="flex flex-col gap-1.5">
-            <label className="font-medium text-gray-600">카테고리</label>
+            <label className="font-medium text-gray-600">품목 종류</label>
             <div className="w-full sm:w-[200px]">
               <Dropdown controlledValue={categoryId}>
                 <Dropdown.Trigger>
                   {categoryOptions.find((o) => o.value === categoryId)?.label ?? '전체'}
                 </Dropdown.Trigger>
                 <Dropdown.Content>
-                  {categoryOptions.map((option) => (
+                  {categoryOptions.map((option, i) => (
                     <Dropdown.Item
-                      key={option.value}
+                      key={`cat-${i}-${option.value}`}
                       option={option}
                       onSelect={(o: DropdownOption) => {
                         const newCategoryId = String(o.value);
                         setCategoryId(newCategoryId);
-                        onSearch?.({
-                          categoryId: newCategoryId || undefined,
-                          searchTarget: keyword ? searchTarget : undefined,
-                          searchKeyword: keyword || undefined,
-                        });
+                        fireSearch(newCategoryId, conditions);
                       }}
                     />
                   ))}
@@ -105,14 +130,34 @@ const ItemSearchBox = ({ categories, onSearch }: ItemSearchBoxProps) => {
               placeholder="검색어를 입력하세요"
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyDown}
               className="w-full px-3 py-1.5 sm:px-4 sm:py-2 border border-brand-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-transparent text-xs sm:text-sm"
             />
           </div>
-          <Button onClick={handleSearch} size="sm">
+          <Button onClick={handleAddCondition} size="sm">
             검색
           </Button>
         </div>
+
+        {conditions.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {conditions.map((cond, i) => (
+              <span
+                key={i}
+                className="inline-flex items-center gap-1.5 px-3 py-1 bg-brand-50 text-brand-700 border border-brand-200 rounded-full text-xs"
+              >
+                {getTargetLabel(cond.searchTarget)} = &quot;{cond.searchKeyword}&quot;
+                <button
+                  type="button"
+                  onClick={() => handleRemoveCondition(i)}
+                  className="text-brand-400 hover:text-brand-600 font-bold leading-none cursor-pointer"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

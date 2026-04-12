@@ -149,7 +149,9 @@ export const getLogs = async (
   limit = 10,
   offset = 0,
   category: LogCategoryEnumType['value'] = 'stamp',
-  dateRange?: { start: string; end: string }
+  dateRange?: { start: string; end: string },
+  paymentMethod?: string,
+  searchKeyword?: string,
 ): Promise<LogsResType[]> => {
   const from = offset;
   const to = offset + limit - 1;
@@ -168,6 +170,14 @@ export const getLogs = async (
     query = query
       .gte('created_at', dateRange.start)
       .lte('created_at', `${dateRange.end}T23:59:59.999Z`);
+  }
+
+  if (paymentMethod) {
+    query = query.eq('jsonb->>paymentType', paymentMethod);
+  }
+
+  if (searchKeyword) {
+    query = query.ilike('note', `%${searchKeyword}%`);
   }
 
   const { data, error } = await query

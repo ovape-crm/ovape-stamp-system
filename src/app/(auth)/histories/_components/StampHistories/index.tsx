@@ -1,10 +1,15 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { PaymentTypeEnumType } from '@/app/_enums/enums';
-import { updateLogNote, deleteLog } from '@/app/_domains/_log/_services/logService';
+import { PaymentTypeEnum, PaymentTypeEnumType } from '@/app/_enums/enums';
+import {
+  updateLogNote,
+  deleteLog,
+} from '@/app/_domains/_log/_services/logService';
 import Loading from '@/app/_components/Loading';
 import Button from '@/app/_components/Button';
+import { Dropdown, DropdownOption } from '@/app/_components/Dropdown';
+import DateRangePicker from '@/app/_components/DateRangePicker';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import { LogsResType } from '@/app/_domains/_log/_types/log.types';
@@ -17,19 +22,45 @@ import DeleteConfirmModal from '@/app/(auth)/_components/DeleteConfirmModal';
 
 const PAGE_SIZE = 10;
 
-interface StampHistoriesProps {
-  dateRange?: { start: string; end: string } | null;
-}
+const paymentMethodOptions = [
+  { label: '전체', value: '' },
+  ...Object.values(PaymentTypeEnum).map((p) => ({
+    label: p.name,
+    value: p.value,
+  })),
+];
 
-const StampHistories = ({ dateRange }: StampHistoriesProps) => {
+const StampHistories = () => {
   const router = useRouter();
   const { isAdmin } = useUser();
   const { open, close } = useModal();
-  const { items, updateItem, removeItem, isLoading, error, hasMore, load } = useLogs(
-    PAGE_SIZE,
-    undefined,
-    dateRange,
-  );
+
+  const [startDate, setStartDate] = useState<string | null>(null);
+  const [endDate, setEndDate] = useState<string | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [searchKeyword, setSearchKeyword] = useState('');
+
+  const dateRange =
+    startDate && endDate ? { start: startDate, end: endDate } : null;
+
+  const { items, updateItem, removeItem, isLoading, error, hasMore, load } =
+    useLogs(
+      PAGE_SIZE,
+      undefined,
+      dateRange,
+      paymentMethod || null,
+      searchKeyword || null,
+    );
+
+  const handleSearch = () => {
+    setSearchKeyword(searchInput.trim());
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
+    if (e.nativeEvent.isComposing) return;
+    if (e.key === 'Enter') handleSearch();
+  };
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState('');
@@ -110,6 +141,61 @@ const StampHistories = ({ dateRange }: StampHistoriesProps) => {
 
   return (
     <>
+      <div className="flex flex-col gap-3 mb-4 pb-3 border-b border-brand-100 text-xs sm:text-sm">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 sm:gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label className="font-medium text-gray-600">기간</label>
+            <DateRangePicker
+              startDate={startDate}
+              endDate={endDate}
+              onChangeStart={setStartDate}
+              onChangeEnd={setEndDate}
+              onReset={() => {
+                setStartDate(null);
+                setEndDate(null);
+              }}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="font-medium text-gray-600">결제 방식</label>
+            <div className="w-full sm:w-[180px]">
+              <Dropdown controlledValue={paymentMethod}>
+                <Dropdown.Trigger>
+                  {paymentMethodOptions.find((o) => o.value === paymentMethod)
+                    ?.label ?? '전체'}
+                </Dropdown.Trigger>
+                <Dropdown.Content>
+                  {paymentMethodOptions.map((option, i) => (
+                    <Dropdown.Item
+                      key={`pm-${i}-${option.value}`}
+                      option={option}
+                      onSelect={(o: DropdownOption) =>
+                        setPaymentMethod(String(o.value))
+                      }
+                    />
+                  ))}
+                </Dropdown.Content>
+              </Dropdown>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            placeholder="내용 검색"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={handleSearchKeyDown}
+            className="flex-1 px-3 py-1.5 sm:px-4 sm:py-2 border border-brand-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-transparent text-xs sm:text-sm"
+          />
+          <Button onClick={handleSearch} size="sm">
+            검색
+          </Button>
+        </div>
+      </div>
+
       {error && (
         <div className="text-center py-8 text-rose-600 text-xs sm:text-sm">
           {error}

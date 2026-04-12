@@ -3,8 +3,7 @@ import { ItemType } from '../_types/item.types';
 
 type ItemFiltersParam = {
   categoryId?: string;
-  searchTarget?: string;
-  searchKeyword?: string;
+  searchConditions?: { searchTarget: string; searchKeyword: string }[];
   isUse?: boolean;
   excludePurchasePrice?: boolean;
 };
@@ -18,8 +17,10 @@ const buildQuery = (filters?: ItemFiltersParam) => {
     query = query.eq('category_id', filters.categoryId);
   }
 
-  if (filters?.searchKeyword && filters?.searchTarget) {
-    query = query.ilike(filters.searchTarget, `%${filters.searchKeyword}%`);
+  if (filters?.searchConditions?.length) {
+    for (const cond of filters.searchConditions) {
+      query = query.ilike(cond.searchTarget, `%${cond.searchKeyword}%`);
+    }
   }
 
   if (filters?.isUse !== undefined) {
@@ -57,8 +58,10 @@ export const getItemsCount = async (
     query = query.eq('category_id', filters.categoryId);
   }
 
-  if (filters?.searchKeyword && filters?.searchTarget) {
-    query = query.ilike(filters.searchTarget, `%${filters.searchKeyword}%`);
+  if (filters?.searchConditions?.length) {
+    for (const cond of filters.searchConditions) {
+      query = query.ilike(cond.searchTarget, `%${cond.searchKeyword}%`);
+    }
   }
 
   if (filters?.isUse !== undefined) {

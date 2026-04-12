@@ -9,9 +9,16 @@ const useLogs = (
   pageSize = 10,
   category: LogCategoryEnumType['value'] = LogCategoryEnum.STAMP.value,
   dateRange?: { start: string; end: string } | null,
+  paymentMethod?: string | null,
+  searchKeyword?: string | null,
 ) => {
   const queryClient = useQueryClient();
-  const queryKey = logKeys.list({ category, dateRange: dateRange ?? null });
+  const queryKey = logKeys.list({
+    category,
+    dateRange: dateRange ?? null,
+    paymentMethod: paymentMethod ?? null,
+    searchKeyword: searchKeyword ?? null,
+  });
 
   const {
     data,
@@ -23,7 +30,14 @@ const useLogs = (
   } = useInfiniteQuery({
     queryKey,
     queryFn: ({ pageParam }) =>
-      getLogs(pageSize, pageParam as number, category, dateRange ?? undefined),
+      getLogs(
+        pageSize,
+        pageParam as number,
+        category,
+        dateRange ?? undefined,
+        paymentMethod ?? undefined,
+        searchKeyword ?? undefined,
+      ),
     getNextPageParam: (lastPage, allPages) => {
       if (lastPage.length < pageSize) return undefined;
       return allPages.flat().length;

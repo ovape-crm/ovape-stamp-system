@@ -1,7 +1,11 @@
+export type SearchCondition = {
+  searchTarget: string;
+  searchKeyword: string;
+};
+
 export type ItemFilters = {
   categoryId?: string;
-  searchTarget?: string;
-  searchKeyword?: string;
+  searchConditions?: SearchCondition[];
   isUse?: boolean;
   excludePurchasePrice?: boolean;
 };

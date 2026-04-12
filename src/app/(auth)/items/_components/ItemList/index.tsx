@@ -9,6 +9,7 @@ import {
 import { ItemCategoryType, ItemType } from '@/app/_domains/_item/_types/item.types';
 import { useModal } from '@/app/_contexts/ModalContext';
 import CategoryManageModal from '../CategoryManageModal';
+import ItemDetailModal from '../ItemDetailModal';
 
 interface ItemListProps {
   filters?: ItemFilters;
@@ -64,16 +65,12 @@ const ItemList = ({ filters, categories, isAdmin = false, onEdit, onDelete }: It
               <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
                 No
               </th>
-              {isAdmin && (
-                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
-                  작업
-                </th>
-              )}
-              {isAdmin && (
-                <th className="px-3 sm:px-6 py-2 sm:py-3 text-center text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
-                  사용
-                </th>
-              )}
+              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
+                작업
+              </th>
+              <th className="px-3 sm:px-6 py-2 sm:py-3 text-center text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
+                사용
+              </th>
               <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
                 <div className="flex items-center gap-1.5">
                   <span>품목 종류</span>
@@ -135,7 +132,7 @@ const ItemList = ({ filters, categories, isAdmin = false, onEdit, onDelete }: It
             {items.length === 0 ? (
               <tr>
                 <td
-                  colSpan={isAdmin ? 11 : 8}
+                  colSpan={isAdmin ? 11 : 10}
                   className="px-3 sm:px-6 py-10 text-center text-gray-500 text-xs sm:text-sm"
                 >
                   품목 데이터가 없습니다.
@@ -144,43 +141,58 @@ const ItemList = ({ filters, categories, isAdmin = false, onEdit, onDelete }: It
             ) : (
               items.map((item, index) => (
                 <tr
-                  key={item.id}
+                  key={`${item.id}-${index}`}
                   className="hover:bg-brand-50/50 transition-colors"
                 >
                   <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 whitespace-nowrap">
                     {index + 1}
                   </td>
-                  {isAdmin && (
-                    <td className="px-3 sm:px-6 py-2 sm:py-3 whitespace-nowrap space-x-1">
+                  <td className="px-3 sm:px-6 py-2 sm:py-3 whitespace-nowrap space-x-1">
+                    {isAdmin ? (
+                      <>
+                        <Button
+                          size="xs"
+                          variant="gray"
+                          onClick={() => onEdit?.(item)}
+                        >
+                          수정
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant="danger"
+                          onClick={() => onDelete?.(item)}
+                        >
+                          삭제
+                        </Button>
+                      </>
+                    ) : (
                       <Button
                         size="xs"
                         variant="gray"
-                        onClick={() => onEdit?.(item)}
+                        onClick={() => {
+                          open({
+                            content: (
+                              <ItemDetailModal item={item} onClose={close} />
+                            ),
+                            options: { dismissOnBackdrop: true, dismissOnEsc: true },
+                          });
+                        }}
                       >
-                        수정
+                        상세
                       </Button>
-                      <Button
-                        size="xs"
-                        variant="danger"
-                        onClick={() => onDelete?.(item)}
-                      >
-                        삭제
-                      </Button>
-                    </td>
-                  )}
-                  {isAdmin && (
-                    <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm text-center whitespace-nowrap">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] sm:text-xs font-medium ${
-                          item.is_use
-                            ? 'bg-brand-100 text-brand-700'
-                            : 'bg-gray-100 text-gray-500'
-                        }`}
-                      >
-                        {item.is_use ? '사용' : '미사용'}
-                      </span>
-                    </td>
-                  )}
+                    )}
+                  </td>
+                  <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm text-center whitespace-nowrap">
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] sm:text-xs font-medium ${
+                        item.is_use
+                          ? 'bg-brand-100 text-brand-700'
+                          : 'bg-gray-100 text-gray-500'
+                      }`}
+                    >
+                      {item.is_use ? '사용' : '미사용'}
+                    </span>
+                  </td>
                   <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">
                     {item.item_categories ? (
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-brand-50 text-brand-700 text-[11px] sm:text-xs font-medium">

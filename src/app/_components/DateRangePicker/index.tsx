@@ -84,7 +84,7 @@ const DateRangePicker = ({
           onClick={onReset}
           className="px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm rounded-lg font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2 transition-colors cursor-pointer whitespace-nowrap shadow-sm"
         >
-          초기화
+          ×
         </button>
       )}
     </div>

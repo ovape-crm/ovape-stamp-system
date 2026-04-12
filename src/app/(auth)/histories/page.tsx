@@ -6,22 +6,11 @@ import { LogCategoryEnum, LogCategoryEnumType } from '@/app/_enums/enums';
 import Button from '@/app/_components/Button';
 import CustomerHistories from './_components/CustomerHistories';
 // import RemarkHistories from './_components/RemarkHistories';
-import DateRangePicker from '@/app/_components/DateRangePicker';
 
 export default function HistoriesPage() {
   const [logType, setLogType] = useState<LogCategoryEnumType['value']>(
     LogCategoryEnum.STAMP.value,
   );
-  const [startDate, setStartDate] = useState<string | null>(null);
-  const [endDate, setEndDate] = useState<string | null>(null);
-
-  const dateRange =
-    startDate && endDate ? { start: startDate, end: endDate } : null;
-
-  const handleReset = () => {
-    setStartDate(null);
-    setEndDate(null);
-  };
 
   return (
     <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10 mb-10">
@@ -57,18 +46,11 @@ export default function HistoriesPage() {
               특이사항 이력
             </Button> */}
           </div>
-          <DateRangePicker
-            startDate={startDate}
-            endDate={endDate}
-            onChangeStart={setStartDate}
-            onChangeEnd={setEndDate}
-            onReset={handleReset}
-          />
         </div>
         {logType === LogCategoryEnum.STAMP.value ? (
-          <StampHistories dateRange={dateRange} />
+          <StampHistories />
         ) : (
-          <CustomerHistories dateRange={dateRange} />
+          <CustomerHistories />
         )}
       </div>
     </section>

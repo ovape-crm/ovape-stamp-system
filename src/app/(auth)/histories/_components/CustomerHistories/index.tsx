@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import Loading from '@/app/_components/Loading';
 import { useRouter } from 'next/navigation';
 import Button from '@/app/_components/Button';
+import DateRangePicker from '@/app/_components/DateRangePicker';
 import toast from 'react-hot-toast';
 import useLogs from '@/app/_domains/_log/_hooks/useLogs';
 import { LogCategoryEnum } from '@/app/_enums/enums';
@@ -17,19 +18,21 @@ import DeleteConfirmModal from '@/app/(auth)/_components/DeleteConfirmModal';
 
 const PAGE_SIZE = 10;
 
-interface CustomerHistoriesProps {
-  dateRange?: { start: string; end: string } | null;
-}
-
-const CustomerHistories = ({ dateRange }: CustomerHistoriesProps) => {
+const CustomerHistories = () => {
   const router = useRouter();
   const { isAdmin } = useUser();
   const { open, close } = useModal();
 
+  const [startDate, setStartDate] = useState<string | null>(null);
+  const [endDate, setEndDate] = useState<string | null>(null);
+
+  const dateRange =
+    startDate && endDate ? { start: startDate, end: endDate } : null;
+
   const { items, removeItem, isLoading, error, hasMore, load } = useLogs(
     PAGE_SIZE,
     LogCategoryEnum.CUSTOMER.value,
-    dateRange
+    dateRange,
   );
 
   const deleteItem = useCallback(
@@ -61,6 +64,19 @@ const CustomerHistories = ({ dateRange }: CustomerHistoriesProps) => {
 
   return (
     <>
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 sm:gap-4 mb-4 pb-3 border-b border-brand-100 text-xs sm:text-sm">
+        <div className="flex flex-col gap-1.5">
+          <label className="font-medium text-gray-600">기간</label>
+          <DateRangePicker
+            startDate={startDate}
+            endDate={endDate}
+            onChangeStart={setStartDate}
+            onChangeEnd={setEndDate}
+            onReset={() => { setStartDate(null); setEndDate(null); }}
+          />
+        </div>
+      </div>
+
       {error && (
         <div className="text-center py-8 text-rose-600 text-xs sm:text-sm">
           {error}

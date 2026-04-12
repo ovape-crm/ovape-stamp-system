@@ -19,8 +19,7 @@ export const useItems = (filters?: ItemFilters) => {
     queryFn: async ({ pageParam }) => {
       const f = {
         categoryId: filters?.categoryId,
-        searchTarget: filters?.searchTarget,
-        searchKeyword: filters?.searchKeyword,
+        searchConditions: filters?.searchConditions,
         isUse: filters?.isUse,
         excludePurchasePrice: filters?.excludePurchasePrice,
       };

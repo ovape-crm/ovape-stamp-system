@@ -34,7 +34,7 @@ const ItemsPage = () => {
     () =>
       isAdmin
         ? filters
-        : { ...filters, isUse: true, excludePurchasePrice: true },
+        : { ...filters, excludePurchasePrice: true },
     [isAdmin, filters],
   );
 
