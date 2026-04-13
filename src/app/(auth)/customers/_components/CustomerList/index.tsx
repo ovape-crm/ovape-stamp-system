@@ -2,19 +2,10 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import toast from 'react-hot-toast';
-import { useQueryClient } from '@tanstack/react-query';
 import { CustomerType } from '@/app/_domains/_customer/_types/customer.types';
-import { addStamp, removeStamp } from '@/app/_domains/_stamp/_services/stampService';
 import Loading from '@/app/_components/Loading';
-import { useModal } from '@/app/_contexts/ModalContext';
-import StampConfirmModal from '../StampConfirmModal';
 import Button from '@/app/_components/Button';
 import { formatPhoneNumber } from '@/app/_utils/utils';
-import { LogCategoryEnum, PaymentTypeEnum, PaymentTypeEnumType } from '@/app/_enums/enums';
-import { logKeys } from '@/app/_domains/_log/_queryKeys/logKeys';
-import { createLog } from '@/app/_domains/_log/_services/logService';
-import RemarkLogCreateModal from '../../[id]/_components/RemarkLogCreateModal';
 
 
 interface CustomerListProps {
@@ -35,7 +26,6 @@ const CustomerList = ({
   customers,
   isLoading,
   error,
-  onUpdate,
   loadMore,
   hasMore,
   isLoadingMore,
@@ -44,79 +34,9 @@ const CustomerList = ({
   onSortChange,
 }: CustomerListProps) => {
   const router = useRouter();
-  const { open, close } = useModal();
-  const queryClient = useQueryClient();
   const [loadingCustomerId, setLoadingCustomerId] = useState<string | null>(
     null,
   );
-  const handleCreateRemark = async (customerId: string, note: string) => {
-    try {
-      await addStamp(customerId, 0, note, PaymentTypeEnum.REMARK.value);
-      queryClient.invalidateQueries({ queryKey: logKeys.byCustomer(customerId, LogCategoryEnum.STAMP.value) });
-      toast.success('특이사항이 추가되었습니다.');
-    } catch {
-      toast.error('특이사항 추가에 실패했습니다.');
-    }
-  };
-
-  const handleAdd = async (
-    customerId: string,
-    modalNote?: string,
-    paymentType?: PaymentTypeEnumType['value'],
-    amount: number = 1,
-  ) => {
-    try {
-      setLoadingCustomerId(customerId);
-      await addStamp(customerId, amount, modalNote ?? '', paymentType);
-      onUpdate();
-      queryClient.invalidateQueries({ queryKey: logKeys.byCustomer(customerId, 'stamp') });
-      toast.success(amount === 0 ? '미적립으로 기록되었습니다.' : `스탬프 ${amount}개 적립 완료!`);
-    } catch (error) {
-      console.error('스탬프 적립 실패:', error);
-      toast.error('스탬프 적립에 실패했습니다.');
-    } finally {
-      setLoadingCustomerId(null);
-    }
-  };
-
-  const handleRemove = async (customerId: string, modalNote?: string, amount: number = 1) => {
-    try {
-      setLoadingCustomerId(customerId);
-      await removeStamp('remove', customerId, amount, modalNote ?? '');
-      onUpdate();
-      toast.success(`스탬프 ${amount}개 차감 완료!`);
-    } catch (error) {
-      console.error('스탬프 차감 실패:', error);
-      toast.error(
-        error instanceof Error ? error.message : '스탬프 차감에 실패했습니다.',
-      );
-    } finally {
-      setLoadingCustomerId(null);
-    }
-  };
-
-  const handleUse10 = async (
-    customerId: string,
-    stampCount: number,
-    modalNote?: string,
-  ) => {
-    if (stampCount < 10) {
-      toast.error('스탬프가 10개 미만입니다.');
-      return;
-    }
-
-    try {
-      setLoadingCustomerId(customerId);
-      await removeStamp('coupon', customerId, 10, modalNote ?? '');
-      onUpdate();
-      toast.success('쿠폰 사용 완료! 🎉');
-    } catch (error) {
-      console.error('쿠폰 사용 실패:', error);
-      toast.error('쿠폰 사용에 실패했습니다.');
-    } finally {
-      setLoadingCustomerId(null);
-    }
-  };
   if (isLoading) {
     return <Loading size="lg" text="고객 목록 불러오는 중..." />;
   }
@@ -245,119 +165,7 @@ const CustomerList = ({
                       </span>
                     </td>
                     <td className="px-3 sm:px-6 py-2 sm:py-3 whitespace-nowrap">
-                      <div className="flex items-center justify-center gap-2 sm:gap-3 flex-nowrap">
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            open({
-                              content: (
-                                <StampConfirmModal
-                                  target={{
-                                    name: customer.name,
-                                    phone: customer.phone,
-                                  }}
-                                  mode="add"
-                                  onCancel={close}
-                                  onConfirm={async (
-                                    modalNote?: string,
-                                    paymentType?: PaymentTypeEnumType['value'],
-                                    amount?: number,
-                                  ) => {
-                                    await handleAdd(
-                                      customer.id,
-                                      modalNote,
-                                      paymentType,
-                                      amount,
-                                    );
-                                    close();
-                                  }}
-                                />
-                              ),
-                              options: { dismissOnBackdrop: false },
-                            });
-                          }}
-                          disabled={isThisLoading}
-                        >
-                          출고 이력
-                        </Button>
-                        <Button
-                          onClick={() =>
-                            open({
-                              content: (
-                                <StampConfirmModal
-                                  target={{
-                                    name: customer.name,
-                                    phone: customer.phone,
-                                  }}
-                                  mode="use10"
-                                  onCancel={close}
-                                  onConfirm={async (modalNote?: string) => {
-                                    await handleUse10(
-                                      customer.id,
-                                      stampCount,
-                                      modalNote,
-                                    );
-                                    close();
-                                  }}
-                                />
-                              ),
-                              options: { dismissOnBackdrop: false },
-                            })
-                          }
-                          disabled={isThisLoading || stampCount < 10}
-                          size="sm"
-                          variant="tertiary"
-                        >
-                          쿠폰사용
-                        </Button>
-                        <Button
-                          onClick={() =>
-                            open({
-                              content: (
-                                <StampConfirmModal
-                                  target={{
-                                    name: customer.name,
-                                    phone: customer.phone,
-                                  }}
-                                  mode="remove"
-                                  onCancel={close}
-                                  onConfirm={async (modalNote?: string, _paymentType?: PaymentTypeEnumType['value'], amount?: number) => {
-                                    await handleRemove(customer.id, modalNote, amount);
-                                    close();
-                                  }}
-                                />
-                              ),
-                              options: { dismissOnBackdrop: false },
-                            })
-                          }
-                          disabled={isThisLoading}
-                          size="sm"
-                          variant="tertiary"
-                        >
-                          스탬프 차감
-                        </Button>
-                        <Button
-                          onClick={() =>
-                            open({
-                              content: (
-                                <RemarkLogCreateModal
-                                  onSubmit={async (note) => {
-                                    await handleCreateRemark(customer.id, note);
-                                    close();
-                                  }}
-                                  onCancel={close}
-                                />
-                              ),
-                              options: { dismissOnBackdrop: false },
-                            })
-                          }
-                          disabled={isThisLoading}
-                          size="sm"
-                          variant="tertiary"
-                        >
-                          특이사항
-                        </Button>
-
+                      <div className="flex items-center justify-center">
                         <Button
                           onClick={() =>
                             router.push(`/customers/${customer.id}`)
