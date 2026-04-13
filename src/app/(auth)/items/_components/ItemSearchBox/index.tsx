@@ -10,10 +10,17 @@ import { SearchCondition } from '@/app/_domains/_item/_queryKeys/itemKeys';
 interface ItemSearchBoxProps {
   categories: ItemCategoryType[];
   onSearch?: (filters: {
+    isUse?: boolean;
     categoryId?: string;
     searchConditions?: SearchCondition[];
   }) => void;
 }
+
+const useStatusOptions = [
+  { label: '전체', value: '' },
+  { label: '사용', value: 'true' },
+  { label: '미사용', value: 'false' },
+];
 
 const searchTargetOptions = [
   { label: '품목 코드', value: 'item_code' },
@@ -26,6 +33,7 @@ const getTargetLabel = (value: string) =>
   searchTargetOptions.find((o) => o.value === value)?.label ?? value;
 
 const ItemSearchBox = ({ categories, onSearch }: ItemSearchBoxProps) => {
+  const [useStatus, setUseStatus] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [searchTarget, setSearchTarget] = useState('item_name');
   const [keyword, setKeyword] = useState('');
@@ -33,14 +41,16 @@ const ItemSearchBox = ({ categories, onSearch }: ItemSearchBoxProps) => {
 
   const categoryOptions = [
     { label: '전체', value: '' },
-    ...categories.map((c) => ({ label: c.name, value: c.id })),
+    ...categories.map((c) => ({ label: c.name, value: String(c.id) })),
   ];
 
   const fireSearch = (
+    nextUseStatus: string,
     nextCategoryId: string,
     nextConditions: SearchCondition[],
   ) => {
     onSearch?.({
+      isUse: nextUseStatus === '' ? undefined : nextUseStatus === 'true',
       categoryId: nextCategoryId || undefined,
       searchConditions: nextConditions.length ? nextConditions : undefined,
     });
@@ -58,13 +68,13 @@ const ItemSearchBox = ({ categories, onSearch }: ItemSearchBoxProps) => {
     ];
     setConditions(next);
     setKeyword('');
-    fireSearch(categoryId, next);
+    fireSearch(useStatus, categoryId, next);
   };
 
   const handleRemoveCondition = (index: number) => {
     const next = conditions.filter((_, i) => i !== index);
     setConditions(next);
-    fireSearch(categoryId, next);
+    fireSearch(useStatus, categoryId, next);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -76,6 +86,30 @@ const ItemSearchBox = ({ categories, onSearch }: ItemSearchBoxProps) => {
     <div className="bg-white rounded-lg shadow-sm border border-brand-100 p-4 sm:p-6">
       <div className="flex flex-col gap-4 text-xs sm:text-sm">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 sm:gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label className="font-medium text-gray-600">사용 상태</label>
+            <div className="w-full sm:w-[140px]">
+              <Dropdown controlledValue={useStatus}>
+                <Dropdown.Trigger>
+                  {useStatusOptions.find((o) => o.value === useStatus)?.label ?? '전체'}
+                </Dropdown.Trigger>
+                <Dropdown.Content>
+                  {useStatusOptions.map((option, i) => (
+                    <Dropdown.Item
+                      key={`use-${i}-${option.value}`}
+                      option={option}
+                      onSelect={(o: DropdownOption) => {
+                        const newStatus = String(o.value);
+                        setUseStatus(newStatus);
+                        fireSearch(newStatus, categoryId, conditions);
+                      }}
+                    />
+                  ))}
+                </Dropdown.Content>
+              </Dropdown>
+            </div>
+          </div>
+
           <div className="flex flex-col gap-1.5">
             <label className="font-medium text-gray-600">품목 종류</label>
             <div className="w-full sm:w-[200px]">
@@ -91,7 +125,7 @@ const ItemSearchBox = ({ categories, onSearch }: ItemSearchBoxProps) => {
                       onSelect={(o: DropdownOption) => {
                         const newCategoryId = String(o.value);
                         setCategoryId(newCategoryId);
-                        fireSearch(newCategoryId, conditions);
+                        fireSearch(useStatus, newCategoryId, conditions);
                       }}
                     />
                   ))}
