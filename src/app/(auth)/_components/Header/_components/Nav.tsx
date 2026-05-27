@@ -12,12 +12,18 @@ const Nav = () => {
     { href: '/after-services', label: 'AS 현황' },
     { href: '/comparison', label: '기기 비교' },
     { href: '/items', label: '품목 관리' },
+    {
+      href: '/inventory',
+      label: '재고 관리',
+      matchPaths: ['/inventory', '/inbound'],
+    },
   ];
 
   return (
     <nav className="flex gap-0.5 sm:gap-2">
       {navLinks.map((link) => {
-        const isActive = pathname?.startsWith(link.href);
+        const paths = link.matchPaths ?? [link.href];
+        const isActive = paths.some((p) => pathname?.startsWith(p));
         return (
           <Link
             key={link.href}
