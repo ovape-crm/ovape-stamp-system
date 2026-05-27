@@ -15,6 +15,7 @@ import { lockScroll, unlockScroll } from '@/app/_utils/scrollLock';
 type ModalOptions = {
   dismissOnBackdrop?: boolean;
   dismissOnEsc?: boolean;
+  maxWidthClassName?: string;
 };
 
 type OpenModalArgs = {
@@ -36,6 +37,7 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
   const [options, setOptions] = useState<ModalOptions>({
     dismissOnBackdrop: true,
     dismissOnEsc: true,
+    maxWidthClassName: 'max-w-md',
   });
   const modalRootRef = useRef<HTMLElement | null>(null);
 
@@ -67,7 +69,11 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
   const open = useCallback(
     ({ content: node, options: opts }: OpenModalArgs) => {
       setContent(node);
-      if (opts) setOptions((prev) => ({ ...prev, ...opts }));
+      setOptions({
+        dismissOnBackdrop: opts?.dismissOnBackdrop ?? true,
+        dismissOnEsc: opts?.dismissOnEsc ?? true,
+        maxWidthClassName: opts?.maxWidthClassName ?? 'max-w-md',
+      });
       setIsOpen(true);
     },
     []
@@ -94,7 +100,9 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
                 if (options.dismissOnBackdrop !== false) close();
               }}
             />
-            <div className="relative z-[2001] max-h-[90vh] w-[90vw] max-w-md flex flex-col rounded-lg bg-white p-4 shadow-xl">
+            <div
+              className={`relative z-[2001] max-h-[90vh] w-[90vw] ${options.maxWidthClassName ?? 'max-w-md'} flex flex-col rounded-lg bg-white p-4 shadow-xl`}
+            >
               {content}
             </div>
           </div>,

@@ -52,14 +52,15 @@ const DropdownProvider = ({
     null
   );
 
-  // 외부 controlledValue가 변경되면 내부 selectedOption을 초기화
   useEffect(() => {
-    if (controlledValue !== undefined) {
-      if (selectedOption && selectedOption.value !== controlledValue) {
-        setSelectedOption(null);
-      }
+    if (
+      controlledValue === undefined ||
+      controlledValue === null ||
+      controlledValue === ''
+    ) {
+      setSelectedOption(null);
     }
-  }, [controlledValue]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [controlledValue]);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
   const [itemCount, setItemCount] = useState(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
