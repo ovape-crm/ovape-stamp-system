@@ -73,6 +73,16 @@ export const getItemsCount = async (
   return count ?? 0;
 };
 
+export const getItemOptions = async (): Promise<ItemType[]> => {
+  const { data, error } = await supabase
+    .from('items')
+    .select('*, item_categories(id, name, order_index, created_at)')
+    .order('item_name', { ascending: true });
+
+  if (error) throw error;
+  return (data ?? []) as ItemType[];
+};
+
 export const createItem = async (values: {
   categoryId: string | null;
   itemCode: string;

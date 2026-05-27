@@ -16,4 +16,5 @@ export const itemKeys = {
   list: (filters?: ItemFilters) =>
     [...itemKeys.lists(), filters ?? null] as const,
   categories: () => [...itemKeys.all(), 'categories'] as const,
+  options: () => [...itemKeys.all(), 'options'] as const,
 };
