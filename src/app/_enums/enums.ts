@@ -45,10 +45,36 @@ export const PaymentTypeEnum = {
     value: 'kakaotalk',
     name: '카카오톡',
   },
+  EGU_CARD: {
+    value: 'egu_card',
+    name: '카드',
+  },
+  EGU_TRANSFER: {
+    value: 'egu_transfer',
+    name: '이체',
+  },
+  EGU_CASH_RECEIPT: {
+    value: 'egu_cash_receipt',
+    name: '현금영수증',
+  },
 } as const;
 
 export type PaymentTypeEnumType =
   (typeof PaymentTypeEnum)[keyof typeof PaymentTypeEnum];
+
+export const StoreTypeEnum = {
+  OVAPE: {
+    value: 'ovape',
+    name: '오베이프',
+  },
+  EGU_VAPE: {
+    value: 'egu_vape',
+    name: '이구베이프',
+  },
+} as const;
+
+export type StoreTypeEnumType =
+  (typeof StoreTypeEnum)[keyof typeof StoreTypeEnum];
 
 export const LogCategoryEnum = {
   CUSTOMER: {
