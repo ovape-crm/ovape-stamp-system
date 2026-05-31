@@ -4,15 +4,14 @@ import Button from '@/app/_components/Button';
 import {
   BreathTypeEnum,
   BreathTypeEnumType,
-  PaymentTypeEnum,
   PaymentTypeEnumType,
 } from '@/app/_enums/enums';
+import type { StampLogMeta } from '@/app/_domains/_stamp/_services/stampService';
 import { formatPhoneNumber } from '@/app/_utils/utils';
 import { useState } from 'react';
+import StampLogForm, { StampLogValue } from './StampLogForm';
 
-const paymentTypeOptions = Object.values(PaymentTypeEnum).filter(
-  (o) => o.value !== PaymentTypeEnum.REMARK.value,
-);
+const formatAmount = (value: number) => value.toLocaleString('ko-KR');
 
 export default function StampConfirmModal({
   target,
@@ -22,12 +21,14 @@ export default function StampConfirmModal({
   onCancel,
 }: {
   target: { name: string; phone: string };
-  mode: 'add' | 'remove' | 'use10';
+  mode: 'add' | 'adjust' | 'use10';
   amount?: number;
   onConfirm: (
     note?: string,
     paymentType?: PaymentTypeEnumType['value'],
     amount?: number,
+    logMeta?: StampLogMeta,
+    adjustDirection?: 'add' | 'remove',
   ) => Promise<void> | void;
   onCancel: () => void;
 }) {
@@ -36,30 +37,38 @@ export default function StampConfirmModal({
 
   const [note, setNote] = useState('');
   const [breathType, setBreathType] = useState<BreathTypeEnumType['value'] | ''>('');
-  const [paymentType, setPaymentType] = useState<PaymentTypeEnumType['value'] | ''>('');
-  const [amount, setAmount] = useState<number>(amountProp ?? (mode === 'remove' ? 1 : 0));
+  const [amount, setAmount] = useState<number>(amountProp ?? (mode === 'adjust' ? 1 : 0));
+  const [adjustDirection, setAdjustDirection] = useState<'add' | 'remove'>('remove');
+  const [stampLog, setStampLog] = useState<StampLogValue | null>(null);
 
   const title =
-    mode === 'add' ? '출고 이력 추가' : mode === 'remove' ? '스탬프 차감' : '쿠폰 사용';
+    mode === 'add' ? '출고 이력 추가' : mode === 'adjust' ? '스탬프 조정' : '쿠폰 사용';
 
-  const labelTitle =
-    mode === 'add' ? '입력 순서' : '특이 사항';
+  const adjustActionLabel = adjustDirection === 'add' ? '추가' : '차감';
 
-  const labelText =
-    mode === 'add'
-      ? '\n [리뷰/할인/(숫자)병쿠폰] ) [기기이름] [숫자] 개\n[액상이름][30/60]ml [숫자] 병 , [기기이름] [옴] [코일/팟] 개'
-      : mode === 'remove'
-      ? ' (차감 사유 입력)'
-      : ' (예: [입/폐호흡] 쿠폰 사용)';
+  const labelTitle = '특이 사항';
+  const labelText = ' (조정 사유 입력)';
 
   const isConfirmDisabled =
     (mode === 'use10' && breathType === '') ||
-    (mode === 'add' && paymentType === '');
+    (mode === 'add' && stampLog === null);
 
   const handleConfirm = async () => {
     try {
       setIsSubmitting(true);
-      await onConfirm(note, paymentType as PaymentTypeEnumType['value'], amount);
+      if (mode === 'add') {
+        if (!stampLog) return;
+        await onConfirm(
+          stampLog.note,
+          stampLog.paymentType,
+          stampLog.amount,
+          stampLog.logMeta,
+        );
+      } else if (mode === 'adjust') {
+        await onConfirm(note, undefined, amount, undefined, adjustDirection);
+      } else {
+        await onConfirm(note);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -84,27 +93,40 @@ export default function StampConfirmModal({
 
           {/* 요약 정보 */}
           <div className="bg-brand-50 rounded-lg p-4 border border-brand-200 space-y-2">
-            {mode === 'add' && (
+            {mode === 'add' && stampLog && (
               <>
+                <div>
+                  <span className="text-sm font-medium text-gray-600">매장:</span>
+                  <p className="text-base font-semibold text-gray-900">
+                    {stampLog.storeLabel}
+                  </p>
+                </div>
                 <div>
                   <span className="text-sm font-medium text-gray-600">스탬프 개수:</span>
                   <p className="text-base font-semibold text-gray-900">
-                    {amount === 0 ? '미적립' : `${amount}개`}
+                    {stampLog.amount === 0 ? '미적립' : `${stampLog.amount}개`}
                   </p>
                 </div>
-                {paymentType && (
-                  <div>
-                    <span className="text-sm font-medium text-gray-600">결제 유형:</span>
-                    <p className="text-base font-semibold text-gray-900">
-                      {paymentTypeOptions.find((o) => o.value === paymentType)?.name}
-                    </p>
-                  </div>
-                )}
+                <div>
+                  <span className="text-sm font-medium text-gray-600">결제 유형:</span>
+                  <p className="text-base font-semibold text-gray-900">
+                    {stampLog.paymentTypeName}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-sm font-medium text-gray-600">금액:</span>
+                  <p className="text-base font-semibold text-gray-900">
+                    {stampLog.finalAmountExpression || '0'} ={' '}
+                    {formatAmount(stampLog.finalAmount)}
+                  </p>
+                </div>
               </>
             )}
-            {mode === 'remove' && (
+            {mode === 'adjust' && (
               <div>
-                <span className="text-sm font-medium text-gray-600">차감 개수:</span>
+                <span className="text-sm font-medium text-gray-600">
+                  {adjustActionLabel} 개수:
+                </span>
                 <p className="text-base font-semibold text-gray-900">{amount}개</p>
               </div>
             )}
@@ -114,10 +136,12 @@ export default function StampConfirmModal({
                 <p className="text-base font-semibold text-gray-900">10개 차감</p>
               </div>
             )}
-            {note && (
+            {(mode === 'add' ? stampLog?.note : note) && (
               <div>
                 <span className="text-sm font-medium text-gray-600">메모:</span>
-                <p className="text-sm text-gray-900 whitespace-pre-wrap">{note}</p>
+                <p className="text-sm text-gray-900 whitespace-pre-wrap">
+                  {mode === 'add' ? stampLog?.note : note}
+                </p>
               </div>
             )}
           </div>
@@ -142,8 +166,8 @@ export default function StampConfirmModal({
 
   // ── 입력 화면 ──────────────────────────────────────────────────────────────
   return (
-    <div className="w-full">
-      <div className="mb-6">
+    <div className="w-full flex max-h-[calc(90vh-2rem)] min-h-0 flex-col">
+      <div className="shrink-0 mb-4">
         <h2 className="text-xl font-semibold text-gray-900 mb-3">{title}</h2>
 
         <div className="bg-gray-100 rounded-lg p-4 mb-4">
@@ -164,10 +188,32 @@ export default function StampConfirmModal({
         )}
       </div>
 
-      {mode === 'remove' && (
-        <div className="mb-4">
+      <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+        {mode === 'adjust' && (
+          <div className="mb-4">
+          <span className="block text-sm font-medium text-gray-700 mb-2">
+            조정 유형 <span className="text-rose-600">*</span>
+          </span>
+          <div className="grid grid-cols-2 gap-2 mb-4">
+            <Button
+              type="button"
+              size="sm"
+              variant={adjustDirection === 'remove' ? 'primary' : 'gray'}
+              onClick={() => setAdjustDirection('remove')}
+            >
+              차감
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={adjustDirection === 'add' ? 'primary' : 'gray'}
+              onClick={() => setAdjustDirection('add')}
+            >
+              추가
+            </Button>
+          </div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            차감 개수 <span className="text-rose-600">*</span>
+            {adjustActionLabel} 개수 <span className="text-rose-600">*</span>
           </label>
           <div className="flex items-center gap-2">
             <input
@@ -199,67 +245,7 @@ export default function StampConfirmModal({
         </div>
       )}
 
-      {mode === 'add' && (
-        <div>
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              스탬프 개수 <span className="text-rose-600">*</span>
-            </label>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={amount}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (v === '' || /^[0-9]+$/.test(v)) {
-                    setAmount(v === '' ? 0 : Number(v));
-                  }
-                }}
-                className="w-16 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm text-center"
-              />
-              <button
-                type="button"
-                onClick={() => setAmount((v) => Math.max(0, v - 1))}
-                className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 active:bg-gray-100 transition-colors text-lg leading-none"
-              >
-                −
-              </button>
-              <button
-                type="button"
-                onClick={() => setAmount((v) => v + 1)}
-                className="w-8 h-8 flex items-center justify-center rounded-lg bg-brand-500 text-white hover:bg-brand-600 active:bg-brand-700 transition-colors text-lg leading-none"
-              >
-                +
-              </button>
-            </div>
-            {amount === 0 && (
-              <p className="mt-1.5 text-xs text-gray-400">
-                0개 입력 시 <span className="font-medium text-gray-500">미적립</span>으로 기록됩니다.
-              </p>
-            )}
-          </div>
-          <span className="block text-sm font-medium mb-1">
-            결제 유형 <span className="text-rose-600">*</span>
-          </span>
-          <div className="grid grid-cols-3 gap-2 mb-6 sm:flex sm:flex-wrap sm:gap-2">
-            {paymentTypeOptions.map((option) => (
-              <label
-                key={option.value}
-                className="inline-flex items-center justify-center gap-2 text-xs whitespace-nowrap"
-              >
-                <input
-                  type="radio"
-                  name="paymentType"
-                  value={option.value}
-                  checked={paymentType === option.value}
-                  onChange={() => setPaymentType(option.value)}
-                />
-                {option.name}
-              </label>
-            ))}
-          </div>
-        </div>
-      )}
+      {mode === 'add' && <StampLogForm onChange={setStampLog} />}
 
       {mode === 'use10' && (
         <div className="mb-6">
@@ -329,7 +315,7 @@ export default function StampConfirmModal({
         </div>
       )}
 
-      {mode !== 'use10' && (
+      {mode === 'adjust' && (
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             {labelTitle}
@@ -345,8 +331,9 @@ export default function StampConfirmModal({
           />
         </div>
       )}
+      </div>
 
-      <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+      <div className="shrink-0 flex justify-end gap-3 pt-4 mt-4 border-t border-gray-200">
         <Button variant="gray" size="sm" onClick={onCancel}>
           취소
         </Button>

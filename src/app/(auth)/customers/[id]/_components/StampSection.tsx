@@ -3,7 +3,11 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import StampCards from './StampCards';
-import { addStamp, removeStamp } from '@/app/_domains/_stamp/_services/stampService';
+import {
+  addStamp,
+  removeStamp,
+  StampLogMeta,
+} from '@/app/_domains/_stamp/_services/stampService';
 import { PaymentTypeEnumType } from '@/app/_enums/enums';
 import { useModal } from '@/app/_contexts/ModalContext';
 import StampConfirmModal from '../../_components/StampConfirmModal';
@@ -24,10 +28,11 @@ const StampSection = ({ stampCount, target, onUpdate, onAddRemark }: StampSectio
     memo?: string,
     paymentType?: PaymentTypeEnumType['value'],
     amount: number = 0,
+    logMeta?: StampLogMeta,
   ) => {
     try {
       setIsLoading(true);
-      await addStamp(target.id, amount, memo ?? '', paymentType);
+      await addStamp(target.id, amount, memo ?? '', paymentType, logMeta);
       onUpdate();
       toast.success(amount === 0 ? '미적립으로 기록되었습니다.' : `스탬프 ${amount}개 적립 완료!`);
     } catch (error) {
@@ -97,8 +102,9 @@ const StampSection = ({ stampCount, target, onUpdate, onAddRemark }: StampSectio
                       modalNote?: string,
                       paymentType?: PaymentTypeEnumType['value'],
                       amount?: number,
+                      logMeta?: StampLogMeta,
                     ) => {
-                      await handleAdd(modalNote, paymentType, amount);
+                      await handleAdd(modalNote, paymentType, amount, logMeta);
                       close();
                     }}
                   />
@@ -143,10 +149,20 @@ const StampSection = ({ stampCount, target, onUpdate, onAddRemark }: StampSectio
                 content: (
                   <StampConfirmModal
                     target={{ name: target.name, phone: target.phone }}
-                    mode="remove"
+                    mode="adjust"
                     onCancel={close}
-                    onConfirm={async (modalNote?: string, _paymentType?: PaymentTypeEnumType['value'], amount?: number) => {
-                      await handleRemove(modalNote, amount);
+                    onConfirm={async (
+                      modalNote?: string,
+                      _paymentType?: PaymentTypeEnumType['value'],
+                      amount?: number,
+                      _logMeta?: StampLogMeta,
+                      adjustDirection?: 'add' | 'remove',
+                    ) => {
+                      if (adjustDirection === 'add') {
+                        await handleAdd(modalNote, undefined, amount);
+                      } else {
+                        await handleRemove(modalNote, amount);
+                      }
                       close();
                     }}
                   />
@@ -156,7 +172,7 @@ const StampSection = ({ stampCount, target, onUpdate, onAddRemark }: StampSectio
             }
             disabled={isLoading}
           >
-            스탬프 차감
+            스탬프 조정
           </Button>
           <Button
             size="sm"

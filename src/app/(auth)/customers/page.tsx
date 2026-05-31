@@ -10,9 +10,9 @@ import toast from 'react-hot-toast';
 import { useState } from 'react';
 import Button from '@/app/_components/Button';
 import { addStamp } from '@/app/_domains/_stamp/_services/stampService';
-import { PaymentTypeEnumType } from '@/app/_enums/enums';
 import { useQueryClient } from '@tanstack/react-query';
 import { customerKeys } from '@/app/_domains/_customer/_queryKeys/customerKeys';
+import type { CustomerCreateValues } from './_components/CustomerCreateModal';
 
 export default function CustomersPage() {
   // ========================================================================
@@ -38,17 +38,7 @@ export default function CustomersPage() {
   // ========================================================================
   // 고객 추가 핸들러
   // ========================================================================
-  const handleCustomerSubmit = async (values: {
-    name: string;
-    phone: string;
-    gender: 'male' | 'female';
-    note?: string;
-    isStampAdd: boolean;
-    isRemark: boolean;
-    stampAmount?: number;
-    stampPaymentType?: PaymentTypeEnumType['value'];
-    stampNote?: string;
-  }) => {
+  const handleCustomerSubmit = async (values: CustomerCreateValues) => {
     try {
       setIsSubmitting(true);
 
@@ -62,22 +52,16 @@ export default function CustomersPage() {
       toast.success('고객이 추가되었습니다.');
 
       // 2. 출고 이력 추가 (선택 사항)
-      if (values.isStampAdd) {
-        const paymentType = values.isRemark
-          ? ('remark' as PaymentTypeEnumType['value'])
-          : values.stampPaymentType;
-
-        if (!paymentType) {
-          toast.error('출고 이력 정보를 모두 입력해주세요.');
-          return;
-        }
-        const amount = values.stampAmount ?? 0;
+      if (values.isStampAdd && values.stampLog) {
+        const stampLog = values.stampLog;
+        const amount = stampLog.amount;
         try {
           await addStamp(
             data.id,
             amount,
-            values.stampNote ?? '',
-            paymentType,
+            stampLog.note,
+            stampLog.paymentType,
+            stampLog.logMeta,
           );
           toast.success(amount === 0 ? '미적립으로 기록되었습니다.' : `스탬프 ${amount}개 적립 완료!`);
         } catch (stampError) {
