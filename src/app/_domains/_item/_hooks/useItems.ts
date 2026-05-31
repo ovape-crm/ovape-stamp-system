@@ -20,6 +20,7 @@ export const useItems = (filters?: ItemFilters) => {
       const f = {
         categoryId: filters?.categoryId,
         searchConditions: filters?.searchConditions,
+        searchKeyword: filters?.searchKeyword,
         isUse: filters?.isUse,
         excludePurchasePrice: filters?.excludePurchasePrice,
       };
