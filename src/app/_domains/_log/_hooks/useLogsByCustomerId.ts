@@ -58,6 +58,28 @@ export const useLogsByCustomerId = (
     );
   };
 
+  const updateItem = (
+    id: string,
+    updater: (
+      item: CustomersLogsResType[number],
+    ) => CustomersLogsResType[number],
+  ) => {
+    queryClient.setQueryData(
+      queryKey,
+      (old: InfiniteData<CustomersLogsResType> | undefined) => {
+        if (!old) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page) =>
+            (page as CustomersLogsResType).map((item) =>
+              item.id === id ? updater(item) : item,
+            ),
+          ),
+        };
+      },
+    );
+  };
+
   return {
     logs,
     isLoading: isPending,
@@ -66,5 +88,6 @@ export const useLogsByCustomerId = (
     loadMore,
     refresh: () => queryClient.invalidateQueries({ queryKey }),
     removeItem,
+    updateItem,
   };
 };

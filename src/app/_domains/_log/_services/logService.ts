@@ -2,6 +2,7 @@ import {
   LogCategoryEnum,
   LogCategoryEnumType,
   PaymentTypeEnumType,
+  StoreTypeEnumType,
 } from '@/app/_enums/enums';
 import {
   AfterServiceLogsResType,
@@ -202,11 +203,26 @@ export const deleteLog = async (logId: string) => {
 export const updateLogNote = async (
   logId: string,
   note: string,
-  paymentType?: PaymentTypeEnumType['value']
+  paymentType?: PaymentTypeEnumType['value'],
+  storeName?: StoreTypeEnumType['value']
 ) => {
+  const { data: existing, error: fetchError } = await supabase
+    .from('logs')
+    .select('jsonb')
+    .eq('id', logId)
+    .single();
+
+  if (fetchError) throw fetchError;
+
+  const currentJsonb =
+    (existing?.jsonb as Record<string, unknown> | null) ?? {};
+  const nextJsonb: Record<string, unknown> = { ...currentJsonb };
+  if (paymentType !== undefined) nextJsonb.paymentType = paymentType;
+  if (storeName !== undefined) nextJsonb.storeName = storeName;
+
   const { data, error } = await supabase
     .from('logs')
-    .update({ note, jsonb: { paymentType } })
+    .update({ note, jsonb: nextJsonb })
     .eq('id', logId)
     .select()
     .single();
