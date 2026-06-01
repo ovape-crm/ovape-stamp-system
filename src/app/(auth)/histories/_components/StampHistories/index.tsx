@@ -1,7 +1,11 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { PaymentTypeEnum, PaymentTypeEnumType } from '@/app/_enums/enums';
+import {
+  PaymentTypeEnum,
+  PaymentTypeEnumType,
+  StoreTypeEnumType,
+} from '@/app/_enums/enums';
 import {
   updateLogNote,
   deleteLog,
@@ -19,6 +23,7 @@ import StampHistoryItem from './StampHistoryItem';
 import { useUser } from '@/app/_contexts/UserContext';
 import { useModal } from '@/app/_contexts/ModalContext';
 import DeleteConfirmModal from '@/app/(auth)/_components/DeleteConfirmModal';
+import StampLogEditModal from '@/app/(auth)/_components/StampLogEditModal';
 
 const PAGE_SIZE = 10;
 
@@ -62,54 +67,54 @@ const StampHistories = () => {
     if (e.key === 'Enter') handleSearch();
   };
 
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [noteDraft, setNoteDraft] = useState('');
-  const [paymentTypeDraft, setPaymentTypeDraft] = useState<
-    PaymentTypeEnumType['value'] | undefined
-  >(undefined);
-  const [isSaving, setIsSaving] = useState(false);
+  const startEdit = useCallback(
+    (log: LogsResType) => {
+      const handleSubmit = async (values: {
+        note: string;
+        paymentType?: PaymentTypeEnumType['value'];
+        storeName: StoreTypeEnumType['value'];
+      }) => {
+        try {
+          const updated = await updateLogNote(
+            log.id,
+            values.note,
+            values.paymentType,
+            values.storeName,
+          );
+          updateItem(log.id, (item) => ({
+            ...item,
+            note: updated.note,
+            jsonb: updated.jsonb,
+            updated_at: updated.updated_at,
+          }));
+          close();
+          toast.success('이력을 저장했습니다.');
+        } catch (e) {
+          console.error('Failed to save note:', e);
+          toast.error('저장에 실패했습니다. 다시 시도해 주세요.');
+        }
+      };
 
-  const startEdit = useCallback((log: LogsResType) => {
-    setEditingId(log.id);
-    setNoteDraft(log.note ?? '');
-    setPaymentTypeDraft(
-      log.jsonb?.paymentType as PaymentTypeEnumType['value'] | undefined,
-    );
-  }, []);
-
-  const cancelEdit = useCallback(() => {
-    setEditingId(null);
-    setNoteDraft('');
-    setPaymentTypeDraft(undefined);
-  }, []);
-
-  const saveNote = useCallback(
-    async (log: LogsResType) => {
-      try {
-        setIsSaving(true);
-        const updated = await updateLogNote(
-          log.id,
-          noteDraft,
-          paymentTypeDraft,
-        );
-        updateItem(log.id, (item) => ({
-          ...item,
-          note: updated.note,
-          jsonb: updated.jsonb,
-          updated_at: updated.updated_at,
-        }));
-        setEditingId(null);
-        setNoteDraft('');
-        setPaymentTypeDraft(undefined);
-        toast.success('노트를 저장했습니다.');
-      } catch (e) {
-        console.error('Failed to save note:', e);
-        toast.error('노트 저장에 실패했습니다. 다시 시도해 주세요.');
-      } finally {
-        setIsSaving(false);
-      }
+      open({
+        content: (
+          <StampLogEditModal
+            initialNote={log.note ?? ''}
+            initialPaymentType={
+              log.jsonb?.paymentType as
+                | PaymentTypeEnumType['value']
+                | undefined
+            }
+            initialStoreName={
+              log.jsonb?.storeName as StoreTypeEnumType['value'] | undefined
+            }
+            onSubmit={handleSubmit}
+            onCancel={close}
+          />
+        ),
+        options: { dismissOnBackdrop: false, dismissOnEsc: true },
+      });
     },
-    [noteDraft, paymentTypeDraft, updateItem],
+    [open, close, updateItem],
   );
 
   const deleteItem = useCallback(
@@ -208,7 +213,7 @@ const StampHistories = () => {
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <div className="min-w-[900px] space-y-4 sm:space-y-6 text-xs sm:text-sm">
+          <div className="min-w-[1100px] space-y-4 sm:space-y-6 text-xs sm:text-sm">
             {sortedDates.map((dateKey) => {
               const logsOfDate = itemsByDate[dateKey];
 
@@ -227,35 +232,18 @@ const StampHistories = () => {
 
                   {/* 해당 날짜 로그들 */}
                   <div className="space-y-3">
-                    {logsOfDate.map((log, index) => {
-                      const isEditing = editingId === log.id;
-                      const currentNote = isEditing
-                        ? noteDraft
-                        : (log.note ?? '');
-                      return (
-                        <StampHistoryItem
-                          key={`${log.id}-${index}-${
-                            isEditing ? 'edit' : 'view'
-                          }`}
-                          log={log}
-                          isEditing={isEditing}
-                          noteDraft={noteDraft}
-                          currentNote={currentNote}
-                          onNoteChange={setNoteDraft}
-                          paymentType={isEditing ? paymentTypeDraft : undefined}
-                          onPaymentTypeChange={setPaymentTypeDraft}
-                          onSave={() => saveNote(log)}
-                          onCancel={cancelEdit}
-                          onEdit={() => startEdit(log)}
-                          onNavigate={() =>
-                            router.push(`/customers/${log.customer_id}`)
-                          }
-                          isSaving={isSaving}
-                          isAdmin={isAdmin}
-                          onDelete={() => deleteItem(log)}
-                        />
-                      );
-                    })}
+                    {logsOfDate.map((log) => (
+                      <StampHistoryItem
+                        key={log.id}
+                        log={log}
+                        onEdit={() => startEdit(log)}
+                        onNavigate={() =>
+                          router.push(`/customers/${log.customer_id}`)
+                        }
+                        isAdmin={isAdmin}
+                        onDelete={() => deleteItem(log)}
+                      />
+                    ))}
                   </div>
                 </div>
               );

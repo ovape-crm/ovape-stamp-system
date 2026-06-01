@@ -1,6 +1,10 @@
 import supabase from '@/libs/supabaseClient';
 import { createLog } from '@/app/_domains/_log/_services/logService';
-import { LogCategoryEnum, PaymentTypeEnumType } from '@/app/_enums/enums';
+import {
+  LogCategoryEnum,
+  PaymentTypeEnumType,
+  StoreTypeEnumType,
+} from '@/app/_enums/enums';
 
 export interface Stamp {
   id: string;
@@ -9,6 +13,28 @@ export interface Stamp {
   created_at: string;
 }
 
+export type StampLogItem = {
+  itemId: string;
+  itemName: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+  remark: string;
+  lineText: string;
+};
+
+export type StampLogMeta = {
+  storeName?: StoreTypeEnumType['value'];
+  totalAmount?: number;
+  discount?: {
+    type: string;
+    name: string;
+    amount: number;
+    lineText: string;
+  };
+  items?: StampLogItem[];
+};
+
 /**
  * 스탬프 추가 (count 증가)
  */
@@ -16,7 +42,8 @@ export const addStamp = async (
   customerId: string,
   amount: number = 1,
   note: string = '',
-  paymentType?: PaymentTypeEnumType['value']
+  paymentType?: PaymentTypeEnumType['value'],
+  logMeta?: StampLogMeta,
 ) => {
   // 먼저 해당 customer의 stamp 레코드가 있는지 확인
   const { data: existing } = await supabase
@@ -59,7 +86,7 @@ export const addStamp = async (
     customerId,
     amount === 0 ? 'no-stamp' : `add-${amount}`,
     note,
-    { paymentType }
+    { paymentType, ...logMeta }
   );
 
   return result;

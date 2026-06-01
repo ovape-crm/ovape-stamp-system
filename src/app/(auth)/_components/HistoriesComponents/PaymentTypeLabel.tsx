@@ -14,7 +14,7 @@ const PaymentTypeLabel = ({ jsonb }: { jsonb: Record<string, unknown> }) => {
     | undefined;
 
   const paymentTypeName = paymentTypeValue
-    ? paymentTypeNameByValue[paymentTypeValue]
+    ? paymentTypeNameByValue[paymentTypeValue]?.replace('이구베이프', '')
     : undefined;
 
   return (

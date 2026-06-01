@@ -2,18 +2,23 @@ import {
   ActionInfoLabel,
   LogActorInfo,
   PaymentTypeLabel,
+  StoreLabel,
 } from '@/app/(auth)/_components/HistoriesComponents';
 import Button from '@/app/_components/Button';
 import Loading from '@/app/_components/Loading';
 import useCopy from '@/app/_domains/_log/_hooks/useCopy';
 import { CustomersLogsResType } from '@/app/_domains/_log/_types/log.types';
 import { updateLogNote, deleteLog } from '@/app/_domains/_log/_services/logService';
-import { useCallback, useState } from 'react';
-import { PaymentTypeEnum, PaymentTypeEnumType } from '@/app/_enums/enums';
+import { useCallback } from 'react';
+import {
+  PaymentTypeEnumType,
+  StoreTypeEnumType,
+} from '@/app/_enums/enums';
 import { groupLogsByDate, formatDateKey } from '@/app/_utils/utils';
 import { toast } from 'react-hot-toast';
 import { useModal } from '@/app/_contexts/ModalContext';
 import DeleteConfirmModal from '@/app/(auth)/_components/DeleteConfirmModal';
+import StampLogEditModal from '@/app/(auth)/_components/StampLogEditModal';
 
 const CustomersDetailStampsHistories = ({
   targetUser,
@@ -22,6 +27,7 @@ const CustomersDetailStampsHistories = ({
   error,
   isAdmin,
   onDeleteLog,
+  onUpdateLog,
 }: {
   targetUser: { phone: string; name: string; gender?: 'male' | 'female' | null };
   isLoading: boolean;
@@ -29,50 +35,15 @@ const CustomersDetailStampsHistories = ({
   logs: CustomersLogsResType;
   isAdmin: boolean;
   onDeleteLog: (id: string) => void;
+  onUpdateLog: (
+    id: string,
+    updater: (
+      item: CustomersLogsResType[number],
+    ) => CustomersLogsResType[number],
+  ) => void;
 }) => {
   const { open, close } = useModal();
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [noteDraft, setNoteDraft] = useState<string>('');
-  const [isSaving, setIsSaving] = useState<boolean>(false);
-  const [noteOverridesById, setNoteOverridesById] = useState<
-    Record<string, string>
-  >({});
-  const [paymentTypeOverridesById, setPaymentTypeOverridesById] = useState<
-    Record<string, PaymentTypeEnumType['value'] | undefined>
-  >({});
-  const [paymentTypeDraft, setPaymentTypeDraft] = useState<
-    PaymentTypeEnumType['value'] | undefined
-  >(undefined);
-
   const { copyLogToClipboard } = useCopy();
-
-  const getCurrentNote = useCallback(
-    (log: CustomersLogsResType[number]) =>
-      noteOverridesById[log.id] ?? log.note ?? '',
-    [noteOverridesById],
-  );
-
-  const getCurrentPaymentType = useCallback(
-    (log: CustomersLogsResType[number]) =>
-      paymentTypeOverridesById[log.id] ??
-      (log.jsonb?.paymentType as PaymentTypeEnumType['value'] | undefined),
-    [paymentTypeOverridesById],
-  );
-
-  const startEdit = useCallback(
-    (log: CustomersLogsResType[number]) => {
-      setEditingId(log.id);
-      setNoteDraft(getCurrentNote(log));
-      setPaymentTypeDraft(getCurrentPaymentType(log));
-    },
-    [getCurrentNote, getCurrentPaymentType],
-  );
-
-  const cancelEdit = useCallback(() => {
-    setEditingId(null);
-    setNoteDraft('');
-    setPaymentTypeDraft(undefined);
-  }, []);
 
   const handleDelete = useCallback(
     (log: CustomersLogsResType[number]) => {
@@ -96,34 +67,54 @@ const CustomersDetailStampsHistories = ({
     [onDeleteLog, open, close],
   );
 
-  const saveNote = useCallback(
-    async (log: CustomersLogsResType[number]) => {
-      try {
-        setIsSaving(true);
-        const updated = await updateLogNote(
-          log.id,
-          noteDraft,
-          paymentTypeDraft,
-        );
-        setNoteOverridesById((prev) => ({ ...prev, [log.id]: updated.note }));
-        setPaymentTypeOverridesById((prev) => ({
-          ...prev,
-          [log.id]: updated.jsonb?.paymentType as
-            | PaymentTypeEnumType['value']
-            | undefined,
-        }));
-        setEditingId(null);
-        setNoteDraft('');
-        setPaymentTypeDraft(undefined);
-        toast.success('노트를 저장했습니다.');
-      } catch (e) {
-        console.error(e);
-        toast.error('노트 저장에 실패했습니다. 다시 시도해 주세요.');
-      } finally {
-        setIsSaving(false);
-      }
+  const handleEdit = useCallback(
+    (log: CustomersLogsResType[number]) => {
+      const handleSubmit = async (values: {
+        note: string;
+        paymentType?: PaymentTypeEnumType['value'];
+        storeName: StoreTypeEnumType['value'];
+      }) => {
+        try {
+          const updated = await updateLogNote(
+            log.id,
+            values.note,
+            values.paymentType,
+            values.storeName,
+          );
+          onUpdateLog(log.id, (item) => ({
+            ...item,
+            note: updated.note,
+            jsonb: updated.jsonb,
+            updated_at: updated.updated_at,
+          }));
+          close();
+          toast.success('이력을 저장했습니다.');
+        } catch (e) {
+          console.error(e);
+          toast.error('저장에 실패했습니다. 다시 시도해 주세요.');
+        }
+      };
+
+      open({
+        content: (
+          <StampLogEditModal
+            initialNote={log.note ?? ''}
+            initialPaymentType={
+              log.jsonb?.paymentType as
+                | PaymentTypeEnumType['value']
+                | undefined
+            }
+            initialStoreName={
+              log.jsonb?.storeName as StoreTypeEnumType['value'] | undefined
+            }
+            onSubmit={handleSubmit}
+            onCancel={close}
+          />
+        ),
+        options: { dismissOnBackdrop: false, dismissOnEsc: true },
+      });
     },
-    [noteDraft, paymentTypeDraft],
+    [open, close, onUpdateLog],
   );
 
   if (error) {
@@ -142,13 +133,11 @@ const CustomersDetailStampsHistories = ({
     );
   }
 
-  const paymentTypeOptions = Object.values(PaymentTypeEnum);
-
   const { itemsByDate: logsByDate, sortedDates } = groupLogsByDate(logs);
 
   return (
     <div className="overflow-x-auto">
-      <div className="min-w-[900px] space-y-3 text-xs sm:text-sm">
+      <div className="min-w-[1100px] space-y-3 text-xs sm:text-sm">
         {sortedDates.map((dateKey) => {
           const logsOfDate = logsByDate[dateKey];
           const prettyDate = formatDateKey(dateKey);
@@ -165,142 +154,80 @@ const CustomersDetailStampsHistories = ({
               </div>
 
               {/* 해당 날짜의 로그들 */}
-              {logsOfDate.map((log) => {
-                const isEditing = editingId === log.id;
-                const currentNote = getCurrentNote(log);
-                const currentPaymentType = getCurrentPaymentType(log);
-                const effectivePaymentType = isEditing
-                  ? paymentTypeDraft
-                  : currentPaymentType;
+              {logsOfDate.map((log) => (
+                <div
+                  key={log.id}
+                  className="flex items-center justify-between p-3 rounded border border-brand-50 hover:bg-brand-50/30 transition-colors whitespace-nowrap"
+                >
+                  <div className="flex items-center gap-4 sm:gap-6">
+                    <ActionInfoLabel action={log.action} />
 
-                const effectiveJsonb = {
-                  ...(log.jsonb || {}),
-                  ...(currentPaymentType
-                    ? { paymentType: currentPaymentType }
-                    : {}),
-                };
-
-                return (
-                  <div
-                    key={log.id}
-                    className="flex items-center justify-between p-3 rounded border border-brand-50 hover:bg-brand-50/30 transition-colors whitespace-nowrap"
-                  >
-                    <div className="flex items-center gap-4 sm:gap-6">
-                      <ActionInfoLabel action={log.action} />
-
-                      {log.users && (
-                        <div className="text-left">
-                          <LogActorInfo
-                            users={log.users}
-                            created_at={log.created_at}
-                            updated_at={log.updated_at}
-                          />
-                        </div>
-                      )}
-                    </div>
-                    {effectiveJsonb && 'paymentType' in effectiveJsonb && (
-                      <PaymentTypeLabel jsonb={effectiveJsonb} />
+                    {log.users && (
+                      <div className="text-left">
+                        <LogActorInfo
+                          users={log.users}
+                          created_at={log.created_at}
+                          updated_at={log.updated_at}
+                        />
+                      </div>
                     )}
-                    <div className="flex-1 pl-4 ml-4 border-l border-brand-100">
-                      {isEditing ? (
-                        <div className="flex flex-col gap-2 pr-4">
-                          <textarea
-                            className="flex-1 text-xs sm:text-sm px-2 py-2 rounded border border-brand-200 focus:outline-none focus:ring-2 focus:ring-brand-200 resize-none min-h-[50px]"
-                            value={noteDraft}
-                            onChange={(e) => setNoteDraft(e.target.value)}
-                            placeholder="메모를 입력하세요"
-                            disabled={isSaving}
-                            rows={3}
-                          />
-                          {log.jsonb && 'paymentType' in log.jsonb && (
-                            <div className="flex items-center gap-2">
-                              {paymentTypeOptions.map((option) => (
-                                <label
-                                  key={option.value}
-                                  className="inline-flex items-center gap-2 text-[11px] sm:text-xs whitespace-nowrap"
-                                >
-                                  <input
-                                    type="radio"
-                                    name={`paymentType-${log.id}`}
-                                    value={option.value}
-                                    checked={
-                                      effectivePaymentType === option.value
-                                    }
-                                    onChange={() =>
-                                      setPaymentTypeDraft(option.value)
-                                    }
-                                  />
-                                  {option.name}
-                                </label>
-                              ))}
-                            </div>
-                          )}
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="primary"
-                              size="xs"
-                              onClick={() => saveNote(log)}
-                              disabled={isSaving}
-                            >
-                              저장
-                            </Button>
-                            <Button
-                              variant="secondary"
-                              size="xs"
-                              onClick={cancelEdit}
-                              disabled={isSaving}
-                            >
-                              취소
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="secondary"
-                            size="xs"
-                            onClick={() => startEdit(log)}
-                            disabled={isSaving}
-                          >
-                            ✏️
-                          </Button>
-                          <span className="flex-1 text-xs sm:text-sm text-gray-600 break-words whitespace-pre-line">
-                            {currentNote || (
-                              <span className="text-gray-400"> - </span>
-                            )}
-                          </span>
-                        </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {log.jsonb && 'storeName' in log.jsonb && (
+                      <StoreLabel jsonb={log.jsonb} />
+                    )}
+                    {log.jsonb && 'paymentType' in log.jsonb && (
+                      <PaymentTypeLabel jsonb={log.jsonb} />
+                    )}
+                    {typeof log.jsonb?.totalAmount === 'number' &&
+                      log.jsonb.totalAmount > 0 && (
+                        <span className="ml-2 inline-flex items-center rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold px-2 py-1">
+                          {log.jsonb.totalAmount.toLocaleString('ko-KR')}원
+                        </span>
                       )}
-                    </div>
-                    <div className="ml-3 flex-shrink-0 flex items-center gap-2">
+                  </div>
+                  <div className="flex-1 pl-4 ml-4 border-l border-brand-100">
+                    <div className="flex items-center gap-2">
                       <Button
                         variant="secondary"
                         size="xs"
-                        onClick={() =>
-                          copyLogToClipboard(log, {
-                            name: targetUser.name,
-                            phone: targetUser.phone,
-                            gender: targetUser.gender,
-                          })
-                        }
-                        disabled={isSaving}
+                        onClick={() => handleEdit(log)}
                       >
-                        복사
+                        ✏️
                       </Button>
-                      {isAdmin && (
-                        <Button
-                          variant="danger"
-                          size="xs"
-                          onClick={() => handleDelete(log)}
-                          disabled={isSaving}
-                        >
-                          삭제
-                        </Button>
-                      )}
+                      <span className="flex-1 min-w-[240px] text-xs sm:text-sm text-gray-600 break-words whitespace-pre-line">
+                        {log.note || (
+                          <span className="text-gray-400"> - </span>
+                        )}
+                      </span>
                     </div>
                   </div>
-                );
-              })}
+                  <div className="ml-3 flex-shrink-0 flex items-center gap-2">
+                    <Button
+                      variant="secondary"
+                      size="xs"
+                      onClick={() =>
+                        copyLogToClipboard(log, {
+                          name: targetUser.name,
+                          phone: targetUser.phone,
+                          gender: targetUser.gender,
+                        })
+                      }
+                    >
+                      복사
+                    </Button>
+                    {isAdmin && (
+                      <Button
+                        variant="danger"
+                        size="xs"
+                        onClick={() => handleDelete(log)}
+                      >
+                        삭제
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           );
         })}

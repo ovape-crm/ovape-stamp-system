@@ -52,6 +52,7 @@ export default function CustomerDetailPage() {
     loadMore,
     hasMore,
     removeItem: removeLog,
+    updateItem: updateLog,
   } = useLogsByCustomerId(customerId, PAGE_SIZE, logCategory);
 
   // const {
@@ -246,6 +247,7 @@ export default function CustomerDetailPage() {
                 error={logsError}
                 isAdmin={isAdmin}
                 onDeleteLog={removeLog}
+                onUpdateLog={updateLog}
               />
             )}
             {logCategory === LogCategoryEnum.CUSTOMER.value && (

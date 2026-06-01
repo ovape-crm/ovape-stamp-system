@@ -1,7 +1,28 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "mcp__ide__getDiagnostics",
+      "WebSearch",
+      "WebFetch(domain:makerkit.dev)",
+      "WebFetch(domain:tkdodo.eu)",
+      "Bash(npm install:*)",
+      "Bash(ls -la /Users/oceanlee/Projects/ovape_stamp_system/src/app/\\\\\\(auth\\\\\\)/histories/)",
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
+      "Bash(ls -la /Users/oceanlee/Projects/ovape_stamp_system/src/app/\\\\\\(auth\\\\\\)/)",
+      "Bash(grep -h \"^import\" /Users/oceanlee/Projects/ovape_stamp_system/src/app/_services/*.ts /Users/oceanlee/Projects/ovape_stamp_system/src/app/_hooks/*.ts /Users/oceanlee/Projects/ovape_stamp_system/src/app/_queryKeys/*.ts /Users/oceanlee/Projects/ovape_stamp_system/src/app/_types/*.ts)",
+      "Bash(xargs sed:*)",
+      "Bash(sed -i '' 's|from '\\\\''./logService'\\\\''|from '\\\\''@/app/_domains/_log/_services/logService'\\\\''|g' /Users/oceanlee/Projects/ovape_stamp_system/src/app/_domains/_afterService/_services/afterService.ts)",
+      "Bash(sed -i '' 's|from '\\\\''./logService'\\\\''|from '\\\\''@/app/_domains/_log/_services/logService'\\\\''|g' /Users/oceanlee/Projects/ovape_stamp_system/src/app/_domains/_customer/_services/customerService.ts)",
+      "Bash(sed -i '' 's|from '\\\\''./logService'\\\\''|from '\\\\''@/app/_domains/_log/_services/logService'\\\\''|g' /Users/oceanlee/Projects/ovape_stamp_system/src/app/_domains/_stamp/_services/stampService.ts)",
+      "Bash(npm run:*)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git ls-tree *)",
+      "Bash(npx eslint *)"
     ]
   }
 }

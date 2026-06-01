@@ -4,6 +4,7 @@ import { ItemType } from '../_types/item.types';
 type ItemFiltersParam = {
   categoryId?: string;
   searchConditions?: { searchTarget: string; searchKeyword: string }[];
+  searchKeyword?: string;
   isUse?: boolean;
   excludePurchasePrice?: boolean;
 };
@@ -21,6 +22,11 @@ const buildQuery = (filters?: ItemFiltersParam) => {
     for (const cond of filters.searchConditions) {
       query = query.ilike(cond.searchTarget, `%${cond.searchKeyword}%`);
     }
+  }
+
+  if (filters?.searchKeyword) {
+    const keyword = filters.searchKeyword.replaceAll(',', '\\,').trim();
+    query = query.or(`item_name.ilike.%${keyword}%,item_code.ilike.%${keyword}%`);
   }
 
   if (filters?.isUse !== undefined) {
@@ -62,6 +68,11 @@ export const getItemsCount = async (
     for (const cond of filters.searchConditions) {
       query = query.ilike(cond.searchTarget, `%${cond.searchKeyword}%`);
     }
+  }
+
+  if (filters?.searchKeyword) {
+    const keyword = filters.searchKeyword.replaceAll(',', '\\,').trim();
+    query = query.or(`item_name.ilike.%${keyword}%,item_code.ilike.%${keyword}%`);
   }
 
   if (filters?.isUse !== undefined) {

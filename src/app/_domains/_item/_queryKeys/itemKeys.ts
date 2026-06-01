@@ -6,6 +6,7 @@ export type SearchCondition = {
 export type ItemFilters = {
   categoryId?: string;
   searchConditions?: SearchCondition[];
+  searchKeyword?: string;
   isUse?: boolean;
   excludePurchasePrice?: boolean;
 };
