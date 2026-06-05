@@ -19,6 +19,7 @@ export type StampLogItem = {
   itemCategoryName?: string | null;
   quantity: number;
   unitPrice: number;
+  adjustedUnitPrice?: number | null;
   amount: number;
   remark: string;
   lineText: string;

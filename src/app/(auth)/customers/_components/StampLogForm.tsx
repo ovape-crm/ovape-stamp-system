@@ -216,6 +216,7 @@ export default function StampLogForm({
         itemCategoryName: line.itemCategoryName,
         quantity: line.quantity,
         unitPrice: line.unitPrice,
+        adjustedUnitPrice: line.adjustedUnitPrice,
         amount: line.amount,
         remark: line.remark,
         lineText: line.lineText,
@@ -280,7 +281,7 @@ export default function StampLogForm({
       remarkType === 'service'
         ? 0
         : remarkType === 'price_adjust'
-        ? priceAdjustAmount
+        ? priceAdjustAmount * quantity
         : price * quantity;
     const remarkText = remark;
     const lineText = `${selectedItem.item_name} ${quantity}개${
@@ -296,6 +297,8 @@ export default function StampLogForm({
         itemCategoryName: selectedItem.item_categories?.name ?? null,
         quantity,
         unitPrice: price,
+        adjustedUnitPrice:
+          remarkType === 'price_adjust' ? priceAdjustAmount : null,
         amount: lineAmount,
         remark,
         lineText,
@@ -656,7 +659,7 @@ export default function StampLogForm({
                   remarkType === 'service'
                     ? 0
                     : remarkType === 'price_adjust'
-                    ? priceAdjustAmount
+                    ? priceAdjustAmount * quantity
                     : (selectedItem.selling_price ?? 0) * quantity,
                 )}원`
               : '품목을 선택하면 메모와 금액이 생성됩니다.'}
@@ -701,8 +704,10 @@ export default function StampLogForm({
                         </p>
                       </div>
                       <p className="mt-0.5 text-xs text-gray-500">
-                        개별단가 {formatAmount(line.unitPrice)}원 / 총금액{' '}
-                        {formatAmount(line.amount)}원
+                        개별단가 {formatAmount(line.unitPrice)}원
+                        {typeof line.adjustedUnitPrice === 'number' &&
+                          ` / 조정단가 ${formatAmount(line.adjustedUnitPrice)}원`}
+                        {' / '}총금액 {formatAmount(line.amount)}원
                       </p>
                     </div>
                   </div>
