@@ -12,6 +12,7 @@ import Button from '@/app/_components/Button';
 import { addStamp } from '@/app/_domains/_stamp/_services/stampService';
 import { useQueryClient } from '@tanstack/react-query';
 import { customerKeys } from '@/app/_domains/_customer/_queryKeys/customerKeys';
+import { logKeys } from '@/app/_domains/_log/_queryKeys/logKeys';
 import type { CustomerCreateValues } from './_components/CustomerCreateModal';
 
 export default function CustomersPage() {
@@ -77,6 +78,7 @@ export default function CustomersPage() {
 
       close();
       queryClient.invalidateQueries({ queryKey: customerKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: logKeys.lists() });
     } catch (err) {
       console.error('고객 추가 실패:', err);
       if (err instanceof Error && err.message === 'DUPLICATE_CUSTOMER') {

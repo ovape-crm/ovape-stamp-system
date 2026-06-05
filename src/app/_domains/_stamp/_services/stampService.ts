@@ -16,6 +16,7 @@ export interface Stamp {
 export type StampLogItem = {
   itemId: string;
   itemName: string;
+  itemCategoryName?: string | null;
   quantity: number;
   unitPrice: number;
   amount: number;

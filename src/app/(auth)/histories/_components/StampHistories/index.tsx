@@ -24,6 +24,8 @@ import { useUser } from '@/app/_contexts/UserContext';
 import { useModal } from '@/app/_contexts/ModalContext';
 import DeleteConfirmModal from '@/app/(auth)/_components/DeleteConfirmModal';
 import StampLogEditModal from '@/app/(auth)/_components/StampLogEditModal';
+import RemarkLogCreateModal from '@/app/(auth)/customers/[id]/_components/RemarkLogCreateModal';
+import type { StampLogMeta } from '@/app/_domains/_stamp/_services/stampService';
 
 const PAGE_SIZE = 10;
 
@@ -69,10 +71,46 @@ const StampHistories = () => {
 
   const startEdit = useCallback(
     (log: LogsResType) => {
+      const isRemarkLog =
+        log.jsonb?.paymentType === PaymentTypeEnum.REMARK.value;
+
+      if (isRemarkLog) {
+        const handleRemarkSubmit = async (note: string) => {
+          try {
+            const updated = await updateLogNote(log.id, note);
+            updateItem(log.id, (item) => ({
+              ...item,
+              note: updated.note,
+              jsonb: updated.jsonb,
+              updated_at: updated.updated_at,
+            }));
+            close();
+            toast.success('특이사항을 저장했습니다.');
+          } catch (e) {
+            console.error('Failed to save remark note:', e);
+            toast.error('저장에 실패했습니다. 다시 시도해 주세요.');
+          }
+        };
+
+        open({
+          content: (
+            <RemarkLogCreateModal
+              initialNote={log.note ?? ''}
+              mode="edit"
+              onSubmit={handleRemarkSubmit}
+              onCancel={close}
+            />
+          ),
+          options: { dismissOnBackdrop: false, dismissOnEsc: true },
+        });
+        return;
+      }
+
       const handleSubmit = async (values: {
         note: string;
         paymentType?: PaymentTypeEnumType['value'];
         storeName: StoreTypeEnumType['value'];
+        logMeta: StampLogMeta;
       }) => {
         try {
           const updated = await updateLogNote(
@@ -80,6 +118,7 @@ const StampHistories = () => {
             values.note,
             values.paymentType,
             values.storeName,
+            values.logMeta,
           );
           updateItem(log.id, (item) => ({
             ...item,
@@ -98,7 +137,7 @@ const StampHistories = () => {
       open({
         content: (
           <StampLogEditModal
-            initialNote={log.note ?? ''}
+            initialAction={log.action}
             initialPaymentType={
               log.jsonb?.paymentType as
                 | PaymentTypeEnumType['value']
@@ -107,6 +146,7 @@ const StampHistories = () => {
             initialStoreName={
               log.jsonb?.storeName as StoreTypeEnumType['value'] | undefined
             }
+            initialLogMeta={log.jsonb as StampLogMeta}
             onSubmit={handleSubmit}
             onCancel={close}
           />

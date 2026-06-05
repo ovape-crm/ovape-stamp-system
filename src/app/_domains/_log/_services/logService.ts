@@ -4,6 +4,7 @@ import {
   PaymentTypeEnumType,
   StoreTypeEnumType,
 } from '@/app/_enums/enums';
+import type { StampLogMeta } from '@/app/_domains/_stamp/_services/stampService';
 import {
   AfterServiceLogsResType,
   CustomersLogsResType,
@@ -204,7 +205,8 @@ export const updateLogNote = async (
   logId: string,
   note: string,
   paymentType?: PaymentTypeEnumType['value'],
-  storeName?: StoreTypeEnumType['value']
+  storeName?: StoreTypeEnumType['value'],
+  logMeta?: StampLogMeta,
 ) => {
   const { data: existing, error: fetchError } = await supabase
     .from('logs')
@@ -219,6 +221,15 @@ export const updateLogNote = async (
   const nextJsonb: Record<string, unknown> = { ...currentJsonb };
   if (paymentType !== undefined) nextJsonb.paymentType = paymentType;
   if (storeName !== undefined) nextJsonb.storeName = storeName;
+  if (logMeta !== undefined) {
+    nextJsonb.totalAmount = logMeta.totalAmount;
+    nextJsonb.items = logMeta.items;
+    if (logMeta.discount) {
+      nextJsonb.discount = logMeta.discount;
+    } else {
+      delete nextJsonb.discount;
+    }
+  }
 
   const { data, error } = await supabase
     .from('logs')

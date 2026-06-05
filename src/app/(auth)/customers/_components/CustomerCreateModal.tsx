@@ -128,8 +128,8 @@ export default function CustomerCreateModal({
   // ========================================================================
   // 확인 화면 렌더링
   // ========================================================================
-  if (showConfirm && formData) {
-    return (
+  const confirmContent =
+    showConfirm && formData ? (
       <div className="w-full flex flex-col min-h-0">
         <h2 className="text-lg font-semibold mb-4 shrink-0">고객 정보 확인</h2>
 
@@ -241,16 +241,16 @@ export default function CustomerCreateModal({
           </Button>
         </div>
       </div>
-    );
-  }
+    ) : null;
 
   // ========================================================================
   // 입력 폼 렌더링
   // ========================================================================
   return (
+    <>
     <form
       onSubmit={handleSubmit(handleFormSubmit)}
-      className="w-full flex flex-col min-h-0"
+      className={`w-full min-h-0 flex-col ${showConfirm ? 'hidden' : 'flex'}`}
       noValidate
     >
       <h2 className="text-lg font-semibold mb-3 shrink-0">고객 추가</h2>
@@ -377,5 +377,7 @@ export default function CustomerCreateModal({
         </Button>
       </div>
     </form>
+    {confirmContent}
+    </>
   );
 }
