@@ -9,6 +9,9 @@ interface RemarkLogCreateModalProps {
   isSubmitting?: boolean;
   initialNote?: string;
   mode?: 'create' | 'edit';
+  title?: string;
+  label?: string;
+  placeholder?: string;
 }
 
 const RemarkLogCreateModal = ({
@@ -17,6 +20,9 @@ const RemarkLogCreateModal = ({
   isSubmitting = false,
   initialNote = '',
   mode = 'create',
+  title,
+  label = '특이사항',
+  placeholder = '특이사항을 입력하세요',
 }: RemarkLogCreateModalProps) => {
   const [note, setNote] = useState(initialNote);
 
@@ -32,19 +38,19 @@ const RemarkLogCreateModal = ({
   return (
     <form onSubmit={handleSubmit} className="w-full" noValidate>
       <h2 className="text-lg font-semibold mb-3">
-        특이사항 이력 {mode === 'create' ? '추가' : '수정'}
+        {title ?? `특이사항 이력 ${mode === 'create' ? '추가' : '수정'}`}
       </h2>
 
       <div className="space-y-3">
         <div>
           <label className="block text-sm font-medium mb-1 text-gray-700">
-            특이사항 <span className="text-rose-600">*</span>
+            {label} <span className="text-rose-600">*</span>
           </label>
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
             className="w-full min-h-32 rounded border border-brand-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 resize-none"
-            placeholder="특이사항을 입력하세요"
+            placeholder={placeholder}
             disabled={isSubmitting}
             rows={6}
           />

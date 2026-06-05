@@ -74,8 +74,11 @@ const CustomersDetailStampsHistories = ({
     (log: CustomersLogsResType[number]) => {
       const isRemarkLog =
         log.jsonb?.paymentType === PaymentTypeEnum.REMARK.value;
+      const hasStampLogItems =
+        Array.isArray(log.jsonb?.items) && log.jsonb.items.length > 0;
+      const shouldEditMemoOnly = isRemarkLog || !hasStampLogItems;
 
-      if (isRemarkLog) {
+      if (shouldEditMemoOnly) {
         const handleRemarkSubmit = async (note: string) => {
           try {
             const updated = await updateLogNote(log.id, note);
@@ -86,7 +89,7 @@ const CustomersDetailStampsHistories = ({
               updated_at: updated.updated_at,
             }));
             close();
-            toast.success('특이사항을 저장했습니다.');
+            toast.success(isRemarkLog ? '특이사항을 저장했습니다.' : '메모를 저장했습니다.');
           } catch (e) {
             console.error(e);
             toast.error('저장에 실패했습니다. 다시 시도해 주세요.');
@@ -98,6 +101,9 @@ const CustomersDetailStampsHistories = ({
             <RemarkLogCreateModal
               initialNote={log.note ?? ''}
               mode="edit"
+              title={isRemarkLog ? undefined : '메모 수정'}
+              label={isRemarkLog ? undefined : '메모'}
+              placeholder={isRemarkLog ? undefined : '메모를 입력하세요'}
               onSubmit={handleRemarkSubmit}
               onCancel={close}
             />
