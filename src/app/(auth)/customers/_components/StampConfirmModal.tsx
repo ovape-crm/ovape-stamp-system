@@ -74,99 +74,101 @@ export default function StampConfirmModal({
     }
   };
 
-  // ── 확인 화면 ──────────────────────────────────────────────────────────────
-  if (showConfirm) {
-    return (
-      <div className="w-full flex flex-col min-h-0">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">{title} 확인</h2>
+  const confirmContent = (
+    <div className="w-full flex flex-col min-h-0">
+      <h2 className="text-xl font-semibold text-gray-900 mb-4">{title} 확인</h2>
 
-        <div className="overflow-y-auto min-h-0 flex-1 space-y-4">
-          {/* 대상 고객 */}
-          <div className="bg-gray-100 rounded-lg p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-2 h-2 bg-brand-500 rounded-full" />
-              <span className="text-sm font-medium text-gray-700">대상 고객</span>
-            </div>
-            <p className="text-lg font-semibold text-gray-900">{target.name}</p>
-            <p className="text-sm text-gray-600">{formatPhoneNumber(target.phone)}</p>
+      <div className="overflow-y-auto min-h-0 flex-1 space-y-4">
+        {/* 대상 고객 */}
+        <div className="bg-gray-100 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-2 h-2 bg-brand-500 rounded-full" />
+            <span className="text-sm font-medium text-gray-700">대상 고객</span>
           </div>
+          <p className="text-lg font-semibold text-gray-900">{target.name}</p>
+          <p className="text-sm text-gray-600">{formatPhoneNumber(target.phone)}</p>
+        </div>
 
-          {/* 요약 정보 */}
-          <div className="bg-brand-50 rounded-lg p-4 border border-brand-200 space-y-2">
-            {mode === 'add' && stampLog && (
-              <>
-                <div>
-                  <span className="text-sm font-medium text-gray-600">매장:</span>
-                  <p className="text-base font-semibold text-gray-900">
-                    {stampLog.storeLabel}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-600">스탬프 개수:</span>
-                  <p className="text-base font-semibold text-gray-900">
-                    {stampLog.amount === 0 ? '미적립' : `${stampLog.amount}개`}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-600">결제 유형:</span>
-                  <p className="text-base font-semibold text-gray-900">
-                    {stampLog.paymentTypeName}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-600">금액:</span>
-                  <p className="text-base font-semibold text-gray-900">
-                    {stampLog.finalAmountExpression || '0'} ={' '}
-                    {formatAmount(stampLog.finalAmount)}
-                  </p>
-                </div>
-              </>
-            )}
-            {mode === 'adjust' && (
+        {/* 요약 정보 */}
+        <div className="bg-brand-50 rounded-lg p-4 border border-brand-200 space-y-2">
+          {mode === 'add' && stampLog && (
+            <>
               <div>
-                <span className="text-sm font-medium text-gray-600">
-                  {adjustActionLabel} 개수:
-                </span>
-                <p className="text-base font-semibold text-gray-900">{amount}개</p>
-              </div>
-            )}
-            {mode === 'use10' && (
-              <div>
-                <span className="text-sm font-medium text-gray-600">쿠폰 사용:</span>
-                <p className="text-base font-semibold text-gray-900">10개 차감</p>
-              </div>
-            )}
-            {(mode === 'add' ? stampLog?.note : note) && (
-              <div>
-                <span className="text-sm font-medium text-gray-600">메모:</span>
-                <p className="text-sm text-gray-900 whitespace-pre-wrap">
-                  {mode === 'add' ? stampLog?.note : note}
+                <span className="text-sm font-medium text-gray-600">매장:</span>
+                <p className="text-base font-semibold text-gray-900">
+                  {stampLog.storeLabel}
                 </p>
               </div>
-            )}
-          </div>
-        </div>
-
-        <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 mt-4">
-          <Button
-            variant="gray"
-            size="sm"
-            onClick={() => setShowConfirm(false)}
-            disabled={isSubmitting}
-          >
-            수정
-          </Button>
-          <Button size="sm" onClick={handleConfirm} disabled={isSubmitting}>
-            {isSubmitting ? '처리 중...' : '확인'}
-          </Button>
+              <div>
+                <span className="text-sm font-medium text-gray-600">스탬프 개수:</span>
+                <p className="text-base font-semibold text-gray-900">
+                  {stampLog.amount === 0 ? '미적립' : `${stampLog.amount}개`}
+                </p>
+              </div>
+              <div>
+                <span className="text-sm font-medium text-gray-600">결제 유형:</span>
+                <p className="text-base font-semibold text-gray-900">
+                  {stampLog.paymentTypeName}
+                </p>
+              </div>
+              <div>
+                <span className="text-sm font-medium text-gray-600">금액:</span>
+                <p className="text-base font-semibold text-gray-900">
+                  {stampLog.finalAmountExpression || '0'} ={' '}
+                  {formatAmount(stampLog.finalAmount)}
+                </p>
+              </div>
+            </>
+          )}
+          {mode === 'adjust' && (
+            <div>
+              <span className="text-sm font-medium text-gray-600">
+                {adjustActionLabel} 개수:
+              </span>
+              <p className="text-base font-semibold text-gray-900">{amount}개</p>
+            </div>
+          )}
+          {mode === 'use10' && (
+            <div>
+              <span className="text-sm font-medium text-gray-600">쿠폰 사용:</span>
+              <p className="text-base font-semibold text-gray-900">10개 차감</p>
+            </div>
+          )}
+          {(mode === 'add' ? stampLog?.note : note) && (
+            <div>
+              <span className="text-sm font-medium text-gray-600">메모:</span>
+              <p className="text-sm text-gray-900 whitespace-pre-wrap">
+                {mode === 'add' ? stampLog?.note : note}
+              </p>
+            </div>
+          )}
         </div>
       </div>
-    );
-  }
+
+      <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 mt-4">
+        <Button
+          variant="gray"
+          size="sm"
+          onClick={() => setShowConfirm(false)}
+          disabled={isSubmitting}
+        >
+          수정
+        </Button>
+        <Button size="sm" onClick={handleConfirm} disabled={isSubmitting}>
+          {isSubmitting ? '처리 중...' : '확인'}
+        </Button>
+      </div>
+    </div>
+  );
 
   // ── 입력 화면 ──────────────────────────────────────────────────────────────
   return (
-    <div className="w-full flex max-h-[calc(90vh-2rem)] min-h-0 flex-col">
+    <>
+    <div
+      className={`w-full max-h-[calc(90vh-2rem)] min-h-0 flex-col ${
+        showConfirm ? 'hidden' : 'flex'
+      }`}
+    >
       <div className="shrink-0 mb-4">
         <h2 className="text-xl font-semibold text-gray-900 mb-3">{title}</h2>
 
@@ -346,5 +348,7 @@ export default function StampConfirmModal({
         </Button>
       </div>
     </div>
+    {showConfirm && confirmContent}
+    </>
   );
 }

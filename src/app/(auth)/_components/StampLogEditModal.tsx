@@ -1,145 +1,92 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Button from '@/app/_components/Button';
 import {
-  PaymentTypeEnum,
   PaymentTypeEnumType,
   StoreTypeEnum,
   StoreTypeEnumType,
 } from '@/app/_enums/enums';
+import StampLogForm, {
+  StampLogValue,
+} from '@/app/(auth)/customers/_components/StampLogForm';
+import type { StampLogMeta } from '@/app/_domains/_stamp/_services/stampService';
 
-const ovapePaymentTypes = [
-  PaymentTypeEnum.CARD,
-  PaymentTypeEnum.TRANSFER,
-  PaymentTypeEnum.CASH,
-  PaymentTypeEnum.KAKAOTALK,
-  PaymentTypeEnum.CASH_RECEIPT,
-  PaymentTypeEnum.TRANSFER_CASH_RECEIPT,
-];
-
-const eguVapePaymentTypes = [
-  PaymentTypeEnum.EGU_CARD,
-  PaymentTypeEnum.EGU_TRANSFER,
-  PaymentTypeEnum.EGU_CASH_RECEIPT,
-];
-
-const paymentTypesByStore: Record<
-  StoreTypeEnumType['value'],
-  ReadonlyArray<(typeof PaymentTypeEnum)[keyof typeof PaymentTypeEnum]>
-> = {
-  [StoreTypeEnum.OVAPE.value]: ovapePaymentTypes,
-  [StoreTypeEnum.EGU_VAPE.value]: eguVapePaymentTypes,
+const getStampAmountFromAction = (action: string) => {
+  if (action === 'no-stamp') return 0;
+  if (action.startsWith('add-')) {
+    const amount = Number(action.replace('add-', ''));
+    return Number.isFinite(amount) ? amount : 0;
+  }
+  return 0;
 };
 
 interface StampLogEditModalProps {
-  initialNote: string;
+  initialAction: string;
   initialPaymentType?: PaymentTypeEnumType['value'];
   initialStoreName?: StoreTypeEnumType['value'];
+  initialLogMeta?: StampLogMeta | null;
   onSubmit: (values: {
     note: string;
     paymentType?: PaymentTypeEnumType['value'];
     storeName: StoreTypeEnumType['value'];
+    logMeta: StampLogMeta;
   }) => Promise<void>;
   onCancel: () => void;
 }
 
 const StampLogEditModal = ({
-  initialNote,
+  initialAction,
   initialPaymentType,
   initialStoreName,
+  initialLogMeta,
   onSubmit,
   onCancel,
 }: StampLogEditModalProps) => {
-  const [note, setNote] = useState(initialNote);
-  const [storeName, setStoreName] = useState<StoreTypeEnumType['value']>(
-    initialStoreName ?? StoreTypeEnum.OVAPE.value,
-  );
-  const [paymentType, setPaymentType] = useState<
-    PaymentTypeEnumType['value'] | undefined
-  >(initialPaymentType);
+  const [stampLog, setStampLog] = useState<StampLogValue | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const paymentTypeOptions = paymentTypesByStore[storeName] ?? [];
-
-  const handleStoreChange = (next: StoreTypeEnumType['value']) => {
-    setStoreName(next);
-    const allowed = paymentTypesByStore[next] ?? [];
-    if (paymentType && !allowed.some((o) => o.value === paymentType)) {
-      setPaymentType(undefined);
-    }
-  };
+  const initialValue = useMemo(
+    () => ({
+      paymentType: initialPaymentType,
+      storeName: initialStoreName ?? StoreTypeEnum.OVAPE.value,
+      amount: getStampAmountFromAction(initialAction),
+      logMeta: initialLogMeta,
+    }),
+    [initialAction, initialLogMeta, initialPaymentType, initialStoreName],
+  );
 
   const handleSubmit = async () => {
+    if (!stampLog) return;
+
     try {
       setIsSubmitting(true);
-      await onSubmit({ note, paymentType, storeName });
+      await onSubmit({
+        note: stampLog.note,
+        paymentType: stampLog.paymentType,
+        storeName: stampLog.storeName,
+        logMeta: stampLog.logMeta,
+      });
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="w-full">
-      <h2 className="text-xl font-semibold text-gray-900 mb-4">
+    <div className="w-full flex max-h-[calc(90vh-2rem)] min-h-0 flex-col">
+      <h2 className="shrink-0 text-xl font-semibold text-gray-900 mb-4">
         출고 이력 수정
       </h2>
 
-      <div className="space-y-5">
-        <div>
-          <span className="block text-sm font-medium mb-2">매장명</span>
-          <div className="grid grid-cols-2 gap-2">
-            {Object.values(StoreTypeEnum).map((option) => (
-              <Button
-                key={option.value}
-                type="button"
-                size="sm"
-                variant={storeName === option.value ? 'primary' : 'gray'}
-                onClick={() => handleStoreChange(option.value)}
-                disabled={isSubmitting}
-              >
-                {option.name}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <span className="block text-sm font-medium mb-2">결제 유형</span>
-          <div className="grid grid-cols-3 gap-2">
-            {paymentTypeOptions.map((option) => (
-              <Button
-                key={option.value}
-                type="button"
-                size="sm"
-                variant={paymentType === option.value ? 'primary' : 'gray'}
-                onClick={() => setPaymentType(option.value)}
-                disabled={isSubmitting}
-              >
-                {option.name.replace('이구베이프', '')}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <span className="block text-sm font-medium mb-2">메모</span>
-          <div className="mb-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-            ⚠️ 총금액은 변경되지 않습니다. 금액 수정이 필요한 경우 이력을 삭제한
-            뒤 다시 추가해주세요.
-          </div>
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            className="w-full min-h-32 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm resize-y"
-            placeholder="메모를 입력하세요"
-            disabled={isSubmitting}
-            rows={6}
-          />
-        </div>
+      <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+        <StampLogForm
+          initialValue={initialValue}
+          isStampAmountEditable={false}
+          onChange={setStampLog}
+        />
       </div>
 
-      <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 mt-6">
+      <div className="shrink-0 flex justify-end gap-3 pt-4 mt-4 border-t border-gray-200">
         <Button
           variant="gray"
           size="sm"
@@ -148,7 +95,11 @@ const StampLogEditModal = ({
         >
           취소
         </Button>
-        <Button size="sm" onClick={handleSubmit} disabled={isSubmitting}>
+        <Button
+          size="sm"
+          onClick={handleSubmit}
+          disabled={isSubmitting || !stampLog}
+        >
           {isSubmitting ? '저장 중...' : '저장'}
         </Button>
       </div>

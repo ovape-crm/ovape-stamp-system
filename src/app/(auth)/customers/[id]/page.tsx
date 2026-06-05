@@ -75,6 +75,9 @@ export default function CustomerDetailPage() {
       queryKey: logKeys.byCustomer(customerId, LogCategoryEnum.REMARK.value),
     });
     queryClient.invalidateQueries({
+      queryKey: logKeys.lists(),
+    });
+    queryClient.invalidateQueries({
       queryKey: customerKeys.afterServices(customerId),
     });
   };

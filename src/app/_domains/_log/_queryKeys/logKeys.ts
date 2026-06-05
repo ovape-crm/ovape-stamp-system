@@ -1,12 +1,14 @@
 import { LogCategoryEnumType } from '@/app/_enums/enums';
 
 export const logKeys = {
+  all: () => ['logs'] as const,
+  lists: () => [...logKeys.all(), 'list'] as const,
   list: (params: {
     category: LogCategoryEnumType['value'];
     dateRange?: { start: string; end: string } | null;
     paymentMethod?: string | null;
     searchKeyword?: string | null;
-  }) => ['logs', 'list', params] as const,
+  }) => [...logKeys.lists(), params] as const,
   byAfterService: (afterServiceId: number) =>
     ['logs', 'byAfterService', afterServiceId] as const,
   byCustomer: (customerId: string, category: string) =>

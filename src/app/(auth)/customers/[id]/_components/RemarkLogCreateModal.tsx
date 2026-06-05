@@ -7,14 +7,18 @@ interface RemarkLogCreateModalProps {
   onSubmit: (note: string) => Promise<void>;
   onCancel: () => void;
   isSubmitting?: boolean;
+  initialNote?: string;
+  mode?: 'create' | 'edit';
 }
 
 const RemarkLogCreateModal = ({
   onSubmit,
   onCancel,
   isSubmitting = false,
+  initialNote = '',
+  mode = 'create',
 }: RemarkLogCreateModalProps) => {
-  const [note, setNote] = useState('');
+  const [note, setNote] = useState(initialNote);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,12 +26,14 @@ const RemarkLogCreateModal = ({
       return;
     }
     await onSubmit(note.trim());
-    setNote('');
+    if (mode === 'create') setNote('');
   };
 
   return (
     <form onSubmit={handleSubmit} className="w-full" noValidate>
-      <h2 className="text-lg font-semibold mb-3">특이사항 이력 추가</h2>
+      <h2 className="text-lg font-semibold mb-3">
+        특이사항 이력 {mode === 'create' ? '추가' : '수정'}
+      </h2>
 
       <div className="space-y-3">
         <div>
@@ -60,7 +66,13 @@ const RemarkLogCreateModal = ({
           type="submit"
           disabled={isSubmitting || !note.trim()}
         >
-          {isSubmitting ? '추가 중...' : '추가'}
+          {isSubmitting
+            ? mode === 'create'
+              ? '추가 중...'
+              : '저장 중...'
+            : mode === 'create'
+              ? '추가'
+              : '저장'}
         </Button>
       </div>
     </form>
