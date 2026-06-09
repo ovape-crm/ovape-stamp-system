@@ -32,6 +32,7 @@ const buildAmountFormula = (
   const items = Array.isArray(jsonb.items)
     ? (jsonb.items as Array<{
         unitPrice?: unknown;
+        adjustedUnitPrice?: unknown;
         quantity?: unknown;
         amount?: unknown;
       }>)
@@ -50,14 +51,18 @@ const buildAmountFormula = (
 
   for (const item of items) {
     const amount = typeof item.amount === 'number' ? item.amount : 0;
-    const unitPrice =
-      typeof item.unitPrice === 'number' ? item.unitPrice : 0;
-    if (amount <= 0 || unitPrice <= 0) continue;
+    const effectiveUnitPrice =
+      typeof item.adjustedUnitPrice === 'number'
+        ? item.adjustedUnitPrice
+        : typeof item.unitPrice === 'number'
+        ? item.unitPrice
+        : 0;
+    if (amount <= 0 || effectiveUnitPrice <= 0) continue;
     const quantity =
       typeof item.quantity === 'number' && item.quantity > 0
         ? item.quantity
         : 1;
-    parts.push(`+${unitPrice}${quantity > 1 ? `*${quantity}` : ''}`);
+    parts.push(`+${effectiveUnitPrice}${quantity > 1 ? `*${quantity}` : ''}`);
   }
 
   if (parts.length === 0) {
@@ -100,7 +105,13 @@ const useCopy = () => {
     const name = targetUser.name || '이름 없음';
     const phone = formatPhoneNumber(targetUser.phone);
     const genderText = targetUser.gender === 'male' ? '남자' : targetUser.gender === 'female' ? '여자' : '';
-    const gender = genderText ? `(숫자),${genderText}` : '';
+    const baseGender = genderText ? `(숫자),${genderText}` : '';
+    const extraNoteValue = log.jsonb?.extraNote;
+    const extraNote =
+      typeof extraNoteValue === 'string' ? extraNoteValue.trim() : '';
+    const gender = extraNote
+      ? `${baseGender}${baseGender ? ',' : ''}${extraNote}`
+      : baseGender;
 
     const createdAt = new Date(log.created_at);
     const formattedDate = `${createdAt.getFullYear()}. ${String(

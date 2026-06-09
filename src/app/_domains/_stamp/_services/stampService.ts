@@ -28,6 +28,7 @@ export type StampLogItem = {
 export type StampLogMeta = {
   storeName?: StoreTypeEnumType['value'];
   totalAmount?: number;
+  extraNote?: string;
   discount?: {
     type: string;
     name: string;

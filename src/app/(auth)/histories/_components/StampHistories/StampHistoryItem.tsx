@@ -61,6 +61,12 @@ const StampHistoryItem = ({
           </Button>
           <span className="flex-1 min-w-[240px] text-xs sm:text-sm text-gray-600 break-words whitespace-pre-line">
             {log.note || <span className="text-gray-400"> - </span>}
+            {typeof log.jsonb?.extraNote === 'string' &&
+              log.jsonb.extraNote.trim() && (
+                <span className="ml-2 italic text-gray-400">
+                  출고 특이사항: &quot;{log.jsonb.extraNote.trim()}&quot;
+                </span>
+              )}
           </span>
         </div>
       </div>

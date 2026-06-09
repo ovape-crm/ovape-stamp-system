@@ -120,6 +120,9 @@ export default function StampLogForm({
   const [discountAmount, setDiscountAmount] = useState(
     initialValue?.logMeta?.discount?.amount ?? 0,
   );
+  const [extraNote, setExtraNote] = useState(
+    initialValue?.logMeta?.extraNote ?? '',
+  );
   const itemSearchRef = useRef<HTMLDivElement>(null);
   const lineRefs = useRef(new Map<string, HTMLDivElement>());
   const previousLineRectsRef = useRef(new Map<string, DOMRect>());
@@ -201,6 +204,7 @@ export default function StampLogForm({
     const logMeta: StampLogMeta = {
       storeName,
       totalAmount: finalAmount,
+      extraNote: extraNote.trim() || undefined,
       discount:
         discountLabel && activeDiscountAmount > 0
           ? {
@@ -250,6 +254,7 @@ export default function StampLogForm({
     activeDiscountAmount,
     discountType,
     discountLine,
+    extraNote,
   ]);
 
   const handleItemSelect = (item: ItemType) => {
@@ -791,6 +796,19 @@ export default function StampLogForm({
             {finalAmountExpression || '0'} = {formatAmount(finalAmount)}
           </p>
         </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          출고 특이사항
+        </label>
+        <input
+          type="text"
+          value={extraNote}
+          onChange={(e) => setExtraNote(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm"
+          placeholder="배달지주소 , 네이버톡톡 : 아이디"
+        />
       </div>
 
     </div>
