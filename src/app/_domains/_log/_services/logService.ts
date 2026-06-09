@@ -229,6 +229,11 @@ export const updateLogNote = async (
     } else {
       delete nextJsonb.discount;
     }
+    if (logMeta.extraNote) {
+      nextJsonb.extraNote = logMeta.extraNote;
+    } else {
+      delete nextJsonb.extraNote;
+    }
   }
 
   const { data, error } = await supabase
