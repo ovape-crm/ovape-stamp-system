@@ -212,6 +212,16 @@ export default function CustomerCreateModal({
                     </p>
                   </div>
                 )}
+                {formData.stampLog.logMeta.extraNote && (
+                  <div>
+                    <span className="text-sm font-medium text-gray-600">
+                      출고 특이사항:
+                    </span>
+                    <p className="text-xs text-gray-900 whitespace-pre-wrap">
+                      {formData.stampLog.logMeta.extraNote}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           )}

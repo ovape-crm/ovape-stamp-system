@@ -142,6 +142,16 @@ export default function StampConfirmModal({
               </p>
             </div>
           )}
+          {mode === 'add' && stampLog?.logMeta.extraNote && (
+            <div>
+              <span className="text-sm font-medium text-gray-600">
+                출고 특이사항:
+              </span>
+              <p className="text-sm text-gray-900 whitespace-pre-wrap">
+                {stampLog.logMeta.extraNote}
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
