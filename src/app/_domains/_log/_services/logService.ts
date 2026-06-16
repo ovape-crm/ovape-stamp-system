@@ -207,6 +207,7 @@ export const updateLogNote = async (
   paymentType?: PaymentTypeEnumType['value'],
   storeName?: StoreTypeEnumType['value'],
   logMeta?: StampLogMeta,
+  action?: string,
 ) => {
   const { data: existing, error: fetchError } = await supabase
     .from('logs')
@@ -236,9 +237,12 @@ export const updateLogNote = async (
     }
   }
 
+  const updatePayload: Record<string, unknown> = { note, jsonb: nextJsonb };
+  if (action !== undefined) updatePayload.action = action;
+
   const { data, error } = await supabase
     .from('logs')
-    .update({ note, jsonb: nextJsonb })
+    .update(updatePayload)
     .eq('id', logId)
     .select()
     .single();

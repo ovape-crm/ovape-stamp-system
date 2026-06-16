@@ -28,6 +28,16 @@ export default function HistoriesPage() {
               출고 이력
             </Button>
             <Button
+              onClick={() => setLogType(LogCategoryEnum.RESERVATION.value)}
+              variant={
+                logType === LogCategoryEnum.RESERVATION.value
+                  ? 'primary'
+                  : 'secondary'
+              }
+            >
+              예약 이력
+            </Button>
+            <Button
               onClick={() => setLogType(LogCategoryEnum.CUSTOMER.value)}
               variant={
                 logType === LogCategoryEnum.CUSTOMER.value
@@ -49,6 +59,11 @@ export default function HistoriesPage() {
         </div>
         {logType === LogCategoryEnum.STAMP.value ? (
           <StampHistories />
+        ) : logType === LogCategoryEnum.RESERVATION.value ? (
+          <StampHistories
+            category={LogCategoryEnum.RESERVATION.value}
+            isReservation
+          />
         ) : (
           <CustomerHistories />
         )}

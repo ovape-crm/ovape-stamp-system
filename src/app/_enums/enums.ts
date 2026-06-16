@@ -85,6 +85,10 @@ export const LogCategoryEnum = {
     value: 'stamp',
     name: '스탬프',
   },
+  RESERVATION: {
+    value: 'reservation',
+    name: '예약',
+  },
   REMARK: {
     value: 'remark',
     name: '특이사항',

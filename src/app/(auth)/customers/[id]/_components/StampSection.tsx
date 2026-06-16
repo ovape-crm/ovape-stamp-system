@@ -5,11 +5,14 @@ import toast from 'react-hot-toast';
 import StampCards from './StampCards';
 import {
   addStamp,
+  addReservationStamp,
   removeStamp,
   StampLogMeta,
 } from '@/app/_domains/_stamp/_services/stampService';
 import { PaymentTypeEnumType } from '@/app/_enums/enums';
 import { useModal } from '@/app/_contexts/ModalContext';
+import { useQueryClient } from '@tanstack/react-query';
+import { logKeys } from '@/app/_domains/_log/_queryKeys/logKeys';
 import StampConfirmModal from '../../_components/StampConfirmModal';
 import Button from '@/app/_components/Button';
 
@@ -23,6 +26,15 @@ interface StampSectionProps {
 const StampSection = ({ stampCount, target, onUpdate, onAddRemark }: StampSectionProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const { open, close } = useModal();
+  const queryClient = useQueryClient();
+
+  // 출고/예약 이력 목록 캐시를 무효화 (이력 페이지 + 고객 상세의 출고/예약 탭 모두 반영)
+  const invalidateLogLists = () => {
+    queryClient.invalidateQueries({ queryKey: logKeys.lists() });
+    queryClient.invalidateQueries({
+      queryKey: logKeys.byCustomerAll(target.id),
+    });
+  };
 
   const handleAdd = async (
     memo?: string,
@@ -34,10 +46,30 @@ const StampSection = ({ stampCount, target, onUpdate, onAddRemark }: StampSectio
       setIsLoading(true);
       await addStamp(target.id, amount, memo ?? '', paymentType, logMeta);
       onUpdate();
+      invalidateLogLists();
       toast.success(amount === 0 ? '미적립으로 기록되었습니다.' : `스탬프 ${amount}개 적립 완료!`);
     } catch (error) {
       console.error('스탬프 적립 실패:', error);
       toast.error('스탬프 적립에 실패했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleReserve = async (
+    memo?: string,
+    paymentType?: PaymentTypeEnumType['value'],
+    amount: number = 0,
+    logMeta?: StampLogMeta,
+  ) => {
+    try {
+      setIsLoading(true);
+      await addReservationStamp(target.id, amount, memo ?? '', paymentType, logMeta);
+      invalidateLogLists();
+      toast.success('출고 예약으로 저장되었습니다.');
+    } catch (error) {
+      console.error('출고 예약 실패:', error);
+      toast.error('출고 예약에 실패했습니다.');
     } finally {
       setIsLoading(false);
     }
@@ -103,8 +135,14 @@ const StampSection = ({ stampCount, target, onUpdate, onAddRemark }: StampSectio
                       paymentType?: PaymentTypeEnumType['value'],
                       amount?: number,
                       logMeta?: StampLogMeta,
+                      _adjustDirection?: 'add' | 'remove',
+                      isReservation?: boolean,
                     ) => {
-                      await handleAdd(modalNote, paymentType, amount, logMeta);
+                      if (isReservation) {
+                        await handleReserve(modalNote, paymentType, amount, logMeta);
+                      } else {
+                        await handleAdd(modalNote, paymentType, amount, logMeta);
+                      }
                       close();
                     }}
                   />

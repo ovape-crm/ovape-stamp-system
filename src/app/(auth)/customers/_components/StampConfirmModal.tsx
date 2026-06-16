@@ -29,6 +29,7 @@ export default function StampConfirmModal({
     amount?: number,
     logMeta?: StampLogMeta,
     adjustDirection?: 'add' | 'remove',
+    isReservation?: boolean,
   ) => Promise<void> | void;
   onCancel: () => void;
 }) {
@@ -40,9 +41,16 @@ export default function StampConfirmModal({
   const [amount, setAmount] = useState<number>(amountProp ?? (mode === 'adjust' ? 1 : 0));
   const [adjustDirection, setAdjustDirection] = useState<'add' | 'remove'>('remove');
   const [stampLog, setStampLog] = useState<StampLogValue | null>(null);
+  const [isReservation, setIsReservation] = useState(false);
 
   const title =
-    mode === 'add' ? '출고 이력 추가' : mode === 'adjust' ? '스탬프 조정' : '쿠폰 사용';
+    mode === 'add'
+      ? isReservation
+        ? '출고 예약 추가'
+        : '출고 이력 추가'
+      : mode === 'adjust'
+      ? '스탬프 조정'
+      : '쿠폰 사용';
 
   const adjustActionLabel = adjustDirection === 'add' ? '추가' : '차감';
 
@@ -63,6 +71,8 @@ export default function StampConfirmModal({
           stampLog.paymentType,
           stampLog.amount,
           stampLog.logMeta,
+          undefined,
+          isReservation,
         );
       } else if (mode === 'adjust') {
         await onConfirm(note, undefined, amount, undefined, adjustDirection);
@@ -93,6 +103,11 @@ export default function StampConfirmModal({
         <div className="bg-brand-50 rounded-lg p-4 border border-brand-200 space-y-2">
           {mode === 'add' && stampLog && (
             <>
+              {isReservation && (
+                <div className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">
+                  예약 이력으로 저장됩니다
+                </div>
+              )}
               <div>
                 <span className="text-sm font-medium text-gray-600">매장:</span>
                 <p className="text-base font-semibold text-gray-900">
@@ -257,7 +272,36 @@ export default function StampConfirmModal({
         </div>
       )}
 
-      {mode === 'add' && <StampLogForm onChange={setStampLog} />}
+      {mode === 'add' && (
+        <>
+          <StampLogForm onChange={setStampLog} />
+
+          <div className="mt-5 flex items-center justify-between gap-3 rounded-lg border border-brand-200 bg-brand-50/60 px-4 py-3">
+            <div>
+              <p className="text-sm font-medium text-gray-800">출고 예약</p>
+              <p className="mt-0.5 text-xs text-gray-500">
+                예약으로 저장하면 스탬프는 적립되지 않고, 예약 이력에서 확정 시
+                출고 이력으로 반영됩니다.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={isReservation}
+              onClick={() => setIsReservation((v) => !v)}
+              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+                isReservation ? 'bg-brand-500' : 'bg-gray-300'
+              }`}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                  isReservation ? 'translate-x-5' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+          </div>
+        </>
+      )}
 
       {mode === 'use10' && (
         <div className="mb-6">

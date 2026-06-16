@@ -24,7 +24,10 @@ import CustomersDetailUpdateHistories from './_components/CustomersDetailUpdateH
 // import CustomersDetailRemarkHistories from './_components/CustomersDetailRemarkHistories';
 import CustomerAfterServices from './_components/CustomerAfterServices';
 import RemarkLogCreateModal from './_components/RemarkLogCreateModal';
-import { addStamp } from '@/app/_domains/_stamp/_services/stampService';
+import {
+  addStamp,
+  confirmReservationStamp,
+} from '@/app/_domains/_stamp/_services/stampService';
 // import { createLog } from '@/app/_domains/_log/_services/logService';
 import { PaymentTypeEnum } from '@/app/_enums/enums';
 import { customerKeys } from '@/app/_domains/_customer/_queryKeys/customerKeys';
@@ -116,6 +119,20 @@ export default function CustomerDetailPage() {
     } catch {
       toast.error('고객 정보 삭제에 실패했습니다.');
     }
+  };
+
+  const handleConfirmReservation = async (logId: string) => {
+    await confirmReservationStamp(logId);
+    // 확정 시 스탬프 개수 및 출고/예약 이력(고객 상세 탭 + 이력 페이지) 갱신
+    queryClient.invalidateQueries({
+      queryKey: customerKeys.detail(customerId),
+    });
+    queryClient.invalidateQueries({
+      queryKey: logKeys.byCustomerAll(customerId),
+    });
+    queryClient.invalidateQueries({
+      queryKey: logKeys.lists(),
+    });
   };
 
   const handleCreateRemarkLog = async (note: string) => {
@@ -218,6 +235,17 @@ export default function CustomerDetailPage() {
             >
               출고 이력
             </Button>
+            <Button
+              variant={
+                logCategory === LogCategoryEnum.RESERVATION.value
+                  ? 'primary'
+                  : 'secondary'
+              }
+              size="sm"
+              onClick={() => setLogCategory(LogCategoryEnum.RESERVATION.value)}
+            >
+              예약 이력
+            </Button>
             {/* <Button
               variant={logCategory === LogCategoryEnum.REMARK.value ? 'primary' : 'secondary'}
               size="sm"
@@ -238,7 +266,8 @@ export default function CustomerDetailPage() {
             </Button>
           </div>
           <div className="space-y-2.5">
-            {logCategory === LogCategoryEnum.STAMP.value && (
+            {(logCategory === LogCategoryEnum.STAMP.value ||
+              logCategory === LogCategoryEnum.RESERVATION.value) && (
               <CustomersDetailStampsHistories
                 targetUser={{
                   phone: customer.phone,
@@ -251,6 +280,10 @@ export default function CustomerDetailPage() {
                 isAdmin={isAdmin}
                 onDeleteLog={removeLog}
                 onUpdateLog={updateLog}
+                isReservation={
+                  logCategory === LogCategoryEnum.RESERVATION.value
+                }
+                onConfirmReservation={handleConfirmReservation}
               />
             )}
             {logCategory === LogCategoryEnum.CUSTOMER.value && (

@@ -17,6 +17,8 @@ interface StampHistoryItemProps {
   onNavigate: () => void;
   isAdmin: boolean;
   onDelete: () => void;
+  onConfirm?: () => void;
+  showCopy?: boolean;
 }
 
 const StampHistoryItem = ({
@@ -25,6 +27,8 @@ const StampHistoryItem = ({
   onNavigate,
   isAdmin,
   onDelete,
+  onConfirm,
+  showCopy = true,
 }: StampHistoryItemProps) => {
   const { copyLogToClipboard } = useCopy();
 
@@ -54,7 +58,7 @@ const StampHistoryItem = ({
           )}
       </div>
 
-      <div className="flex-1 pl-3 ml-3 sm:pl-4 sm:ml-4 border-l border-brand-100">
+      <div className="flex-1 max-w-[600px] pl-3 ml-3 sm:pl-4 sm:ml-4 border-l border-brand-100">
         <div className="flex items-center gap-2">
           <Button variant="secondary" size="xs" onClick={onEdit}>
             ✏️
@@ -81,20 +85,27 @@ const StampHistoryItem = ({
         )}
       </div>
 
-      <div className="ml-4 flex items-center gap-2">
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() =>
-            copyLogToClipboard(log, {
-              name: log.customers?.name,
-              phone: log.customers?.phone,
-              gender: log.customers?.gender,
-            })
-          }
-        >
-          복사
-        </Button>
+      <div className="ml-4 flex shrink-0 items-center gap-2">
+        {onConfirm && (
+          <Button variant="primary" size="sm" onClick={onConfirm}>
+            출고 확정
+          </Button>
+        )}
+        {showCopy && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() =>
+              copyLogToClipboard(log, {
+                name: log.customers?.name,
+                phone: log.customers?.phone,
+                gender: log.customers?.gender,
+              })
+            }
+          >
+            복사
+          </Button>
+        )}
         {isAdmin && (
           <Button variant="danger" size="sm" onClick={onDelete}>
             삭제
