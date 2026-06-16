@@ -19,6 +19,7 @@ import { groupLogsByDate, formatDateKey } from '@/app/_utils/utils';
 import { toast } from 'react-hot-toast';
 import { useModal } from '@/app/_contexts/ModalContext';
 import DeleteConfirmModal from '@/app/(auth)/_components/DeleteConfirmModal';
+import ConfirmModal from '@/app/(auth)/_components/ConfirmModal';
 import StampLogEditModal from '@/app/(auth)/_components/StampLogEditModal';
 import RemarkLogCreateModal from '../RemarkLogCreateModal';
 import type { StampLogMeta } from '@/app/_domains/_stamp/_services/stampService';
@@ -31,6 +32,8 @@ const CustomersDetailStampsHistories = ({
   isAdmin,
   onDeleteLog,
   onUpdateLog,
+  isReservation = false,
+  onConfirmReservation,
 }: {
   targetUser: { phone: string; name: string; gender?: 'male' | 'female' | null };
   isLoading: boolean;
@@ -44,9 +47,45 @@ const CustomersDetailStampsHistories = ({
       item: CustomersLogsResType[number],
     ) => CustomersLogsResType[number],
   ) => void;
+  isReservation?: boolean;
+  onConfirmReservation?: (logId: string) => Promise<void>;
 }) => {
   const { open, close } = useModal();
   const { copyLogToClipboard } = useCopy();
+
+  const handleConfirm = useCallback(
+    (log: CustomersLogsResType[number]) => {
+      if (!onConfirmReservation) return;
+      const handleConfirmAction = async () => {
+        try {
+          await onConfirmReservation(log.id);
+          onDeleteLog(log.id);
+          close();
+          toast.success('출고 이력으로 확정되었습니다.');
+        } catch (e) {
+          console.error(e);
+          toast.error('출고 확정에 실패했습니다. 다시 시도해 주세요.');
+          close();
+        }
+      };
+      open({
+        content: (
+          <ConfirmModal
+            title="출고 확정"
+            description={
+              '이 예약을 출고 이력으로 확정하시겠습니까?\n확정 시 스탬프가 적립되고 출고 이력으로 이동합니다.'
+            }
+            confirmLabel="출고 확정"
+            confirmingLabel="확정 중..."
+            onConfirm={handleConfirmAction}
+            onCancel={close}
+          />
+        ),
+        options: { dismissOnBackdrop: false },
+      });
+    },
+    [onConfirmReservation, onDeleteLog, open, close],
+  );
 
   const handleDelete = useCallback(
     (log: CustomersLogsResType[number]) => {
@@ -118,17 +157,26 @@ const CustomersDetailStampsHistories = ({
         paymentType?: PaymentTypeEnumType['value'];
         storeName: StoreTypeEnumType['value'];
         logMeta: StampLogMeta;
+        amount: number;
       }) => {
         try {
+          // 예약 이력은 아직 스탬프가 적립되지 않았으므로 개수 수정 허용
+          const nextAction = isReservation
+            ? values.amount === 0
+              ? 'no-stamp'
+              : `add-${values.amount}`
+            : undefined;
           const updated = await updateLogNote(
             log.id,
             values.note,
             values.paymentType,
             values.storeName,
             values.logMeta,
+            nextAction,
           );
           onUpdateLog(log.id, (item) => ({
             ...item,
+            action: updated.action,
             note: updated.note,
             jsonb: updated.jsonb,
             updated_at: updated.updated_at,
@@ -154,6 +202,8 @@ const CustomersDetailStampsHistories = ({
               log.jsonb?.storeName as StoreTypeEnumType['value'] | undefined
             }
             initialLogMeta={log.jsonb as StampLogMeta}
+            isStampAmountEditable={isReservation}
+            title={isReservation ? '출고 예약 수정' : '출고 이력 수정'}
             onSubmit={handleSubmit}
             onCancel={close}
           />
@@ -161,7 +211,7 @@ const CustomersDetailStampsHistories = ({
         options: { dismissOnBackdrop: false, dismissOnEsc: true },
       });
     },
-    [open, close, onUpdateLog],
+    [open, close, onUpdateLog, isReservation],
   );
 
   if (error) {
@@ -256,19 +306,30 @@ const CustomersDetailStampsHistories = ({
                     </div>
                   </div>
                   <div className="ml-3 flex-shrink-0 flex items-center gap-2">
-                    <Button
-                      variant="secondary"
-                      size="xs"
-                      onClick={() =>
-                        copyLogToClipboard(log, {
-                          name: targetUser.name,
-                          phone: targetUser.phone,
-                          gender: targetUser.gender,
-                        })
-                      }
-                    >
-                      복사
-                    </Button>
+                    {isReservation && onConfirmReservation && (
+                      <Button
+                        variant="primary"
+                        size="xs"
+                        onClick={() => handleConfirm(log)}
+                      >
+                        출고 확정
+                      </Button>
+                    )}
+                    {!isReservation && (
+                      <Button
+                        variant="secondary"
+                        size="xs"
+                        onClick={() =>
+                          copyLogToClipboard(log, {
+                            name: targetUser.name,
+                            phone: targetUser.phone,
+                            gender: targetUser.gender,
+                          })
+                        }
+                      >
+                        복사
+                      </Button>
+                    )}
                     {isAdmin && (
                       <Button
                         variant="danger"

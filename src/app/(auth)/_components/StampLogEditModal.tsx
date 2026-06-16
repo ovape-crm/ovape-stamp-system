@@ -26,11 +26,14 @@ interface StampLogEditModalProps {
   initialPaymentType?: PaymentTypeEnumType['value'];
   initialStoreName?: StoreTypeEnumType['value'];
   initialLogMeta?: StampLogMeta | null;
+  isStampAmountEditable?: boolean;
+  title?: string;
   onSubmit: (values: {
     note: string;
     paymentType?: PaymentTypeEnumType['value'];
     storeName: StoreTypeEnumType['value'];
     logMeta: StampLogMeta;
+    amount: number;
   }) => Promise<void>;
   onCancel: () => void;
 }
@@ -40,6 +43,8 @@ const StampLogEditModal = ({
   initialPaymentType,
   initialStoreName,
   initialLogMeta,
+  isStampAmountEditable = false,
+  title = '출고 이력 수정',
   onSubmit,
   onCancel,
 }: StampLogEditModalProps) => {
@@ -66,6 +71,7 @@ const StampLogEditModal = ({
         paymentType: stampLog.paymentType,
         storeName: stampLog.storeName,
         logMeta: stampLog.logMeta,
+        amount: stampLog.amount,
       });
     } finally {
       setIsSubmitting(false);
@@ -75,13 +81,13 @@ const StampLogEditModal = ({
   return (
     <div className="w-full flex max-h-[calc(90vh-2rem)] min-h-0 flex-col">
       <h2 className="shrink-0 text-xl font-semibold text-gray-900 mb-4">
-        출고 이력 수정
+        {title}
       </h2>
 
       <div className="min-h-0 flex-1 overflow-y-auto pr-1">
         <StampLogForm
           initialValue={initialValue}
-          isStampAmountEditable={false}
+          isStampAmountEditable={isStampAmountEditable}
           onChange={setStampLog}
         />
       </div>

@@ -39,15 +39,20 @@ export type StampLogMeta = {
 };
 
 /**
- * 스탬프 추가 (count 증가)
+ * action 문자열에서 스탬프 개수 추출 ('add-3' → 3, 'no-stamp' → 0)
  */
-export const addStamp = async (
-  customerId: string,
-  amount: number = 1,
-  note: string = '',
-  paymentType?: PaymentTypeEnumType['value'],
-  logMeta?: StampLogMeta,
-) => {
+const getStampAmountFromAction = (action: string) => {
+  if (action.startsWith('add-')) {
+    const amount = Number(action.replace('add-', ''));
+    return Number.isFinite(amount) ? amount : 0;
+  }
+  return 0;
+};
+
+/**
+ * 스탬프 카운트 적용 (로그 기록 없이 count만 증가)
+ */
+const applyStampCount = async (customerId: string, amount: number) => {
   // 먼저 해당 customer의 stamp 레코드가 있는지 확인
   const { data: existing } = await supabase
     .from('stamps')
@@ -55,12 +60,12 @@ export const addStamp = async (
     .eq('customer_id', customerId)
     .single();
 
-  let result;
-
   if (amount === 0) {
-    // 미적립: 스탬프 카운트 변경 없이 로그만 기록
-    result = existing ?? null;
-  } else if (existing) {
+    // 미적립: 스탬프 카운트 변경 없음
+    return existing ?? null;
+  }
+
+  if (existing) {
     // 기존 레코드가 있으면 count 증가
     const { data, error } = await supabase
       .from('stamps')
@@ -70,18 +75,31 @@ export const addStamp = async (
       .single();
 
     if (error) throw error;
-    result = data;
-  } else {
-    // 없으면 새로 생성
-    const { data, error } = await supabase
-      .from('stamps')
-      .insert({ customer_id: customerId, count: amount })
-      .select()
-      .single();
-
-    if (error) throw error;
-    result = data;
+    return data;
   }
+
+  // 없으면 새로 생성
+  const { data, error } = await supabase
+    .from('stamps')
+    .insert({ customer_id: customerId, count: amount })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+/**
+ * 스탬프 추가 (count 증가)
+ */
+export const addStamp = async (
+  customerId: string,
+  amount: number = 1,
+  note: string = '',
+  paymentType?: PaymentTypeEnumType['value'],
+  logMeta?: StampLogMeta,
+) => {
+  const result = await applyStampCount(customerId, amount);
 
   // 로그 추가
   await createLog(
@@ -93,6 +111,59 @@ export const addStamp = async (
   );
 
   return result;
+};
+
+/**
+ * 출고 예약 (스탬프 카운트는 변경하지 않고 reservation 로그만 기록)
+ */
+export const addReservationStamp = async (
+  customerId: string,
+  amount: number = 0,
+  note: string = '',
+  paymentType?: PaymentTypeEnumType['value'],
+  logMeta?: StampLogMeta,
+) => {
+  return createLog(
+    LogCategoryEnum.RESERVATION.value,
+    customerId,
+    amount === 0 ? 'no-stamp' : `add-${amount}`,
+    note,
+    { paymentType, ...logMeta }
+  );
+};
+
+/**
+ * 예약 이력 확정 (스탬프 카운트를 적용하고 reservation → stamp 로그로 전환)
+ */
+export const confirmReservationStamp = async (logId: string) => {
+  const { data: log, error } = await supabase
+    .from('logs')
+    .select('*')
+    .eq('id', logId)
+    .single();
+
+  if (error) throw error;
+  if (!log) throw new Error('예약 이력을 찾을 수 없습니다');
+
+  const amount = getStampAmountFromAction(log.action);
+
+  if (amount > 0 && log.customer_id) {
+    await applyStampCount(log.customer_id, amount);
+  }
+
+  const { data: updated, error: updateError } = await supabase
+    .from('logs')
+    .update({
+      category: LogCategoryEnum.STAMP.value,
+      created_at: new Date().toISOString(),
+    })
+    .eq('id', logId)
+    .select()
+    .single();
+
+  if (updateError) throw updateError;
+
+  return updated;
 };
 
 /**

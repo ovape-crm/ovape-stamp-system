@@ -2,6 +2,8 @@
 
 import { useState, useCallback } from 'react';
 import {
+  LogCategoryEnum,
+  LogCategoryEnumType,
   PaymentTypeEnum,
   PaymentTypeEnumType,
   StoreTypeEnumType,
@@ -10,6 +12,10 @@ import {
   updateLogNote,
   deleteLog,
 } from '@/app/_domains/_log/_services/logService';
+import { confirmReservationStamp } from '@/app/_domains/_stamp/_services/stampService';
+import { useQueryClient } from '@tanstack/react-query';
+import { logKeys } from '@/app/_domains/_log/_queryKeys/logKeys';
+import { customerKeys } from '@/app/_domains/_customer/_queryKeys/customerKeys';
 import Loading from '@/app/_components/Loading';
 import Button from '@/app/_components/Button';
 import { Dropdown, DropdownOption } from '@/app/_components/Dropdown';
@@ -24,6 +30,7 @@ import { useUser } from '@/app/_contexts/UserContext';
 import { useModal } from '@/app/_contexts/ModalContext';
 import DeleteConfirmModal from '@/app/(auth)/_components/DeleteConfirmModal';
 import StampLogEditModal from '@/app/(auth)/_components/StampLogEditModal';
+import ConfirmModal from '@/app/(auth)/_components/ConfirmModal';
 import RemarkLogCreateModal from '@/app/(auth)/customers/[id]/_components/RemarkLogCreateModal';
 import type { StampLogMeta } from '@/app/_domains/_stamp/_services/stampService';
 
@@ -37,10 +44,19 @@ const paymentMethodOptions = [
   })),
 ];
 
-const StampHistories = () => {
+interface StampHistoriesProps {
+  category?: LogCategoryEnumType['value'];
+  isReservation?: boolean;
+}
+
+const StampHistories = ({
+  category = LogCategoryEnum.STAMP.value,
+  isReservation = false,
+}: StampHistoriesProps = {}) => {
   const router = useRouter();
   const { isAdmin } = useUser();
   const { open, close } = useModal();
+  const queryClient = useQueryClient();
 
   const [startDate, setStartDate] = useState<string | null>(null);
   const [endDate, setEndDate] = useState<string | null>(null);
@@ -54,7 +70,7 @@ const StampHistories = () => {
   const { items, updateItem, removeItem, isLoading, error, hasMore, load } =
     useLogs(
       PAGE_SIZE,
-      undefined,
+      category,
       dateRange,
       paymentMethod || null,
       searchKeyword || null,
@@ -117,17 +133,26 @@ const StampHistories = () => {
         paymentType?: PaymentTypeEnumType['value'];
         storeName: StoreTypeEnumType['value'];
         logMeta: StampLogMeta;
+        amount: number;
       }) => {
         try {
+          // 예약 이력은 아직 스탬프가 적립되지 않았으므로 개수 수정 허용
+          const nextAction = isReservation
+            ? values.amount === 0
+              ? 'no-stamp'
+              : `add-${values.amount}`
+            : undefined;
           const updated = await updateLogNote(
             log.id,
             values.note,
             values.paymentType,
             values.storeName,
             values.logMeta,
+            nextAction,
           );
           updateItem(log.id, (item) => ({
             ...item,
+            action: updated.action,
             note: updated.note,
             jsonb: updated.jsonb,
             updated_at: updated.updated_at,
@@ -153,6 +178,8 @@ const StampHistories = () => {
               log.jsonb?.storeName as StoreTypeEnumType['value'] | undefined
             }
             initialLogMeta={log.jsonb as StampLogMeta}
+            isStampAmountEditable={isReservation}
+            title={isReservation ? '출고 예약 수정' : '출고 이력 수정'}
             onSubmit={handleSubmit}
             onCancel={close}
           />
@@ -160,7 +187,7 @@ const StampHistories = () => {
         options: { dismissOnBackdrop: false, dismissOnEsc: true },
       });
     },
-    [open, close, updateItem],
+    [open, close, updateItem, isReservation],
   );
 
   const deleteItem = useCallback(
@@ -186,6 +213,50 @@ const StampHistories = () => {
       });
     },
     [removeItem, open, close],
+  );
+
+  const confirmReservation = useCallback(
+    (log: LogsResType) => {
+      const handleConfirm = async () => {
+        try {
+          await confirmReservationStamp(log.id);
+          removeItem(log.id);
+          // 이력 페이지 목록 + 고객 상세 탭(출고/예약) + 스탬프 개수를 모두 무효화
+          queryClient.invalidateQueries({ queryKey: logKeys.lists() });
+          if (log.customer_id) {
+            queryClient.invalidateQueries({
+              queryKey: logKeys.byCustomerAll(log.customer_id),
+            });
+            queryClient.invalidateQueries({
+              queryKey: customerKeys.detail(log.customer_id),
+            });
+          }
+          close();
+          toast.success('출고 이력으로 확정되었습니다.');
+        } catch (e) {
+          console.error('Failed to confirm reservation:', e);
+          toast.error('출고 확정에 실패했습니다. 다시 시도해 주세요.');
+          close();
+        }
+      };
+
+      open({
+        content: (
+          <ConfirmModal
+            title="출고 확정"
+            description={
+              '이 예약을 출고 이력으로 확정하시겠습니까?\n확정 시 스탬프가 적립되고 출고 이력으로 이동합니다.'
+            }
+            confirmLabel="출고 확정"
+            confirmingLabel="확정 중..."
+            onConfirm={handleConfirm}
+            onCancel={close}
+          />
+        ),
+        options: { dismissOnBackdrop: false },
+      });
+    },
+    [removeItem, open, close, queryClient],
   );
 
   const { itemsByDate, sortedDates } = groupLogsByDate(items);
@@ -259,7 +330,7 @@ const StampHistories = () => {
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <div className="min-w-[1100px] space-y-4 sm:space-y-6 text-xs sm:text-sm">
+          <div className="w-max min-w-[1100px] space-y-4 sm:space-y-6 text-xs sm:text-sm">
             {sortedDates.map((dateKey) => {
               const logsOfDate = itemsByDate[dateKey];
 
@@ -288,6 +359,12 @@ const StampHistories = () => {
                         }
                         isAdmin={isAdmin}
                         onDelete={() => deleteItem(log)}
+                        onConfirm={
+                          isReservation
+                            ? () => confirmReservation(log)
+                            : undefined
+                        }
+                        showCopy={!isReservation}
                       />
                     ))}
                   </div>
