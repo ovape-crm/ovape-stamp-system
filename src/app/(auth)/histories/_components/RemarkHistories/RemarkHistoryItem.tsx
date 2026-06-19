@@ -130,8 +130,9 @@ const RemarkHistoryItem = ({
             size="sm"
             onClick={onDelete}
             disabled={isSaving}
+            aria-label="삭제"
           >
-            삭제
+            🗑️
           </Button>
         )}
       </div>

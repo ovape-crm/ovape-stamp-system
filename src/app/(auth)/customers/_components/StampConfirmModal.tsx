@@ -7,9 +7,9 @@ import {
   PaymentTypeEnumType,
 } from '@/app/_enums/enums';
 import type { StampLogMeta } from '@/app/_domains/_stamp/_services/stampService';
-import { formatPhoneNumber } from '@/app/_utils/utils';
 import { useState } from 'react';
 import StampLogForm, { StampLogValue } from './StampLogForm';
+import TargetCustomerCard from './TargetCustomerCard';
 
 const formatAmount = (value: number) => value.toLocaleString('ko-KR');
 
@@ -20,7 +20,7 @@ export default function StampConfirmModal({
   onConfirm,
   onCancel,
 }: {
-  target: { name: string; phone: string };
+  target: { name: string; phone: string; note?: string | null };
   mode: 'add' | 'adjust' | 'use10';
   amount?: number;
   onConfirm: (
@@ -90,14 +90,11 @@ export default function StampConfirmModal({
 
       <div className="overflow-y-auto min-h-0 flex-1 space-y-4">
         {/* 대상 고객 */}
-        <div className="bg-gray-100 rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-2 h-2 bg-brand-500 rounded-full" />
-            <span className="text-sm font-medium text-gray-700">대상 고객</span>
-          </div>
-          <p className="text-lg font-semibold text-gray-900">{target.name}</p>
-          <p className="text-sm text-gray-600">{formatPhoneNumber(target.phone)}</p>
-        </div>
+        <TargetCustomerCard
+          name={target.name}
+          phone={target.phone}
+          note={target.note}
+        />
 
         {/* 요약 정보 */}
         <div className="bg-brand-50 rounded-lg p-4 border border-brand-200 space-y-2">
@@ -197,14 +194,12 @@ export default function StampConfirmModal({
       <div className="shrink-0 mb-4">
         <h2 className="text-xl font-semibold text-gray-900 mb-3">{title}</h2>
 
-        <div className="bg-gray-100 rounded-lg p-4 mb-4">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-2 h-2 bg-brand-500 rounded-full" />
-            <span className="text-sm font-medium text-gray-700">대상 고객</span>
-          </div>
-          <p className="text-lg font-semibold text-gray-900">{target.name}</p>
-          <p className="text-sm text-gray-600">{formatPhoneNumber(target?.phone)}</p>
-        </div>
+        <TargetCustomerCard
+          name={target.name}
+          phone={target.phone}
+          note={target.note}
+          className="mb-4"
+        />
 
         {mode === 'use10' && (
           <div className="text-center py-4">
