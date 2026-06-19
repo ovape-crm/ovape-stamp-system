@@ -9,7 +9,10 @@ import { createCustomer } from '@/app/_domains/_customer/_services/customerServi
 import toast from 'react-hot-toast';
 import { useState } from 'react';
 import Button from '@/app/_components/Button';
-import { addStamp } from '@/app/_domains/_stamp/_services/stampService';
+import {
+  addStamp,
+  addReservationStamp,
+} from '@/app/_domains/_stamp/_services/stampService';
 import { useQueryClient } from '@tanstack/react-query';
 import { customerKeys } from '@/app/_domains/_customer/_queryKeys/customerKeys';
 import { logKeys } from '@/app/_domains/_log/_queryKeys/logKeys';
@@ -57,14 +60,25 @@ export default function CustomersPage() {
         const stampLog = values.stampLog;
         const amount = stampLog.amount;
         try {
-          await addStamp(
-            data.id,
-            amount,
-            stampLog.note,
-            stampLog.paymentType,
-            stampLog.logMeta,
-          );
-          toast.success(amount === 0 ? '미적립으로 기록되었습니다.' : `스탬프 ${amount}개 적립 완료!`);
+          if (values.isReservation) {
+            await addReservationStamp(
+              data.id,
+              amount,
+              stampLog.note,
+              stampLog.paymentType,
+              stampLog.logMeta,
+            );
+            toast.success('출고 예약으로 기록되었습니다.');
+          } else {
+            await addStamp(
+              data.id,
+              amount,
+              stampLog.note,
+              stampLog.paymentType,
+              stampLog.logMeta,
+            );
+            toast.success(amount === 0 ? '미적립으로 기록되었습니다.' : `스탬프 ${amount}개 적립 완료!`);
+          }
         } catch (stampError) {
           console.error('스탬프 추가 실패:', stampError);
           toast.error(

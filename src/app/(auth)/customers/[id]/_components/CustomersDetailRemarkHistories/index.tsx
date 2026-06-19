@@ -223,8 +223,9 @@ const CustomersDetailRemarkHistories = ({
                           size="xs"
                           onClick={() => handleDelete(log)}
                           disabled={isSaving}
+                          aria-label="삭제"
                         >
-                          삭제
+                          🗑️
                         </Button>
                       )}
                     </div>

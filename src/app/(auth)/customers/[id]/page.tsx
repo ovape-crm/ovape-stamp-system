@@ -203,6 +203,7 @@ export default function CustomerDetailPage() {
               id: customerId,
               name: customer.name,
               phone: customer.phone,
+              note: customer.note,
             }}
             onUpdate={handleUpdate}
             onAddRemark={() =>

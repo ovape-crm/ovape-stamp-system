@@ -269,16 +269,18 @@ const CustomersDetailStampsHistories = ({
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-1">
-                    {log.jsonb && 'storeName' in log.jsonb && (
-                      <StoreLabel jsonb={log.jsonb} />
-                    )}
-                    {log.jsonb && 'paymentType' in log.jsonb && (
-                      <PaymentTypeLabel jsonb={log.jsonb} />
-                    )}
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="flex items-center gap-0.5">
+                      {log.jsonb && 'storeName' in log.jsonb && (
+                        <StoreLabel jsonb={log.jsonb} />
+                      )}
+                      {log.jsonb && 'paymentType' in log.jsonb && (
+                        <PaymentTypeLabel jsonb={log.jsonb} />
+                      )}
+                    </div>
                     {typeof log.jsonb?.totalAmount === 'number' &&
                       log.jsonb.totalAmount > 0 && (
-                        <span className="ml-2 inline-flex items-center rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold px-2 py-1">
+                        <span className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold px-2 py-1">
                           {log.jsonb.totalAmount.toLocaleString('ko-KR')}원
                         </span>
                       )}
@@ -335,8 +337,9 @@ const CustomersDetailStampsHistories = ({
                         variant="danger"
                         size="xs"
                         onClick={() => handleDelete(log)}
+                        aria-label="삭제"
                       >
-                        삭제
+                        🗑️
                       </Button>
                     )}
                   </div>

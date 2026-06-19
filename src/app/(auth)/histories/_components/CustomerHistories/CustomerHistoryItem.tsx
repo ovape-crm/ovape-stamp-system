@@ -42,8 +42,9 @@ const CustomerHistoryItem = ({ log, onNavigate, isAdmin, onDelete }: CustomerHis
             variant="danger"
             size="sm"
             onClick={onDelete}
+            aria-label="삭제"
           >
-            삭제
+            🗑️
           </Button>
         )}
       </div>

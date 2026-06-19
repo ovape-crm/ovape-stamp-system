@@ -114,8 +114,9 @@ const CustomersDetailUpdateHistories = ({
                       variant="danger"
                       size="xs"
                       onClick={() => handleDelete(log)}
+                      aria-label="삭제"
                     >
-                      삭제
+                      🗑️
                     </Button>
                   )}
                 </div>

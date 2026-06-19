@@ -23,7 +23,7 @@ const StoreLabel = ({ jsonb }: { jsonb: Record<string, unknown> }) => {
 
   return (
     <span
-      className={`ml-2 inline-flex items-center rounded-full text-xs font-medium px-2 py-1 ${style}`}
+      className={`ml-2 inline-flex items-center rounded-full text-xs font-medium px-1.5 py-1 ${style}`}
     >
       {storeName}
     </span>

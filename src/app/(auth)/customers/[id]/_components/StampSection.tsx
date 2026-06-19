@@ -18,7 +18,7 @@ import Button from '@/app/_components/Button';
 
 interface StampSectionProps {
   stampCount: number;
-  target: { id: string; name: string; phone: string };
+  target: { id: string; name: string; phone: string; note?: string | null };
   onUpdate: () => void;
   onAddRemark: () => void;
 }
@@ -127,7 +127,7 @@ const StampSection = ({ stampCount, target, onUpdate, onAddRemark }: StampSectio
               open({
                 content: (
                   <StampConfirmModal
-                    target={{ name: target.name, phone: target.phone }}
+                    target={{ name: target.name, phone: target.phone, note: target.note }}
                     mode="add"
                     onCancel={close}
                     onConfirm={async (
@@ -162,7 +162,7 @@ const StampSection = ({ stampCount, target, onUpdate, onAddRemark }: StampSectio
               open({
                 content: (
                   <StampConfirmModal
-                    target={{ name: target.name, phone: target.phone }}
+                    target={{ name: target.name, phone: target.phone, note: target.note }}
                     mode="use10"
                     onCancel={close}
                     onConfirm={async (modalNote?: string) => {
@@ -186,7 +186,7 @@ const StampSection = ({ stampCount, target, onUpdate, onAddRemark }: StampSectio
               open({
                 content: (
                   <StampConfirmModal
-                    target={{ name: target.name, phone: target.phone }}
+                    target={{ name: target.name, phone: target.phone, note: target.note }}
                     mode="adjust"
                     onCancel={close}
                     onConfirm={async (

@@ -33,6 +33,7 @@ const schema = z.object({
     .max(500, { message: '메모는 500자 이하로 입력하세요.' })
     .optional(),
   isStampAdd: z.boolean(),
+  isReservation: z.boolean(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -82,10 +83,12 @@ export default function CustomerCreateModal({
       gender: 'male',
       note: '',
       isStampAdd: false,
+      isReservation: false,
     },
   });
 
   const isStampAdd = watch('isStampAdd');
+  const isReservation = watch('isReservation');
 
   // 출고 이력 추가를 선택한 경우 출고 폼이 유효해야 제출 가능
   const canSubmit = isValid && (!isStampAdd || stampLog !== null);
@@ -101,7 +104,11 @@ export default function CustomerCreateModal({
     if (!canSubmit) {
       return;
     }
-    setFormData({ ...values, stampLog: values.isStampAdd ? stampLog : null });
+    setFormData({
+      ...values,
+      isReservation: values.isStampAdd ? values.isReservation : false,
+      stampLog: values.isStampAdd ? stampLog : null,
+    });
     setShowConfirm(true);
 
     canSubmitRef.current = true;
@@ -170,9 +177,14 @@ export default function CustomerCreateModal({
           {formData.isStampAdd && formData.stampLog && (
             <div className="bg-brand-50 rounded-lg p-4 mb-6 border border-brand-200">
               <h3 className="text-sm font-semibold text-brand-700 mb-3">
-                출고 이력 정보
+                {formData.isReservation ? '출고 예약 정보' : '출고 이력 정보'}
               </h3>
               <div className="space-y-2">
+                {formData.isReservation && (
+                  <div className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">
+                    예약 이력으로 저장됩니다
+                  </div>
+                )}
                 <div>
                   <span className="text-sm font-medium text-gray-600">매장:</span>
                   <p className="text-base font-semibold text-gray-900">
@@ -369,6 +381,37 @@ export default function CustomerCreateModal({
         {!!isStampAdd && (
           <div className="pt-2 border-t border-gray-200">
             <StampLogForm onChange={setStampLog} />
+
+            <Controller
+              name="isReservation"
+              control={control}
+              render={({ field }) => (
+                <div className="mt-5 flex items-center justify-between gap-3 rounded-lg border border-brand-200 bg-brand-50/60 px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">출고 예약</p>
+                    <p className="mt-0.5 text-xs text-gray-500">
+                      예약으로 저장하면 스탬프는 적립되지 않고, 예약 이력에서 확정 시
+                      출고 이력으로 반영됩니다.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={field.value}
+                    onClick={() => field.onChange(!field.value)}
+                    className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+                      field.value ? 'bg-brand-500' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                        field.value ? 'translate-x-5' : 'translate-x-0.5'
+                      }`}
+                    />
+                  </button>
+                </div>
+              )}
+            />
           </div>
         )}
       </div>
