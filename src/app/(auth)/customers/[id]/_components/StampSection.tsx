@@ -147,7 +147,7 @@ const StampSection = ({ stampCount, target, onUpdate, onAddRemark }: StampSectio
                     }}
                   />
                 ),
-                options: { dismissOnBackdrop: false },
+                options: { dismissOnBackdrop: false, size: 'max-w-xl' },
               })
             }
             disabled={isLoading}

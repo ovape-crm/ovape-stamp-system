@@ -89,10 +89,35 @@ export default function StampLogForm({
   onChange,
   initialValue,
   isStampAmountEditable = true,
+  layout = 'stacked',
+  leftPanelExtra,
+  rightPanelExtra,
+  step,
+  onValidityChange,
+  reservationSlot,
 }: {
   onChange: (value: StampLogValue | null) => void;
   initialValue?: StampLogFormInitialValue;
   isStampAmountEditable?: boolean;
+  /**
+   * 'stacked' (기본): 기존처럼 모든 섹션을 한 줄로 쌓아서 표시
+   * 'split': 매장명/결제유형/스탬프개수/할인은 좌측, 품목/금액/특이사항은 우측 2단 레이아웃
+   */
+  layout?: 'stacked' | 'split';
+  /** layout이 'split'일 때 좌측 패널 최상단에 렌더링할 요소 (예: 대상 고객 카드) */
+  leftPanelExtra?: React.ReactNode;
+  /** layout이 'split'일 때 우측 패널 최하단에 렌더링할 요소 (예: 출고 예약 토글) */
+  rightPanelExtra?: React.ReactNode;
+  /**
+   * layout이 'split'일 때만 사용. 값이 있으면 2단 레이아웃 대신 스텝별 필드만 노출:
+   * 1 → 매장명/결제유형/스탬프개수, 2 → 품목선택/품목목록/할인/금액/특이사항
+   * (내부 상태 보존을 위해 컴포넌트는 계속 마운트된 채로 CSS로만 숨김)
+   */
+  step?: 1 | 2 | 3;
+  /** paymentType, 품목 선택 여부가 바뀔 때마다 호출 (스텝 이동 가능 여부 판단용) */
+  onValidityChange?: (info: { hasPaymentType: boolean; hasItems: boolean }) => void;
+  /** step 모드에서 2번 스텝의 출고 특이사항 입력 오른쪽에 함께 렌더링할 요소 (예: 출고 예약 토글) */
+  reservationSlot?: React.ReactNode;
 }) {
   const [paymentType, setPaymentType] = useState<
     PaymentTypeEnumType['value'] | ''
@@ -264,6 +289,17 @@ export default function StampLogForm({
     extraNote,
   ]);
 
+  // 스텝 UI에서 "다음" 버튼 활성화 여부를 부모가 판단할 수 있도록 알림
+  const onValidityChangeRef = useRef(onValidityChange);
+  onValidityChangeRef.current = onValidityChange;
+
+  useEffect(() => {
+    onValidityChangeRef.current?.({
+      hasPaymentType: paymentType !== '',
+      hasItems: draftLines.length > 0,
+    });
+  }, [paymentType, draftLines]);
+
   const handleItemSelect = (item: ItemType) => {
     setSelectedItem(item);
     setItemSearch('');
@@ -388,96 +424,101 @@ export default function StampLogForm({
     previousLineRectsRef.current = new Map();
   }, [draftLines]);
 
-  return (
-    <div className="space-y-5">
-      <div>
-        <span className="block text-sm font-medium mb-2">
-          매장명 <span className="text-rose-600">*</span>
-        </span>
-        <div className="grid grid-cols-2 gap-2">
-          {Object.values(StoreTypeEnum).map((option) => (
-            <Button
-              key={option.value}
-              type="button"
-              size="sm"
-              variant={storeName === option.value ? 'primary' : 'gray'}
-              onClick={() => {
-                setStoreName(option.value);
-                setPaymentType('');
-              }}
-            >
-              {option.name}
-            </Button>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <span className="block text-sm font-medium mb-2">
-          결제 유형 <span className="text-rose-600">*</span>
-        </span>
-        <div className="grid grid-cols-3 gap-2">
-          {paymentTypeOptions.map((option) => (
-            <Button
-              key={option.value}
-              type="button"
-              size="sm"
-              variant={paymentType === option.value ? 'primary' : 'gray'}
-              onClick={() => setPaymentType(option.value)}
-            >
-              {option.name}
-            </Button>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          스탬프 개수 <span className="text-rose-600">*</span>
-        </label>
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            value={amount}
-            onChange={(e) => {
-              if (!isStampAmountEditable) return;
-              const v = e.target.value;
-              if (v === '' || /^[0-9]+$/.test(v)) {
-                setAmount(v === '' ? 0 : Number(v));
-              }
+  const storeField = (
+    <div>
+      <span className="block text-sm font-medium mb-2">
+        매장명 <span className="text-rose-600">*</span>
+      </span>
+      <div className="grid grid-cols-2 gap-2">
+        {Object.values(StoreTypeEnum).map((option) => (
+          <Button
+            key={option.value}
+            type="button"
+            size="sm"
+            variant={storeName === option.value ? 'primary' : 'gray'}
+            onClick={() => {
+              setStoreName(option.value);
+              setPaymentType('');
             }}
-            disabled={!isStampAmountEditable}
-            className="w-16 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm text-center disabled:bg-gray-100 disabled:text-gray-500"
-          />
-          <button
-            type="button"
-            onClick={() => setAmount((v) => Math.max(0, v - 1))}
-            disabled={!isStampAmountEditable}
-            className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 active:bg-gray-100 transition-colors text-lg leading-none disabled:cursor-not-allowed disabled:opacity-40"
           >
-            −
-          </button>
-          <button
-            type="button"
-            onClick={() => setAmount((v) => v + 1)}
-            disabled={!isStampAmountEditable}
-            className="w-8 h-8 flex items-center justify-center rounded-lg bg-brand-500 text-white hover:bg-brand-600 active:bg-brand-700 transition-colors text-lg leading-none disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            +
-          </button>
-        </div>
-        {!isStampAmountEditable ? (
-          <p className="mt-1.5 text-xs text-gray-400">
-            수정 시 스탬프 개수는 변경되지 않습니다.
-          </p>
-        ) : amount === 0 && (
-          <p className="mt-1.5 text-xs text-gray-400">
-            0개 입력 시 <span className="font-medium text-gray-500">미적립</span>
-            으로 기록됩니다.
-          </p>
-        )}
+            {option.name}
+          </Button>
+        ))}
       </div>
+    </div>
+  );
 
+  const paymentField = (
+    <div>
+      <span className="block text-sm font-medium mb-2">
+        결제 유형 <span className="text-rose-600">*</span>
+      </span>
+      <div className="grid grid-cols-3 gap-2">
+        {paymentTypeOptions.map((option) => (
+          <Button
+            key={option.value}
+            type="button"
+            size="sm"
+            variant={paymentType === option.value ? 'primary' : 'gray'}
+            onClick={() => setPaymentType(option.value)}
+          >
+            {option.name}
+          </Button>
+        ))}
+      </div>
+    </div>
+  );
+
+  const stampCountField = (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        스탬프 개수 <span className="text-rose-600">*</span>
+      </label>
+      <div className="flex items-center gap-2">
+        <input
+          type="text"
+          value={amount}
+          onChange={(e) => {
+            if (!isStampAmountEditable) return;
+            const v = e.target.value;
+            if (v === '' || /^[0-9]+$/.test(v)) {
+              setAmount(v === '' ? 0 : Number(v));
+            }
+          }}
+          disabled={!isStampAmountEditable}
+          className="w-16 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm text-center disabled:bg-gray-100 disabled:text-gray-500"
+        />
+        <button
+          type="button"
+          onClick={() => setAmount((v) => Math.max(0, v - 1))}
+          disabled={!isStampAmountEditable}
+          className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 active:bg-gray-100 transition-colors text-lg leading-none disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          −
+        </button>
+        <button
+          type="button"
+          onClick={() => setAmount((v) => v + 1)}
+          disabled={!isStampAmountEditable}
+          className="w-8 h-8 flex items-center justify-center rounded-lg bg-brand-500 text-white hover:bg-brand-600 active:bg-brand-700 transition-colors text-lg leading-none disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          +
+        </button>
+      </div>
+      {!isStampAmountEditable ? (
+        <p className="mt-1.5 text-xs text-gray-400">
+          수정 시 스탬프 개수는 변경되지 않습니다.
+        </p>
+      ) : amount === 0 && (
+        <p className="mt-1.5 text-xs text-gray-400">
+          0개 입력 시 <span className="font-medium text-gray-500">미적립</span>
+          으로 기록됩니다.
+        </p>
+      )}
+    </div>
+  );
+
+  const itemSelectionField = (
       <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-3">
         <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_150px]">
           <div>
@@ -692,13 +733,17 @@ export default function StampLogForm({
           </Button>
         </div>
       </div>
+  );
 
-      <div>
-        <span className="block text-sm font-medium text-gray-700 mb-2">
-          품목 목록 <span className="text-rose-600">*</span>
-        </span>
-        <div className="min-h-24 rounded-lg bg-gray-50 p-3">
-          {draftLines.length === 0 ? (
+  const itemListLabel = (
+    <span className="block text-sm font-medium text-gray-700 mb-2">
+      품목 목록 <span className="text-rose-600">*</span>
+    </span>
+  );
+
+  const itemListContent = (
+    <>
+      {draftLines.length === 0 ? (
             <p className="text-sm text-gray-400">추가된 품목이 없습니다.</p>
           ) : (
             <div className="space-y-2">
@@ -765,13 +810,26 @@ export default function StampLogForm({
               ))}
             </div>
           )}
-        </div>
-      </div>
+    </>
+  );
 
+  const itemListField = step ? (
+      <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+        {itemListLabel}
+        <div className="min-h-24">{itemListContent}</div>
+      </div>
+  ) : (
+      <div>
+        {itemListLabel}
+        <div className="min-h-24 rounded-lg bg-gray-50 p-3">{itemListContent}</div>
+      </div>
+  );
+
+  const discountField = (
       <div>
         <span className="block text-sm font-medium text-gray-700 mb-2">할인</span>
-        <div className="space-y-3">
-          <div className="grid grid-cols-3 gap-2">
+        <div className="flex items-center gap-2">
+          <div className="grid flex-1 grid-cols-3 gap-2">
             {discountOptions.map((option) => (
               <Button
                 key={option.value}
@@ -784,7 +842,7 @@ export default function StampLogForm({
               </Button>
             ))}
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1">
             <input
               type="text"
               value={discountAmount}
@@ -794,14 +852,16 @@ export default function StampLogForm({
                   setDiscountAmount(v === '' ? 0 : Number(v));
                 }
               }}
-              className="w-28 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm text-right"
+              className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm text-right"
               placeholder="금액"
             />
             <span className="text-sm text-gray-600">원</span>
           </div>
         </div>
       </div>
+  );
 
+  const amountField = (
       <div>
         <span className="block text-sm font-medium text-gray-700 mb-2">금액</span>
         <div className="rounded-lg bg-gray-50 px-3 py-3">
@@ -810,7 +870,9 @@ export default function StampLogForm({
           </p>
         </div>
       </div>
+  );
 
+  const extraNoteField = (
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
           출고 특이사항
@@ -823,7 +885,76 @@ export default function StampLogForm({
           placeholder="배달지주소 , 네이버톡톡 : 아이디"
         />
       </div>
+  );
 
+  if (layout === 'split') {
+    // 스텝 UI 모드: step 값이 있으면 2단 레이아웃 대신 스텝별 필드만 노출.
+    // 컴포넌트는 계속 마운트된 채로 CSS로만 보이거나 숨겨지므로, 스텝을 오가도
+    // 매장명/결제유형/품목/할인 등 입력 상태가 그대로 유지된다.
+    if (step) {
+      return (
+        <div className="space-y-5">
+          <div className={step === 1 ? 'space-y-5' : 'hidden'}>
+            {storeField}
+            {paymentField}
+            {stampCountField}
+          </div>
+          <div className={step === 2 ? 'space-y-5' : 'hidden'}>
+            <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2 lg:items-start">
+              <div className="min-w-0">{itemSelectionField}</div>
+              <div className="min-w-0">{itemListField}</div>
+            </div>
+            <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2 lg:items-start">
+              <div className="min-w-0">{discountField}</div>
+              <div className="min-w-0">{amountField}</div>
+            </div>
+            <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2 lg:items-start">
+              <div className="min-w-0 w-full">{extraNoteField}</div>
+              <div className="min-w-0">{reservationSlot}</div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-5">
+        <div className="lg:sticky lg:top-0 lg:z-10 lg:bg-white lg:pb-4 lg:border-b lg:border-gray-100">
+          <div className="grid grid-cols-1 gap-x-8 gap-y-5 lg:grid-cols-2 lg:items-stretch">
+            <div className="min-w-0">{leftPanelExtra}</div>
+            <div className="min-w-0">{itemSelectionField}</div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-x-8 gap-y-5 lg:grid-cols-2 lg:items-start">
+          <div className="min-w-0 space-y-5">
+            {storeField}
+            {paymentField}
+            {stampCountField}
+            {discountField}
+          </div>
+          <div className="min-w-0 space-y-5">
+            {itemListField}
+            {amountField}
+            {extraNoteField}
+            {rightPanelExtra}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      {leftPanelExtra}
+      {storeField}
+      {paymentField}
+      {stampCountField}
+      {itemSelectionField}
+      {itemListField}
+      {discountField}
+      {amountField}
+      {extraNoteField}
+      {rightPanelExtra}
     </div>
   );
 }
