@@ -38,6 +38,7 @@ const paymentTypesByStore = {
 const remarkOptions = [
   { value: '', name: '미입력' },
   { value: 'service', name: '서비스' },
+  { value: 'demo', name: '시연용' },
   { value: 'custom', name: '메모 직접 입력' },
   { value: 'price_adjust', name: '가격 조정' },
 ] as const;
@@ -77,6 +78,12 @@ export type StampLogFormInitialValue = {
 };
 
 const formatAmount = (value: number) => value.toLocaleString('ko-KR');
+const parseSignedAmount = (value: string) => {
+  if (value === '' || value === '-') return 0;
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
 
 export default function StampLogForm({
   onChange,
@@ -100,7 +107,7 @@ export default function StampLogForm({
   const [quantity, setQuantity] = useState(1);
   const [remarkType, setRemarkType] = useState<RemarkOptionValue>('');
   const [customRemark, setCustomRemark] = useState('');
-  const [priceAdjustAmount, setPriceAdjustAmount] = useState(0);
+  const [priceAdjustAmount, setPriceAdjustAmount] = useState('0');
   const [priceAdjustMemo, setPriceAdjustMemo] = useState('');
   const [draftLines, setDraftLines] = useState<DraftStampLogLine[]>(
     () =>
@@ -148,7 +155,7 @@ export default function StampLogForm({
       : '';
   const itemNote = draftLines.map((line) => line.lineText).join(', ');
   const generatedNote = [discountLine, itemNote].filter(Boolean).join(' ');
-  const finalAmount = Math.max(totalAmount - activeDiscountAmount, 0);
+  const finalAmount = totalAmount - activeDiscountAmount;
   const amountExpression = draftLines
     .map((line) => formatAmount(line.amount))
     .join(' + ');
@@ -163,7 +170,7 @@ export default function StampLogForm({
     setQuantity(1);
     setRemarkType('');
     setCustomRemark('');
-    setPriceAdjustAmount(0);
+    setPriceAdjustAmount('0');
     setPriceAdjustMemo('');
   };
 
@@ -273,6 +280,7 @@ export default function StampLogForm({
     if (!selectedItem || quantity < 1) return;
 
     const price = selectedItem.selling_price ?? 0;
+    const adjustedPrice = parseSignedAmount(priceAdjustAmount);
     const priceAdjustmentMemo = priceAdjustMemo.trim() || '가격 조정';
     const remark =
       remarkType === 'custom'
@@ -282,13 +290,17 @@ export default function StampLogForm({
         : remarkType === ''
         ? ''
         : remarkOptions.find((option) => option.value === remarkType)?.name ?? '';
+    const isFreeRemark = remarkType === 'service' || remarkType === 'demo';
     const lineAmount =
-      remarkType === 'service'
+      isFreeRemark
         ? 0
         : remarkType === 'price_adjust'
-        ? priceAdjustAmount * quantity
+        ? adjustedPrice * quantity
         : price * quantity;
-    const remarkText = remark;
+    const remarkText =
+      remarkType === 'price_adjust'
+        ? `${remark}, ${formatAmount(adjustedPrice)}원`
+        : remark;
     const lineText = `${selectedItem.item_name} ${quantity}개${
       remarkText ? ` (${remarkText})` : ''
     }`;
@@ -303,7 +315,7 @@ export default function StampLogForm({
         quantity,
         unitPrice: price,
         adjustedUnitPrice:
-          remarkType === 'price_adjust' ? priceAdjustAmount : null,
+          remarkType === 'price_adjust' ? adjustedPrice : null,
         amount: lineAmount,
         remark,
         lineText,
@@ -632,10 +644,11 @@ export default function StampLogForm({
                   value={priceAdjustAmount}
                   onChange={(e) => {
                     const v = e.target.value;
-                    if (v === '' || /^[0-9]+$/.test(v)) {
-                      setPriceAdjustAmount(v === '' ? 0 : Number(v));
+                    if (/^-?[0-9]*$/.test(v)) {
+                      setPriceAdjustAmount(v);
                     }
                   }}
+                  inputMode="numeric"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm text-right"
                   placeholder="금액"
                 />
@@ -661,10 +674,10 @@ export default function StampLogForm({
           <p className="text-xs text-gray-500">
             {selectedItem
               ? `${selectedItem.item_name} / ${formatAmount(
-                  remarkType === 'service'
+                  remarkType === 'service' || remarkType === 'demo'
                     ? 0
                     : remarkType === 'price_adjust'
-                    ? priceAdjustAmount * quantity
+                    ? parseSignedAmount(priceAdjustAmount) * quantity
                     : (selectedItem.selling_price ?? 0) * quantity,
                 )}원`
               : '품목을 선택하면 메모와 금액이 생성됩니다.'}
