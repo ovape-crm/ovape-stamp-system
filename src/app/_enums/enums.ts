@@ -39,6 +39,10 @@ export const PaymentTypeEnum = {
   },
   REMARK: {
     value: 'remark',
+    name: '고객 특이사항',
+  },
+  SHIPMENT_REMARK: {
+    value: 'shipment_remark',
     name: '특이사항',
   },
   KAKAOTALK: {
@@ -202,3 +206,17 @@ export const AfterServiceItemTypeEnum = {
 
 export type AfterServiceItemTypeEnumType =
   (typeof AfterServiceItemTypeEnum)[keyof typeof AfterServiceItemTypeEnum];
+
+export const ManualTabEnum = {
+  CUSTOMER: {
+    value: 'customer',
+    name: '고객',
+  },
+  STORE: {
+    value: 'store',
+    name: '매장',
+  },
+} as const;
+
+export type ManualTabEnumType =
+  (typeof ManualTabEnum)[keyof typeof ManualTabEnum];

@@ -22,12 +22,14 @@ const ovapePaymentTypes = [
   PaymentTypeEnum.KAKAOTALK,
   PaymentTypeEnum.CASH_RECEIPT,
   PaymentTypeEnum.TRANSFER_CASH_RECEIPT,
+  PaymentTypeEnum.SHIPMENT_REMARK,
 ];
 
 const eguVapePaymentTypes = [
   PaymentTypeEnum.EGU_CARD,
   PaymentTypeEnum.EGU_TRANSFER,
   PaymentTypeEnum.EGU_CASH_RECEIPT,
+  PaymentTypeEnum.SHIPMENT_REMARK,
 ];
 
 const paymentTypesByStore = {
