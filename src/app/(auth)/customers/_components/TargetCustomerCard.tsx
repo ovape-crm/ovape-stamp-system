@@ -7,17 +7,19 @@ export default function TargetCustomerCard({
   phone,
   note,
   className = '',
+  label = '대상 고객',
 }: {
   name: string;
   phone: string;
   note?: string | null;
   className?: string;
+  label?: string;
 }) {
   return (
     <div className={`bg-gray-100 rounded-lg p-4 ${className}`}>
       <div className="flex items-center gap-2 mb-2">
         <div className="w-2 h-2 bg-brand-500 rounded-full" />
-        <span className="text-sm font-medium text-gray-700">대상 고객</span>
+        <span className="text-sm font-medium text-gray-700">{label}</span>
       </div>
       <p className="text-lg font-semibold text-gray-900">{name}</p>
       <p className="text-sm text-gray-600">{formatPhoneNumber(phone)}</p>

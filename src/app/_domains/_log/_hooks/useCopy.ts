@@ -57,12 +57,16 @@ const buildAmountFormula = (
         : typeof item.unitPrice === 'number'
         ? item.unitPrice
         : 0;
-    if (amount <= 0 || effectiveUnitPrice <= 0) continue;
+    if (amount === 0 || effectiveUnitPrice === 0) continue;
     const quantity =
       typeof item.quantity === 'number' && item.quantity > 0
         ? item.quantity
         : 1;
-    parts.push(`+${effectiveUnitPrice}${quantity > 1 ? `*${quantity}` : ''}`);
+    const sign = effectiveUnitPrice < 0 ? '-' : '+';
+    const absoluteUnitPrice = Math.abs(effectiveUnitPrice);
+    parts.push(
+      `${sign}${absoluteUnitPrice}${quantity > 1 ? `*${quantity}` : ''}`
+    );
   }
 
   if (parts.length === 0) {

@@ -147,7 +147,7 @@ const StampSection = ({ stampCount, target, onUpdate, onAddRemark }: StampSectio
                     }}
                   />
                 ),
-                options: { dismissOnBackdrop: false },
+                options: { dismissOnBackdrop: false, size: 'max-w-xl' },
               })
             }
             disabled={isLoading}
@@ -219,7 +219,7 @@ const StampSection = ({ stampCount, target, onUpdate, onAddRemark }: StampSectio
             onClick={onAddRemark}
             disabled={isLoading}
           >
-            특이사항
+            고객 특이사항
           </Button>
         </div>
       </div>

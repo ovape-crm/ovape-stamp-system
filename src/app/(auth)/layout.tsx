@@ -1,4 +1,5 @@
 import Header from './_components/Header';
+import SideMenu from './_components/SideMenu';
 import { UserProvider } from '@/app/_contexts/UserContext';
 
 export default function CustomersLayout({
@@ -8,8 +9,10 @@ export default function CustomersLayout({
 }) {
   return (
     <UserProvider requireAuth>
-      <Header />
-      {children}
+      <div className="hidden header:block">
+        <Header />
+      </div>
+      <SideMenu>{children}</SideMenu>
     </UserProvider>
   );
 }
