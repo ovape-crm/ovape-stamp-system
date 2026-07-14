@@ -28,6 +28,7 @@ const ovapePaymentTypes = [
 const eguVapePaymentTypes = [
   PaymentTypeEnum.EGU_CARD,
   PaymentTypeEnum.EGU_TRANSFER,
+  PaymentTypeEnum.EGU_CASH,
   PaymentTypeEnum.EGU_CASH_RECEIPT,
   PaymentTypeEnum.SHIPMENT_REMARK,
 ];
