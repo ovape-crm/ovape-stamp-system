@@ -8,7 +8,10 @@ import Button from '@/app/_components/Button';
 import Loading from '@/app/_components/Loading';
 import useCopy from '@/app/_domains/_log/_hooks/useCopy';
 import { CustomersLogsResType } from '@/app/_domains/_log/_types/log.types';
-import { updateLogNote, deleteLog } from '@/app/_domains/_log/_services/logService';
+import {
+  updateLogNote,
+  deleteLog,
+} from '@/app/_domains/_log/_services/logService';
 import { useCallback } from 'react';
 import {
   PaymentTypeEnum,
@@ -35,7 +38,11 @@ const CustomersDetailStampsHistories = ({
   isReservation = false,
   onConfirmReservation,
 }: {
-  targetUser: { phone: string; name: string; gender?: 'male' | 'female' | null };
+  targetUser: {
+    phone: string;
+    name: string;
+    gender?: 'male' | 'female' | null;
+  };
   isLoading: boolean;
   error: string;
   logs: CustomersLogsResType;
@@ -102,7 +109,9 @@ const CustomersDetailStampsHistories = ({
         }
       };
       open({
-        content: <DeleteConfirmModal onConfirm={handleConfirm} onCancel={close} />,
+        content: (
+          <DeleteConfirmModal onConfirm={handleConfirm} onCancel={close} />
+        ),
         options: { dismissOnBackdrop: false },
       });
     },
@@ -128,7 +137,9 @@ const CustomersDetailStampsHistories = ({
               updated_at: updated.updated_at,
             }));
             close();
-            toast.success(isRemarkLog ? '특이사항을 저장했습니다.' : '메모를 저장했습니다.');
+            toast.success(
+              isRemarkLog ? '특이사항을 저장했습니다.' : '메모를 저장했습니다.',
+            );
           } catch (e) {
             console.error(e);
             toast.error('저장에 실패했습니다. 다시 시도해 주세요.');
@@ -194,9 +205,7 @@ const CustomersDetailStampsHistories = ({
           <StampLogEditModal
             initialAction={log.action}
             initialPaymentType={
-              log.jsonb?.paymentType as
-                | PaymentTypeEnumType['value']
-                | undefined
+              log.jsonb?.paymentType as PaymentTypeEnumType['value'] | undefined
             }
             initialStoreName={
               log.jsonb?.storeName as StoreTypeEnumType['value'] | undefined
@@ -269,15 +278,13 @@ const CustomersDetailStampsHistories = ({
                       </div>
                     )}
                   </div>
-                  <div className="flex flex-col items-center gap-1">
-                    <div className="flex items-center gap-0.5">
-                      {log.jsonb && 'storeName' in log.jsonb && (
-                        <StoreLabel jsonb={log.jsonb} />
-                      )}
-                      {log.jsonb && 'paymentType' in log.jsonb && (
-                        <PaymentTypeLabel jsonb={log.jsonb} />
-                      )}
-                    </div>
+                  <div className="flex flex-col items-start gap-1 ml-4">
+                    {log.jsonb && 'storeName' in log.jsonb && (
+                      <StoreLabel jsonb={log.jsonb} />
+                    )}
+                    {log.jsonb && 'paymentType' in log.jsonb && (
+                      <PaymentTypeLabel jsonb={log.jsonb} />
+                    )}
                     {typeof log.jsonb?.totalAmount === 'number' &&
                       log.jsonb.totalAmount > 0 && (
                         <span className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold px-2 py-1">
@@ -295,13 +302,12 @@ const CustomersDetailStampsHistories = ({
                         ✏️
                       </Button>
                       <span className="flex-1 min-w-[240px] text-xs sm:text-sm text-gray-600 break-words whitespace-pre-line">
-                        {log.note || (
-                          <span className="text-gray-400"> - </span>
-                        )}
+                        {log.note || <span className="text-gray-400"> - </span>}
                         {typeof log.jsonb?.extraNote === 'string' &&
                           log.jsonb.extraNote.trim() && (
                             <span className="ml-2 italic text-gray-400">
-                              출고 특이사항: &quot;{log.jsonb.extraNote.trim()}&quot;
+                              출고 특이사항: &quot;{log.jsonb.extraNote.trim()}
+                              &quot;
                             </span>
                           )}
                       </span>
