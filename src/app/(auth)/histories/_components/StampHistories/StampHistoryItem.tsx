@@ -43,15 +43,13 @@ const StampHistoryItem = ({
         />
       </div>
 
-      <div className="flex flex-col items-center gap-1">
-        <div className="flex items-center gap-0.5">
-          {log.jsonb && 'storeName' in log.jsonb && (
-            <StoreLabel jsonb={log.jsonb} />
-          )}
-          {log.jsonb && 'paymentType' in log.jsonb && (
-            <PaymentTypeLabel jsonb={log.jsonb} />
-          )}
-        </div>
+      <div className="flex flex-col items-start gap-1">
+        {log.jsonb && 'storeName' in log.jsonb && (
+          <StoreLabel jsonb={log.jsonb} />
+        )}
+        {log.jsonb && 'paymentType' in log.jsonb && (
+          <PaymentTypeLabel jsonb={log.jsonb} />
+        )}
         {typeof log.jsonb?.totalAmount === 'number' &&
           log.jsonb.totalAmount > 0 && (
             <span className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold px-2 py-1">

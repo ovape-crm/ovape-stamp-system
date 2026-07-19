@@ -18,7 +18,7 @@ const PaymentTypeLabel = ({ jsonb }: { jsonb: Record<string, unknown> }) => {
     : undefined;
 
   return (
-    <span className="ml-2 inline-flex items-center rounded-full bg-gray-100 text-gray-500 text-xs font-medium px-1.5 py-1">
+    <span className="inline-flex items-center rounded-full bg-gray-100 text-gray-500 text-xs font-medium px-1.5 py-1">
       {paymentTypeName}
     </span>
   );
