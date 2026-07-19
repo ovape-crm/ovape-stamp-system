@@ -12,7 +12,7 @@ const notoSansKR = Noto_Sans_KR({
 });
 
 export const metadata: Metadata = {
-  title: 'OSS - Ovape Stamp System',
+  title: ' - Ovasssspe Stamp System',
   description: 'Ovape Stamp System - 고객 스탬프 관리 시스템',
   icons: {
     icon: '/icon.png',
