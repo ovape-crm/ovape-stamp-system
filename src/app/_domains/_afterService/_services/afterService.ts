@@ -1,5 +1,4 @@
 import {
-  AfterServiceItemTypeEnumType,
   AfterServiceStatusEnum,
   AfterServiceStatusEnumType,
   AfterServiceStatusGroupEnumType,
@@ -20,7 +19,7 @@ export const createAfterService = async ({
   receivedNote = '',
 }: {
   customerId: string | null;
-  itemType: AfterServiceItemTypeEnumType['value'];
+  itemType: string;
   itemName: string;
   quantity: number;
   symptom: string;
@@ -308,7 +307,7 @@ export const updateAfterService = async (
     isLoanerDeviceIssued,
   }: {
     customerId: string | null;
-    itemType: AfterServiceItemTypeEnumType['value'];
+    itemType: string;
     itemName: string;
     quantity: number;
     symptom: string;

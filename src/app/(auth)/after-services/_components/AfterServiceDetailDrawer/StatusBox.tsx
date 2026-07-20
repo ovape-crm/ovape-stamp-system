@@ -10,6 +10,15 @@ interface StatusBoxProps {
 
 const StatusBox = ({ status, onEdit }: StatusBoxProps) => {
   const [isHovered, setIsHovered] = useState(false);
+  const statusText = getActionText(`after-service-${status}`).text;
+  const shouldBreakStatusLine = [
+    'repair_returned_completed',
+    'other',
+    'other_in_progress',
+  ].includes(status);
+  const [statusName, statusDetail] = shouldBreakStatusLine
+    ? statusText.split(' (')
+    : [statusText];
 
   const getStatusColor = (statusValue: string) => {
     const actionInfo = getActionText(`after-service-${statusValue}`);
@@ -108,16 +117,16 @@ const StatusBox = ({ status, onEdit }: StatusBoxProps) => {
           {colors.group}
         </div>
         {/* 상태 이름 */}
-        {status === 'repair_returned_completed' ? (
+        {shouldBreakStatusLine ? (
           <div
             className={`text-2xl font-bold ${colors.text} tracking-wide text-center`}
           >
-            <div>수리 수령</div>
-            <div className="text-lg">(재고 처리)</div>
+            <div>{statusName}</div>
+            {statusDetail && <div className="text-lg">({statusDetail}</div>}
           </div>
         ) : (
           <span className={`text-2xl font-bold ${colors.text} tracking-wide`}>
-            {getActionText(`after-service-${status}`).text}
+            {statusText}
           </span>
         )}
       </div>

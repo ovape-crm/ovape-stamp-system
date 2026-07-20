@@ -14,6 +14,7 @@ import { ItemType } from '@/app/_domains/_item/_types/item.types';
 import ItemSearchBox from './_components/ItemSearchBox';
 import ItemList from './_components/ItemList';
 import ItemCreateModal from './_components/ItemCreateModal';
+import CategoryManageModal from './_components/CategoryManageModal';
 import type { FormValues } from './_components/ItemCreateModal';
 import DeleteConfirmModal from '@/app/(auth)/_components/DeleteConfirmModal';
 import toast from 'react-hot-toast';
@@ -102,40 +103,55 @@ const ItemsPage = () => {
     });
   };
 
+  const handleOpenCategoryManage = () => {
+    open({
+      content: <CategoryManageModal onClose={close} />,
+      options: { dismissOnBackdrop: false, dismissOnEsc: true },
+    });
+  };
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10 space-y-4">
-      <ItemSearchBox categories={categories} onSearch={handleSearch} />
+    <section className="mx-auto flex h-[calc(100vh-3.5rem)] max-w-7xl flex-col px-4 py-6 sm:h-[calc(100vh-5rem)] sm:px-6 lg:px-8">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-brand-100 bg-white p-4 shadow-sm sm:p-6">
+        <div className="shrink-0 space-y-3 pb-4">
+        <ItemSearchBox categories={categories} onSearch={handleSearch} />
 
-      {isAdmin && (
-        <div className="flex justify-end">
-          <Button
-            size="sm"
-            onClick={() => {
-              open({
-                content: (
-                  <ItemCreateModal
-                    categories={categories}
-                    onSubmit={handleItemSubmit}
-                    onCancel={close}
-                  />
-                ),
-                options: { dismissOnBackdrop: false, dismissOnEsc: true },
-              });
-            }}
-          >
-            품목 추가
-          </Button>
+        {isAdmin && (
+          <div className="flex justify-end gap-2">
+            <Button size="sm" variant="gray" onClick={handleOpenCategoryManage}>
+              종류 관리
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                open({
+                  content: (
+                    <ItemCreateModal
+                      categories={categories}
+                      onSubmit={handleItemSubmit}
+                      onCancel={close}
+                    />
+                  ),
+                  options: { dismissOnBackdrop: false, dismissOnEsc: true },
+                });
+              }}
+            >
+              품목 추가
+            </Button>
+          </div>
+        )}
         </div>
-      )}
 
-      <ItemList
-        filters={effectiveFilters}
-        categories={categories}
-        isAdmin={isAdmin}
-        onEdit={isAdmin ? handleItemEdit : undefined}
-        onDelete={isAdmin ? handleItemDelete : undefined}
-      />
-    </div>
+        <div className="min-h-0 flex-1">
+          <ItemList
+            filters={effectiveFilters}
+            isAdmin={isAdmin}
+            onEdit={isAdmin ? handleItemEdit : undefined}
+            onDelete={isAdmin ? handleItemDelete : undefined}
+          />
+        </div>
+      </div>
+    </section>
   );
 };
 

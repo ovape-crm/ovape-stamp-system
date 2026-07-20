@@ -6,20 +6,19 @@ import {
   useItems,
   ItemFilters,
 } from '@/app/_domains/_item/_hooks/useItems';
-import { ItemCategoryType, ItemType } from '@/app/_domains/_item/_types/item.types';
+import { ItemType } from '@/app/_domains/_item/_types/item.types';
 import { useModal } from '@/app/_contexts/ModalContext';
 import CategoryManageModal from '../CategoryManageModal';
 import ItemDetailModal from '../ItemDetailModal';
 
 interface ItemListProps {
   filters?: ItemFilters;
-  categories: ItemCategoryType[];
   isAdmin?: boolean;
   onEdit?: (item: ItemType) => void;
   onDelete?: (item: ItemType) => void;
 }
 
-const ItemList = ({ filters, categories, isAdmin = false, onEdit, onDelete }: ItemListProps) => {
+const ItemList = ({ filters, isAdmin = false, onEdit, onDelete }: ItemListProps) => {
   const { items, isLoading, isLoadingMore, error, loadMore, hasMore, totalCount } =
     useItems(filters);
   const { open, close } = useModal();
@@ -46,8 +45,8 @@ const ItemList = ({ filters, categories, isAdmin = false, onEdit, onDelete }: It
   }
 
   return (
-    <div className="mb-10">
-      <div className="flex justify-start items-center mb-3">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="mb-3 flex shrink-0 items-center justify-start">
         <div className="text-xs sm:text-sm text-gray-600">
           <span className="font-semibold text-brand-600">{items.length}</span>
           {totalCount !== undefined && totalCount > 0 && (
@@ -58,9 +57,9 @@ const ItemList = ({ filters, categories, isAdmin = false, onEdit, onDelete }: It
           )}
         </div>
       </div>
-      <div className="bg-white rounded-lg shadow-sm border border-brand-100 overflow-hidden overflow-x-auto">
+      <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-brand-100 bg-white shadow-sm">
         <table className="w-full min-w-[1000px] divide-y divide-brand-100 table-auto">
-          <thead className="bg-gradient-to-r from-brand-50 to-brand-100">
+          <thead className="sticky top-0 z-10 bg-gradient-to-r from-brand-50 to-brand-100">
             <tr>
               <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
                 No
@@ -238,7 +237,7 @@ const ItemList = ({ filters, categories, isAdmin = false, onEdit, onDelete }: It
         </table>
       </div>
       {hasMore && (
-        <div className="flex justify-center mt-6">
+        <div className="mt-3 flex shrink-0 justify-center">
           <Button
             size="sm"
             onClick={loadMore}

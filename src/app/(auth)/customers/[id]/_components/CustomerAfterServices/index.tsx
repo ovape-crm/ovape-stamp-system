@@ -77,6 +77,17 @@ const CustomerAfterServices = ({ customerId }: CustomerAfterServicesProps) => {
     return itemTypeOption || { name: itemType, value: itemType };
   };
 
+  const splitSymptomIntoLines = (symptom: string) => {
+    const characters = Array.from(symptom);
+    const lines: string[] = [];
+
+    for (let index = 0; index < characters.length; index += 16) {
+      lines.push(characters.slice(index, index + 16).join(''));
+    }
+
+    return lines;
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-brand-100 overflow-hidden overflow-x-auto">
       <table className="w-full min-w-[900px] divide-y divide-brand-100 text-xs sm:text-sm">
@@ -143,8 +154,12 @@ const CustomerAfterServices = ({ customerId }: CustomerAfterServicesProps) => {
                   </div>
                 </td>
                 <td className="px-3 sm:px-6 py-2 sm:py-3 text-gray-700 w-64">
-                  <p className="truncate" title={as.symptom}>
-                    {as.symptom}
+                  <p title={as.symptom}>
+                    {splitSymptomIntoLines(as.symptom).map((line, lineIndex) => (
+                      <span key={lineIndex} className="block">
+                        {line}
+                      </span>
+                    ))}
                   </p>
                 </td>
                 <td className="px-3 sm:px-6 py-2 sm:py-3 text-gray-700">
