@@ -10,6 +10,8 @@ const navLinks = [
   { href: '/comparison', label: '기기 비교' },
   { href: '/items', label: '품목 관리' },
   { href: '/manuals', label: '매뉴얼' },
+  { href: '/cash-management', label: '시재 관리' },
+  { href: '/work-journal', label: '근무일지' },
 ];
 
 type NavProps = {

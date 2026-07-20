@@ -7,6 +7,7 @@ interface ConfirmModalProps {
   title: string;
   description: string;
   confirmLabel?: string;
+  cancelLabel?: string;
   confirmingLabel?: string;
   onConfirm: () => Promise<void>;
   onCancel: () => void;
@@ -16,6 +17,7 @@ const ConfirmModal = ({
   title,
   description,
   confirmLabel = '확인',
+  cancelLabel = '취소',
   confirmingLabel = '처리 중...',
   onConfirm,
   onCancel,
@@ -39,7 +41,7 @@ const ConfirmModal = ({
 
       <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 mt-6">
         <Button size="sm" variant="gray" onClick={onCancel} disabled={isSubmitting}>
-          취소
+          {cancelLabel}
         </Button>
         <Button size="sm" onClick={handleConfirm} disabled={isSubmitting}>
           {isSubmitting ? confirmingLabel : confirmLabel}

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
@@ -24,6 +25,7 @@ const DeviceList = ({ refreshKey }: DeviceListProps) => {
   const { open, close } = useModal();
   const { isAdmin } = useUser();
   const queryClient = useQueryClient();
+  const [searchKeyword, setSearchKeyword] = useState('');
 
   const { data, isPending, isError } = useQuery({
     queryKey: [...comparisonKeys.devices(), refreshKey],
@@ -37,6 +39,26 @@ const DeviceList = ({ refreshKey }: DeviceListProps) => {
     if (!valueMap[v.device_id]) valueMap[v.device_id] = {};
     valueMap[v.device_id][v.column_id] = v.value;
   });
+  const normalizedKeyword = searchKeyword.trim().toLocaleLowerCase('ko-KR');
+  const searchableColumns = columns.filter((column) => {
+    const normalizedName = column.name.replaceAll(' ', '').toLocaleLowerCase('ko-KR');
+    const normalizedKey = column.key.replaceAll('_', '').toLocaleLowerCase();
+    return (
+      normalizedName.includes('브랜드') ||
+      normalizedName.includes('기기명') ||
+      normalizedKey.includes('brand') ||
+      normalizedKey.includes('devicename')
+    );
+  });
+  const filteredDevices = normalizedKeyword
+    ? devices.filter((device) =>
+        searchableColumns.some((column) =>
+          (valueMap[device.id]?.[column.id] ?? '')
+            .toLocaleLowerCase('ko-KR')
+            .includes(normalizedKeyword),
+        ),
+      )
+    : devices;
 
   const deleteMutation = useMutation({
     mutationFn: deleteComparisonDevice,
@@ -106,8 +128,40 @@ const DeviceList = ({ refreshKey }: DeviceListProps) => {
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full text-xs sm:text-sm border-separate border-spacing-0">
+    <div className="flex min-h-0 flex-col">
+      <div className="sticky top-0 z-20 mb-3 flex items-center justify-between gap-3 border-b border-brand-50 bg-white pb-3">
+        <div className="relative w-full max-w-sm">
+          <svg
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="m21 21-4.35-4.35m2.1-5.4a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"
+            />
+          </svg>
+          <input
+            type="search"
+            value={searchKeyword}
+            onChange={(event) => setSearchKeyword(event.target.value)}
+            placeholder="브랜드 또는 기기명을 입력하세요"
+            className="w-full rounded-lg border border-brand-200 bg-white py-2 pl-9 pr-3 text-xs outline-none transition-colors placeholder:text-gray-400 focus:border-brand-400 focus:ring-2 focus:ring-brand-100 sm:text-sm"
+          />
+        </div>
+        {searchKeyword.trim() && (
+          <span className="shrink-0 text-xs text-gray-500">
+            {filteredDevices.length}개 검색됨
+          </span>
+        )}
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-xs sm:text-sm border-separate border-spacing-0">
         <thead>
           <tr className="bg-brand-50">
             <th className="px-3 py-2.5 text-left font-semibold text-gray-500 whitespace-nowrap w-10 border-b border-r border-brand-100">
@@ -127,7 +181,7 @@ const DeviceList = ({ refreshKey }: DeviceListProps) => {
           </tr>
         </thead>
         <tbody>
-          {devices.map((device, index) => (
+          {filteredDevices.map((device, index) => (
             <tr
               key={device.id}
               className={`hover:bg-brand-50/50 transition-colors ${index % 2 === 1 ? 'bg-gray-50/60' : 'bg-white'}`}
@@ -161,8 +215,19 @@ const DeviceList = ({ refreshKey }: DeviceListProps) => {
               ))}
             </tr>
           ))}
+          {filteredDevices.length === 0 && (
+            <tr>
+              <td
+                colSpan={columns.length + 2}
+                className="px-4 py-10 text-center text-gray-500"
+              >
+                검색 결과가 없습니다.
+              </td>
+            </tr>
+          )}
         </tbody>
-      </table>
+        </table>
+      </div>
     </div>
   );
 };

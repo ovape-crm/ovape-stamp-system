@@ -10,7 +10,6 @@ import AfterServiceList from './_components/AfterServiceList';
 import AfterServiceDetailDrawer from './_components/AfterServiceDetailDrawer';
 import { createAfterService } from '@/app/_domains/_afterService/_services/afterService';
 import toast from 'react-hot-toast';
-import { AfterServiceItemTypeEnumType } from '@/app/_enums/enums';
 import AfterServiceSearchBox from './_components/AfterServiceSearchBox';
 import AfterServiceProgressBox from './_components/AfterServiceProgressBox';
 import { afterServiceKeys } from '@/app/_domains/_afterService/_queryKeys/afterServiceKeys';
@@ -39,7 +38,7 @@ const AfterServicesPage = () => {
   // ========================================================================
   const handleAfterServiceSubmit = async (values: {
     customerId: string;
-    itemType: AfterServiceItemTypeEnumType['value'];
+    itemType: string;
     itemName: string;
     quantity: number;
     symptom: string;
@@ -102,8 +101,9 @@ const AfterServicesPage = () => {
   ) => {
     if (group === 'all') {
       setFilters((prev) => {
-        const { groupStatus, ...rest } = prev;
-        return rest;
+        const nextFilters = { ...prev };
+        delete nextFilters.groupStatus;
+        return nextFilters;
       });
     } else {
       setFilters((prev) => ({
@@ -129,8 +129,9 @@ const AfterServicesPage = () => {
           selectedGroup={filters.groupStatus}
           onClearGroup={() => {
             setFilters((prev) => {
-              const { groupStatus, ...rest } = prev;
-              return rest;
+              const nextFilters = { ...prev };
+              delete nextFilters.groupStatus;
+              return nextFilters;
             });
           }}
         />

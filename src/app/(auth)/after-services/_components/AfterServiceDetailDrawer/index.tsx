@@ -21,10 +21,7 @@ import NoteCard from './NoteCard';
 import UpdatedDate from './UpdatedDate';
 import StatusUpdateModal from './StatusUpdateModal';
 import AfterServiceCreateModal from '../AfterServiceCreateModal';
-import {
-  AfterServiceStatusEnumType,
-  AfterServiceItemTypeEnumType,
-} from '@/app/_enums/enums';
+import { AfterServiceStatusEnumType } from '@/app/_enums/enums';
 import Button from '@/app/_components/Button';
 import { useAfterService } from '@/app/_domains/_afterService/_hooks/useAfterService';
 import { afterServiceKeys } from '@/app/_domains/_afterService/_queryKeys/afterServiceKeys';
@@ -139,8 +136,7 @@ const AfterServiceDetailDrawer = ({
             customerId: afterServiceDetail.customer_id ? String(afterServiceDetail.customer_id) : null,
             customerName: afterServiceDetail.customers?.name || null,
             customerPhone: afterServiceDetail.customers?.phone || null,
-            itemType:
-              afterServiceDetail.item_type as AfterServiceItemTypeEnumType['value'],
+            itemType: afterServiceDetail.item_type,
             itemName: afterServiceDetail.item_name,
             quantity: afterServiceDetail.quantity,
             symptom: afterServiceDetail.symptom,

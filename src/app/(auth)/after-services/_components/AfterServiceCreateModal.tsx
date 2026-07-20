@@ -4,20 +4,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useState, useRef, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import Button from '@/app/_components/Button';
-import {
-  AfterServiceItemTypeEnum,
-  AfterServiceItemTypeEnumType,
-} from '@/app/_enums/enums';
 import CustomerSelector from './CustomerSelector';
 import { CustomerType } from '@/app/_domains/_customer/_types/customer.types';
 import { formatPhoneNumber } from '@/app/_utils/utils';
-
-// ============================================================================
-// 상수 및 타입 정의
-// ============================================================================
-
-const itemTypeOptions = Object.values(AfterServiceItemTypeEnum);
+import { getItems } from '@/app/_domains/_item/_services/itemService';
+import { itemKeys } from '@/app/_domains/_item/_queryKeys/itemKeys';
 
 // ============================================================================
 // 폼 검증 스키마
@@ -25,15 +18,7 @@ const itemTypeOptions = Object.values(AfterServiceItemTypeEnum);
 
 const schema = z.object({
   customerId: z.string().trim(),
-  itemType: z.enum(
-    [
-      AfterServiceItemTypeEnum.DEVICE.value,
-      AfterServiceItemTypeEnum.DISPOSABLE_DEVICE.value,
-      AfterServiceItemTypeEnum.LIQUID.value,
-      AfterServiceItemTypeEnum.CONSUMABLE.value,
-    ],
-    { message: '기기 종류를 선택하세요.' },
-  ),
+  itemType: z.string().trim().min(1, { message: '품목 종류를 선택하세요.' }),
   itemName: z
     .string()
     .trim()
@@ -89,7 +74,7 @@ export default function AfterServiceCreateModal({
     customerId?: string | null;
     customerName?: string | null;
     customerPhone?: string | null;
-    itemType: AfterServiceItemTypeEnumType['value'];
+    itemType: string;
     itemName: string;
     quantity: number;
     symptom: string;
@@ -113,6 +98,12 @@ export default function AfterServiceCreateModal({
   const [selectedCustomerInfo, setSelectedCustomerInfo] =
     useState<CustomerType | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showItemSuggestions, setShowItemSuggestions] = useState(false);
+  const { data: items = [], isPending: areItemsLoading } = useQuery({
+    queryKey: itemKeys.list({ isUse: true, excludePurchasePrice: true }),
+    queryFn: () =>
+      getItems(1000, 0, { isUse: true, excludePurchasePrice: true }),
+  });
 
   // ========================================================================
   // React Hook Form 설정
@@ -124,12 +115,13 @@ export default function AfterServiceCreateModal({
     control,
     setValue,
     reset,
+    watch,
   } = useForm<FormValues>({
     mode: 'onChange',
     resolver: zodResolver(schema),
     defaultValues: {
       customerId: initialData?.customerId || '',
-      itemType: initialData?.itemType || AfterServiceItemTypeEnum.DEVICE.value,
+      itemType: initialData?.itemType || '',
       itemName: initialData?.itemName || '',
       quantity: initialData?.quantity || 1,
       symptom: initialData?.symptom || '',
@@ -139,6 +131,26 @@ export default function AfterServiceCreateModal({
       receivedNote: '',
     },
   });
+
+  const itemNameKeyword = watch('itemName');
+  const selectedItemType = watch('itemType');
+  const itemSuggestions = itemNameKeyword.trim()
+    ? items
+        .filter((item) =>
+          item.item_name
+            .toLocaleLowerCase('ko-KR')
+            .includes(itemNameKeyword.trim().toLocaleLowerCase('ko-KR')),
+        )
+        .slice(0, 20)
+    : [];
+
+  const handleItemSelect = (item: (typeof items)[number]) => {
+    setValue('itemName', item.item_name, { shouldValidate: true });
+    setValue('itemType', item.item_categories?.name || '', {
+      shouldValidate: true,
+    });
+    setShowItemSuggestions(false);
+  };
 
   // 초기 데이터가 변경되면 폼 리셋
   useEffect(() => {
@@ -257,11 +269,7 @@ export default function AfterServiceCreateModal({
                   기기 종류:
                 </span>
                 <p className="text-base font-semibold text-gray-900">
-                  {
-                    itemTypeOptions.find(
-                      (opt) => opt.value === formData.itemType,
-                    )?.name
-                  }
+                  {formData.itemType}
                 </p>
               </div>
               <div>
@@ -381,55 +389,79 @@ export default function AfterServiceCreateModal({
           initialCustomer={selectedCustomerInfo}
         />
 
-        {/* 기기 종류 선택 (Radio) */}
-        <div>
-          <span className="block text-sm font-medium mb-1">
-            기기 종류 <span className="text-rose-600">*</span>
-          </span>
-          <Controller
-            name="itemType"
-            control={control}
-            render={({ field }) => (
-              <div className="flex flex-wrap items-center gap-4">
-                {itemTypeOptions.map((option) => (
-                  <label
-                    key={option.value}
-                    className="inline-flex items-center gap-2 cursor-pointer"
-                  >
-                    <input
-                      type="radio"
-                      value={option.value}
-                      checked={field.value === option.value}
-                      onChange={() => field.onChange(option.value)}
-                      className="w-4 h-4 text-brand-600 focus:ring-brand-500 focus:ring-2"
-                    />
-                    <span className="text-sm text-gray-700">{option.name}</span>
-                  </label>
-                ))}
-              </div>
-            )}
-          />
-          {errors.itemType && (
-            <p className="mt-1 text-xs text-rose-600">
-              {errors.itemType.message}
-            </p>
-          )}
-        </div>
-
-        {/* 기기/제품 이름 */}
-        <div>
+        {/* 품목 관리에서 기기/제품 검색 */}
+        <div className="relative">
           <label className="block text-sm font-medium mb-1">
             기기/제품 이름 <span className="text-rose-600">*</span>
           </label>
           <input
             className="w-full rounded border border-brand-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
-            placeholder="기기 또는 제품 이름을 입력하세요"
+            placeholder={
+              areItemsLoading
+                ? '품목을 불러오는 중...'
+                : '품목 관리에 등록된 이름을 검색하세요'
+            }
+            autoComplete="off"
+            disabled={areItemsLoading}
             aria-invalid={!!errors.itemName || undefined}
-            {...register('itemName')}
+            {...register('itemName', {
+              onChange: () => {
+                setValue('itemType', '', { shouldValidate: true });
+                setShowItemSuggestions(true);
+              },
+              onBlur: () => setShowItemSuggestions(false),
+            })}
+            onFocus={() => setShowItemSuggestions(true)}
           />
+          {showItemSuggestions && itemNameKeyword.trim() && (
+            <div className="absolute z-20 mt-1 max-h-52 w-full overflow-y-auto rounded-lg border border-brand-200 bg-white shadow-lg">
+              {itemSuggestions.length > 0 ? (
+                itemSuggestions.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className="flex w-full items-center justify-between gap-3 border-b border-gray-100 px-3 py-2 text-left text-sm last:border-b-0 hover:bg-brand-50"
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      handleItemSelect(item);
+                    }}
+                  >
+                    <span className="font-medium text-gray-800">
+                      {item.item_name}
+                    </span>
+                    <span className="shrink-0 text-xs text-gray-500">
+                      {item.item_categories?.name || '종류 없음'}
+                    </span>
+                  </button>
+                ))
+              ) : (
+                <p className="px-3 py-3 text-sm text-gray-500">
+                  일치하는 품목이 없습니다.
+                </p>
+              )}
+            </div>
+          )}
           {errors.itemName && (
             <p className="mt-1 text-xs text-rose-600">
               {errors.itemName.message}
+            </p>
+          )}
+        </div>
+
+        {/* 선택한 품목의 종류 자동 표시 */}
+        <div>
+          <label className="block text-sm font-medium mb-1">
+            기기 종류 <span className="text-rose-600">*</span>
+          </label>
+          <input
+            className="w-full rounded border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-700"
+            value={selectedItemType}
+            placeholder="기기/제품 이름을 선택하면 자동으로 표시됩니다"
+            readOnly
+          />
+          {errors.itemType && (
+            <p className="mt-1 text-xs text-rose-600">
+              품목 관리의 검색 결과에서 제품을 선택하세요.
             </p>
           )}
         </div>
@@ -502,7 +534,7 @@ export default function AfterServiceCreateModal({
           </label>
           <textarea
             className="w-full min-h-24 rounded border border-brand-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
-            placeholder="고객 관련 특이사항을 입력하세요 (선택사항)"
+            placeholder={'고객 관련 특이사항을 입력하세요 (선택사항)\nex) 도착시 문자 or 전화'}
             aria-invalid={!!errors.customerNote || undefined}
             {...register('customerNote')}
           />
@@ -520,7 +552,7 @@ export default function AfterServiceCreateModal({
           </label>
           <textarea
             className="w-full min-h-24 rounded border border-brand-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
-            placeholder="매장 관련 특이사항을 입력하세요 (선택사항)"
+            placeholder={'매장 관련 특이사항을 입력하세요 (선택사항)\nex) DP용 발라리안맥스프로 실버 1개 대여'}
             aria-invalid={!!errors.shopNote || undefined}
             {...register('shopNote')}
           />

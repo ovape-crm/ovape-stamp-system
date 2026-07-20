@@ -148,23 +148,23 @@ const ManualsPage = () => {
   };
 
   return (
-    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10 mb-10">
-      <div className="bg-white rounded-lg shadow-sm border border-brand-100 p-6">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between mb-4 pb-3 border-b border-brand-100">
-          <div className="flex gap-1 sm:gap-3">
-            {Object.values(ManualTabEnum).map((t) => (
-              <Button
-                key={t.value}
-                onClick={() => handleChangeTab(t.value)}
-                variant={tab === t.value ? 'primary' : 'secondary'}
-              >
-                {t.name}
-              </Button>
-            ))}
+    <section className="mx-auto flex h-[calc(100vh-3.5rem)] max-w-7xl flex-col px-4 py-6 sm:h-[calc(100vh-5rem)] sm:px-6 lg:px-8">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-brand-100 bg-white p-4 shadow-sm sm:p-6">
+        <div className="shrink-0 space-y-4 pb-4">
+          <div className="flex flex-col gap-3 border-b border-brand-100 pb-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex gap-1 sm:gap-3">
+              {Object.values(ManualTabEnum).map((t) => (
+                <Button
+                  key={t.value}
+                  onClick={() => handleChangeTab(t.value)}
+                  variant={tab === t.value ? 'primary' : 'secondary'}
+                >
+                  {t.name}
+                </Button>
+              ))}
+            </div>
           </div>
-        </div>
 
-        <div className="space-y-4">
           <ManualSearchBox
             key={tab}
             topCategories={topCategories}
@@ -182,7 +182,9 @@ const ManualsPage = () => {
               </Button>
             </div>
           )}
+        </div>
 
+        <div className="min-h-0 flex-1">
           <ManualList
             filters={effectiveFilters}
             isAdmin={isAdmin}
