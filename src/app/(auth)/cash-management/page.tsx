@@ -21,6 +21,7 @@ import KoreanDatePicker, { formatKoreanDate } from '@/app/_components/KoreanDate
 import { getWorkJournalsByDate } from '@/app/_domains/_workJournal/_services/workJournalService';
 import { useModal } from '@/app/_contexts/ModalContext';
 import ConfirmModal from '@/app/(auth)/_components/ConfirmModal';
+import { useUser } from '@/app/_contexts/UserContext';
 
 const getTodayInKorea = () =>
   new Intl.DateTimeFormat('en-CA', {
@@ -50,8 +51,10 @@ const getMonthDateRange = (month: string) => {
 };
 
 export default function CashManagementPage() {
+  const { isAdmin } = useUser();
   const queryClient = useQueryClient();
   const { open, close } = useModal();
+  const [activeTab, setActiveTab] = useState<'save' | 'history'>('save');
   const [businessDate, setBusinessDate] = useState(getTodayInKorea);
   const [openingCash, setOpeningCash] = useState(0);
   const [cashIn, setCashIn] = useState(0);
@@ -129,8 +132,12 @@ export default function CashManagementPage() {
     endTime: journal.end_time.slice(0, 5),
     workerName: journal.worker_name,
   }));
+  const cashWorkerName = workShifts.map((shift) => shift.workerName.trim()).filter(Boolean).join(', ');
+  const hasWorkerInfo = Boolean(cashWorkerName);
   const expectedCash = openingCash + sales.total + cashIn - cashOut;
   const difference = actualCash - expectedCash;
+  const isEditing = Boolean(dayQuery.data?.closing);
+  const canModifyClosing = !isEditing || isAdmin || businessDate === today;
 
   const saveMutation = useMutation({
     mutationFn: () =>
@@ -145,14 +152,11 @@ export default function CashManagementPage() {
         actualCash,
         cashCounts,
         workShifts,
-        workerName: workShifts
-          .map((shift) => shift.workerName.trim())
-          .filter(Boolean)
-          .join(', '),
+        workerName: cashWorkerName,
         note: note.trim(),
       }),
     onSuccess: async () => {
-      toast.success('시재가 저장되었습니다.');
+      toast.success(isEditing ? '시재가 수정되었습니다.' : '시재가 저장되었습니다.');
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: cashManagementKeys.day(businessDate),
@@ -177,19 +181,34 @@ export default function CashManagementPage() {
   });
 
   const handleSave = () => {
-    if (difference === 0) {
+    if (!hasWorkerInfo) {
+      toast.error('시재를 저장하려면 해당 날짜의 근무자 정보가 필요합니다.');
+      return;
+    }
+    if (!canModifyClosing) {
+      toast.error('staff 계정은 오늘 날짜의 시재만 수정할 수 있습니다.');
+      return;
+    }
+    if (!isEditing && difference === 0) {
       saveMutation.mutate();
       return;
     }
 
+    const hasDifference = difference !== 0;
     open({
       content: (
         <ConfirmModal
-          title="시재 차액 확인"
-          description="예상 시재와 실제 시재가 다릅니다. 그래도 저장하시겠습니까?"
-          confirmLabel="네"
+          title={isEditing ? '시재 기록 수정' : '시재 차액 확인'}
+          description={
+            isEditing
+              ? hasDifference
+                ? '기존 시재 기록을 수정합니다. 예상 시재와 실제 시재가 다른 상태로 수정하시겠습니까?'
+                : '기존에 저장된 시재 기록을 수정하시겠습니까?'
+              : '예상 시재와 실제 시재가 다릅니다. 그래도 저장하시겠습니까?'
+          }
+          confirmLabel={isEditing ? '수정' : '네'}
           cancelLabel="아니오"
-          confirmingLabel="저장 중..."
+          confirmingLabel={isEditing ? '수정 중...' : '저장 중...'}
           onCancel={close}
           onConfirm={async () => {
             try {
@@ -206,6 +225,7 @@ export default function CashManagementPage() {
   };
 
   const handleEditHistory = (date: string) => {
+    setActiveTab('save');
     setBusinessDate(date);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -226,21 +246,51 @@ export default function CashManagementPage() {
 
   return (
     <main className="mx-auto max-w-7xl space-y-5 px-4 py-6 sm:px-6 lg:px-8">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">시재 관리</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            현금·현금영수증 매출만 자동으로 반영됩니다.
-          </p>
-        </div>
-        <div className="w-full sm:w-[280px]">
+      <div className="flex border-b border-gray-200" role="tablist" aria-label="시재 관리 메뉴">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'save'}
+          onClick={() => setActiveTab('save')}
+          className={`border-b-2 px-5 py-3 text-sm font-semibold transition-colors ${
+            activeTab === 'save'
+              ? 'border-brand-500 text-brand-700'
+              : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+          }`}
+        >
+          시재 저장
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'history'}
+          onClick={() => setActiveTab('history')}
+          className={`border-b-2 px-5 py-3 text-sm font-semibold transition-colors ${
+            activeTab === 'history'
+              ? 'border-brand-500 text-brand-700'
+              : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+          }`}
+        >
+          시재 이력
+        </button>
+      </div>
+
+      {activeTab === 'save' && (
+        <>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+            {isEditing && (
+              <span className="self-start rounded-full bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-700 sm:self-auto">
+                저장된 시재 수정 중
+              </span>
+            )}
+            <div className="w-full sm:w-[280px]">
           <KoreanDatePicker
             value={businessDate}
             onChange={setBusinessDate}
             selectedLabel="선택한 시재 날짜"
           />
-        </div>
-      </div>
+            </div>
+          </div>
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <SummaryCard label="전날 시재" value={openingCash} tone="gray" />
@@ -250,8 +300,8 @@ export default function CashManagementPage() {
       </section>
 
       <section className="grid items-stretch gap-5 xl:grid-cols-2">
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+        <div className="flex h-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-brand-200 bg-brand-50 px-5 py-4">
             <div>
               <h2 className="font-semibold text-gray-900">실제 현금 입력</h2>
               <p className="mt-1 text-xs text-gray-500">
@@ -264,13 +314,13 @@ export default function CashManagementPage() {
             </div>
           </div>
 
-          <div className="grid h-[260px] gap-x-6 px-5 py-2 md:grid-cols-2">
+          <div className="grid flex-1 border-l border-t border-gray-200 md:grid-cols-2">
             {CASH_DENOMINATIONS.map((denomination) => {
               const count = cashCounts[String(denomination)] ?? 0;
               return (
                 <label
                   key={denomination}
-                  className="grid grid-cols-[minmax(70px,1fr)_80px_minmax(82px,1fr)] items-center gap-3 border-b border-gray-100 py-2 last:border-b-0 md:[&:nth-last-child(2)]:border-b-0"
+                  className="grid grid-cols-[minmax(70px,1fr)_80px_minmax(82px,1fr)] items-center gap-3 border-b border-r border-gray-200 px-5 py-2"
                 >
                   <span className="text-sm font-medium text-gray-700">
                     {denomination.toLocaleString('ko-KR')}원
@@ -298,110 +348,100 @@ export default function CashManagementPage() {
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-          <div className="border-b border-gray-100 px-5 py-4">
-            <h2 className="font-semibold text-gray-900">시재 계산</h2>
-            <p className="mt-1 text-xs text-gray-500">오늘 보유해야 할 현금과 실제 현금을 비교합니다.</p>
+        <div className="flex h-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="border-b border-brand-200 bg-brand-50 px-5 py-4">
+            <h2 className="font-semibold text-gray-900">근무 및 시재 정산</h2>
+            <p className="mt-1 text-xs text-gray-500">근무 정보와 입출금 내역을 확인하고 시재를 저장하세요.</p>
           </div>
 
-          <div className="h-[260px] px-5 py-2">
-            <div className="flex h-1/4 items-center border-b border-gray-100">
-              <CalculationMoneyRow
-                label="전날 시재"
-                value={openingCash}
-                onChange={setOpeningCash}
-              />
+          <div className="flex flex-1 flex-col">
+            <div className="grid grid-cols-2 gap-4 border-b border-gray-200 p-4">
+              <MoneyInput label="시재 입금 (+)" value={cashIn} onChange={setCashIn} />
+              <MoneyInput label="출금 (-)" value={cashOut} onChange={setCashOut} />
             </div>
-            <div className="flex h-1/4 items-center border-b border-gray-100">
-              <CalculationMoneyRow label="오베이프 현금 매출" value={sales.ovape} readOnly />
-            </div>
-            <div className="flex h-1/4 items-center border-b border-gray-100">
-              <CalculationMoneyRow label="이구베이프 현금 매출" value={sales.eguVape} readOnly />
-            </div>
-            <div className="flex h-1/4 items-center">
-              <div className="grid w-full grid-cols-2 gap-3">
-                  <MoneyInput label="별도 입금 (+)" value={cashIn} onChange={setCashIn} />
-                  <MoneyInput label="출금 (-)" value={cashOut} onChange={setCashOut} />
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
 
-      <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div className="border-b border-gray-100 px-5 py-3">
-          <h2 className="font-semibold text-gray-900">근무 및 시재 정산</h2>
-        </div>
-        <div className="grid divide-y divide-gray-100 xl:grid-cols-[1fr_1.25fr_1fr] xl:divide-x xl:divide-y-0">
-          <div className="p-5">
-            <h3 className="mb-3 text-xs font-semibold text-gray-500">근무자 정보</h3>
-              {workShifts.length > 0 ? (
-                <div className="space-y-2">
-                  {workShifts.map((shift) => (
-                  <div
-                    key={shift.id}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5"
-                  >
-                    <span className="text-sm font-medium text-gray-800">
-                      {shift.workerName}
-                    </span>
-                    <span className="shrink-0 text-xs text-gray-500">
-                      {shift.startTime} ~ {shift.endTime}
-                    </span>
+            <div className="grid flex-1 divide-y divide-gray-200 md:grid-cols-2 md:divide-x md:divide-y-0">
+              <div className="p-4">
+                <h3 className="mb-3 text-xs font-semibold text-gray-500">근무자 정보</h3>
+                {workShifts.length > 0 ? (
+                  <div className="space-y-2">
+                    {workShifts.map((shift) => (
+                      <div
+                        key={shift.id}
+                        className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2"
+                      >
+                        <span className="text-sm font-medium text-gray-800">{shift.workerName}</span>
+                        <span className="shrink-0 text-xs text-gray-500">
+                          {shift.startTime} ~ {shift.endTime}
+                        </span>
+                      </div>
+                    ))}
                   </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="rounded-lg bg-gray-50 px-3 py-3 text-center text-xs text-gray-500">
-                  선택한 날짜에 등록된 근무일지가 없습니다.
-                </p>
-              )}
-          </div>
+                ) : (
+                  <p className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 text-center text-xs text-gray-500">
+                    선택한 날짜에 등록된 근무일지가 없습니다.
+                  </p>
+                )}
+              </div>
 
-          <label className="block p-5">
-            <span className="mb-3 block text-xs font-semibold text-gray-500">메모</span>
-              <textarea
-                value={note}
-                onChange={(event) => setNote(event.target.value)}
-                className="min-h-28 w-full resize-none rounded-lg border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-50"
-                placeholder="특이사항을 입력하세요"
-              />
-          </label>
-
-          <div className="flex flex-col p-5">
-            <h3 className="mb-3 text-xs font-semibold text-gray-500">시재 결과</h3>
-            <div className="flex-1 space-y-3 text-sm">
-              <div className="border-b border-gray-100 pb-3">
-                <AmountRow label="예상 시재" value={expectedCash} strong />
-              </div>
-              <div className="border-b border-gray-100 pb-3">
-                <AmountRow label="실제 시재" value={actualCash} strong />
-              </div>
-              <div className={`flex items-center justify-between font-bold ${
-                difference === 0 ? 'text-emerald-700' : 'text-rose-700'
-              }`}>
-                <span>시재 차액</span>
-                <span>{difference > 0 ? '+' : ''}{formatWon(difference)}</span>
-              </div>
+              <label className="block p-4">
+                <span className="mb-3 block text-xs font-semibold text-gray-500">메모</span>
+                <textarea
+                  value={note}
+                  onChange={(event) => setNote(event.target.value)}
+                  className="min-h-24 w-full resize-none rounded-lg border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-50"
+                  placeholder="특이사항을 입력하세요"
+                />
+              </label>
             </div>
 
-            <Button
-              className="mt-5 w-full"
-              disabled={saveMutation.isPending}
+            <div className="border-t border-gray-200 p-4">
+              <h3 className="mb-3 text-xs font-semibold text-gray-500">시재 결과</h3>
+              <div className="grid gap-2 sm:grid-cols-3">
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+                  <AmountRow label="예상" value={expectedCash} strong />
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+                  <AmountRow label="실제" value={actualCash} strong />
+                </div>
+                <div className={`flex min-w-0 flex-col justify-center rounded-lg border px-4 py-3 ${
+                  difference === 0
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                    : 'border-rose-200 bg-rose-50 text-rose-700'
+                }`}>
+                  <span className="text-xs font-semibold opacity-75">차액</span>
+                  <span className="mt-1 whitespace-nowrap text-right text-base font-bold tabular-nums">
+                    {difference > 0 ? '+' : ''}{formatWon(difference)}
+                  </span>
+                </div>
+              </div>
+              <Button
+              className="mt-3 w-full"
+              disabled={saveMutation.isPending || !canModifyClosing || !hasWorkerInfo}
               onClick={handleSave}
             >
-              {saveMutation.isPending ? '저장 중...' : '시재 저장'}
-            </Button>
+              {!hasWorkerInfo
+                ? '근무자 정보 필요'
+                : !canModifyClosing
+                ? '수정 권한 없음'
+                : saveMutation.isPending
+                ? isEditing
+                  ? '수정 중...'
+                  : '저장 중...'
+                : isEditing
+                  ? '수정 저장'
+                  : '시재 저장'}
+              </Button>
+            </div>
           </div>
         </div>
       </section>
+        </>
+      )}
 
+      {activeTab === 'history' && (
       <section className="rounded-xl border border-brand-100 bg-white p-5 shadow-sm">
-        <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <h2 className="font-semibold text-gray-900">최근 시재 이력</h2>
-            <p className="mt-1 text-xs text-gray-500">월별 또는 원하는 기간의 시재 기록을 확인하세요.</p>
-          </div>
+        <div className="mb-4 flex justify-end">
           <div className="flex flex-col gap-2 lg:items-end">
             <div className="inline-flex self-start rounded-lg bg-gray-100 p-1 lg:self-auto">
               <button
@@ -464,15 +504,17 @@ export default function CashManagementPage() {
           <Loading size="sm" text="이력을 불러오는 중..." />
         ) : historyQuery.data?.length ? (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[940px] text-sm">
+            <table className="w-full min-w-[1160px] border-collapse text-sm [&_td]:border [&_td]:border-gray-200 [&_th]:border [&_th]:border-brand-200">
               <thead className="bg-brand-50 text-left text-xs text-brand-700">
                 <tr>
                   <th className="px-3 py-2">날짜</th>
                   <th className="px-3 py-2">근무자</th>
                   <th className="px-3 py-2 text-right">오베이프 현금 매출</th>
                   <th className="px-3 py-2 text-right">이구베이프 현금 매출</th>
-                  <th className="px-3 py-2 text-right">예상 시재</th>
-                  <th className="px-3 py-2 text-right">실제 시재</th>
+                  <th className="px-3 py-2 text-right">별도 입금</th>
+                  <th className="px-3 py-2 text-right">출금</th>
+                  <th className="px-3 py-2 text-right">예상</th>
+                  <th className="px-3 py-2 text-right">실제</th>
                   <th className="px-3 py-2 text-right">차액</th>
                   <th className="px-3 py-2 text-center">작업</th>
                 </tr>
@@ -492,6 +534,12 @@ export default function CashManagementPage() {
                       <td className="px-3 py-2.5 text-right">
                         {formatWon(closing.egu_cash_sales)}
                       </td>
+                      <td className="px-3 py-2.5 text-right text-emerald-600">
+                        {closing.cash_in > 0 ? '+' : ''}{formatWon(closing.cash_in)}
+                      </td>
+                      <td className="px-3 py-2.5 text-right text-rose-600">
+                        {closing.cash_out > 0 ? '-' : ''}{formatWon(closing.cash_out)}
+                      </td>
                       <td className="px-3 py-2.5 text-right">{formatWon(closing.expected_cash)}</td>
                       <td className="px-3 py-2.5 text-right">{formatWon(closing.actual_cash)}</td>
                       <td
@@ -502,13 +550,15 @@ export default function CashManagementPage() {
                         {historyDifference > 0 ? '+' : ''}{formatWon(historyDifference)}
                       </td>
                       <td className="px-3 py-2.5 text-center">
-                        <Button
-                          size="sm"
-                          variant="gray"
-                          onClick={() => handleEditHistory(closing.business_date)}
-                        >
-                          수정
-                        </Button>
+                        {isAdmin || closing.business_date === today ? (
+                          <Button
+                            size="sm"
+                            variant="gray"
+                            onClick={() => handleEditHistory(closing.business_date)}
+                          >
+                            수정
+                          </Button>
+                        ) : <span className="text-xs text-gray-400">수정 불가</span>}
                       </td>
                     </tr>
                   );
@@ -520,6 +570,7 @@ export default function CashManagementPage() {
           <p className="py-8 text-center text-sm text-gray-500">저장된 시재가 없습니다.</p>
         )}
       </section>
+      )}
     </main>
   );
 }
@@ -575,40 +626,6 @@ const MoneyInput = ({
   </label>
 );
 
-const CalculationMoneyRow = ({
-  label,
-  value,
-  onChange,
-  readOnly = false,
-}: {
-  label: string;
-  value: number;
-  onChange?: (value: number) => void;
-  readOnly?: boolean;
-}) => (
-  <label className="flex w-full items-center justify-between gap-4">
-    <span className="text-sm font-medium text-gray-700">{label}</span>
-    <div className="relative w-[190px] shrink-0">
-      <input
-        type="number"
-        min="0"
-        value={value || ''}
-        readOnly={readOnly}
-        onChange={(event) => onChange?.(toNonNegativeNumber(event.target.value))}
-        className={`w-full rounded-lg border px-3 py-2 pr-8 text-right text-sm outline-none ${
-          readOnly
-            ? 'border-gray-200 bg-gray-50 text-gray-700'
-            : 'border-gray-200 bg-white focus:border-brand-400 focus:ring-2 focus:ring-brand-50'
-        }`}
-        placeholder="0"
-      />
-      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
-        원
-      </span>
-    </div>
-  </label>
-);
-
 const AmountRow = ({
   label,
   value,
@@ -620,8 +637,10 @@ const AmountRow = ({
   strong?: boolean;
   prefix?: string;
 }) => (
-  <div className="flex items-center justify-between text-gray-600">
-    <span>{label}</span>
-    <span className={strong ? 'font-bold text-gray-900' : ''}>{prefix}{formatWon(value)}</span>
+  <div className="flex min-w-0 flex-col justify-center text-gray-600">
+    <span className="text-xs font-semibold text-gray-500">{label}</span>
+    <span className={`mt-1 whitespace-nowrap text-right text-base tabular-nums ${strong ? 'font-bold text-gray-900' : ''}`}>
+      {prefix}{formatWon(value)}
+    </span>
   </div>
 );

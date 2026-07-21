@@ -9,6 +9,7 @@ import {
 } from '@/app/_enums/enums';
 import { useItems } from '@/app/_domains/_item/_hooks/useItems';
 import type { ItemType } from '@/app/_domains/_item/_types/item.types';
+import toast from 'react-hot-toast';
 import type {
   StampLogItem,
   StampLogMeta,
@@ -172,6 +173,7 @@ export default function StampLogForm({
   const { items, isLoading: isItemsLoading } = useItems(itemFilters);
 
   const paymentTypeOptions = paymentTypesByStore[storeName];
+  const isDeviceSelected = selectedItem?.item_categories?.name.trim() === '기기';
   const totalAmount = draftLines.reduce((sum, line) => sum + line.amount, 0);
   const discountLabel = discountOptions.find(
     (option) => option.value === discountType,
@@ -307,6 +309,12 @@ export default function StampLogForm({
     setSelectedItem(item);
     setItemSearch('');
     setShowItemResults(false);
+    if (item.item_categories?.name.trim() === '기기') {
+      setRemarkType('custom');
+      toast('메모 직접 입력에 박스보관유무를 적어주세요.', {
+        icon: '📦',
+      });
+    }
   };
 
   const handleItemRemove = () => {
@@ -668,12 +676,19 @@ export default function StampLogForm({
         </div>
 
         {remarkType === 'custom' && (
-          <textarea
-            value={customRemark}
-            onChange={(e) => setCustomRemark(e.target.value)}
-            className="w-full min-h-20 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm resize-y"
-            placeholder="ex) 박스매장보관 여부, 다른 특이사항"
-          />
+          <div>
+            {isDeviceSelected && (
+              <p className="mb-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+                메모 직접 입력에 박스보관유무를 적어주세요.
+              </p>
+            )}
+            <textarea
+              value={customRemark}
+              onChange={(e) => setCustomRemark(e.target.value)}
+              className="w-full min-h-20 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm resize-y"
+              placeholder="ex) 박스매장보관 여부, 다른 특이사항"
+            />
+          </div>
         )}
 
         {remarkType === 'price_adjust' && (

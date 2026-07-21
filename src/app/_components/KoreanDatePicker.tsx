@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export const formatKoreanDate = (date: string) => {
   if (!date) return '';
@@ -27,6 +27,7 @@ const KoreanDatePicker = ({
   };
 
   const [isOpen, setIsOpen] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
   const [visibleMonth, setVisibleMonth] = useState(getMonthFromValue);
   const year = visibleMonth.getFullYear();
   const month = visibleMonth.getMonth();
@@ -38,6 +39,26 @@ const KoreanDatePicker = ({
     ...Array.from({ length: daysInMonth }, (_, index) => index + 1),
   ];
 
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!pickerRef.current?.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsOpen(false);
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
+
   const selectDate = (day: number) => {
     const selectedDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     onChange(selectedDate);
@@ -45,7 +66,7 @@ const KoreanDatePicker = ({
   };
 
   return (
-    <div className="relative">
+    <div ref={pickerRef} className="relative">
       <button
         type="button"
         onClick={() => {

@@ -116,14 +116,17 @@ const ItemList = ({ filters, isAdmin = false, onEdit, onDelete }: ItemListProps)
               <th className="px-3 sm:px-6 py-2 sm:py-3 text-right text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
                 매출단가
               </th>
+              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap max-w-48">
+                비고
+              </th>
               <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
                 액상 종류
               </th>
               <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
                 액상 맛
               </th>
-              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap max-w-48">
-                비고
+              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
+                시연대 위치
               </th>
             </tr>
           </thead>
@@ -131,7 +134,7 @@ const ItemList = ({ filters, isAdmin = false, onEdit, onDelete }: ItemListProps)
             {items.length === 0 ? (
               <tr>
                 <td
-                  colSpan={isAdmin ? 11 : 10}
+                  colSpan={isAdmin ? 12 : 11}
                   className="px-3 sm:px-6 py-10 text-center text-gray-500 text-xs sm:text-sm"
                 >
                   품목 데이터가 없습니다.
@@ -219,16 +222,23 @@ const ItemList = ({ filters, isAdmin = false, onEdit, onDelete }: ItemListProps)
                       ? item.selling_price.toLocaleString() + '원'
                       : <span className="text-gray-400">-</span>}
                   </td>
+                  <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 max-w-48">
+                    <p className="truncate" title={item.note || ''}>
+                      {item.note || <span className="text-gray-400">-</span>}
+                    </p>
+                  </td>
                   <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 whitespace-nowrap">
                     {item.liquid_type || <span className="text-gray-400">-</span>}
                   </td>
                   <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 whitespace-nowrap">
                     {item.liquid_flavor || <span className="text-gray-400">-</span>}
                   </td>
-                  <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 max-w-48">
-                    <p className="truncate" title={item.note || ''}>
-                      {item.note || <span className="text-gray-400">-</span>}
-                    </p>
+                  <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 whitespace-nowrap">
+                    {item.liqud_stand_cells?.length
+                      ? item.liqud_stand_cells.map((cell) =>
+                          `${cell.liqud_stand_sections?.name ?? '시연대'} 1-${cell.column_index + 1}`,
+                        ).join(', ')
+                      : <span className="text-gray-400">미배치</span>}
                   </td>
                 </tr>
               ))

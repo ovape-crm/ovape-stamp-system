@@ -47,6 +47,39 @@ export const getItems = async (
 
   if (error) throw error;
   const items = (data ?? []) as ItemType[];
+  if (items.length) {
+    const locationResult = await supabase
+      .from('liqud_stand_cells')
+      .select('item_name, secondary_item_name, row_index, column_index, liqud_stand_sections(name)');
+    let locations = locationResult.data;
+
+    // 시연대 SQL이 아직 최신 버전이 아니어도 품목 목록 자체는 정상 표시합니다.
+    if (locationResult.error) {
+      const legacyResult = await supabase
+        .from('liqud_stand_cells')
+        .select('item_name, row_index, column_index, liqud_stand_sections(name)');
+      locations = legacyResult.error
+        ? []
+        : (legacyResult.data ?? []).map((cell) => ({
+            ...cell,
+            secondary_item_name: null,
+          }));
+    }
+    for (const item of items) {
+      item.liqud_stand_cells = (locations ?? [])
+        .filter((cell) =>
+          cell.item_name === item.item_name ||
+          cell.secondary_item_name === item.item_name,
+        )
+        .map((cell) => ({
+          row_index: cell.row_index,
+          column_index: cell.column_index,
+          liqud_stand_sections: Array.isArray(cell.liqud_stand_sections)
+            ? (cell.liqud_stand_sections[0] ?? null)
+            : cell.liqud_stand_sections,
+        }));
+    }
+  }
   if (filters?.excludePurchasePrice) {
     return items.map((item) => ({ ...item, purchase_price: null }));
   }
