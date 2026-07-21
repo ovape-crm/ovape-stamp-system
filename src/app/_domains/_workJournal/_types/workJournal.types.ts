@@ -1,3 +1,5 @@
+export type WorkPaymentStatus = 'unpaid' | 'advance' | 'salary';
+
 export type WorkJournalType = {
   id: string;
   work_date: string;
@@ -6,6 +8,9 @@ export type WorkJournalType = {
   end_time: string;
   work_hours: number;
   note: string | null;
+  payment_status: WorkPaymentStatus;
+  paid_at: string | null;
+  paid_by: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;

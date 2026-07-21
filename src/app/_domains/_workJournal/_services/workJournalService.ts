@@ -1,6 +1,7 @@
 import supabase from '@/libs/supabaseClient';
 import {
   WorkJournalType,
+  WorkPaymentStatus,
   WorkerDetailType,
 } from '../_types/workJournal.types';
 
@@ -241,5 +242,37 @@ export const updateWorkJournal = async (
 
 export const deleteWorkJournal = async (id: string): Promise<void> => {
   const { error } = await supabase.from('work_journals').delete().eq('id', id);
+  if (error) throw error;
+};
+
+export const updateWorkJournalPaymentStatus = async (
+  journalIds: string[],
+  status: WorkPaymentStatus,
+  fromStatus?: WorkPaymentStatus,
+): Promise<void> => {
+  if (!journalIds.length) return;
+
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  if (sessionError || !session) throw new Error('세션을 찾을 수 없습니다.');
+
+  const isPaid = status !== 'unpaid';
+  let query = supabase
+    .from('work_journals')
+    .update({
+      payment_status: status,
+      paid_at: isPaid ? new Date().toISOString() : null,
+      paid_by: isPaid ? session.user.id : null,
+      updated_at: new Date().toISOString(),
+    })
+    .in('id', journalIds);
+
+  if (fromStatus) query = query.eq('payment_status', fromStatus);
+
+  const { error } = await query;
+
   if (error) throw error;
 };

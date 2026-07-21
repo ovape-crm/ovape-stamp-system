@@ -19,4 +19,9 @@ export type ItemType = {
   created_at: string;
   updated_at: string;
   item_categories: ItemCategoryType | null;
+  liqud_stand_cells?: Array<{
+    row_index: number;
+    column_index: number;
+    liqud_stand_sections: { name: string } | null;
+  }>;
 };

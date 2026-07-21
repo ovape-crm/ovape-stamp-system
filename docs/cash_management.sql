@@ -32,13 +32,30 @@ drop policy if exists "authenticated users can insert cash closings"
   on public.cash_register_closings;
 create policy "authenticated users can insert cash closings"
   on public.cash_register_closings for insert
-  to authenticated with check (created_by = auth.uid());
+  to authenticated with check (created_by = auth.uid() and btrim(worker_name) <> '');
 
 drop policy if exists "authenticated users can update cash closings"
   on public.cash_register_closings;
 create policy "authenticated users can update cash closings"
   on public.cash_register_closings for update
-  to authenticated using (true) with check (true);
+  to authenticated
+  using (
+    business_date = (now() at time zone 'Asia/Seoul')::date
+    or exists (
+      select 1 from public.users
+      where id = auth.uid() and oss_role = 'admin'
+    )
+  )
+  with check (
+    btrim(worker_name) <> ''
+    and (
+      business_date = (now() at time zone 'Asia/Seoul')::date
+      or exists (
+        select 1 from public.users
+        where id = auth.uid() and oss_role = 'admin'
+      )
+    )
+  );
 
 create index if not exists cash_register_closings_business_date_idx
   on public.cash_register_closings (business_date desc);

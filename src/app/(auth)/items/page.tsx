@@ -1,7 +1,8 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Button from '@/app/_components/Button';
 import { useModal } from '@/app/_contexts/ModalContext';
 import { useItemCategories } from '@/app/_domains/_item/_hooks/useItemCategories';
@@ -19,13 +20,19 @@ import type { FormValues } from './_components/ItemCreateModal';
 import DeleteConfirmModal from '@/app/(auth)/_components/DeleteConfirmModal';
 import toast from 'react-hot-toast';
 import { useUser } from '@/app/_contexts/UserContext';
+import Loading from '@/app/_components/Loading';
 
 const ItemsPage = () => {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const { open, close } = useModal();
-  const { isAdmin } = useUser();
+  const { isAdmin, isLoading } = useUser();
   const { categories } = useItemCategories();
   const [filters, setFilters] = useState<ItemFilters>({});
+
+  useEffect(() => {
+    if (!isLoading && !isAdmin) router.replace('/product-search');
+  }, [isAdmin, isLoading, router]);
 
   const handleSearch = (newFilters: ItemFilters) => {
     setFilters(newFilters);
@@ -109,6 +116,8 @@ const ItemsPage = () => {
       options: { dismissOnBackdrop: false, dismissOnEsc: true },
     });
   };
+
+  if (isLoading || !isAdmin) return <Loading size="lg" text="권한을 확인하는 중..." />;
 
   return (
     <section className="mx-auto flex h-[calc(100vh-3.5rem)] max-w-7xl flex-col px-4 py-6 sm:h-[calc(100vh-5rem)] sm:px-6 lg:px-8">
