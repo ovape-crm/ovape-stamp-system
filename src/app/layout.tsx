@@ -1,21 +1,14 @@
-import type { Metadata } from 'next';
-import { Noto_Sans_KR } from 'next/font/google';
-import './globals.css';
-import { ModalProvider } from './_contexts/ModalContext';
-import QueryProvider from './_contexts/QueryProvider';
-import { Toaster } from 'react-hot-toast';
-
-const notoSansKR = Noto_Sans_KR({
-  weight: ['400', '500', '700'],
-  subsets: ['latin'],
-  display: 'swap',
-});
+import type { Metadata } from "next";
+import "./globals.css";
+import { ModalProvider } from "./_contexts/ModalContext";
+import QueryProvider from "./_contexts/QueryProvider";
+import { Toaster } from "react-hot-toast";
 
 export const metadata: Metadata = {
-  title: 'OSS - Ovape Stamp System',
-  description: 'Ovape Stamp System - 고객 스탬프 관리 시스템',
+  title: "OSS - Ovape Stamp System",
+  description: "Ovape Stamp System - 고객 스탬프 관리 시스템",
   icons: {
-    icon: '/icon.png',
+    icon: "/icon.png",
   },
 };
 
@@ -26,26 +19,26 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
-      <body className={notoSansKR.className}>
+      <body>
         <Toaster
           position="top-right"
           toastOptions={{
             duration: 3000,
             style: {
-              background: '#fff',
-              color: '#333',
-              border: '1px solid #fdd0dc',
+              background: "#fff",
+              color: "#333",
+              border: "1px solid #fdd0dc",
             },
             success: {
               iconTheme: {
-                primary: '#f64b7f',
-                secondary: '#fff',
+                primary: "#f64b7f",
+                secondary: "#fff",
               },
             },
             error: {
               iconTheme: {
-                primary: '#ef4444',
-                secondary: '#fff',
+                primary: "#ef4444",
+                secondary: "#fff",
               },
             },
           }}

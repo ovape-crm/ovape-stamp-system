@@ -36,7 +36,7 @@
 | id | uuid | PK |
 | category_id | uuid FK → item_categories.id | 종류 |
 | temp_category_name | text | CSV 대량 import용 임시 카테고리명 (import 후 category_id 연결 뒤 정리) |
-| item_code | text NOT NULL UNIQUE | 품목 코드 |
+| item_code | text NOT NULL | 품목 코드 (중복 허용) |
 | item_name | text NOT NULL | 품목 명 |
 | purchase_price | int4 | 매입단가 (원 단위) |
 | selling_price | int4 | 매출단가 (원 단위) |
@@ -103,7 +103,8 @@ UPDATE items SET temp_category_name = NULL;
 
 주요 컬럼
 
-- `item_code` — 전체 고유(UNIQUE)
+- `item_name` — 재고 연결 기준이므로 전체 고유(UNIQUE)
+- `item_code` — 표시·검색용이며 서로 다른 품목명에서 중복 허용
 - `is_use` — 삭제 대신 비활성 처리
 - `temp_category_name` — CSV import 전용 임시 컬럼
 

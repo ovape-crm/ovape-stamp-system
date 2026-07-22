@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { ComparisonColumnType, ComparisonDeviceType } from '@/app/_domains/_comparison/_types/comparison.types';
+import { ComparisonColumnType } from "@/app/_domains/_comparison/_types/comparison.types";
 
 function isUrl(value: string): boolean {
   try {
     const url = new URL(value);
-    return url.protocol === 'http:' || url.protocol === 'https:';
+    return url.protocol === "http:" || url.protocol === "https:";
   } catch {
     return false;
   }
@@ -25,20 +25,48 @@ function renderValue(value: string) {
     );
   }
 
-  const parts = value.split(/(<red>.*?<\/red>|<bold>.*?<\/bold>|<line>.*?<\/line>|<link url="[^"]*">.*?<\/link>)/g);
+  const parts = value.split(
+    /(<red>.*?<\/red>|<bold>.*?<\/bold>|<line>.*?<\/line>|<link url="[^"]*">.*?<\/link>)/g,
+  );
   if (parts.length === 1) return value;
 
   return (
     <>
       {parts.map((part, i) => {
         const redMatch = part.match(/^<red>(.*)<\/red>$/);
-        if (redMatch) return <span key={i} className="text-red-500">{redMatch[1]}</span>;
+        if (redMatch)
+          return (
+            <span key={i} className="text-red-500">
+              {redMatch[1]}
+            </span>
+          );
         const boldMatch = part.match(/^<bold>(.*)<\/bold>$/);
-        if (boldMatch) return <span key={i} className="font-extrabold">{boldMatch[1]}</span>;
+        if (boldMatch)
+          return (
+            <span key={i} className="font-extrabold">
+              {boldMatch[1]}
+            </span>
+          );
         const lineMatch = part.match(/^<line>(.*)<\/line>$/);
-        if (lineMatch) return <span key={i} className="line-through">{lineMatch[1]}</span>;
+        if (lineMatch)
+          return (
+            <span key={i} className="line-through">
+              {lineMatch[1]}
+            </span>
+          );
         const linkMatch = part.match(/^<link url="([^"]*)">(.*)<\/link>$/);
-        if (linkMatch) return <a key={i} href={linkMatch[1]} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline underline-offset-2 hover:text-blue-700">{linkMatch[2]}</a>;
+        if (linkMatch)
+          return (
+            <a
+              key={i}
+              href={linkMatch[1]}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-500 underline underline-offset-2 hover:text-blue-700"
+            >
+              {linkMatch[2]}
+            </a>
+          );
         return part || null;
       })}
     </>
@@ -52,7 +80,6 @@ interface EmptySlotProps {
 }
 
 interface FilledSlotProps {
-  device: ComparisonDeviceType;
   columns: ComparisonColumnType[];
   valueMap: ValueMap;
   onRemove: () => void;
@@ -72,12 +99,7 @@ export function EmptySlot({ onAdd }: EmptySlotProps) {
   );
 }
 
-export function FilledSlot({
-  device,
-  columns,
-  valueMap,
-  onRemove,
-}: FilledSlotProps) {
+export function FilledSlot({ columns, valueMap, onRemove }: FilledSlotProps) {
   return (
     <div className="flex-1 min-w-[220px] flex flex-col border border-brand-100 rounded-xl shadow-sm bg-white overflow-hidden">
       {/* 카드 헤더 */}
@@ -98,7 +120,9 @@ export function FilledSlot({
       <div className="flex flex-col divide-y divide-brand-50 flex-1 overflow-y-auto">
         {columns.map((col) => (
           <div key={col.id} className="flex flex-col px-4 py-3 gap-0.5">
-            <span className="text-xs text-gray-400 font-medium">{col.name}</span>
+            <span className="text-xs text-gray-400 font-medium">
+              {col.name}
+            </span>
             <span className="text-sm text-gray-800 break-words">
               {valueMap[col.id] ? (
                 renderValue(valueMap[col.id])

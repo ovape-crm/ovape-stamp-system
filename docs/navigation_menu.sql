@@ -14,8 +14,9 @@ values
   ('/after-services', 'AS 현황', 'customer', 2),
   ('/product-search', '상품 검색', 'product', 0),
   ('/items', '품목 관리', 'product', 1),
-  ('/comparison', '기기 비교', 'product', 2),
-  ('/liqud-stand', '시연대', 'product', 3),
+  ('/inventory', '재고/입고', 'product', 2),
+  ('/comparison', '기기 비교', 'product', 3),
+  ('/liqud-stand', '시연대', 'product', 4),
   ('/cash-management', '시재', 'store', 0),
   ('/work-journal', '근무일지', 'store', 1),
   ('/manuals', '매뉴얼', 'store', 2)

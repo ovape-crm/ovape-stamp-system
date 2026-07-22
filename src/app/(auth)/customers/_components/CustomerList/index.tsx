@@ -1,12 +1,10 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { CustomerType } from '@/app/_domains/_customer/_types/customer.types';
-import Loading from '@/app/_components/Loading';
-import Button from '@/app/_components/Button';
-import { formatPhoneNumber } from '@/app/_utils/utils';
-
+import { useRouter } from "next/navigation";
+import { CustomerType } from "@/app/_domains/_customer/_types/customer.types";
+import Loading from "@/app/_components/Loading";
+import Button from "@/app/_components/Button";
+import { formatPhoneNumber } from "@/app/_utils/utils";
 
 interface CustomerListProps {
   customers: CustomerType[];
@@ -17,9 +15,9 @@ interface CustomerListProps {
   hasMore?: boolean;
   isLoadingMore?: boolean;
   totalCount?: number;
-  sortBy?: 'name' | 'stamp' | 'created_at';
-  sortOrder?: 'asc' | 'desc';
-  onSortChange?: (sortBy: 'name' | 'stamp' | 'created_at') => void;
+  sortBy?: "name" | "stamp" | "created_at";
+  sortOrder?: "asc" | "desc";
+  onSortChange?: (sortBy: "name" | "stamp" | "created_at") => void;
 }
 
 const CustomerList = ({
@@ -34,9 +32,6 @@ const CustomerList = ({
   onSortChange,
 }: CustomerListProps) => {
   const router = useRouter();
-  const [loadingCustomerId, setLoadingCustomerId] = useState<string | null>(
-    null,
-  );
   if (isLoading) {
     return <Loading size="lg" text="고객 목록 불러오는 중..." />;
   }
@@ -59,7 +54,7 @@ const CustomerList = ({
 
           {totalCount !== undefined && totalCount > 0 && (
             <>
-              {' / '}
+              {" / "}
               <span className="font-semibold text-gray-600">{totalCount}</span>
             </>
           )}
@@ -67,31 +62,31 @@ const CustomerList = ({
         {onSortChange && (
           <div className="flex items-center gap-1.5">
             <button
-              onClick={() => onSortChange('name')}
+              onClick={() => onSortChange("name")}
               className={`whitespace-nowrap px-2 py-1 text-xs rounded border transition-colors cursor-pointer ${
-                sortBy === 'name'
-                  ? 'bg-brand-100 border-brand-300 text-brand-700 font-medium'
-                  : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                sortBy === "name"
+                  ? "bg-brand-100 border-brand-300 text-brand-700 font-medium"
+                  : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
               }`}
             >
               가나다순
             </button>
             <button
-              onClick={() => onSortChange('stamp')}
+              onClick={() => onSortChange("stamp")}
               className={`whitespace-nowrap px-2 py-1 text-xs rounded border transition-colors cursor-pointer ${
-                sortBy === 'stamp'
-                  ? 'bg-brand-100 border-brand-300 text-brand-700 font-medium'
-                  : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                sortBy === "stamp"
+                  ? "bg-brand-100 border-brand-300 text-brand-700 font-medium"
+                  : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
               }`}
             >
               스탬프 많은 순
             </button>
             <button
-              onClick={() => onSortChange('created_at')}
+              onClick={() => onSortChange("created_at")}
               className={`whitespace-nowrap px-2 py-1 text-xs rounded border transition-colors cursor-pointer ${
-                sortBy === 'created_at'
-                  ? 'bg-brand-100 border-brand-300 text-brand-700 font-medium'
-                  : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                sortBy === "created_at"
+                  ? "bg-brand-100 border-brand-300 text-brand-700 font-medium"
+                  : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
               }`}
             >
               등록일 순
@@ -100,7 +95,7 @@ const CustomerList = ({
         )}
       </div>
       <div className="bg-white rounded-lg shadow-sm border border-brand-100 overflow-hidden overflow-x-auto">
-        <table className="w-full min-w-[840px] divide-y divide-brand-100 table-auto">
+        <table className="w-full min-w-[840px] table-auto border-collapse [&_th]:border [&_th]:border-brand-200 [&_td]:border [&_td]:border-gray-200">
           <thead className="bg-gradient-to-r from-brand-50 to-brand-100">
             <tr>
               <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
@@ -136,7 +131,6 @@ const CustomerList = ({
             ) : (
               customers.map((customer, index) => {
                 const stampCount = customer.stamps?.[0]?.count || 0;
-                const isThisLoading = loadingCustomerId === customer.id;
 
                 return (
                   <tr
@@ -153,11 +147,15 @@ const CustomerList = ({
                       {formatPhoneNumber(customer?.phone)}
                     </td>
                     <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 whitespace-nowrap">
-                      {customer.gender === 'male'
-                        ? '남자'
-                        : customer.gender === 'female'
-                          ? '여자'
-                          : '-'}
+                      {customer.name.trim() === "시연용"
+                        ? "시연용"
+                        : customer.name.trim() === "재고조정"
+                          ? "재고조정"
+                          : customer.gender === "male"
+                            ? "남자"
+                            : customer.gender === "female"
+                              ? "여자"
+                              : "-"}
                     </td>
                     <td className="px-3 sm:px-6 py-2 sm:py-3 text-center whitespace-nowrap">
                       <span className="inline-flex items-center justify-center px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs sm:text-sm font-semibold bg-brand-100 text-brand-700">
@@ -170,7 +168,6 @@ const CustomerList = ({
                           onClick={() =>
                             router.push(`/customers/${customer.id}`)
                           }
-                          disabled={isThisLoading}
                           size="sm"
                           variant="secondary"
                         >
@@ -193,7 +190,7 @@ const CustomerList = ({
             disabled={isLoadingMore}
             variant="secondary"
           >
-            {isLoadingMore ? '불러오는 중...' : '더 불러오기'}
+            {isLoadingMore ? "불러오는 중..." : "더 불러오기"}
           </Button>
         </div>
       )}

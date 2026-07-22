@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
+import { useEffect } from "react";
 
 function isUrl(value: string): boolean {
   try {
     const url = new URL(value);
-    return url.protocol === 'http:' || url.protocol === 'https:';
+    return url.protocol === "http:" || url.protocol === "https:";
   } catch {
     return false;
   }
@@ -25,27 +25,59 @@ function renderValue(value: string) {
     );
   }
 
-  const parts = value.split(/(<red>.*?<\/red>|<bold>.*?<\/bold>|<line>.*?<\/line>|<link url="[^"]*">.*?<\/link>)/g);
+  const parts = value.split(
+    /(<red>.*?<\/red>|<bold>.*?<\/bold>|<line>.*?<\/line>|<link url="[^"]*">.*?<\/link>)/g,
+  );
   if (parts.length === 1) return value;
 
   return (
     <>
       {parts.map((part, i) => {
         const redMatch = part.match(/^<red>(.*)<\/red>$/);
-        if (redMatch) return <span key={i} className="text-red-500">{redMatch[1]}</span>;
+        if (redMatch)
+          return (
+            <span key={i} className="text-red-500">
+              {redMatch[1]}
+            </span>
+          );
         const boldMatch = part.match(/^<bold>(.*)<\/bold>$/);
-        if (boldMatch) return <span key={i} className="font-extrabold">{boldMatch[1]}</span>;
+        if (boldMatch)
+          return (
+            <span key={i} className="font-extrabold">
+              {boldMatch[1]}
+            </span>
+          );
         const lineMatch = part.match(/^<line>(.*)<\/line>$/);
-        if (lineMatch) return <span key={i} className="line-through">{lineMatch[1]}</span>;
+        if (lineMatch)
+          return (
+            <span key={i} className="line-through">
+              {lineMatch[1]}
+            </span>
+          );
         const linkMatch = part.match(/^<link url="([^"]*)">(.*)<\/link>$/);
-        if (linkMatch) return <a key={i} href={linkMatch[1]} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline underline-offset-2 hover:text-blue-700">{linkMatch[2]}</a>;
+        if (linkMatch)
+          return (
+            <a
+              key={i}
+              href={linkMatch[1]}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-500 underline underline-offset-2 hover:text-blue-700"
+            >
+              {linkMatch[2]}
+            </a>
+          );
         return part || null;
       })}
     </>
   );
 }
-import { createPortal } from 'react-dom';
-import { ComparisonColumnType, ComparisonDeviceType } from '@/app/_domains/_comparison/_types/comparison.types';
+import { createPortal } from "react-dom";
+import Image from "next/image";
+import {
+  ComparisonColumnType,
+  ComparisonDeviceType,
+} from "@/app/_domains/_comparison/_types/comparison.types";
 
 type ValueMap = Record<string, string>;
 type FilledSlot = { device: ComparisonDeviceType; valueMap: ValueMap };
@@ -63,20 +95,20 @@ export default function ComparisonExpandView({
 }: ComparisonExpandViewProps) {
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === "Escape") onClose();
     };
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
   }, [onClose]);
 
   useEffect(() => {
-    document.body.style.overflow = 'hidden';
+    document.body.style.overflow = "hidden";
     return () => {
-      document.body.style.overflow = '';
+      document.body.style.overflow = "";
     };
   }, []);
 
-  if (typeof window === 'undefined') return null;
+  if (typeof window === "undefined") return null;
 
   return createPortal(
     <div className="fixed inset-0 z-[4000] flex items-center justify-center">
@@ -90,9 +122,11 @@ export default function ComparisonExpandView({
       <div className="relative z-10 w-full max-w-5xl mx-4 bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
         {/* 워터마크 */}
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-20">
-          <img
+          <Image
             src="/logo.PNG"
             alt=""
+            width={256}
+            height={256}
             className="w-64 opacity-[0.06] select-none mix-blend-multiply"
             draggable={false}
           />
@@ -131,9 +165,11 @@ export default function ComparisonExpandView({
               {columns.map((col, colIdx) => (
                 <tr
                   key={col.id}
-                  className={colIdx % 2 === 1 ? 'bg-gray-50/60' : 'bg-white'}
+                  className={colIdx % 2 === 1 ? "bg-gray-50/60" : "bg-white"}
                 >
-                  <td className={`sticky left-0 z-10 px-3 py-3.5 text-xs font-semibold text-gray-500 whitespace-nowrap border-b border-r border-brand-50 w-[80px] ${colIdx % 2 === 1 ? 'bg-gray-50' : 'bg-white'}`}>
+                  <td
+                    className={`sticky left-0 z-10 px-3 py-3.5 text-xs font-semibold text-gray-500 whitespace-nowrap border-b border-r border-brand-50 w-[80px] ${colIdx % 2 === 1 ? "bg-gray-50" : "bg-white"}`}
+                  >
                     {col.name}
                   </td>
                   {filledSlots.map((slot) => (

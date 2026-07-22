@@ -11,6 +11,29 @@ export interface SearchParams {
   sortOrder?: 'asc' | 'desc';
 }
 
+export type CustomerQuickLink = Pick<
+  CustomerType,
+  'id' | 'name' | 'phone' | 'gender'
+>;
+
+export const getCustomerQuickLinks = async (): Promise<CustomerQuickLink[]> => {
+  const { data, error } = await supabase
+    .from('customers')
+    .select('id, name, phone, gender, created_at')
+    .or(
+      'and(name.eq.X,phone.eq.X),name.eq.시연용,name.eq.재고조정',
+    )
+    .order('created_at', { ascending: true });
+
+  if (error) throw error;
+  return (data ?? []).map(({ id, name, phone, gender }) => ({
+    id,
+    name,
+    phone,
+    gender,
+  }));
+};
+
 /**
  * 전체 고객 수 조회
  */

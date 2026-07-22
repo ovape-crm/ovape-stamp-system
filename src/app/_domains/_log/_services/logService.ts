@@ -5,6 +5,7 @@ import {
   StoreTypeEnumType,
 } from '@/app/_enums/enums';
 import type { StampLogMeta } from '@/app/_domains/_stamp/_services/stampService';
+import { confirmOutboundInventory } from '@/app/_domains/_inventory/_services/outboundInventoryService';
 import {
   AfterServiceLogsResType,
   CustomersLogsResType,
@@ -20,7 +21,7 @@ export const createLog = async (
   customerId: string,
   action: string,
   note: string = '',
-  jsonb: Record<string, unknown> | null = null
+  jsonb: Record<string, unknown> | null = null,
 ) => {
   // 현재 세션에서 user id 가져오기
   const {
@@ -59,7 +60,7 @@ export const getLogsByCustomer = async (
   category: LogCategoryEnumType['value'] = 'stamp',
   customerId: string,
   limit = 10,
-  offset = 0
+  offset = 0,
 ): Promise<CustomersLogsResType> => {
   const from = offset;
   const to = offset + limit - 1;
@@ -69,7 +70,7 @@ export const getLogsByCustomer = async (
       `
       *,
       users!admin_id(name, email)
-    `
+    `,
     )
     .eq('customer_id', customerId)
     .eq('category', category)
@@ -86,7 +87,7 @@ export const createAfterServiceLog = async (
   afterServiceId: number,
   action: string,
   note: string = '',
-  jsonb: Record<string, unknown> | null = null
+  jsonb: Record<string, unknown> | null = null,
 ) => {
   // 현재 세션에서 user id 가져오기
   const {
@@ -125,7 +126,7 @@ export const createAfterServiceLog = async (
 export const getLogsByAfterServiceId = async (
   afterServiceId: number,
   limit = 10,
-  offset = 0
+  offset = 0,
 ): Promise<AfterServiceLogsResType> => {
   const from = offset;
   const to = offset + limit - 1;
@@ -133,7 +134,7 @@ export const getLogsByAfterServiceId = async (
     .from('logs')
     .select(
       `*,
-      users!admin_id(name, email)`
+      users!admin_id(name, email)`,
     )
     .eq('after_service_id', afterServiceId)
     .eq('category', 'after_service')
@@ -164,7 +165,7 @@ export const getLogs = async (
       *,
       users!admin_id(name, email),
       customers(name, phone, gender)
-    `
+    `,
     )
     .eq('category', category);
 
@@ -211,11 +212,19 @@ export const updateLogNote = async (
 ) => {
   const { data: existing, error: fetchError } = await supabase
     .from('logs')
-    .select('jsonb')
+    .select('jsonb, category')
     .eq('id', logId)
     .single();
 
   if (fetchError) throw fetchError;
+
+  if (
+    logMeta?.items &&
+    existing?.category === LogCategoryEnum.STAMP.value &&
+    !(await confirmOutboundInventory(logMeta.items, logId))
+  ) {
+    throw new Error('사용자가 출고 수정을 취소했습니다.');
+  }
 
   const currentJsonb =
     (existing?.jsonb as Record<string, unknown> | null) ?? {};

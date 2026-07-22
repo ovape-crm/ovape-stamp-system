@@ -1,37 +1,37 @@
-'use client';
+"use client";
 
-import { useParams, useRouter } from 'next/navigation';
-import { useQueryClient } from '@tanstack/react-query';
-import { useCustomer } from '@/app/_domains/_customer/_hooks/useCustomer';
-import { useLogsByCustomerId } from '@/app/_domains/_log/_hooks/useLogsByCustomerId';
-import NotFoundView from '@/app/_components/NotFoundView';
-import CustomerInfo from './_components/CustomerInfo';
-import StampSection from './_components/StampSection';
-import CustomerEditModal from './_components/CustomerEditModal';
-import Loading from '@/app/_components/Loading';
-import toast from 'react-hot-toast';
-import { useModal } from '@/app/_contexts/ModalContext';
+import { useParams, useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { useCustomer } from "@/app/_domains/_customer/_hooks/useCustomer";
+import { useLogsByCustomerId } from "@/app/_domains/_log/_hooks/useLogsByCustomerId";
+import NotFoundView from "@/app/_components/NotFoundView";
+import CustomerInfo from "./_components/CustomerInfo";
+import StampSection from "./_components/StampSection";
+import CustomerEditModal from "./_components/CustomerEditModal";
+import Loading from "@/app/_components/Loading";
+import toast from "react-hot-toast";
+import { useModal } from "@/app/_contexts/ModalContext";
 import {
   updateCustomer,
   deleteCustomer,
-} from '@/app/_domains/_customer/_services/customerService';
-import Button from '@/app/_components/Button';
-import { useUser } from '@/app/_contexts/UserContext';
-import { useState } from 'react';
-import { LogCategoryEnum, LogCategoryEnumType } from '@/app/_enums/enums';
-import CustomersDetailStampsHistories from './_components/CustomersDetailStampsHistories';
-import CustomersDetailUpdateHistories from './_components/CustomersDetailUpdateHistories';
+} from "@/app/_domains/_customer/_services/customerService";
+import Button from "@/app/_components/Button";
+import { useUser } from "@/app/_contexts/UserContext";
+import { useState } from "react";
+import { LogCategoryEnum, LogCategoryEnumType } from "@/app/_enums/enums";
+import CustomersDetailStampsHistories from "./_components/CustomersDetailStampsHistories";
+import CustomersDetailUpdateHistories from "./_components/CustomersDetailUpdateHistories";
 // import CustomersDetailRemarkHistories from './_components/CustomersDetailRemarkHistories';
-import CustomerAfterServices from './_components/CustomerAfterServices';
-import RemarkLogCreateModal from './_components/RemarkLogCreateModal';
+import CustomerAfterServices from "./_components/CustomerAfterServices";
+import RemarkLogCreateModal from "./_components/RemarkLogCreateModal";
 import {
   addStamp,
   confirmReservationStamp,
-} from '@/app/_domains/_stamp/_services/stampService';
+} from "@/app/_domains/_stamp/_services/stampService";
 // import { createLog } from '@/app/_domains/_log/_services/logService';
-import { PaymentTypeEnum } from '@/app/_enums/enums';
-import { customerKeys } from '@/app/_domains/_customer/_queryKeys/customerKeys';
-import { logKeys } from '@/app/_domains/_log/_queryKeys/logKeys';
+import { PaymentTypeEnum } from "@/app/_enums/enums";
+import { customerKeys } from "@/app/_domains/_customer/_queryKeys/customerKeys";
+import { logKeys } from "@/app/_domains/_log/_queryKeys/logKeys";
 
 const PAGE_SIZE = 10;
 
@@ -44,7 +44,7 @@ export default function CustomerDetailPage() {
   const queryClient = useQueryClient();
   const { customer, isLoading, error } = useCustomer(customerId);
 
-  const [logCategory, setLogCategory] = useState<LogCategoryEnumType['value']>(
+  const [logCategory, setLogCategory] = useState<LogCategoryEnumType["value"]>(
     LogCategoryEnum.STAMP.value,
   );
 
@@ -88,20 +88,20 @@ export default function CustomerDetailPage() {
   const handleEditCustomer = async (values: {
     name: string;
     phone: string;
-    gender: 'male' | 'female';
+    gender: "male" | "female";
     note?: string;
   }) => {
     try {
       await updateCustomer(customerId, values);
-      toast.success('고객 정보가 수정되었습니다.');
+      toast.success("고객 정보가 수정되었습니다.");
       close();
       handleUpdate();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
-      if (error.message === 'DUPLICATE_CUSTOMER') {
-        toast.error('이미 존재하는 전화번호입니다.');
+      if (error.message === "DUPLICATE_CUSTOMER") {
+        toast.error("이미 존재하는 전화번호입니다.");
       } else {
-        toast.error('고객 정보 수정에 실패했습니다.');
+        toast.error("고객 정보 수정에 실패했습니다.");
       }
     }
   };
@@ -112,12 +112,12 @@ export default function CustomerDetailPage() {
     }
     try {
       await deleteCustomer(customerId);
-      toast.success('고객 정보가 삭제되었습니다.');
+      toast.success("고객 정보가 삭제되었습니다.");
       close();
-      router.push('/customers');
+      router.push("/customers");
       handleUpdate();
     } catch {
-      toast.error('고객 정보 삭제에 실패했습니다.');
+      toast.error("고객 정보 삭제에 실패했습니다.");
     }
   };
 
@@ -138,12 +138,12 @@ export default function CustomerDetailPage() {
   const handleCreateRemarkLog = async (note: string) => {
     try {
       await addStamp(customerId, 0, note, PaymentTypeEnum.REMARK.value);
-      toast.success('특이사항이 추가되었습니다.');
+      toast.success("특이사항이 추가되었습니다.");
       close();
       handleUpdate();
     } catch (error) {
-      console.error('Failed to create remark log:', error);
-      toast.error('특이사항 추가에 실패했습니다.');
+      console.error("Failed to create remark log:", error);
+      toast.error("특이사항 추가에 실패했습니다.");
     }
   };
 
@@ -160,6 +160,8 @@ export default function CustomerDetailPage() {
   }
 
   const stampCount = customer.stamps?.[0]?.count || 0;
+  const isSpecialCustomer =
+    customer.name.trim() === "시연용" || customer.name.trim() === "재고조정";
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10">
@@ -168,7 +170,7 @@ export default function CustomerDetailPage() {
         <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-brand-600 to-brand-700 bg-clip-text text-transparent">
           고객 상세
         </h1>
-        <Button onClick={() => router.push('/customers')} variant="tertiary">
+        <Button onClick={() => router.push("/customers")} variant="tertiary">
           ← 목록으로
         </Button>
       </div>
@@ -228,25 +230,29 @@ export default function CustomerDetailPage() {
             <Button
               variant={
                 logCategory === LogCategoryEnum.STAMP.value
-                  ? 'primary'
-                  : 'secondary'
+                  ? "primary"
+                  : "secondary"
               }
               size="sm"
               onClick={() => setLogCategory(LogCategoryEnum.STAMP.value)}
             >
               출고 이력
             </Button>
-            <Button
-              variant={
-                logCategory === LogCategoryEnum.RESERVATION.value
-                  ? 'primary'
-                  : 'secondary'
-              }
-              size="sm"
-              onClick={() => setLogCategory(LogCategoryEnum.RESERVATION.value)}
-            >
-              예약 이력
-            </Button>
+            {!isSpecialCustomer && (
+              <Button
+                variant={
+                  logCategory === LogCategoryEnum.RESERVATION.value
+                    ? "primary"
+                    : "secondary"
+                }
+                size="sm"
+                onClick={() =>
+                  setLogCategory(LogCategoryEnum.RESERVATION.value)
+                }
+              >
+                예약 이력
+              </Button>
+            )}
             {/* <Button
               variant={logCategory === LogCategoryEnum.REMARK.value ? 'primary' : 'secondary'}
               size="sm"
@@ -254,17 +260,19 @@ export default function CustomerDetailPage() {
             >
               특이사항
             </Button> */}
-            <Button
-              variant={
-                logCategory === LogCategoryEnum.CUSTOMER.value
-                  ? 'primary'
-                  : 'secondary'
-              }
-              size="sm"
-              onClick={() => setLogCategory(LogCategoryEnum.CUSTOMER.value)}
-            >
-              고객 이력
-            </Button>
+            {!isSpecialCustomer && (
+              <Button
+                variant={
+                  logCategory === LogCategoryEnum.CUSTOMER.value
+                    ? "primary"
+                    : "secondary"
+                }
+                size="sm"
+                onClick={() => setLogCategory(LogCategoryEnum.CUSTOMER.value)}
+              >
+                고객 이력
+              </Button>
+            )}
           </div>
           <div className="space-y-2.5">
             {(logCategory === LogCategoryEnum.STAMP.value ||
@@ -333,14 +341,16 @@ export default function CustomerDetailPage() {
       </div>
 
       {/* AS 현황 섹션 */}
-      <div className="mb-10">
-        <div className="bg-white rounded-lg shadow-sm border border-brand-100 p-6">
-          <h2 className="text-lg sm:text-xl font-semibold text-brand-700 mb-4">
-            AS 현황
-          </h2>
-          <CustomerAfterServices customerId={customerId} />
+      {!isSpecialCustomer && (
+        <div className="mb-10">
+          <div className="bg-white rounded-lg shadow-sm border border-brand-100 p-6">
+            <h2 className="text-lg sm:text-xl font-semibold text-brand-700 mb-4">
+              AS 현황
+            </h2>
+            <CustomerAfterServices customerId={customerId} />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

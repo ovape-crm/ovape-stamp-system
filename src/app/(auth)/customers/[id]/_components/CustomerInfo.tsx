@@ -54,11 +54,15 @@ const CustomerInfo = ({ customer, onEdit }: CustomerInfoProps) => {
             성별
           </label>
           <p className="text-lg font-semibold text-gray-900">
-            {customer.gender === 'male'
-              ? '남자'
-              : customer.gender === 'female'
-                ? '여자'
-                : '-'}
+            {customer.name.trim() === '시연용'
+              ? '시연용'
+              : customer.name.trim() === '재고조정'
+                ? '재고조정'
+                : customer.gender === 'male'
+                  ? '남자'
+                  : customer.gender === 'female'
+                    ? '여자'
+                    : '-'}
           </p>
         </div>
 
