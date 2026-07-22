@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import toast from 'react-hot-toast';
@@ -40,6 +40,7 @@ const Nav = ({ orientation = 'horizontal', onNavigate }: NavProps) => {
   const [editing, setEditing] = useState(false);
   const [draftItems, setDraftItems] = useState(defaultMenuItems);
   const [saving, setSaving] = useState(false);
+  const navRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const loadMenu = async () => {
@@ -48,6 +49,28 @@ const Nav = ({ orientation = 'horizontal', onNavigate }: NavProps) => {
     };
     loadMenu();
   }, []);
+
+  useEffect(() => {
+    setOpenGroup(null);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!openGroup) return;
+
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      if (!navRef.current?.contains(event.target as Node)) setOpenGroup(null);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpenGroup(null);
+    };
+
+    document.addEventListener('pointerdown', closeOnOutsidePointer);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsidePointer);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [openGroup]);
 
   const visibleMenuItems = useMemo(() => menuItems.filter((item) => isAdmin || item.href !== '/items'), [isAdmin, menuItems]);
   const groupedItems = useMemo(() => groupOrder.map((key) => ({
@@ -89,10 +112,10 @@ const Nav = ({ orientation = 'horizontal', onNavigate }: NavProps) => {
 
   return (
     <>
-      <nav className="flex items-center gap-1 sm:gap-2" onMouseLeave={() => setOpenGroup(null)}>
+      <nav ref={navRef} className="flex items-center gap-2" onPointerLeave={(event) => { if (event.pointerType === 'mouse') setOpenGroup(null); }}>
         {groupedItems.map((group) => {
           const active = group.links.some((link) => pathname?.startsWith(link.href));
-          return <div key={group.key} className="relative" onMouseEnter={() => setOpenGroup(group.key)}><button type="button" aria-haspopup="menu" aria-expanded={openGroup === group.key} onClick={() => setOpenGroup((current) => current === group.key ? null : group.key)} className={`flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-semibold transition-colors sm:px-4 ${active ? 'bg-white text-brand-700 shadow-sm' : 'text-brand-700 hover:bg-white/60'}`}>{group.label}<svg className={`h-3.5 w-3.5 transition-transform ${openGroup === group.key ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m6 9 6 6 6-6" /></svg></button>{openGroup === group.key && <div className="absolute left-0 top-[calc(100%-2px)] z-50 min-w-40 pt-2"><div role="menu" className="overflow-hidden rounded-xl border border-gray-100 bg-white p-1.5 shadow-xl">{group.links.map((link) => <Link key={link.href} href={link.href} onClick={closeAfterNavigate} role="menuitem" className={`block rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${pathname?.startsWith(link.href) ? 'bg-brand-50 text-brand-700' : 'text-gray-700 hover:bg-gray-50 hover:text-brand-700'}`}>{link.label}</Link>)}</div></div>}</div>;
+          return <div key={group.key} className="relative" onPointerEnter={(event) => { if (event.pointerType === 'mouse') setOpenGroup(group.key); }}><button type="button" aria-haspopup="menu" aria-expanded={openGroup === group.key} onClick={() => setOpenGroup((current) => current === group.key ? null : group.key)} className={`flex min-h-12 items-center gap-1 rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${active ? 'bg-white text-brand-700 shadow-sm' : 'text-brand-700 hover:bg-white/60'}`}>{group.label}<svg className={`h-3.5 w-3.5 transition-transform ${openGroup === group.key ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m6 9 6 6 6-6" /></svg></button>{openGroup === group.key && <div className="absolute left-0 top-[calc(100%-2px)] z-50 min-w-44 pt-2"><div role="menu" className="overflow-hidden rounded-xl border border-gray-100 bg-white p-1.5 shadow-xl">{group.links.map((link) => <Link key={link.href} href={link.href} onClick={closeAfterNavigate} role="menuitem" className={`flex min-h-12 items-center rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${pathname?.startsWith(link.href) ? 'bg-brand-50 text-brand-700' : 'text-gray-700 hover:bg-gray-50 hover:text-brand-700'}`}>{link.label}</Link>)}</div></div>}</div>;
         })}
         {currentItem && <span className="ml-2 hidden whitespace-nowrap rounded-full bg-white/55 px-3 py-1.5 text-xs font-semibold text-brand-700 xl:inline">현재 접속 : {groupLabels[currentItem.group_key]} - {currentItem.label}</span>}
         {isAdmin && <button type="button" onClick={() => { setDraftItems(menuItems); setEditing(true); }} className="hidden whitespace-nowrap rounded-lg border border-white/60 bg-white/30 px-2.5 py-1.5 text-xs font-semibold text-brand-700 hover:bg-white/60 xl:block">메뉴 편집</button>}

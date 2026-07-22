@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import Button from '@/app/_components/Button';
@@ -498,7 +499,7 @@ function ThresholdEditor({ blue, red, onSave }: { blue: number; red: number; onS
 
   return <>
     <Button size="xs" variant="gray" className="h-7 w-[68px] !px-2 !py-1 !text-[11px]" onClick={() => setOpen(true)}>기준 변경</Button>
-    {open && <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/50 p-4 backdrop-blur-[2px]">
+    {open && createPortal(<div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/50 p-4 backdrop-blur-[2px]">
       <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
         {!confirming ? <>
           <div className="border-b border-gray-100 bg-gradient-to-r from-brand-50 to-white px-6 py-5"><h2 className="text-lg font-bold text-gray-900">날짜 색상 기준 변경</h2><p className="mt-1 text-xs text-gray-500">교체일로부터 경과한 날짜에 적용됩니다.</p></div>
@@ -517,7 +518,7 @@ function ThresholdEditor({ blue, red, onSave }: { blue: number; red: number; onS
           <div className="mt-6 grid grid-cols-2 gap-2"><Button variant="gray" onClick={() => setConfirming(false)}>아니오</Button><Button onClick={() => { onSave(b, r); setOpen(false); setConfirming(false); }}>네</Button></div>
         </div>}
       </div>
-    </div>}
+    </div>, document.body)}
   </>;
 }
 
@@ -529,7 +530,7 @@ function SectionCreator({ onCreate }: { onCreate: (name: string) => void }) {
 
   return <>
     <Button size="xs" className="h-7 w-[68px] !px-2 !py-1 !text-[11px]" onClick={() => setOpen(true)}>표 추가</Button>
-    {open && <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/50 p-4 backdrop-blur-[2px]">
+    {open && createPortal(<div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/50 p-4 backdrop-blur-[2px]">
       <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
         {!confirming ? <>
           <div className="border-b border-gray-100 bg-gradient-to-r from-brand-50 to-white px-6 py-5"><h2 className="text-lg font-bold text-gray-900">새 구역 표 추가</h2><p className="mt-1 text-xs text-gray-500">시연대 위치를 구분할 표 이름을 입력하세요.</p></div>
@@ -542,7 +543,7 @@ function SectionCreator({ onCreate }: { onCreate: (name: string) => void }) {
           <div className="mt-6 grid grid-cols-2 gap-2"><Button variant="gray" onClick={() => setConfirming(false)}>아니오</Button><Button onClick={() => { onCreate(name.trim()); close(); }}>네</Button></div>
         </div>}
       </div>
-    </div>}
+    </div>, document.body)}
   </>;
 }
 

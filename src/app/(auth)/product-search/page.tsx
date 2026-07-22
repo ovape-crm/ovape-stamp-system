@@ -3,7 +3,13 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Loading from '@/app/_components/Loading';
+import { useUser } from '@/app/_contexts/UserContext';
 import { getProductSearchItems } from '@/app/_domains/_item/_services/productSearchService';
+import {
+  getLiquidSearchCategoryIds,
+  liquidCategorySettingKey,
+} from '@/app/_domains/_item/_services/productSearchCategoryService';
+import LiquidCategorySettingsModal from './_components/LiquidCategorySettingsModal';
 
 type SearchMode = 'liquid' | 'other';
 type SearchValues = { itemName: string; second: string; third: string };
@@ -21,13 +27,21 @@ const headerCellClass = 'border border-brand-200 px-4 py-3 text-left';
 const bodyCellClass = 'border border-gray-200 px-4 py-3 align-middle';
 
 export default function ProductSearchPage() {
+  const { isAdmin } = useUser();
   const [mode, setMode] = useState<SearchMode>('liquid');
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [searchValues, setSearchValues] = useState<Record<SearchMode, SearchValues>>({
     liquid: { itemName: '', second: '', third: '' },
     other: { itemName: '', second: '', third: '' },
   });
   const query = useQuery({ queryKey: ['product-search'], queryFn: getProductSearchItems });
+  const liquidCategoryQuery = useQuery({
+    queryKey: liquidCategorySettingKey,
+    queryFn: getLiquidSearchCategoryIds,
+    retry: false,
+  });
   const activeSearch = searchValues[mode];
+  const liquidCategoryIds = useMemo(() => new Set(liquidCategoryQuery.data ?? []), [liquidCategoryQuery.data]);
 
   const items = useMemo(() => {
     const normalize = (value: string | null | undefined) => value?.trim().toLocaleLowerCase('ko-KR') ?? '';
@@ -35,7 +49,9 @@ export default function ProductSearchPage() {
     const secondKeyword = normalize(activeSearch.second);
     const thirdKeyword = normalize(activeSearch.third);
     return (query.data ?? []).filter((item) => {
-      const isLiquid = LIQUID_CATEGORIES.has(item.item_categories?.name ?? '');
+      const isLiquid = liquidCategoryQuery.isError
+        ? LIQUID_CATEGORIES.has(item.item_categories?.name ?? '')
+        : liquidCategoryIds.has(item.category_id == null ? '' : String(item.category_id));
       if ((mode === 'liquid') !== isLiquid) return false;
       if (itemNameKeyword && !normalize(item.item_name).includes(itemNameKeyword)) return false;
       const secondValue = mode === 'liquid' ? item.liquid_flavor : item.item_code;
@@ -44,7 +60,7 @@ export default function ProductSearchPage() {
       if (thirdKeyword && !normalize(thirdValue).includes(thirdKeyword)) return false;
       return true;
     });
-  }, [activeSearch, mode, query.data]);
+  }, [activeSearch, liquidCategoryIds, liquidCategoryQuery.isError, mode, query.data]);
 
   const updateSearch = (field: keyof SearchValues, value: string) => {
     setSearchValues((current) => ({ ...current, [mode]: { ...current[mode], [field]: value } }));
@@ -64,6 +80,15 @@ export default function ProductSearchPage() {
               <button type="button" onClick={() => setMode('liquid')} className={`whitespace-nowrap rounded-md px-3 py-2.5 text-sm font-semibold transition ${mode === 'liquid' ? 'bg-white text-brand-700 shadow-sm' : 'text-gray-500 hover:bg-white/50 hover:text-gray-700'}`}>액상 검색</button>
               <button type="button" onClick={() => setMode('other')} className={`whitespace-nowrap rounded-md px-3 py-2.5 text-sm font-semibold transition ${mode === 'other' ? 'bg-white text-brand-700 shadow-sm' : 'text-gray-500 hover:bg-white/50 hover:text-gray-700'}`}>나머지 검색</button>
             </div>
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => setSettingsOpen(true)}
+                className="mt-2 flex h-7 w-full items-center justify-center rounded-md border border-brand-200 bg-white px-3 text-xs font-semibold text-brand-700 transition hover:border-brand-300 hover:bg-brand-50 active:bg-brand-100"
+              >
+                액상 검색 기준
+              </button>
+            )}
           </div>
 
           <div className="w-full rounded-xl border border-gray-200 bg-gray-50/70 p-3 lg:w-fit">
@@ -93,6 +118,13 @@ export default function ProductSearchPage() {
           </div>
         </div>
       </section>
+
+      {isAdmin && settingsOpen && (
+        <LiquidCategorySettingsModal
+          initialCategoryIds={liquidCategoryQuery.data ?? []}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
 
       <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
         <div className="overflow-x-auto">

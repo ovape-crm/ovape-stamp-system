@@ -59,37 +59,37 @@ const ManualList = ({
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-brand-100 bg-white shadow-sm">
-        <table className="w-full min-w-[900px] divide-y divide-brand-100 table-auto">
+        <table className="w-full min-w-[900px] table-auto border-collapse">
           <thead className="sticky top-0 z-10 bg-gradient-to-r from-brand-50 to-brand-100">
             <tr>
-              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
+              <th className="border border-brand-200 px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
                 No
               </th>
               {isAdmin && (
-                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
+                <th className="border border-brand-200 px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
                   작업
                 </th>
               )}
-              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
+              <th className="border border-brand-200 px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
                 상위 카테고리
               </th>
-              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
+              <th className="border border-brand-200 px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
                 하위 카테고리
               </th>
-              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
+              <th className="border border-brand-200 px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
                 제목
               </th>
-              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap max-w-xs">
+              <th className="border border-brand-200 px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap max-w-xs">
                 내용
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-brand-50">
+          <tbody className="bg-white">
             {manuals.length === 0 ? (
               <tr>
                 <td
                   colSpan={isAdmin ? 6 : 5}
-                  className="px-3 sm:px-6 py-10 text-center text-gray-500 text-xs sm:text-sm"
+                  className="border border-gray-200 px-3 sm:px-6 py-10 text-center text-gray-500 text-xs sm:text-sm"
                 >
                   매뉴얼 데이터가 없습니다.
                 </td>
@@ -101,12 +101,12 @@ const ManualList = ({
                   className="hover:bg-brand-50/50 transition-colors cursor-pointer"
                   onClick={() => onView?.(manual)}
                 >
-                  <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 whitespace-nowrap">
+                  <td className="border border-gray-200 px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 whitespace-nowrap">
                     {index + 1}
                   </td>
                   {isAdmin && (
                     <td
-                      className="px-3 sm:px-6 py-2 sm:py-3 whitespace-nowrap space-x-1"
+                      className="border border-gray-200 px-3 sm:px-6 py-2 sm:py-3 whitespace-nowrap space-x-1"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <Button size="xs" variant="gray" onClick={() => onEdit?.(manual)}>
@@ -117,7 +117,7 @@ const ManualList = ({
                       </Button>
                     </td>
                   )}
-                  <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">
+                  <td className="border border-gray-200 px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">
                     {manual.manual_sub_categories?.manual_top_categories ? (
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-brand-50 text-brand-700 text-[11px] sm:text-xs font-medium">
                         {manual.manual_sub_categories.manual_top_categories.name}
@@ -126,7 +126,7 @@ const ManualList = ({
                       <span className="text-gray-400">-</span>
                     )}
                   </td>
-                  <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">
+                  <td className="border border-gray-200 px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">
                     {manual.manual_sub_categories ? (
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-gray-100 text-gray-600 text-[11px] sm:text-xs font-medium">
                         {manual.manual_sub_categories.name}
@@ -135,10 +135,10 @@ const ManualList = ({
                       <span className="text-gray-400">-</span>
                     )}
                   </td>
-                  <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-900 whitespace-nowrap font-medium">
+                  <td className="border border-gray-200 px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-900 whitespace-nowrap font-medium">
                     {manual.title}
                   </td>
-                  <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 max-w-xs">
+                  <td className="border border-gray-200 px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 max-w-xs">
                     <p className="text-gray-500">클릭 시 표시됩니다 ❗</p>
                   </td>
                 </tr>

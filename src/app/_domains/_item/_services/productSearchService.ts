@@ -2,6 +2,7 @@ import supabase from '@/libs/supabaseClient';
 
 export type ProductSearchItem = {
   id: string;
+  category_id: string | null;
   item_code: string;
   item_name: string;
   selling_price: number | null;
@@ -14,7 +15,7 @@ export type ProductSearchItem = {
 
 export const getProductSearchItems = async (): Promise<ProductSearchItem[]> => {
   const [itemsResult, locationsResult] = await Promise.all([
-    supabase.from('items').select('id, item_code, item_name, selling_price, liquid_type, liquid_flavor, note, item_categories(name)').eq('is_use', true).order('item_name'),
+    supabase.from('items').select('id, category_id, item_code, item_name, selling_price, liquid_type, liquid_flavor, note, item_categories(name)').eq('is_use', true).order('item_name'),
     supabase.from('liqud_stand_cells').select('item_name, secondary_item_name, column_index, liqud_stand_sections(name)'),
   ]);
   if (itemsResult.error) throw itemsResult.error;

@@ -185,6 +185,9 @@ create trigger trg_manuals_updated_at
   for each row execute function set_updated_at();
 ```
 
+> 보안 설정: 테이블 생성 후 `docs/manual_security.sql`을 실행해 RLS를 활성화해야 합니다.
+> 익명 사용자의 접근은 차단되고, 로그인 사용자는 조회만, 관리자만 추가·수정·삭제할 수 있습니다.
+
 `on delete cascade` / `on delete restrict`는 취향껏 조정 가능. 위 설정은 상위 타입 삭제 시 하위 타입까지 같이 지워지고(`cascade`), 매뉴얼이 남아있는 하위 타입은 삭제를 막는(`restrict`) 조합. 실무에서는 어차피 `is_use = false`로 비활성 처리하고 실제 delete는 잘 안 쓰게 될 거임.
 
 ---
