@@ -5,6 +5,7 @@ import {
   PaymentTypeEnumType,
   StoreTypeEnumType,
 } from '@/app/_enums/enums';
+import { confirmOutboundInventory } from '@/app/_domains/_inventory/_services/outboundInventoryService';
 
 export interface Stamp {
   id: string;
@@ -23,6 +24,8 @@ export type StampLogItem = {
   amount: number;
   remark: string;
   lineText: string;
+  inventoryAction?:
+    'out' | 'exchange_in' | 'exchange_out' | 'adjustment_in' | 'adjustment_out';
 };
 
 export type StampLogMeta = {
@@ -99,6 +102,9 @@ export const addStamp = async (
   paymentType?: PaymentTypeEnumType['value'],
   logMeta?: StampLogMeta,
 ) => {
+  if (!(await confirmOutboundInventory(logMeta?.items ?? []))) {
+    throw new Error('출고 처리를 취소했습니다.');
+  }
   const result = await applyStampCount(customerId, amount);
 
   // 로그 추가
@@ -107,7 +113,7 @@ export const addStamp = async (
     customerId,
     amount === 0 ? 'no-stamp' : `add-${amount}`,
     note,
-    { paymentType, ...logMeta }
+    { paymentType, ...logMeta },
   );
 
   return result;
@@ -128,7 +134,7 @@ export const addReservationStamp = async (
     customerId,
     amount === 0 ? 'no-stamp' : `add-${amount}`,
     note,
-    { paymentType, ...logMeta }
+    { paymentType, ...logMeta },
   );
 };
 
@@ -144,6 +150,13 @@ export const confirmReservationStamp = async (logId: string) => {
 
   if (error) throw error;
   if (!log) throw new Error('예약 이력을 찾을 수 없습니다');
+
+  const reservationItems = Array.isArray(log.jsonb?.items)
+    ? (log.jsonb.items as StampLogItem[])
+    : [];
+  if (!(await confirmOutboundInventory(reservationItems, logId))) {
+    throw new Error('출고 확정을 취소했습니다.');
+  }
 
   const amount = getStampAmountFromAction(log.action);
 
@@ -173,7 +186,7 @@ export const removeStamp = async (
   mode: 'remove' | 'coupon',
   customerId: string,
   amount: number = 1,
-  note: string = ''
+  note: string = '',
 ) => {
   // 먼저 해당 customer의 stamp 레코드 확인
   const { data: existing, error: findError } = await supabase
@@ -206,7 +219,7 @@ export const removeStamp = async (
     LogCategoryEnum.STAMP.value,
     customerId,
     `${mode}-${amount}`,
-    note
+    note,
   );
 };
 

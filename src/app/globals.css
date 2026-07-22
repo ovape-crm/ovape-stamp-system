@@ -1,4 +1,4 @@
-@import 'tailwindcss';
+@import "tailwindcss";
 
 :root {
   --background: #ffffff;
@@ -17,7 +17,6 @@
   --brand-800: #a3204a;
   --brand-900: #891f43;
 }
-
 
 @theme {
   --breakpoint-header: 950px;
@@ -41,22 +40,40 @@
 body {
   background: var(--background);
   color: var(--foreground);
+  font-family:
+    "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+}
+
+/* 표의 줄바꿈은 각 표가 지정한 너비/nowrap 설정을 존중합니다. */
+table th,
+table td {
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+}
+
+/* 입력창과 버튼은 셀 너비를 넘어가지 않게 제한합니다. */
+table th > *,
+table td > * {
+  max-width: 100%;
 }
 
 @keyframes flash {
   0% {
     background-color: rgba(var(--brand-rgb), 0.2);
-    box-shadow: 32px 0 rgba(var(--brand-rgb), 0.2),
+    box-shadow:
+      32px 0 rgba(var(--brand-rgb), 0.2),
       -32px 0 rgba(var(--brand-rgb), 1);
   }
   50% {
     background-color: rgba(var(--brand-rgb), 1);
-    box-shadow: 32px 0 rgba(var(--brand-rgb), 0.2),
+    box-shadow:
+      32px 0 rgba(var(--brand-rgb), 0.2),
       -32px 0 rgba(var(--brand-rgb), 0.2);
   }
   100% {
     background-color: rgba(var(--brand-rgb), 0.2);
-    box-shadow: 32px 0 rgba(var(--brand-rgb), 1),
+    box-shadow:
+      32px 0 rgba(var(--brand-rgb), 1),
       -32px 0 rgba(var(--brand-rgb), 0.2);
   }
 }

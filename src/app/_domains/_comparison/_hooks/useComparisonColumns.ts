@@ -11,7 +11,11 @@ import { comparisonKeys } from '@/app/_domains/_comparison/_queryKeys/comparison
 export const useComparisonColumns = () => {
   const queryClient = useQueryClient();
 
-  const { data: columns = [], isPending: isLoading } = useQuery({
+  const {
+    data: columns = [],
+    isPending: isLoading,
+    isError,
+  } = useQuery({
     queryKey: comparisonKeys.columns(),
     queryFn: getComparisonColumns,
   });
@@ -85,6 +89,7 @@ export const useComparisonColumns = () => {
   return {
     columns,
     isLoading,
+    isError,
     isSubmitting,
     addColumn,
     editColumn,

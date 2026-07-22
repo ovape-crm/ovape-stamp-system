@@ -13,7 +13,7 @@ export default function DeviceCreateModal({
   onCancel: () => void;
   onSuccess: () => void;
 }) {
-  const { columns, isLoading } = useComparisonColumns();
+  const { columns, isLoading, isError } = useComparisonColumns();
   const [values, setValues] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -86,6 +86,10 @@ export default function DeviceCreateModal({
           <p className="text-sm text-gray-500 text-center py-6">
             불러오는 중...
           </p>
+        ) : isError ? (
+          <p className="rounded-lg bg-rose-50 px-4 py-6 text-center text-sm text-rose-600">
+            기기 항목을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.
+          </p>
         ) : columns.length === 0 ? (
           <p className="text-sm text-gray-500 text-center py-6">
             컬럼을 먼저 등록해주세요.
@@ -121,7 +125,7 @@ export default function DeviceCreateModal({
         </Button>
         <Button
           size="sm"
-          disabled={isSubmitting || isLoading || columns.length === 0}
+          disabled={isSubmitting || isLoading || isError || columns.length === 0}
           onClick={handleSubmit}
         >
           {isSubmitting ? '추가 중...' : '추가'}

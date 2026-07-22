@@ -1,11 +1,17 @@
-'use client';
+"use client";
 
-import { createContext, useContext, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import toast from 'react-hot-toast';
-import supabase from '@/libs/supabaseClient';
-import Loading from '@/app/_components/Loading';
-import { UserType } from '@/app/_domains/_user/_types/user.types';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
+import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
+import supabase from "@/libs/supabaseClient";
+import Loading from "@/app/_components/Loading";
+import { UserType } from "@/app/_domains/_user/_types/user.types";
 
 interface UserContextType {
   user: UserType | null;
@@ -29,7 +35,7 @@ export const UserProvider = ({
   const [isAdmin, setIsAdmin] = useState(false);
   const router = useRouter();
 
-  const fetchUser = async () => {
+  const fetchUser = useCallback(async () => {
     try {
       // 1. 세션에서 user id 가져오기
       const { data: sessionData, error: sessionError } =
@@ -39,7 +45,7 @@ export const UserProvider = ({
         setUser(null);
         // requireAuth가 true면 로그인 페이지로 리다이렉트
         if (requireAuth) {
-          router.push('/login');
+          router.push("/login");
         }
         return;
       }
@@ -48,44 +54,44 @@ export const UserProvider = ({
 
       // 2. public.users 테이블에서 유저 정보 조회
       const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
+        .from("users")
+        .select("*")
+        .eq("id", userId)
         .single();
 
       if (userError) {
-        console.error('User fetch error:', userError);
+        console.error("User fetch error:", userError);
         setUser(null);
         if (requireAuth) {
-          router.push('/login');
+          router.push("/login");
         }
         return;
       }
 
       setUser(userData);
-      setIsAdmin(userData.oss_role === 'admin');
+      setIsAdmin(userData.oss_role === "admin");
     } catch (error) {
-      console.error('Error fetching user:', error);
+      console.error("Error fetching user:", error);
       setUser(null);
       if (requireAuth) {
-        router.push('/login');
+        router.push("/login");
       }
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [requireAuth, router]);
 
   useEffect(() => {
     fetchUser();
 
     // 세션 변경 감지 (로그인/로그아웃 시)
     const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
         fetchUser();
-      } else if (event === 'SIGNED_OUT') {
+      } else if (event === "SIGNED_OUT") {
         setUser(null);
         if (requireAuth) {
-          router.push('/login');
+          router.push("/login");
         }
       }
     });
@@ -93,7 +99,7 @@ export const UserProvider = ({
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [requireAuth, router]);
+  }, [fetchUser, requireAuth, router]);
 
   const refreshUser = async () => {
     setIsLoading(true);
@@ -104,16 +110,16 @@ export const UserProvider = ({
     try {
       const { error } = await supabase.auth.signOut();
       if (error) {
-        console.error('Logout error:', error);
-        toast.error('로그아웃에 실패했습니다.');
+        console.error("Logout error:", error);
+        toast.error("로그아웃에 실패했습니다.");
         return;
       }
       setUser(null);
-      toast.success('로그아웃 완료!');
-      router.push('/login');
+      toast.success("로그아웃 완료!");
+      router.push("/login");
     } catch (error) {
-      console.error('Logout error:', error);
-      toast.error('로그아웃에 실패했습니다.');
+      console.error("Logout error:", error);
+      toast.error("로그아웃에 실패했습니다.");
     }
   };
 
@@ -143,7 +149,7 @@ export const UserProvider = ({
 export const useUser = () => {
   const context = useContext(UserContext);
   if (context === undefined) {
-    throw new Error('useUser must be used within a UserProvider');
+    throw new Error("useUser must be used within a UserProvider");
   }
   return context;
 };

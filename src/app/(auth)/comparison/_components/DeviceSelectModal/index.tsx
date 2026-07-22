@@ -26,7 +26,7 @@ export default function DeviceSelectModal({
 }: DeviceSelectModalProps) {
   const [query, setQuery] = useState('');
 
-  const { data, isPending } = useQuery({
+  const { data, isPending, isError } = useQuery({
     queryKey: comparisonKeys.devices(),
     queryFn: getComparisonDevicesWithValues,
   });
@@ -64,6 +64,14 @@ export default function DeviceSelectModal({
           <div className="flex justify-center py-8">
             <Loading size="sm" text="불러오는 중..." />
           </div>
+        ) : isError ? (
+          <p className="rounded-lg bg-rose-50 px-4 py-8 text-center text-sm text-rose-600">
+            기기 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.
+          </p>
+        ) : columns.length === 0 ? (
+          <p className="rounded-lg bg-amber-50 px-4 py-8 text-center text-sm text-amber-700">
+            표시할 기기 비교 항목이 없습니다. 먼저 컬럼 관리에서 항목을 등록해 주세요.
+          </p>
         ) : availableDevices.length === 0 ? (
           <p className="text-sm text-gray-500 text-center py-8">
             {query.trim() ? '검색 결과가 없습니다.' : '선택 가능한 기기가 없습니다.'}

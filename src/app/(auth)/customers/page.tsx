@@ -1,22 +1,34 @@
-'use client';
+"use client";
 
-import { useCustomers } from '@/app/_domains/_customer/_hooks/useCustomers';
-import CustomerList from './_components/CustomerList';
-import SearchBox from './_components/SearchBox';
-import { useModal } from '@/app/_contexts/ModalContext';
-import CustomerCreateModal from './_components/CustomerCreateModal';
-import { createCustomer } from '@/app/_domains/_customer/_services/customerService';
-import toast from 'react-hot-toast';
-import { useState } from 'react';
-import Button from '@/app/_components/Button';
+import { useCustomers } from "@/app/_domains/_customer/_hooks/useCustomers";
+import CustomerList from "./_components/CustomerList";
+import SearchBox from "./_components/SearchBox";
+import { useModal } from "@/app/_contexts/ModalContext";
+import CustomerCreateModal from "./_components/CustomerCreateModal";
+import {
+  createCustomer,
+  getCustomerQuickLinks,
+  type CustomerQuickLink,
+} from "@/app/_domains/_customer/_services/customerService";
+import toast from "react-hot-toast";
+import { useEffect, useState } from "react";
+import Button from "@/app/_components/Button";
 import {
   addStamp,
   addReservationStamp,
-} from '@/app/_domains/_stamp/_services/stampService';
-import { useQueryClient } from '@tanstack/react-query';
-import { customerKeys } from '@/app/_domains/_customer/_queryKeys/customerKeys';
-import { logKeys } from '@/app/_domains/_log/_queryKeys/logKeys';
-import type { CustomerCreateValues } from './_components/CustomerCreateModal';
+} from "@/app/_domains/_stamp/_services/stampService";
+import { useQueryClient } from "@tanstack/react-query";
+import { customerKeys } from "@/app/_domains/_customer/_queryKeys/customerKeys";
+import { logKeys } from "@/app/_domains/_log/_queryKeys/logKeys";
+import type { CustomerCreateValues } from "./_components/CustomerCreateModal";
+import { useRouter } from "next/navigation";
+
+const quickLinkDefinitions = [
+  { key: "x-male", label: "X 남자" },
+  { key: "x-female", label: "X 여자" },
+  { key: "demo", label: "시연용" },
+  { key: "adjustment", label: "재고조정" },
+] as const;
 
 export default function CustomersPage() {
   // ========================================================================
@@ -37,7 +49,49 @@ export default function CustomersPage() {
   } = useCustomers();
   const { open, close } = useModal();
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [quickLinks, setQuickLinks] = useState<CustomerQuickLink[]>([]);
+  const [isQuickLinksLoading, setIsQuickLinksLoading] = useState(false);
+
+  const findQuickLink = (key: (typeof quickLinkDefinitions)[number]["key"]) =>
+    quickLinks.find((customer) => {
+      if (key === "x-male") {
+        return (
+          customer.name === "X" &&
+          customer.phone === "X" &&
+          customer.gender === "male"
+        );
+      }
+      if (key === "x-female") {
+        return (
+          customer.name === "X" &&
+          customer.phone === "X" &&
+          customer.gender === "female"
+        );
+      }
+      return customer.name === (key === "demo" ? "시연용" : "재고조정");
+    });
+
+  useEffect(() => {
+    let active = true;
+    const loadQuickLinks = async () => {
+      try {
+        setIsQuickLinksLoading(true);
+        const links = await getCustomerQuickLinks();
+        if (active) setQuickLinks(links);
+      } catch (error) {
+        console.warn("상세 바로가기 조회 실패:", error);
+        if (active) toast.error("상세 바로가기를 불러오지 못했습니다.");
+      } finally {
+        if (active) setIsQuickLinksLoading(false);
+      }
+    };
+    void loadQuickLinks();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // ========================================================================
   // 고객 추가 핸들러
@@ -53,7 +107,7 @@ export default function CustomersPage() {
         gender: values.gender,
         note: values.note,
       });
-      toast.success('고객이 추가되었습니다.');
+      toast.success("고객이 추가되었습니다.");
 
       // 2. 출고 이력 추가 (선택 사항)
       if (values.isStampAdd && values.stampLog) {
@@ -68,7 +122,7 @@ export default function CustomersPage() {
               stampLog.paymentType,
               stampLog.logMeta,
             );
-            toast.success('출고 예약으로 기록되었습니다.');
+            toast.success("출고 예약으로 기록되었습니다.");
           } else {
             await addStamp(
               data.id,
@@ -77,14 +131,18 @@ export default function CustomersPage() {
               stampLog.paymentType,
               stampLog.logMeta,
             );
-            toast.success(amount === 0 ? '미적립으로 기록되었습니다.' : `스탬프 ${amount}개 적립 완료!`);
+            toast.success(
+              amount === 0
+                ? "미적립으로 기록되었습니다."
+                : `스탬프 ${amount}개 적립 완료!`,
+            );
           }
         } catch (stampError) {
-          console.error('스탬프 추가 실패:', stampError);
+          console.error("스탬프 추가 실패:", stampError);
           toast.error(
             stampError instanceof Error
               ? stampError.message
-              : '스탬프 적립에 실패했습니다.',
+              : "스탬프 적립에 실패했습니다.",
           );
           throw stampError;
         }
@@ -94,12 +152,12 @@ export default function CustomersPage() {
       queryClient.invalidateQueries({ queryKey: customerKeys.lists() });
       queryClient.invalidateQueries({ queryKey: logKeys.lists() });
     } catch (err) {
-      console.error('고객 추가 실패:', err);
-      if (err instanceof Error && err.message === 'DUPLICATE_CUSTOMER') {
-        toast.error('이미 존재하는 전화번호입니다.');
+      console.error("고객 추가 실패:", err);
+      if (err instanceof Error && err.message === "DUPLICATE_CUSTOMER") {
+        toast.error("이미 존재하는 전화번호입니다.");
       } else {
         toast.error(
-          err instanceof Error ? err.message : '고객 추가에 실패했습니다.',
+          err instanceof Error ? err.message : "고객 추가에 실패했습니다.",
         );
       }
     } finally {
@@ -117,7 +175,23 @@ export default function CustomersPage() {
       <SearchBox onSearch={search} />
 
       {/* 고객 추가 버튼 */}
-      <div className="flex justify-end">
+      <div className="flex flex-wrap justify-end gap-2">
+        {quickLinkDefinitions.map((definition) => {
+          const customer = findQuickLink(definition.key);
+          return (
+            <Button
+              key={definition.key}
+              size="sm"
+              variant="secondary"
+              disabled={isQuickLinksLoading || !customer}
+              onClick={() =>
+                customer && router.push(`/customers/${customer.id}`)
+              }
+            >
+              {isQuickLinksLoading ? "불러오는 중..." : definition.label}
+            </Button>
+          );
+        })}
         <Button
           size="sm"
           onClick={() => {

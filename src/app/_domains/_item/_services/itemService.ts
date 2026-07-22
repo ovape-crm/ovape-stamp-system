@@ -1,6 +1,18 @@
 import supabase from '@/libs/supabaseClient';
 import { ItemType } from '../_types/item.types';
 
+const normalizeItemName = (value: string) => value.normalize('NFC').trim();
+
+const ensureUniqueItemName = async (itemName: string, excludeId?: string) => {
+  let query = supabase.from('items').select('id, item_name').ilike('item_name', itemName);
+  if (excludeId) query = query.neq('id', excludeId);
+  const { data, error } = await query;
+  if (error) throw error;
+  if ((data ?? []).some((item) => normalizeItemName(item.item_name) === itemName)) {
+    throw new Error(`이미 등록된 품목명입니다: ${itemName}`);
+  }
+};
+
 type ItemFiltersParam = {
   categoryId?: string;
   searchConditions?: { searchTarget: string; searchKeyword: string }[];
@@ -127,10 +139,12 @@ export const createItem = async (values: {
   liquidFlavor: string;
   note: string;
 }): Promise<void> => {
+  const itemName = normalizeItemName(values.itemName);
+  await ensureUniqueItemName(itemName);
   const { error } = await supabase.from('items').insert({
     category_id: values.categoryId,
     item_code: values.itemCode,
-    item_name: values.itemName,
+    item_name: itemName,
     purchase_price: values.purchasePrice,
     selling_price: values.sellingPrice,
     liquid_type: values.liquidType || null,
@@ -156,12 +170,14 @@ export const updateItem = async (
     isUse: boolean;
   },
 ): Promise<void> => {
+  const itemName = normalizeItemName(values.itemName);
+  await ensureUniqueItemName(itemName, id);
   const { error } = await supabase
     .from('items')
     .update({
       category_id: values.categoryId,
       item_code: values.itemCode,
-      item_name: values.itemName,
+      item_name: itemName,
       purchase_price: values.purchasePrice,
       selling_price: values.sellingPrice,
       liquid_type: values.liquidType || null,

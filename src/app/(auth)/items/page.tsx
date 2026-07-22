@@ -7,6 +7,7 @@ import Button from '@/app/_components/Button';
 import { useModal } from '@/app/_contexts/ModalContext';
 import { useItemCategories } from '@/app/_domains/_item/_hooks/useItemCategories';
 import { createItem, updateItem, deleteItem } from '@/app/_domains/_item/_services/itemService';
+import { getAllItemsForBulk } from '@/app/_domains/_item/_services/itemBulkService';
 import {
   itemKeys,
   ItemFilters,
@@ -21,6 +22,7 @@ import DeleteConfirmModal from '@/app/(auth)/_components/DeleteConfirmModal';
 import toast from 'react-hot-toast';
 import { useUser } from '@/app/_contexts/UserContext';
 import Loading from '@/app/_components/Loading';
+import ItemBulkReplaceModal from './_components/ItemBulkReplaceModal';
 
 const ItemsPage = () => {
   const queryClient = useQueryClient();
@@ -117,6 +119,18 @@ const ItemsPage = () => {
     });
   };
 
+  const handleOpenBulkReplace = async () => {
+    try {
+      const items = await getAllItemsForBulk();
+      open({
+        content: <ItemBulkReplaceModal items={items} categories={categories} onClose={close} onSaved={async () => { await queryClient.invalidateQueries({ queryKey: itemKeys.lists() }); }} />,
+        options: { dismissOnBackdrop: false, dismissOnEsc: false, size: 'max-w-4xl' },
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '품목 목록을 불러오지 못했습니다.');
+    }
+  };
+
   if (isLoading || !isAdmin) return <Loading size="lg" text="권한을 확인하는 중..." />;
 
   return (
@@ -127,6 +141,9 @@ const ItemsPage = () => {
 
         {isAdmin && (
           <div className="flex justify-end gap-2">
+            <Button size="sm" variant="secondary" onClick={handleOpenBulkReplace}>
+              품목 일괄 교체
+            </Button>
             <Button size="sm" variant="gray" onClick={handleOpenCategoryManage}>
               종류 관리
             </Button>

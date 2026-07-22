@@ -1,20 +1,20 @@
-'use client';
+"use client";
 
-import Button from '@/app/_components/Button';
+import Button from "@/app/_components/Button";
 import {
   PaymentTypeEnum,
   PaymentTypeEnumType,
   StoreTypeEnum,
   StoreTypeEnumType,
-} from '@/app/_enums/enums';
-import { useItems } from '@/app/_domains/_item/_hooks/useItems';
-import type { ItemType } from '@/app/_domains/_item/_types/item.types';
-import toast from 'react-hot-toast';
+} from "@/app/_enums/enums";
+import { useItems } from "@/app/_domains/_item/_hooks/useItems";
+import type { ItemType } from "@/app/_domains/_item/_types/item.types";
+import toast from "react-hot-toast";
 import type {
   StampLogItem,
   StampLogMeta,
-} from '@/app/_domains/_stamp/_services/stampService';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+} from "@/app/_domains/_stamp/_services/stampService";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 const ovapePaymentTypes = [
   PaymentTypeEnum.CARD,
@@ -40,22 +40,27 @@ const paymentTypesByStore = {
 };
 
 const remarkOptions = [
-  { value: '', name: '미입력' },
-  { value: 'service', name: '서비스' },
-  { value: 'demo', name: '시연용' },
-  { value: 'custom', name: '메모 직접 입력' },
-  { value: 'price_adjust', name: '가격 조정' },
+  { value: "", name: "미입력" },
+  { value: "service", name: "서비스" },
+  { value: "exchange_in", name: "교환입고" },
+  { value: "exchange_out", name: "교환출고" },
+  { value: "custom", name: "메모 직접 입력" },
+  { value: "price_adjust", name: "가격 조정" },
 ] as const;
 
-type RemarkOptionValue = (typeof remarkOptions)[number]['value'];
+type RemarkOptionValue =
+  | (typeof remarkOptions)[number]["value"]
+  | "demo"
+  | "adjustment_in"
+  | "adjustment_out";
 
 const discountOptions = [
-  { value: 'special', name: '특별' },
-  { value: 'transfer', name: '이체' },
-  { value: 'cash', name: '현금' },
+  { value: "special", name: "특별" },
+  { value: "transfer", name: "이체" },
+  { value: "cash", name: "현금" },
 ] as const;
 
-type DiscountOptionValue = (typeof discountOptions)[number]['value'];
+type DiscountOptionValue = (typeof discountOptions)[number]["value"];
 
 type DraftStampLogLine = StampLogItem & {
   id: string;
@@ -64,26 +69,26 @@ type DraftStampLogLine = StampLogItem & {
 
 export type StampLogValue = {
   note: string;
-  paymentType: PaymentTypeEnumType['value'];
+  paymentType: PaymentTypeEnumType["value"];
   paymentTypeName: string;
   amount: number;
   logMeta: StampLogMeta;
-  storeName: StoreTypeEnumType['value'];
+  storeName: StoreTypeEnumType["value"];
   storeLabel: string;
   finalAmount: number;
   finalAmountExpression: string;
 };
 
 export type StampLogFormInitialValue = {
-  paymentType?: PaymentTypeEnumType['value'];
-  storeName?: StoreTypeEnumType['value'];
+  paymentType?: PaymentTypeEnumType["value"];
+  storeName?: StoreTypeEnumType["value"];
   amount?: number;
   logMeta?: StampLogMeta | null;
 };
 
-const formatAmount = (value: number) => value.toLocaleString('ko-KR');
+const formatAmount = (value: number) => value.toLocaleString("ko-KR");
 const parseSignedAmount = (value: string) => {
-  if (value === '' || value === '-') return 0;
+  if (value === "" || value === "-") return 0;
 
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -93,12 +98,13 @@ export default function StampLogForm({
   onChange,
   initialValue,
   isStampAmountEditable = true,
-  layout = 'stacked',
+  layout = "stacked",
   leftPanelExtra,
   rightPanelExtra,
   step,
   onValidityChange,
   reservationSlot,
+  customerMode = "normal",
 }: {
   onChange: (value: StampLogValue | null) => void;
   initialValue?: StampLogFormInitialValue;
@@ -107,7 +113,7 @@ export default function StampLogForm({
    * 'stacked' (기본): 기존처럼 모든 섹션을 한 줄로 쌓아서 표시
    * 'split': 매장명/결제유형/스탬프개수/할인은 좌측, 품목/금액/특이사항은 우측 2단 레이아웃
    */
-  layout?: 'stacked' | 'split';
+  layout?: "stacked" | "split";
   /** layout이 'split'일 때 좌측 패널 최상단에 렌더링할 요소 (예: 대상 고객 카드) */
   leftPanelExtra?: React.ReactNode;
   /** layout이 'split'일 때 우측 패널 최하단에 렌더링할 요소 (예: 출고 예약 토글) */
@@ -119,25 +125,30 @@ export default function StampLogForm({
    */
   step?: 1 | 2 | 3;
   /** paymentType, 품목 선택 여부가 바뀔 때마다 호출 (스텝 이동 가능 여부 판단용) */
-  onValidityChange?: (info: { hasPaymentType: boolean; hasItems: boolean }) => void;
+  onValidityChange?: (info: {
+    hasPaymentType: boolean;
+    hasItems: boolean;
+  }) => void;
   /** step 모드에서 2번 스텝의 출고 특이사항 입력 오른쪽에 함께 렌더링할 요소 (예: 출고 예약 토글) */
   reservationSlot?: React.ReactNode;
+  customerMode?: "normal" | "demo" | "adjustment";
 }) {
   const [paymentType, setPaymentType] = useState<
-    PaymentTypeEnumType['value'] | ''
-  >(initialValue?.paymentType ?? '');
+    PaymentTypeEnumType["value"] | ""
+  >(initialValue?.paymentType ?? "");
   const [amount, setAmount] = useState<number>(initialValue?.amount ?? 0);
-  const [storeName, setStoreName] = useState<StoreTypeEnumType['value']>(
+  const [storeName, setStoreName] = useState<StoreTypeEnumType["value"]>(
     initialValue?.storeName ?? StoreTypeEnum.OVAPE.value,
   );
-  const [itemSearch, setItemSearch] = useState('');
+  const [itemSearch, setItemSearch] = useState("");
   const [selectedItem, setSelectedItem] = useState<ItemType | null>(null);
   const [showItemResults, setShowItemResults] = useState(false);
   const [quantity, setQuantity] = useState(1);
-  const [remarkType, setRemarkType] = useState<RemarkOptionValue>('');
-  const [customRemark, setCustomRemark] = useState('');
-  const [priceAdjustAmount, setPriceAdjustAmount] = useState('0');
-  const [priceAdjustMemo, setPriceAdjustMemo] = useState('');
+  const [remarkType, setRemarkType] = useState<RemarkOptionValue>("");
+  const [customRemark, setCustomRemark] = useState("");
+  const [exchangeMemo, setExchangeMemo] = useState("");
+  const [priceAdjustAmount, setPriceAdjustAmount] = useState("0");
+  const [priceAdjustMemo, setPriceAdjustMemo] = useState("");
   const [draftLines, setDraftLines] = useState<DraftStampLogLine[]>(
     () =>
       initialValue?.logMeta?.items?.map((item, index) => ({
@@ -145,19 +156,21 @@ export default function StampLogForm({
         id: `${item.itemId}-${index}`,
       })) ?? [],
   );
-  const [discountType, setDiscountType] = useState<DiscountOptionValue | ''>(
+  const [discountType, setDiscountType] = useState<DiscountOptionValue | "">(
     () => {
       const initialDiscountType = initialValue?.logMeta?.discount?.type;
-      return discountOptions.some((option) => option.value === initialDiscountType)
+      return discountOptions.some(
+        (option) => option.value === initialDiscountType,
+      )
         ? (initialDiscountType as DiscountOptionValue)
-        : '';
+        : "";
     },
   );
   const [discountAmount, setDiscountAmount] = useState(
     initialValue?.logMeta?.discount?.amount ?? 0,
   );
   const [extraNote, setExtraNote] = useState(
-    initialValue?.logMeta?.extraNote ?? '',
+    initialValue?.logMeta?.extraNote ?? "",
   );
   const itemSearchRef = useRef<HTMLDivElement>(null);
   const lineRefs = useRef(new Map<string, HTMLDivElement>());
@@ -165,7 +178,9 @@ export default function StampLogForm({
 
   const itemFilters = useMemo(
     () => ({
-      searchKeyword: itemSearch.trim() || undefined,
+      searchConditions: itemSearch.trim()
+        ? [{ searchTarget: "item_name", searchKeyword: itemSearch.trim() }]
+        : undefined,
       isUse: true,
     }),
     [itemSearch],
@@ -173,7 +188,18 @@ export default function StampLogForm({
   const { items, isLoading: isItemsLoading } = useItems(itemFilters);
 
   const paymentTypeOptions = paymentTypesByStore[storeName];
-  const isDeviceSelected = selectedItem?.item_categories?.name.trim() === '기기';
+  const isSpecialCustomer = customerMode !== "normal";
+  const visibleRemarkOptions =
+    customerMode === "adjustment"
+      ? ([
+          { value: "adjustment_in", name: "입고처리" },
+          { value: "adjustment_out", name: "출고처리" },
+        ] as const)
+      : customerMode === "demo"
+        ? ([{ value: "demo", name: "시연용" }] as const)
+        : remarkOptions;
+  const isDeviceSelected =
+    selectedItem?.item_categories?.name.trim() === "기기";
   const totalAmount = draftLines.reduce((sum, line) => sum + line.amount, 0);
   const discountLabel = discountOptions.find(
     (option) => option.value === discountType,
@@ -182,26 +208,40 @@ export default function StampLogForm({
   const discountLine =
     discountLabel && activeDiscountAmount > 0
       ? `${discountLabel}할인${activeDiscountAmount})`
-      : '';
-  const itemNote = draftLines.map((line) => line.lineText).join(', ');
-  const generatedNote = [discountLine, itemNote].filter(Boolean).join(' ');
+      : "";
+  const itemNote = draftLines.map((line) => line.lineText).join(", ");
+  const generatedNote = [discountLine, itemNote].filter(Boolean).join(" ");
   const finalAmount = totalAmount - activeDiscountAmount;
   const amountExpression = draftLines
     .map((line) => formatAmount(line.amount))
-    .join(' + ');
-  const finalAmountExpression = activeDiscountAmount > 0
-    ? `${amountExpression || '0'} - ${formatAmount(activeDiscountAmount)}`
-    : amountExpression;
+    .join(" + ");
+  const finalAmountExpression =
+    activeDiscountAmount > 0
+      ? `${amountExpression || "0"} - ${formatAmount(activeDiscountAmount)}`
+      : amountExpression;
+
+  useEffect(() => {
+    if (!isSpecialCustomer) return;
+    setPaymentType(PaymentTypeEnum.SHIPMENT_REMARK.value);
+    setAmount(0);
+    setDiscountType("");
+    setDiscountAmount(0);
+  }, [isSpecialCustomer]);
+
+  useEffect(() => {
+    if (customerMode === "demo") setRemarkType("demo");
+  }, [customerMode]);
 
   const resetLineInputs = () => {
-    setItemSearch('');
+    setItemSearch("");
     setSelectedItem(null);
     setShowItemResults(false);
     setQuantity(1);
-    setRemarkType('');
-    setCustomRemark('');
-    setPriceAdjustAmount('0');
-    setPriceAdjustMemo('');
+    setRemarkType(customerMode === "demo" ? "demo" : "");
+    setCustomRemark("");
+    setExchangeMemo("");
+    setPriceAdjustAmount("0");
+    setPriceAdjustMemo("");
   };
 
   const getItemLabel = (item: ItemType) => {
@@ -218,8 +258,8 @@ export default function StampLogForm({
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   useEffect(() => {
@@ -233,7 +273,7 @@ export default function StampLogForm({
   onChangeRef.current = onChange;
 
   useEffect(() => {
-    if (paymentType === '' || draftLines.length === 0) {
+    if (paymentType === "" || draftLines.length === 0) {
       onChangeRef.current(null);
       return;
     }
@@ -261,6 +301,7 @@ export default function StampLogForm({
         amount: line.amount,
         remark: line.remark,
         lineText: line.lineText,
+        inventoryAction: line.inventoryAction,
       })),
     };
 
@@ -268,13 +309,13 @@ export default function StampLogForm({
       note: generatedNote,
       paymentType,
       paymentTypeName:
-        paymentTypeOptions.find((o) => o.value === paymentType)?.name ?? '',
+        paymentTypeOptions.find((o) => o.value === paymentType)?.name ?? "",
       amount,
       logMeta,
       storeName,
       storeLabel:
         Object.values(StoreTypeEnum).find((o) => o.value === storeName)?.name ??
-        '',
+        "",
       finalAmount,
       finalAmountExpression,
     });
@@ -300,56 +341,82 @@ export default function StampLogForm({
 
   useEffect(() => {
     onValidityChangeRef.current?.({
-      hasPaymentType: paymentType !== '',
+      hasPaymentType: paymentType !== "",
       hasItems: draftLines.length > 0,
     });
   }, [paymentType, draftLines]);
 
   const handleItemSelect = (item: ItemType) => {
     setSelectedItem(item);
-    setItemSearch('');
+    setItemSearch("");
     setShowItemResults(false);
-    if (item.item_categories?.name.trim() === '기기') {
-      setRemarkType('custom');
-      toast('메모 직접 입력에 박스보관유무를 적어주세요.', {
-        icon: '📦',
+    if (
+      customerMode === "normal" &&
+      item.item_categories?.name.trim() === "기기"
+    ) {
+      setRemarkType("custom");
+      toast("메모 직접 입력에 박스보관유무를 적어주세요.", {
+        icon: "📦",
       });
     }
   };
 
   const handleItemRemove = () => {
     setSelectedItem(null);
-    setItemSearch('');
+    setItemSearch("");
     setShowItemResults(false);
   };
 
   const handleAddLine = () => {
     if (!selectedItem || quantity < 1) return;
+    if (
+      customerMode === "adjustment" &&
+      remarkType !== "adjustment_in" &&
+      remarkType !== "adjustment_out"
+    ) {
+      toast.error("입고처리 또는 출고처리를 선택해 주세요.");
+      return;
+    }
 
     const price = selectedItem.selling_price ?? 0;
     const adjustedPrice = parseSignedAmount(priceAdjustAmount);
-    const priceAdjustmentMemo = priceAdjustMemo.trim() || '가격 조정';
+    const priceAdjustmentMemo = priceAdjustMemo.trim() || "가격 조정";
+    const isExchange =
+      remarkType === "exchange_in" || remarkType === "exchange_out";
+    const exchangeLabel =
+      remarkType === "exchange_in" ? "교환입고" : "교환출고";
     const remark =
-      remarkType === 'custom'
-        ? customRemark.trim()
-        : remarkType === 'price_adjust'
-        ? priceAdjustmentMemo
-        : remarkType === ''
-        ? ''
-        : remarkOptions.find((option) => option.value === remarkType)?.name ?? '';
-    const isFreeRemark = remarkType === 'service' || remarkType === 'demo';
-    const lineAmount =
-      isFreeRemark
-        ? 0
-        : remarkType === 'price_adjust'
+      customerMode === "demo"
+        ? "시연용"
+        : customerMode === "adjustment"
+          ? remarkType === "adjustment_in"
+            ? "입고처리"
+            : remarkType === "adjustment_out"
+              ? "출고처리"
+              : ""
+          : isExchange
+            ? `${exchangeLabel}${exchangeMemo.trim() ? `(${exchangeMemo.trim()})` : ""}`
+            : remarkType === "custom"
+              ? customRemark.trim()
+              : remarkType === "price_adjust"
+                ? priceAdjustmentMemo
+                : remarkType === ""
+                  ? ""
+                  : (remarkOptions.find((option) => option.value === remarkType)
+                      ?.name ?? "");
+    const isFreeRemark =
+      customerMode !== "normal" || remarkType === "service" || isExchange;
+    const lineAmount = isFreeRemark
+      ? 0
+      : remarkType === "price_adjust"
         ? adjustedPrice * quantity
         : price * quantity;
     const remarkText =
-      remarkType === 'price_adjust'
+      remarkType === "price_adjust"
         ? `${remark}, ${formatAmount(adjustedPrice)}원`
         : remark;
     const lineText = `${selectedItem.item_name} ${quantity}개${
-      remarkText ? ` (${remarkText})` : ''
+      remarkText ? ` (${remarkText})` : ""
     }`;
 
     setDraftLines((prev) => [
@@ -361,11 +428,22 @@ export default function StampLogForm({
         itemCategoryName: selectedItem.item_categories?.name ?? null,
         quantity,
         unitPrice: price,
-        adjustedUnitPrice:
-          remarkType === 'price_adjust' ? adjustedPrice : null,
+        adjustedUnitPrice: remarkType === "price_adjust" ? adjustedPrice : null,
         amount: lineAmount,
         remark,
         lineText,
+        inventoryAction:
+          customerMode === "demo"
+            ? "out"
+            : remarkType === "exchange_in"
+              ? "exchange_in"
+              : remarkType === "exchange_out"
+                ? "exchange_out"
+                : remarkType === "adjustment_in"
+                  ? "adjustment_in"
+                  : remarkType === "adjustment_out"
+                    ? "adjustment_out"
+                    : "out",
       },
     ]);
     resetLineInputs();
@@ -412,20 +490,20 @@ export default function StampLogForm({
       const deltaY = previousRect.top - currentRect.top;
       if (deltaY === 0) return;
 
-      node.style.transition = 'none';
+      node.style.transition = "none";
       node.style.transform = `translateY(${deltaY}px)`;
-      node.style.zIndex = '1';
+      node.style.zIndex = "1";
 
       requestAnimationFrame(() => {
-        node.style.transition = 'transform 180ms ease';
-        node.style.transform = 'translateY(0)';
+        node.style.transition = "transform 180ms ease";
+        node.style.transform = "translateY(0)";
 
         node.addEventListener(
-          'transitionend',
+          "transitionend",
           () => {
-            node.style.transition = '';
-            node.style.transform = '';
-            node.style.zIndex = '';
+            node.style.transition = "";
+            node.style.transform = "";
+            node.style.zIndex = "";
           },
           { once: true },
         );
@@ -446,10 +524,10 @@ export default function StampLogForm({
             key={option.value}
             type="button"
             size="sm"
-            variant={storeName === option.value ? 'primary' : 'gray'}
+            variant={storeName === option.value ? "primary" : "gray"}
             onClick={() => {
               setStoreName(option.value);
-              setPaymentType('');
+              setPaymentType("");
             }}
           >
             {option.name}
@@ -470,7 +548,7 @@ export default function StampLogForm({
             key={option.value}
             type="button"
             size="sm"
-            variant={paymentType === option.value ? 'primary' : 'gray'}
+            variant={paymentType === option.value ? "primary" : "gray"}
             onClick={() => setPaymentType(option.value)}
           >
             {option.name}
@@ -492,8 +570,8 @@ export default function StampLogForm({
           onChange={(e) => {
             if (!isStampAmountEditable) return;
             const v = e.target.value;
-            if (v === '' || /^[0-9]+$/.test(v)) {
-              setAmount(v === '' ? 0 : Number(v));
+            if (v === "" || /^[0-9]+$/.test(v)) {
+              setAmount(v === "" ? 0 : Number(v));
             }
           }}
           disabled={!isStampAmountEditable}
@@ -520,237 +598,254 @@ export default function StampLogForm({
         <p className="mt-1.5 text-xs text-gray-400">
           수정 시 스탬프 개수는 변경되지 않습니다.
         </p>
-      ) : amount === 0 && (
-        <p className="mt-1.5 text-xs text-gray-400">
-          0개 입력 시 <span className="font-medium text-gray-500">미적립</span>
-          으로 기록됩니다.
-        </p>
+      ) : (
+        amount === 0 && (
+          <p className="mt-1.5 text-xs text-gray-400">
+            0개 입력 시{" "}
+            <span className="font-medium text-gray-500">미적립</span>
+            으로 기록됩니다.
+          </p>
+        )
       )}
     </div>
   );
 
   const itemSelectionField = (
-      <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-3">
-        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_150px]">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              품목 선택 <span className="text-rose-600">*</span>
-            </label>
-            <div ref={itemSearchRef} className="relative">
-              <div className="relative">
-                <input
-                  type="text"
-                  value={selectedItem ? getItemLabel(selectedItem) : itemSearch}
-                  onChange={(e) => {
-                    if (!selectedItem) {
-                      setItemSearch(e.target.value);
-                    }
-                  }}
-                  onFocus={() => {
-                    if (!selectedItem && itemSearch.trim()) {
-                      setShowItemResults(true);
-                    }
-                  }}
-                  disabled={!!selectedItem}
-                  className={`w-full px-3 py-2 pr-9 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm ${
-                    selectedItem
-                      ? 'bg-gray-100 text-gray-700 cursor-not-allowed'
-                      : 'bg-white'
-                  }`}
-                  placeholder="품목명 또는 코드"
-                />
-                {selectedItem ? (
-                  <button
-                    type="button"
-                    onClick={handleItemRemove}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                    aria-label="품목 선택 해제"
-                  >
-                    X
-                  </button>
-                ) : (
-                  isItemsLoading && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                      <div className="w-4 h-4 border-2 border-brand-300 border-t-brand-600 rounded-full animate-spin" />
-                    </div>
-                  )
-                )}
-              </div>
-
-              {!selectedItem && showItemResults && items.length > 0 && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-brand-200 rounded-lg shadow-lg max-h-60 overflow-auto">
-                  {items.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      className="block w-full px-4 py-3 text-left cursor-pointer hover:bg-brand-50 transition-colors border-b border-brand-50 last:border-b-0"
-                      onClick={() => handleItemSelect(item)}
-                    >
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium text-gray-900">
-                          {getItemLabel(item)}
-                        </p>
-                        <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
-                          {item.item_categories?.name ?? '미분류'}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-600">
-                        {item.selling_price !== null
-                          ? `${formatAmount(item.selling_price)}원`
-                          : '금액 없음'}
-                      </p>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {!selectedItem &&
-                showItemResults &&
-                items.length === 0 &&
-                itemSearch.trim() &&
-                !isItemsLoading && (
-                  <div className="absolute z-50 w-full mt-1 bg-white border border-brand-200 rounded-lg shadow-lg p-4">
-                    <p className="text-sm text-gray-500 text-center">
-                      검색 결과가 없습니다.
-                    </p>
-                  </div>
-                )}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              수량
-            </label>
-            <div className="flex items-center gap-2">
+    <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-3">
+      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_150px]">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            품목 선택 <span className="text-rose-600">*</span>
+          </label>
+          <div ref={itemSearchRef} className="relative">
+            <div className="relative">
               <input
                 type="text"
-                value={quantity}
+                value={selectedItem ? getItemLabel(selectedItem) : itemSearch}
                 onChange={(e) => {
-                  const v = e.target.value;
-                  if (v === '' || /^[0-9]+$/.test(v)) {
-                    setQuantity(v === '' ? 1 : Math.max(1, Number(v)));
+                  if (!selectedItem) {
+                    setItemSearch(e.target.value);
                   }
                 }}
-                className="w-16 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm text-center"
+                onFocus={() => {
+                  if (!selectedItem && itemSearch.trim()) {
+                    setShowItemResults(true);
+                  }
+                }}
+                disabled={!!selectedItem}
+                className={`w-full px-3 py-2 pr-9 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm ${
+                  selectedItem
+                    ? "bg-gray-100 text-gray-700 cursor-not-allowed"
+                    : "bg-white"
+                }`}
+                placeholder="품목명을 입력하세요"
               />
-              <button
-                type="button"
-                onClick={() => setQuantity((v) => Math.max(1, v - 1))}
-                className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 active:bg-gray-100 transition-colors text-lg leading-none"
-              >
-                −
-              </button>
-              <button
-                type="button"
-                onClick={() => setQuantity((v) => v + 1)}
-                className="w-8 h-8 flex items-center justify-center rounded-lg bg-brand-500 text-white hover:bg-brand-600 active:bg-brand-700 transition-colors text-lg leading-none"
-              >
-                +
-              </button>
+              {selectedItem ? (
+                <button
+                  type="button"
+                  onClick={handleItemRemove}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  aria-label="품목 선택 해제"
+                >
+                  X
+                </button>
+              ) : (
+                isItemsLoading && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <div className="w-4 h-4 border-2 border-brand-300 border-t-brand-600 rounded-full animate-spin" />
+                  </div>
+                )
+              )}
             </div>
+
+            {!selectedItem && showItemResults && items.length > 0 && (
+              <div className="absolute z-50 w-full mt-1 bg-white border border-brand-200 rounded-lg shadow-lg max-h-60 overflow-auto">
+                {items.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className="block w-full px-4 py-3 text-left cursor-pointer hover:bg-brand-50 transition-colors border-b border-brand-50 last:border-b-0"
+                    onClick={() => handleItemSelect(item)}
+                  >
+                    <div className="flex items-start gap-2">
+                      <p className="min-w-0 flex-1 break-words text-sm font-medium text-gray-900">
+                        {getItemLabel(item)}
+                      </p>
+                      <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
+                        {item.item_categories?.name ?? "미분류"}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {!selectedItem &&
+              showItemResults &&
+              items.length === 0 &&
+              itemSearch.trim() &&
+              !isItemsLoading && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-brand-200 rounded-lg shadow-lg p-4">
+                  <p className="text-sm text-gray-500 text-center">
+                    검색 결과가 없습니다.
+                  </p>
+                </div>
+              )}
           </div>
         </div>
 
         <div>
-          <span className="block text-sm font-medium text-gray-700 mb-2">
-            특이사항
-          </span>
-          <div className="flex flex-wrap gap-x-4 gap-y-2">
-            {remarkOptions.map((option) => (
-              <label
-                key={option.value}
-                className="inline-flex items-center gap-2 text-xs whitespace-nowrap"
-              >
-                <input
-                  type="radio"
-                  name="remarkType"
-                  value={option.value}
-                  checked={remarkType === option.value}
-                  onChange={() => setRemarkType(option.value)}
-                />
-                {option.name}
-              </label>
-            ))}
-          </div>
-        </div>
-
-        {remarkType === 'custom' && (
-          <div>
-            {isDeviceSelected && (
-              <p className="mb-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
-                메모 직접 입력에 박스보관유무를 적어주세요.
-              </p>
-            )}
-            <textarea
-              value={customRemark}
-              onChange={(e) => setCustomRemark(e.target.value)}
-              className="w-full min-h-20 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm resize-y"
-              placeholder="ex) 박스매장보관 여부, 다른 특이사항"
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            수량
+          </label>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={quantity}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === "" || /^[0-9]+$/.test(v)) {
+                  setQuantity(v === "" ? 1 : Math.max(1, Number(v)));
+                }
+              }}
+              className="w-16 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm text-center"
             />
+            <button
+              type="button"
+              onClick={() => setQuantity((v) => Math.max(1, v - 1))}
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 active:bg-gray-100 transition-colors text-lg leading-none"
+            >
+              −
+            </button>
+            <button
+              type="button"
+              onClick={() => setQuantity((v) => v + 1)}
+              className="w-8 h-8 flex items-center justify-center rounded-lg bg-brand-500 text-white hover:bg-brand-600 active:bg-brand-700 transition-colors text-lg leading-none"
+            >
+              +
+            </button>
           </div>
-        )}
-
-        {remarkType === 'price_adjust' && (
-          <div className="grid gap-3 sm:grid-cols-[160px_minmax(0,1fr)]">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                조정 가격 <span className="text-rose-600">*</span>
-              </label>
-              <div className="flex items-center gap-1">
-                <input
-                  type="text"
-                  value={priceAdjustAmount}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    if (/^-?[0-9]*$/.test(v)) {
-                      setPriceAdjustAmount(v);
-                    }
-                  }}
-                  inputMode="numeric"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm text-right"
-                  placeholder="금액"
-                />
-                <span className="text-sm text-gray-600">원</span>
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                메모
-              </label>
-              <input
-                type="text"
-                value={priceAdjustMemo}
-                onChange={(e) => setPriceAdjustMemo(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm"
-                placeholder="미입력 시 가격 조정"
-              />
-            </div>
-          </div>
-        )}
-
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-xs text-gray-500">
-            {selectedItem
-              ? `${selectedItem.item_name} / ${formatAmount(
-                  remarkType === 'service' || remarkType === 'demo'
-                    ? 0
-                    : remarkType === 'price_adjust'
-                    ? parseSignedAmount(priceAdjustAmount) * quantity
-                    : (selectedItem.selling_price ?? 0) * quantity,
-                )}원`
-              : '품목을 선택하면 메모와 금액이 생성됩니다.'}
-          </p>
-          <Button
-            type="button"
-            size="sm"
-            onClick={handleAddLine}
-            disabled={!selectedItem || quantity < 1}
-          >
-            추가
-          </Button>
         </div>
       </div>
+
+      <div>
+        <span className="block text-sm font-medium text-gray-700 mb-2">
+          특이사항
+        </span>
+        <div className="flex flex-wrap gap-x-4 gap-y-2">
+          {visibleRemarkOptions.map((option) => (
+            <label
+              key={option.value}
+              className="inline-flex items-center gap-2 text-xs whitespace-nowrap"
+            >
+              <input
+                type="radio"
+                name="remarkType"
+                value={option.value}
+                checked={remarkType === option.value}
+                onChange={() => setRemarkType(option.value)}
+              />
+              {option.name}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {remarkType === "custom" && (
+        <div>
+          {isDeviceSelected && (
+            <p className="mb-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+              메모 직접 입력에 박스보관유무를 적어주세요.
+            </p>
+          )}
+          <textarea
+            value={customRemark}
+            onChange={(e) => setCustomRemark(e.target.value)}
+            className="w-full min-h-20 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm resize-y"
+            placeholder="ex) 박스매장보관 여부, 다른 특이사항"
+          />
+        </div>
+      )}
+
+      {(remarkType === "exchange_in" || remarkType === "exchange_out") && (
+        <input
+          type="text"
+          value={exchangeMemo}
+          onChange={(event) => setExchangeMemo(event.target.value)}
+          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-500"
+          placeholder="특이사항을 입력하세요. (선택)"
+        />
+      )}
+
+      {remarkType === "price_adjust" && (
+        <div className="grid gap-3 sm:grid-cols-[160px_minmax(0,1fr)]">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              조정 가격 <span className="text-rose-600">*</span>
+            </label>
+            <div className="flex items-center gap-1">
+              <input
+                type="text"
+                value={priceAdjustAmount}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (/^-?[0-9]*$/.test(v)) {
+                    setPriceAdjustAmount(v);
+                  }
+                }}
+                inputMode="numeric"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm text-right"
+                placeholder="금액"
+              />
+              <span className="text-sm text-gray-600">원</span>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              메모
+            </label>
+            <input
+              type="text"
+              value={priceAdjustMemo}
+              onChange={(e) => setPriceAdjustMemo(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm"
+              placeholder="미입력 시 가격 조정"
+            />
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs text-gray-500">
+          {selectedItem
+            ? `${selectedItem.item_name} / ${formatAmount(
+                customerMode !== "normal" ||
+                  remarkType === "service" ||
+                  remarkType === "exchange_in" ||
+                  remarkType === "exchange_out"
+                  ? 0
+                  : remarkType === "price_adjust"
+                    ? parseSignedAmount(priceAdjustAmount) * quantity
+                    : (selectedItem.selling_price ?? 0) * quantity,
+              )}원`
+            : "품목을 선택하면 메모와 금액이 생성됩니다."}
+        </p>
+        <Button
+          type="button"
+          size="sm"
+          onClick={handleAddLine}
+          disabled={
+            !selectedItem ||
+            quantity < 1 ||
+            (customerMode === "adjustment" &&
+              remarkType !== "adjustment_in" &&
+              remarkType !== "adjustment_out")
+          }
+        >
+          추가
+        </Button>
+      </div>
+    </div>
   );
 
   const itemListLabel = (
@@ -762,173 +857,196 @@ export default function StampLogForm({
   const itemListContent = (
     <>
       {draftLines.length === 0 ? (
-            <p className="text-sm text-gray-400">추가된 품목이 없습니다.</p>
-          ) : (
-            <div className="space-y-2">
-              {draftLines.map((line, index) => (
-                <div
-                  ref={setLineRef(line.id)}
-                  key={line.id}
-                  className="relative flex items-center justify-between gap-2 rounded-md border border-gray-200 bg-white px-3 py-2"
-                >
-                  <div className="flex min-w-0 items-start gap-2">
-                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-500 text-xs font-semibold text-white">
-                      {index + 1}
+        <p className="text-sm text-gray-400">추가된 품목이 없습니다.</p>
+      ) : (
+        <div className="space-y-2">
+          {draftLines.map((line, index) => (
+            <div
+              ref={setLineRef(line.id)}
+              key={line.id}
+              className="relative flex items-center justify-between gap-2 rounded-md border border-gray-200 bg-white px-3 py-2"
+            >
+              <div className="flex min-w-0 items-start gap-2">
+                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-500 text-xs font-semibold text-white">
+                  {index + 1}
+                </span>
+                <div className="min-w-0">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
+                      {line.itemCategoryName ?? "미분류"}
                     </span>
-                    <div className="min-w-0">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
-                          {line.itemCategoryName ?? '미분류'}
-                        </span>
-                        <p className="min-w-0 text-sm text-gray-900">
-                          {line.lineText}
-                        </p>
-                      </div>
-                      <p className="mt-0.5 text-xs text-gray-500">
-                        개별단가 {formatAmount(line.unitPrice)}원
-                        {typeof line.adjustedUnitPrice === 'number' &&
-                          ` / 조정단가 ${formatAmount(line.adjustedUnitPrice)}원`}
-                        {' / '}총금액 {formatAmount(line.amount)}원
-                      </p>
-                    </div>
+                    <p className="min-w-0 text-sm text-gray-900">
+                      {line.lineText}
+                    </p>
                   </div>
-                  <div className="shrink-0 self-center flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => moveLine(index, -1)}
-                      disabled={index === 0}
-                      className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-gray-200 bg-white text-xs font-semibold text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-35"
-                      aria-label={`${line.lineText} 위로 이동`}
-                    >
-                      ↑
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => moveLine(index, 1)}
-                      disabled={index === draftLines.length - 1}
-                      className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-gray-200 bg-white text-xs font-semibold text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-35"
-                      aria-label={`${line.lineText} 아래로 이동`}
-                    >
-                      ↓
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setDraftLines((prev) =>
-                          prev.filter((item) => item.id !== line.id),
-                        )
-                      }
-                      className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md px-2 py-1 text-xs font-semibold text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                      aria-label={`${line.lineText} 삭제`}
-                    >
-                      X
-                    </button>
-                  </div>
+                  <p className="mt-0.5 text-xs text-gray-500">
+                    개별단가 {formatAmount(line.unitPrice)}원
+                    {typeof line.adjustedUnitPrice === "number" &&
+                      ` / 조정단가 ${formatAmount(line.adjustedUnitPrice)}원`}
+                    {" / "}총금액 {formatAmount(line.amount)}원
+                  </p>
                 </div>
-              ))}
+              </div>
+              <div className="shrink-0 self-center flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => moveLine(index, -1)}
+                  disabled={index === 0}
+                  className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-gray-200 bg-white text-xs font-semibold text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-35"
+                  aria-label={`${line.lineText} 위로 이동`}
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  onClick={() => moveLine(index, 1)}
+                  disabled={index === draftLines.length - 1}
+                  className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-gray-200 bg-white text-xs font-semibold text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-35"
+                  aria-label={`${line.lineText} 아래로 이동`}
+                >
+                  ↓
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDraftLines((prev) =>
+                      prev.filter((item) => item.id !== line.id),
+                    )
+                  }
+                  className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md px-2 py-1 text-xs font-semibold text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                  aria-label={`${line.lineText} 삭제`}
+                >
+                  X
+                </button>
+              </div>
             </div>
-          )}
+          ))}
+        </div>
+      )}
     </>
   );
 
   const itemListField = step ? (
-      <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-        {itemListLabel}
-        <div className="min-h-24">{itemListContent}</div>
-      </div>
+    <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+      {itemListLabel}
+      <div className="min-h-24">{itemListContent}</div>
+    </div>
   ) : (
-      <div>
-        {itemListLabel}
-        <div className="min-h-24 rounded-lg bg-gray-50 p-3">{itemListContent}</div>
+    <div>
+      {itemListLabel}
+      <div className="min-h-24 rounded-lg bg-gray-50 p-3">
+        {itemListContent}
       </div>
+    </div>
   );
 
   const discountField = (
-      <div>
-        <span className="block text-sm font-medium text-gray-700 mb-2">할인</span>
-        <div className="flex items-center gap-2">
-          <div className="grid flex-1 grid-cols-3 gap-2">
-            {discountOptions.map((option) => (
-              <Button
-                key={option.value}
-                type="button"
-                size="sm"
-                variant={discountType === option.value ? 'primary' : 'gray'}
-                onClick={() => setDiscountType(option.value)}
-              >
-                {option.name}
-              </Button>
-            ))}
-          </div>
-          <div className="flex shrink-0 items-center gap-1">
-            <input
-              type="text"
-              value={discountAmount}
-              onChange={(e) => {
-                const v = e.target.value;
-                if (v === '' || /^[0-9]+$/.test(v)) {
-                  setDiscountAmount(v === '' ? 0 : Number(v));
-                }
-              }}
-              className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm text-right"
-              placeholder="금액"
-            />
-            <span className="text-sm text-gray-600">원</span>
-          </div>
+    <div>
+      <span className="block text-sm font-medium text-gray-700 mb-2">할인</span>
+      <div className="flex items-center gap-2">
+        <div className="grid flex-1 grid-cols-3 gap-2">
+          {discountOptions.map((option) => (
+            <Button
+              key={option.value}
+              type="button"
+              size="sm"
+              variant={discountType === option.value ? "primary" : "gray"}
+              onClick={() => setDiscountType(option.value)}
+            >
+              {option.name}
+            </Button>
+          ))}
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          <input
+            type="text"
+            value={discountAmount}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v === "" || /^[0-9]+$/.test(v)) {
+                setDiscountAmount(v === "" ? 0 : Number(v));
+              }
+            }}
+            className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm text-right"
+            placeholder="금액"
+          />
+          <span className="text-sm text-gray-600">원</span>
         </div>
       </div>
+    </div>
   );
 
   const amountField = (
-      <div>
-        <span className="block text-sm font-medium text-gray-700 mb-2">금액</span>
-        <div className="rounded-lg bg-gray-50 px-3 py-3">
-          <p className="text-sm font-semibold text-gray-900">
-            {finalAmountExpression || '0'} = {formatAmount(finalAmount)}
-          </p>
-        </div>
+    <div>
+      <span className="block text-sm font-medium text-gray-700 mb-2">금액</span>
+      <div className="rounded-lg bg-gray-50 px-3 py-3">
+        <p className="text-sm font-semibold text-gray-900">
+          {finalAmountExpression || "0"} = {formatAmount(finalAmount)}
+        </p>
       </div>
+    </div>
   );
 
   const extraNoteField = (
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          출고 특이사항
-        </label>
-        <input
-          type="text"
-          value={extraNote}
-          onChange={(e) => setExtraNote(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm"
-          placeholder="배달지주소 , 네이버톡톡 : 아이디"
-        />
-      </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        출고 특이사항
+      </label>
+      <input
+        type="text"
+        value={extraNote}
+        onChange={(e) => setExtraNote(e.target.value)}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm"
+        placeholder={
+          isSpecialCustomer
+            ? "특이사항을 적어주세요. (선택)"
+            : "배달지주소 , 네이버톡톡 : 아이디"
+        }
+      />
+    </div>
   );
 
-  if (layout === 'split') {
+  if (layout === "split") {
     // 스텝 UI 모드: step 값이 있으면 2단 레이아웃 대신 스텝별 필드만 노출.
     // 컴포넌트는 계속 마운트된 채로 CSS로만 보이거나 숨겨지므로, 스텝을 오가도
     // 매장명/결제유형/품목/할인 등 입력 상태가 그대로 유지된다.
     if (step) {
       return (
         <div className="space-y-5">
-          <div className={step === 1 ? 'space-y-5' : 'hidden'}>
+          <div className={step === 1 ? "space-y-5" : "hidden"}>
             {storeField}
-            {paymentField}
-            {stampCountField}
+            {isSpecialCustomer ? (
+              <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+                <span className="text-sm font-medium text-gray-600">
+                  결제 유형
+                </span>
+                <p className="mt-1 font-semibold text-gray-900">
+                  특이사항 · 0원 처리
+                </p>
+              </div>
+            ) : (
+              <>
+                {paymentField}
+                {stampCountField}
+              </>
+            )}
           </div>
-          <div className={step === 2 ? 'space-y-5' : 'hidden'}>
+          <div className={step === 2 ? "space-y-5" : "hidden"}>
             <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2 lg:items-start">
               <div className="min-w-0">{itemSelectionField}</div>
               <div className="min-w-0">{itemListField}</div>
             </div>
-            <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2 lg:items-start">
-              <div className="min-w-0">{discountField}</div>
-              <div className="min-w-0">{amountField}</div>
-            </div>
+            {!isSpecialCustomer && (
+              <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2 lg:items-start">
+                <div className="min-w-0">{discountField}</div>
+                <div className="min-w-0">{amountField}</div>
+              </div>
+            )}
             <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2 lg:items-start">
               <div className="min-w-0 w-full">{extraNoteField}</div>
-              <div className="min-w-0">{reservationSlot}</div>
+              {!isSpecialCustomer && (
+                <div className="min-w-0">{reservationSlot}</div>
+              )}
             </div>
           </div>
         </div>

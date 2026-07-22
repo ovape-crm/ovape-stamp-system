@@ -1,21 +1,21 @@
-'use client';
+"use client";
 
-import { useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { useModal } from '@/app/_contexts/ModalContext';
-import { getComparisonColumns } from '@/app/_domains/_comparison/_services/comparisonColumnService';
-import { ComparisonDeviceType } from '@/app/_domains/_comparison/_types/comparison.types';
-import { comparisonKeys } from '@/app/_domains/_comparison/_queryKeys/comparisonKeys';
-import { EmptySlot, FilledSlot } from './ComparisonSlot';
-import DeviceSelectModal from '../DeviceSelectModal';
-import ComparisonExpandView from './ComparisonExpandView';
-import Button from '@/app/_components/Button';
+import { useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useModal } from "@/app/_contexts/ModalContext";
+import { getComparisonColumns } from "@/app/_domains/_comparison/_services/comparisonColumnService";
+import { ComparisonDeviceType } from "@/app/_domains/_comparison/_types/comparison.types";
+import { comparisonKeys } from "@/app/_domains/_comparison/_queryKeys/comparisonKeys";
+import { EmptySlot, FilledSlot } from "./ComparisonSlot";
+import DeviceSelectModal from "../DeviceSelectModal";
+import ComparisonExpandView from "./ComparisonExpandView";
+import Button from "@/app/_components/Button";
 
 type ValueMap = Record<string, string>;
 
 type Slot =
-  | { type: 'empty' }
-  | { type: 'filled'; device: ComparisonDeviceType; valueMap: ValueMap };
+  | { type: "empty" }
+  | { type: "filled"; device: ComparisonDeviceType; valueMap: ValueMap };
 
 const MAX_SLOTS = 4;
 const INITIAL_SLOTS = 2;
@@ -27,7 +27,7 @@ export default function DeviceComparison() {
     queryFn: getComparisonColumns,
   });
   const [slots, setSlots] = useState<Slot[]>(
-    Array.from({ length: INITIAL_SLOTS }, () => ({ type: 'empty' })),
+    Array.from({ length: INITIAL_SLOTS }, () => ({ type: "empty" })),
   );
 
   // 모달에서 선택된 슬롯 인덱스를 클로저 없이 참조하기 위해 ref 사용
@@ -35,7 +35,7 @@ export default function DeviceComparison() {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const filledSlots = slots.filter(
-    (s): s is Extract<Slot, { type: 'filled' }> => s.type === 'filled',
+    (s): s is Extract<Slot, { type: "filled" }> => s.type === "filled",
   );
   const filledDeviceIds = filledSlots.map((s) => s.device.id);
 
@@ -50,7 +50,7 @@ export default function DeviceComparison() {
             if (idx === null) return;
             setSlots((prev) =>
               prev.map((slot, i) =>
-                i === idx ? { type: 'filled', device, valueMap } : slot,
+                i === idx ? { type: "filled", device, valueMap } : slot,
               ),
             );
             close();
@@ -64,13 +64,13 @@ export default function DeviceComparison() {
 
   const handleRemoveSlot = (index: number) => {
     setSlots((prev) =>
-      prev.map((slot, i) => (i === index ? { type: 'empty' } : slot)),
+      prev.map((slot, i) => (i === index ? { type: "empty" } : slot)),
     );
   };
 
   const handleAppendSlot = () => {
     if (slots.length >= MAX_SLOTS) return;
-    setSlots((prev) => [...prev, { type: 'empty' }]);
+    setSlots((prev) => [...prev, { type: "empty" }]);
   };
 
   const handleRemoveLastSlot = () => {
@@ -83,12 +83,11 @@ export default function DeviceComparison() {
       {/* 슬롯 영역 */}
       <div className="flex flex-col sm:flex-row gap-4 flex-1 min-h-0">
         {slots.map((slot, index) =>
-          slot.type === 'empty' ? (
+          slot.type === "empty" ? (
             <EmptySlot key={index} onAdd={() => handleAddSlot(index)} />
           ) : (
             <FilledSlot
               key={slot.device.id}
-              device={slot.device}
               columns={columns}
               valueMap={slot.valueMap}
               onRemove={() => handleRemoveSlot(index)}
@@ -112,7 +111,11 @@ export default function DeviceComparison() {
           )}
         </div>
         {filledSlots.length > 0 && (
-          <Button size="sm" variant="secondary" onClick={() => setIsExpanded(true)}>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setIsExpanded(true)}
+          >
             비교하기
           </Button>
         )}
