@@ -8,6 +8,8 @@ create table if not exists public.work_journals (
   start_time time not null,
   end_time time not null,
   work_hours numeric(5, 2) not null check (work_hours > 0 and work_hours <= 24),
+  input_work_hours numeric(5, 2)
+    check (input_work_hours > 0 and input_work_hours <= 24),
   note text,
   payment_status text not null default 'unpaid'
     check (payment_status in ('unpaid', 'advance', 'salary')),
@@ -22,7 +24,15 @@ create table if not exists public.work_journals (
 alter table public.work_journals
   add column if not exists payment_status text not null default 'unpaid',
   add column if not exists paid_at timestamptz,
-  add column if not exists paid_by uuid references auth.users(id);
+  add column if not exists paid_by uuid references auth.users(id),
+  add column if not exists work_type text not null default 'solo',
+  add column if not exists status text not null default 'working',
+  add column if not exists expected_end_time time,
+  add column if not exists input_work_hours numeric(5, 2);
+
+update public.work_journals
+set expected_end_time = end_time
+where expected_end_time is null;
 
 do $$
 begin
@@ -194,6 +204,64 @@ create table if not exists public.work_journal_worker_private (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.work_journal_worker_private
+  add column if not exists pin_hash text,
+  add column if not exists pin_code text;
+
+create or replace function public.hash_work_journal_worker_pin()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.pin_hash is not null
+     and new.pin_hash !~ '^\$2[aby]\$' then
+    if new.pin_hash !~ '^[0-9]{4}$' then
+      raise exception 'PIN must contain exactly four digits';
+    end if;
+    new.pin_hash := extensions.crypt(
+      new.pin_hash,
+      extensions.gen_salt('bf')
+    );
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists hash_work_journal_worker_pin
+  on public.work_journal_worker_private;
+create trigger hash_work_journal_worker_pin
+before insert or update of pin_hash
+on public.work_journal_worker_private
+for each row execute function public.hash_work_journal_worker_pin();
+
+create or replace function public.verify_work_journal_worker_pin(
+  p_worker_name text,
+  p_pin text
+)
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.work_journal_workers worker
+    join public.work_journal_worker_private private
+      on private.worker_id = worker.id
+    where worker.name = trim(p_worker_name)
+      and worker.is_active = true
+      and private.pin_hash is not null
+      and private.pin_hash = extensions.crypt(p_pin, private.pin_hash)
+  );
+$$;
+
+revoke all on function public.verify_work_journal_worker_pin(text, text)
+  from public;
+grant execute on function public.verify_work_journal_worker_pin(text, text)
+  to authenticated;
 
 alter table public.work_journal_worker_private enable row level security;
 

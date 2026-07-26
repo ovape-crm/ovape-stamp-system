@@ -18,6 +18,12 @@ export type LogBaseType = {
   jsonb: Record<string, unknown>;
 };
 
+export type LogWorkerSnapshot = {
+  createdWorkerName?: string;
+  modifiedWorkerName?: string;
+  modifiedAt?: string;
+};
+
 export type AfterServiceLogType = LogBaseType & {
   after_service_id: number;
 };

@@ -103,6 +103,7 @@ const CustomersDetailUpdateHistories = ({
                           users={log.users}
                           created_at={log.created_at}
                           updated_at={log.updated_at}
+                          jsonb={log.jsonb}
                         />
                       </div>
                     )}

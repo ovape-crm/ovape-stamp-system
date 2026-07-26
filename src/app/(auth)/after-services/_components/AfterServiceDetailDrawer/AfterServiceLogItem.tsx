@@ -84,7 +84,7 @@ const AfterServiceLogItem = ({
 
       <div className="text-right">
         {log.users && (
-          <LogActorInfo users={log.users} created_at={log.created_at} updated_at={log.updated_at} />
+          <LogActorInfo users={log.users} created_at={log.created_at} updated_at={log.updated_at} jsonb={log.jsonb} />
         )}
       </div>
     </div>
