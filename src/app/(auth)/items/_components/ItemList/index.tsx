@@ -16,9 +16,16 @@ interface ItemListProps {
   isAdmin?: boolean;
   onEdit?: (item: ItemType) => void;
   onDelete?: (item: ItemType) => void;
+  actions?: React.ReactNode;
 }
 
-const ItemList = ({ filters, isAdmin = false, onEdit, onDelete }: ItemListProps) => {
+const ItemList = ({
+  filters,
+  isAdmin = false,
+  onEdit,
+  onDelete,
+  actions,
+}: ItemListProps) => {
   const { items, isLoading, isLoadingMore, error, loadMore, hasMore, totalCount } =
     useItems(filters);
   const { open, close } = useModal();
@@ -45,8 +52,8 @@ const ItemList = ({ filters, isAdmin = false, onEdit, onDelete }: ItemListProps)
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="mb-3 flex shrink-0 items-center justify-start">
+    <div>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="text-xs sm:text-sm text-gray-600">
           <span className="font-semibold text-brand-600">{items.length}</span>
           {totalCount !== undefined && totalCount > 0 && (
@@ -56,8 +63,9 @@ const ItemList = ({ filters, isAdmin = false, onEdit, onDelete }: ItemListProps)
             </>
           )}
         </div>
+        {actions}
       </div>
-      <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-brand-100 bg-white shadow-sm">
+      <div className="overflow-x-auto rounded-lg border border-brand-100 bg-white shadow-sm">
         <table className="w-full min-w-[1000px] divide-y divide-brand-100 table-auto">
           <thead className="sticky top-0 z-10 bg-gradient-to-r from-brand-50 to-brand-100">
             <tr>

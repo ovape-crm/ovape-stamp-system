@@ -1,6 +1,6 @@
 interface ButtonProps {
   variant?: 'primary' | 'secondary' | 'tertiary' | 'gray' | 'danger';
-  size?: 'xs' | 'sm' | 'md' | 'lg';
+  size?: 'icon-xs' | 'xs' | 'sm' | 'md' | 'lg';
   type?: 'button' | 'submit' | 'reset';
   children: React.ReactNode;
   onClick?: (e?: React.MouseEvent<HTMLButtonElement>) => void;
@@ -92,6 +92,7 @@ const Button = ({
 
   // size별 스타일
   const sizeClasses = {
+    'icon-xs': ['h-6', 'w-6', 'p-0', 'text-[10px]'],
     // 모바일 기준 조금 더 컴팩트하게, sm 이상에서 기존 사이즈로
     xs: ['px-2', 'py-1', 'text-xs'],
     sm: ['px-3', 'py-1.5', 'text-xs', 'sm:px-4', 'sm:py-2', 'sm:text-sm'],

@@ -1,4 +1,5 @@
 export type WorkPaymentStatus = 'unpaid' | 'advance' | 'salary';
+export type WorkType = 'solo' | 'shift';
 
 export type WorkJournalType = {
   id: string;
@@ -6,7 +7,9 @@ export type WorkJournalType = {
   worker_name: string;
   start_time: string;
   end_time: string;
+  expected_end_time?: string | null;
   work_hours: number;
+  input_work_hours?: number | null;
   note: string | null;
   payment_status: WorkPaymentStatus;
   paid_at: string | null;
@@ -14,6 +17,8 @@ export type WorkJournalType = {
   created_by: string;
   created_at: string;
   updated_at: string;
+  work_type?: WorkType;
+  status?: 'working' | 'handover_pending' | 'shift_completed' | 'closed';
 };
 
 export type WorkerDetailType = {
@@ -24,4 +29,6 @@ export type WorkerDetailType = {
   bank_account: string;
   first_work_date: string;
   note: string | null;
+  has_pin: boolean;
+  pin_code: string;
 };

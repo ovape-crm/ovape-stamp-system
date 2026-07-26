@@ -31,9 +31,14 @@ export type InventoryMovement = {
   quantity_delta: number;
   quantity_after: number;
   unit_price: number | null;
+  reference_type: string | null;
+  reference_id: string | null;
   reversed_movement_id: string | null;
   note: string | null;
   created_at: string;
+  counterparty_name?: string | null;
+  counterparty_id?: string | null;
+  purchase_order_id?: string | null;
   users?: { name: string | null } | null;
 };
 

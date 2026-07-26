@@ -44,6 +44,21 @@ body {
     "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
 }
 
+button:not(:disabled),
+a[href],
+select:not(:disabled),
+summary,
+[role="button"]:not([aria-disabled="true"]),
+[role="option"]:not([aria-disabled="true"]) {
+  cursor: pointer !important;
+}
+
+button:disabled,
+select:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed !important;
+}
+
 /* 표의 줄바꿈은 각 표가 지정한 너비/nowrap 설정을 존중합니다. */
 table th,
 table td {
@@ -55,6 +70,30 @@ table td {
 table th > *,
 table td > * {
   max-width: 100%;
+}
+
+.purchase-order-table--clean-edges th:first-child,
+.purchase-order-table--clean-edges td:first-child,
+.purchase-order-table--clean-edges th:last-child,
+.purchase-order-table--clean-edges td:last-child {
+  border-left-width: 0;
+  border-right-width: 0;
+}
+
+.purchase-order-table--clean-edges thead tr:first-child th:first-child {
+  border-top-left-radius: 0.75rem;
+}
+
+.purchase-order-table--clean-edges thead tr:first-child th:last-child {
+  border-top-right-radius: 0.75rem;
+}
+
+.purchase-order-table--clean-edges tbody tr:last-child td:first-child {
+  border-bottom-left-radius: 0.75rem;
+}
+
+.purchase-order-table--clean-edges tbody tr:last-child td:last-child {
+  border-bottom-right-radius: 0.75rem;
 }
 
 @keyframes flash {

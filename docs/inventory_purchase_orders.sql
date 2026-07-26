@@ -121,8 +121,22 @@ begin
   for entry in select value from jsonb_array_elements(p_lines) loop
     clean_name:=btrim(entry->>'item_name'); qty:=(entry->>'quantity')::integer;
     if clean_name='' or qty<=0 then raise exception '품목과 주문 수량을 확인해 주세요.'; end if;
-    insert into public.inventory_purchase_order_lines(order_id,item_name,ordered_quantity,unit_price,note)
-    values(order_id,clean_name,qty,nullif(entry->>'unit_price','')::integer,nullif(btrim(entry->>'note'),''));
+    insert into public.inventory_purchase_order_lines(
+      order_id,
+      item_name,
+      ordered_quantity,
+      pending_quantity,
+      unit_price,
+      note
+    )
+    values(
+      order_id,
+      clean_name,
+      qty,
+      qty,
+      nullif(entry->>'unit_price','')::integer,
+      nullif(btrim(entry->>'note'),'')
+    );
   end loop;
   return order_id;
 end $$;
@@ -146,8 +160,8 @@ begin
   into difference
   from public.inventory_purchase_order_lines l
   join public.inventory_purchase_orders o on o.id=l.order_id
-  where l.id=p_line_id and o.status in ('pending','partial') and l.pending_quantity>0;
-  if not found then raise exception '이번 도착 수량을 먼저 입력해 주세요.'; end if;
+  where l.id=p_line_id and o.status in ('pending','partial');
+  if not found then raise exception '수량을 확인할 수 없는 입고 예정 품목입니다.'; end if;
   update public.inventory_purchase_order_lines
   set quantity_checked_by=auth.uid(),quantity_checked_at=now(),
       quantity_check_note=case

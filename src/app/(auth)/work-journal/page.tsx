@@ -4,7 +4,9 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import Button from "@/app/_components/Button";
+import { Dropdown, DropdownOption } from "@/app/_components/Dropdown";
 import Loading from "@/app/_components/Loading";
+import { KoreanDateRangePicker } from "@/app/_components/KoreanDatePicker";
 import {
   createWorkJournal,
   createWorker,
@@ -17,10 +19,11 @@ import {
   updateWorkJournalPaymentStatus,
   updateWorkJournal,
   updateWorkerDetails,
+  verifyWorkerPin,
 } from "@/app/_domains/_workJournal/_services/workJournalService";
 import { workJournalKeys } from "@/app/_domains/_workJournal/_queryKeys/workJournalKeys";
-import { useModal } from "@/app/_contexts/ModalContext";
 import WorkerCreateModal from "./_components/WorkerCreateModal";
+import AttendanceRecordModal from "./_components/AttendanceRecordModal";
 import { useUser } from "@/app/_contexts/UserContext";
 import {
   WorkJournalType,
@@ -40,6 +43,9 @@ const formatHours = (hours: number) =>
     ? `${hours}시간`
     : `${hours.toFixed(2).replace(/0+$/, "")}시간`;
 
+const getPayableHours = (journal: WorkJournalType) =>
+  Number(journal.input_work_hours ?? journal.work_hours);
+
 const formatKoreanDate = (date: string) => {
   if (!date) return "";
   return new Intl.DateTimeFormat("ko-KR", {
@@ -52,17 +58,25 @@ const formatKoreanDate = (date: string) => {
 
 export default function WorkJournalPage() {
   const queryClient = useQueryClient();
-  const { open, close } = useModal();
   const { isAdmin } = useUser();
   const today = getTodayInKorea();
-  const [activeTab, setActiveTab] = useState<"add" | "status" | "payment">(
-    "add",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "records" | "payment" | "workers"
+  >("records");
+  const [tabOrder, setTabOrder] = useState<
+    ("records" | "workers" | "payment")[]
+  >(["records", "workers", "payment"]);
+  const [editingTabOrder, setEditingTabOrder] = useState(false);
+  const [showWorkForm, setShowWorkForm] = useState(false);
+  const [recordWorkerName, setRecordWorkerName] = useState("");
+  const [recordWorkerPin, setRecordWorkerPin] = useState("");
+  const [verifiedWorkerName, setVerifiedWorkerName] = useState("");
+  const [isVerifyingWorker, setIsVerifyingWorker] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(today.slice(0, 7));
   const [viewMode, setViewMode] = useState<"month" | "range">("month");
   const [startDate, setStartDate] = useState(`${today.slice(0, 7)}-01`);
   const [endDate, setEndDate] = useState(today);
-  const [workerFilter, setWorkerFilter] = useState("");
+  const workerFilter = verifiedWorkerName === "전체" ? "" : verifiedWorkerName;
   const [paymentMonth, setPaymentMonth] = useState(today.slice(0, 7));
   const [paymentWorkerFilter, setPaymentWorkerFilter] = useState("");
   const [workDate, setWorkDate] = useState(today);
@@ -71,7 +85,43 @@ export default function WorkJournalPage() {
   const [endTime, setEndTime] = useState("");
   const [workHours, setWorkHours] = useState("");
   const [note, setNote] = useState("");
+  const [workerPin, setWorkerPin] = useState("");
+  const [workType, setWorkType] = useState<"solo" | "shift">("solo");
   const [editingJournalId, setEditingJournalId] = useState("");
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem("work-journal-tab-order");
+    if (!saved) return;
+    try {
+      const parsed = JSON.parse(saved) as (
+        | "records"
+        | "workers"
+        | "payment"
+      )[];
+      if (
+        parsed.length === 3 &&
+        ["records", "workers", "payment"].every((tab) => parsed.includes(tab as "records" | "workers" | "payment"))
+      ) {
+        setTabOrder(parsed);
+      }
+    } catch {
+      window.localStorage.removeItem("work-journal-tab-order");
+    }
+  }, []);
+
+  const moveTab = (index: number, direction: -1 | 1) => {
+    setTabOrder((current) => {
+      const target = index + direction;
+      if (target < 0 || target >= current.length) return current;
+      const next = [...current];
+      [next[index], next[target]] = [next[target], next[index]];
+      window.localStorage.setItem(
+        "work-journal-tab-order",
+        JSON.stringify(next),
+      );
+      return next;
+    });
+  };
 
   const journalsQuery = useQuery({
     queryKey:
@@ -83,8 +133,9 @@ export default function WorkJournalPage() {
         ? getWorkJournals(selectedMonth, workerFilter)
         : getWorkJournalsByRange(startDate, endDate, workerFilter),
     enabled:
-      viewMode === "month" ||
-      Boolean(startDate && endDate && startDate <= endDate),
+      Boolean(verifiedWorkerName) &&
+      (viewMode === "month" ||
+        Boolean(startDate && endDate && startDate <= endDate)),
   });
   const workersQuery = useQuery({
     queryKey: workJournalKeys.workers(),
@@ -140,6 +191,8 @@ export default function WorkJournalPage() {
     setEndTime("");
     setWorkHours("");
     setNote("");
+    setWorkerPin("");
+    setWorkType("solo");
     setEditingJournalId("");
   };
 
@@ -149,12 +202,17 @@ export default function WorkJournalPage() {
       toast.success("근무 기록이 저장되었습니다.");
       setSelectedMonth(workDate.slice(0, 7));
       resetWorkForm();
+      setShowWorkForm(false);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: workJournalKeys.all() }),
         queryClient.invalidateQueries({ queryKey: workJournalKeys.workers() }),
       ]);
     },
-    onError: (error: { code?: string }) => {
+    onError: (error: { code?: string; message?: string }) => {
+      if (error.message === "INVALID_WORKER_PIN") {
+        toast.error("근무자 PIN 번호가 일치하지 않습니다.");
+        return;
+      }
       if (error.code === "23505") {
         toast.error("같은 날짜에 같은 근무자의 기록이 이미 있습니다.");
         return;
@@ -177,6 +235,7 @@ export default function WorkJournalPage() {
       toast.success("근무 기록이 수정되었습니다.");
       setSelectedMonth(workDate.slice(0, 7));
       resetWorkForm();
+      setShowWorkForm(false);
       await queryClient.invalidateQueries({ queryKey: workJournalKeys.all() });
     },
     onError: (error: { code?: string }) => {
@@ -275,6 +334,10 @@ export default function WorkJournalPage() {
       toast.error("날짜, 근무자 이름, 출근·퇴근 시간을 모두 입력해 주세요.");
       return;
     }
+    if (!editingJournalId && workerPin.length !== 4) {
+      toast.error("근무자 PIN 4자리를 입력해 주세요.");
+      return;
+    }
     if (!Number.isFinite(hours) || hours <= 0 || hours > 24) {
       toast.error("근무시간은 0보다 크고 24 이하인 숫자로 입력해 주세요.");
       return;
@@ -287,6 +350,8 @@ export default function WorkJournalPage() {
       endTime,
       workHours: hours,
       note,
+      workType,
+      pin: workerPin,
     };
 
     if (editingJournalId) {
@@ -297,7 +362,8 @@ export default function WorkJournalPage() {
   };
 
   const handleStartEditing = (journal: WorkJournalType) => {
-    setActiveTab("add");
+    setActiveTab("records");
+    setShowWorkForm(true);
     setEditingJournalId(journal.id);
     setWorkDate(journal.work_date);
     setWorkerName(journal.worker_name);
@@ -305,27 +371,151 @@ export default function WorkJournalPage() {
     setEndTime(journal.end_time.slice(0, 5));
     setWorkHours(String(journal.work_hours));
     setNote(journal.note ?? "");
+    setWorkType(journal.work_type ?? "solo");
     document
       .getElementById("work-journal-form")
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  const handleOpenWorkerCreate = () => {
-    open({
-      content: (
+  const handleVerifyRecordWorker = async () => {
+    if (!recordWorkerName || recordWorkerPin.length !== 4) {
+      toast.error("근무자와 개인 PIN 4자리를 입력해 주세요.");
+      return;
+    }
+    try {
+      setIsVerifyingWorker(true);
+      const verified = await verifyWorkerPin(recordWorkerName, recordWorkerPin);
+      if (!verified) {
+        toast.error("근무자 PIN 번호가 일치하지 않습니다.");
+        return;
+      }
+      setVerifiedWorkerName(recordWorkerName);
+      setRecordWorkerPin("");
+      toast.success(`${recordWorkerName}님의 근무기록을 불러왔습니다.`);
+    } catch {
+      toast.error("근무자 확인에 실패했습니다.");
+    } finally {
+      setIsVerifyingWorker(false);
+    }
+  };
+
+  const handleTabChange = (tab: "records" | "workers" | "payment") => {
+    if (tab !== activeTab) {
+      resetWorkForm();
+      setShowWorkForm(false);
+      setRecordWorkerName("");
+      setRecordWorkerPin("");
+      setVerifiedWorkerName("");
+      setViewMode("month");
+      setSelectedMonth(today.slice(0, 7));
+      setStartDate(`${today.slice(0, 7)}-01`);
+      setEndDate(today);
+    }
+    setActiveTab(tab);
+  };
+
+  if (
+    journalsQuery.isError ||
+    workersQuery.isError ||
+    (isAdmin && workerDetailsQuery.isError) ||
+    (isAdmin && activeTab === "payment" && paymentQuery.isError)
+  ) {
+    return (
+      <div className="mx-auto mt-10 max-w-3xl rounded-lg border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+        근무일지 데이터 표를 불러오지 못했습니다. Supabase에서{" "}
+        <code className="font-semibold">docs/work_journal.sql</code>을 먼저
+        실행해 주세요.
+      </div>
+    );
+  }
+
+  return (
+    <main className="mx-auto max-w-7xl space-y-5 px-4 py-6 sm:px-6 lg:px-8">
+      <div className="flex items-end justify-between border-b border-gray-200">
+        <div className="flex min-w-0 overflow-x-auto" role="tablist" aria-label="근무기록 메뉴">
+          {tabOrder.map((tab, index) => {
+            if (!isAdmin && tab !== "records") return null;
+            const label =
+              tab === "records"
+                ? "근무기록"
+                : tab === "workers"
+                  ? "근무자 관리"
+                  : "급여 지급";
+            return (
+              <div key={tab} className="flex shrink-0 items-center">
+                {editingTabOrder && (
+                  <button
+                    type="button"
+                    onClick={() => moveTab(index, -1)}
+                    disabled={index === 0}
+                    className="h-7 w-6 cursor-pointer text-xs text-gray-400 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-20"
+                    aria-label={`${label} 왼쪽으로 이동`}
+                  >
+                    ←
+                  </button>
+                )}
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === tab}
+                  onClick={() => handleTabChange(tab)}
+                  className={`cursor-pointer border-b-2 px-5 py-3 text-sm font-semibold transition-colors ${
+                    activeTab === tab
+                      ? "border-brand-500 text-brand-700"
+                      : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
+                  }`}
+                >
+                  {label}
+                </button>
+                {editingTabOrder && (
+                  <button
+                    type="button"
+                    onClick={() => moveTab(index, 1)}
+                    disabled={index === tabOrder.length - 1}
+                    className="h-7 w-6 cursor-pointer text-xs text-gray-400 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-20"
+                    aria-label={`${label} 오른쪽으로 이동`}
+                  >
+                    →
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <button
+          type="button"
+          onClick={() => setEditingTabOrder((current) => !current)}
+          className={`mb-2 ml-3 flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border bg-white transition ${
+            editingTabOrder
+              ? "border-brand-300 text-brand-700 shadow-sm"
+              : "border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-brand-700"
+          }`}
+          aria-label={editingTabOrder ? "탭 순서 변경 완료" : "탭 순서 변경"}
+          title={editingTabOrder ? "탭 순서 변경 완료" : "탭 순서 변경"}
+        >
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 15.25A3.25 3.25 0 1 0 12 8.75a3.25 3.25 0 0 0 0 6.5Zm7.25-3.25c0-.48-.05-.95-.14-1.4l2.02-1.57-2-3.46-2.48 1a7.4 7.4 0 0 0-2.42-1.4L13.88 2.5h-4l-.35 2.67a7.4 7.4 0 0 0-2.42 1.4l-2.48-1-2 3.46 2.02 1.57a7.18 7.18 0 0 0 0 2.8l-2.02 1.57 2 3.46 2.48-1a7.4 7.4 0 0 0 2.42 1.4l.35 2.67h4l.35-2.67a7.4 7.4 0 0 0 2.42-1.4l2.48 1 2-3.46-2.02-1.57c.09-.45.14-.92.14-1.4Z" />
+          </svg>
+        </button>
+      </div>
+
+      {activeTab === "workers" && isAdmin && (
         <WorkerCreateModal
-          onCancel={close}
+          embedded
+          onCancel={() => handleTabChange("records")}
           workers={workerDetailsQuery.data ?? []}
           onDelete={async (name) => {
             try {
               await deactivateWorker(name);
               if (workerName === name) setWorkerName("");
-              await queryClient.invalidateQueries({
-                queryKey: workJournalKeys.workers(),
-              });
-              await queryClient.invalidateQueries({
-                queryKey: workJournalKeys.workerDetails(),
-              });
+              await Promise.all([
+                queryClient.invalidateQueries({
+                  queryKey: workJournalKeys.workers(),
+                }),
+                queryClient.invalidateQueries({
+                  queryKey: workJournalKeys.workerDetails(),
+                }),
+              ]);
               toast.success("근무자가 선택 목록에서 삭제되었습니다.");
             } catch {
               toast.error("근무자 삭제에 실패했습니다.");
@@ -357,87 +547,191 @@ export default function WorkJournalPage() {
                 }),
               ]);
               toast.success("근무자가 추가되었습니다.");
-              close();
             } catch (error) {
               if ((error as { code?: string }).code === "23505") {
                 toast.error("이미 등록된 근무자 이름입니다.");
                 return;
               }
               toast.error("근무자 추가에 실패했습니다.");
+              throw error;
             }
           }}
         />
-      ),
-      options: { dismissOnBackdrop: false, dismissOnEsc: true },
-    });
-  };
+      )}
 
-  if (
-    journalsQuery.isError ||
-    workersQuery.isError ||
-    (isAdmin && workerDetailsQuery.isError) ||
-    (isAdmin && activeTab === "payment" && paymentQuery.isError)
-  ) {
-    return (
-      <div className="mx-auto mt-10 max-w-3xl rounded-lg border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
-        근무일지 데이터 표를 불러오지 못했습니다. Supabase에서{" "}
-        <code className="font-semibold">docs/work_journal.sql</code>을 먼저
-        실행해 주세요.
-      </div>
-    );
-  }
-
-  return (
-    <main className="mx-auto max-w-7xl space-y-5 px-4 py-6 sm:px-6 lg:px-8">
-      <div
-        className="flex border-b border-gray-200"
-        role="tablist"
-        aria-label="근무일지 메뉴"
-      >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === "add"}
-          onClick={() => setActiveTab("add")}
-          className={`border-b-2 px-5 py-3 text-sm font-semibold transition-colors ${
-            activeTab === "add"
-              ? "border-brand-500 text-brand-700"
-              : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-          }`}
-        >
-          근무기록 추가
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === "status"}
-          onClick={() => setActiveTab("status")}
-          className={`border-b-2 px-5 py-3 text-sm font-semibold transition-colors ${
-            activeTab === "status"
-              ? "border-brand-500 text-brand-700"
-              : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-          }`}
-        >
-          근무 현황
-        </button>
-        {isAdmin && (
-          <button
+      {activeTab === "records" && (
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex w-full flex-col gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 sm:w-auto sm:flex-row sm:items-stretch">
+            <div className="flex w-full flex-col rounded-xl border border-gray-200 bg-gray-50/70 p-2.5 sm:w-[120px] sm:shrink-0">
+              <p className="mb-1 text-xs font-semibold text-gray-600">
+                근무자 이름
+              </p>
+              <Dropdown controlledValue={recordWorkerName}>
+                <Dropdown.Trigger compact>
+                  {recordWorkerName || "선택"}
+                </Dropdown.Trigger>
+                 <Dropdown.Content compact>
+                   {isAdmin && (
+                     <Dropdown.Item
+                       option={{ value: "전체", label: "전체" }}
+                       compact
+                       onSelect={(selected: DropdownOption) => {
+                         const selectedName = String(selected.value);
+                         setRecordWorkerName(selectedName);
+                         setRecordWorkerPin("");
+                         setVerifiedWorkerName(selectedName);
+                         setViewMode("month");
+                         setSelectedMonth(today.slice(0, 7));
+                         setStartDate(`${today.slice(0, 7)}-01`);
+                         setEndDate(today);
+                       }}
+                     />
+                   )}
+                   {(workersQuery.data ?? []).map((name) => (
+                    <Dropdown.Item
+                      key={name}
+                      option={{ value: name, label: name }}
+                      compact
+                       onSelect={(selected: DropdownOption) => {
+                         const selectedName = String(selected.value);
+                         setRecordWorkerName(selectedName);
+                         setRecordWorkerPin("");
+                         setVerifiedWorkerName(isAdmin ? selectedName : "");
+                        setViewMode("month");
+                        setSelectedMonth(today.slice(0, 7));
+                        setStartDate(`${today.slice(0, 7)}-01`);
+                        setEndDate(today);
+                      }}
+                    />
+                  ))}
+                </Dropdown.Content>
+              </Dropdown>
+            </div>
+            {recordWorkerName && !isAdmin && (
+              <>
+                <div className="hidden w-px shrink-0 self-stretch bg-gray-300 sm:block" />
+                <div className="flex w-full flex-col rounded-xl border border-gray-200 bg-gray-50/70 p-2.5 sm:w-[120px] sm:shrink-0">
+                  <p className="mb-1 text-xs font-semibold text-gray-600">
+                    개인 PIN
+                  </p>
+                  {verifiedWorkerName ? (
+                    <div className="flex h-11 w-full items-center justify-center rounded-lg border border-brand-200 bg-brand-50 text-sm font-semibold text-brand-700 shadow-sm">
+                      입력완료
+                    </div>
+                  ) : (
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      value={recordWorkerPin}
+                      onChange={(event) => {
+                        setRecordWorkerPin(
+                          event.target.value.replace(/\D/g, "").slice(0, 4),
+                        );
+                        setVerifiedWorkerName("");
+                      }}
+                      onKeyDown={(event) => {
+                        if (
+                          event.key === "Enter" &&
+                          recordWorkerPin.length === 4
+                        ) {
+                          void handleVerifyRecordWorker();
+                        }
+                      }}
+                      maxLength={4}
+                      className="h-11 w-full rounded-lg border border-gray-300 bg-white px-2 text-center text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                      placeholder="4자리"
+                    />
+                  )}
+                </div>
+              </>
+            )}
+            {recordWorkerName && !isAdmin && recordWorkerPin.length === 4 && (
+              <>
+                <div className="hidden w-px shrink-0 self-stretch bg-gray-300 sm:block" />
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-9 min-w-16 self-center px-3"
+                  disabled={isVerifyingWorker}
+                  onClick={() => void handleVerifyRecordWorker()}
+                >
+                  {isVerifyingWorker ? "조회 중..." : "조회"}
+                </Button>
+              </>
+            )}
+            {verifiedWorkerName && (
+              <>
+                <div className="hidden w-px shrink-0 self-stretch bg-gray-300 sm:block" />
+                <div className="flex w-full flex-col rounded-xl border border-gray-200 bg-gray-50/70 p-2.5 sm:w-[120px] sm:shrink-0">
+                  <p className="mb-1 text-xs font-semibold text-gray-600">
+                    조회 기간
+                  </p>
+                  <Dropdown controlledValue={viewMode}>
+                    <Dropdown.Trigger compact>
+                      {viewMode === "month" ? "당월" : "날짜 선택"}
+                    </Dropdown.Trigger>
+                    <Dropdown.Content compact>
+                      {(
+                        [
+                          { value: "month", label: "당월" },
+                          { value: "range", label: "날짜 선택" },
+                        ] as const
+                      ).map((option) => (
+                        <Dropdown.Item
+                          key={option.value}
+                          option={option}
+                          compact
+                          onSelect={(selected: DropdownOption) => {
+                            const nextMode = selected.value as "month" | "range";
+                            setViewMode(nextMode);
+                            if (nextMode === "month") {
+                              setSelectedMonth(today.slice(0, 7));
+                              setStartDate(`${today.slice(0, 7)}-01`);
+                              setEndDate(today);
+                            } else {
+                              setStartDate("");
+                              setEndDate("");
+                            }
+                          }}
+                        />
+                      ))}
+                    </Dropdown.Content>
+                  </Dropdown>
+                </div>
+                {viewMode === "range" && (
+                  <div className="flex w-full flex-col rounded-xl border border-gray-200 bg-gray-50/70 p-2.5 sm:w-[120px] sm:shrink-0">
+                    <p className="mb-1 text-xs font-semibold text-gray-600">
+                      날짜 선택
+                    </p>
+                    <KoreanDateRangePicker
+                      startDate={startDate}
+                      endDate={endDate}
+                      iconOnly
+                      onApply={(start, end) => {
+                        setStartDate(start);
+                        setEndDate(end);
+                      }}
+                    />
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+          <Button
             type="button"
-            role="tab"
-            aria-selected={activeTab === "payment"}
-            onClick={() => setActiveTab("payment")}
-            className={`border-b-2 px-5 py-3 text-sm font-semibold transition-colors ${
-              activeTab === "payment"
-                ? "border-brand-500 text-brand-700"
-                : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-            }`}
+            size="sm"
+            className="self-center sm:shrink-0"
+            onClick={() => {
+              resetWorkForm();
+              setShowWorkForm(true);
+            }}
           >
-            급여 지급
-          </button>
-        )}
-      </div>
+            출퇴근 기록추가
+          </Button>
+        </div>
+      )}
 
-      {activeTab === "add" && (
+      {false && activeTab === "records" && showWorkForm && editingJournalId && (
         <section
           id="work-journal-form"
           className="rounded-xl border border-brand-100 bg-white p-5 shadow-sm"
@@ -450,43 +744,51 @@ export default function WorkJournalPage() {
             </div>
           )}
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1.35fr_1fr_1fr_0.8fr]">
               <Field label="근무 날짜">
-                <KoreanDatePicker value={workDate} onChange={setWorkDate} />
-              </Field>
-              <Field
-                label="근무자 이름"
-                className="lg:border-l lg:border-gray-200 lg:pl-3"
-              >
-                <div className="flex gap-2">
-                  <select
-                    value={workerName}
-                    onChange={(event) => setWorkerName(event.target.value)}
-                    className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
-                  >
-                    <option value="">근무자 선택</option>
-                    {workersQuery.data?.map((name) => (
-                      <option key={name} value={name}>
-                        {name}
-                      </option>
-                    ))}
-                  </select>
-                  {isAdmin && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="gray"
-                      onClick={handleOpenWorkerCreate}
-                    >
-                      관리
-                    </Button>
-                  )}
+                <div className="[&_button>span]:whitespace-nowrap">
+                  <KoreanDatePicker value={workDate} onChange={setWorkDate} />
                 </div>
               </Field>
-              <Field
-                label="출근 시간"
-                className="lg:border-l lg:border-gray-200 lg:pl-3"
-              >
+              <Field label="근무 유형">
+                <select
+                  value={workType}
+                  onChange={(event) =>
+                    setWorkType(event.target.value as "solo" | "shift")
+                  }
+                  className="w-full cursor-pointer rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+                >
+                  <option value="solo">혼자 근무</option>
+                  <option value="shift">교대 근무</option>
+                </select>
+              </Field>
+              <Field label="근무자 이름">
+                <div className="flex gap-2">
+                  <WorkerNamePicker
+                    value={workerName}
+                    options={workersQuery.data ?? []}
+                    onChange={setWorkerName}
+                  />
+                </div>
+              </Field>
+              <Field label="개인 PIN">
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  value={workerPin}
+                  disabled={Boolean(editingJournalId)}
+                  onChange={(event) =>
+                    setWorkerPin(event.target.value.replace(/\D/g, "").slice(0, 4))
+                  }
+                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-center text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 disabled:bg-gray-100"
+                  placeholder="4자리"
+                  maxLength={4}
+                />
+              </Field>
+            </div>
+
+            <div className="grid gap-3 border-t border-gray-200 pt-4 sm:grid-cols-3">
+              <Field label="출근 시간">
                 <NumberTimeInput
                   value={startTime}
                   onChange={setStartTime}
@@ -500,10 +802,7 @@ export default function WorkJournalPage() {
                   label="퇴근 시간"
                 />
               </Field>
-              <Field
-                label="근무시간"
-                className="lg:border-l lg:border-gray-200 lg:pl-3"
-              >
+              <Field label="근무시간">
                 <div className="relative">
                   <input
                     type="number"
@@ -522,8 +821,8 @@ export default function WorkJournalPage() {
               </Field>
             </div>
 
-            <div className="flex flex-col gap-3 border-t border-gray-200 pt-4 sm:flex-row sm:items-end">
-              <Field label="특이사항" className="flex-1">
+            <div className="flex flex-col gap-3 border-t border-gray-200 pt-4">
+              <Field label="특이사항">
                 <input
                   value={note}
                   onChange={(event) => setNote(event.target.value)}
@@ -531,7 +830,7 @@ export default function WorkJournalPage() {
                   placeholder="특이사항이 없으면 비워두세요"
                 />
               </Field>
-              <div className="flex gap-2">
+              <div className="flex justify-end gap-2">
                 {editingJournalId && (
                   <Button type="button" variant="gray" onClick={resetWorkForm}>
                     수정 취소
@@ -555,72 +854,42 @@ export default function WorkJournalPage() {
         </section>
       )}
 
-      {activeTab === "status" && (
-        <section className="rounded-xl border border-brand-100 bg-white p-5 shadow-sm">
-          <div className="mb-4 flex justify-end">
-            <div className="flex flex-col gap-2 lg:items-end">
-              <div className="inline-flex self-start rounded-lg bg-gray-100 p-1 lg:self-auto">
-                <button
-                  type="button"
-                  onClick={() => setViewMode("month")}
-                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                    viewMode === "month"
-                      ? "bg-white text-brand-700 shadow-sm"
-                      : "text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  월별 보기
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode("range")}
-                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                    viewMode === "range"
-                      ? "bg-white text-brand-700 shadow-sm"
-                      : "text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  기간 보기
-                </button>
-              </div>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                {viewMode === "month" ? (
-                  <input
-                    type="month"
-                    value={selectedMonth}
-                    onChange={(event) => setSelectedMonth(event.target.value)}
-                    className="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400"
-                  />
-                ) : (
-                  <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
-                    <div className="w-full sm:w-[245px]">
-                      <KoreanDatePicker
-                        value={startDate}
-                        onChange={setStartDate}
-                      />
-                    </div>
-                    <span className="text-center text-sm text-gray-400">~</span>
-                    <div className="w-full sm:w-[245px]">
-                      <KoreanDatePicker value={endDate} onChange={setEndDate} />
-                    </div>
-                  </div>
-                )}
-                <select
-                  value={workerFilter}
-                  onChange={(event) => setWorkerFilter(event.target.value)}
-                  className="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400"
-                >
-                  <option value="">전체 근무자</option>
-                  {workersQuery.data?.map((name) => (
-                    <option key={name} value={name}>
-                      {name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
+      {activeTab === "records" && showWorkForm && (
+        <AttendanceRecordModal
+          workerNames={workersQuery.data ?? []}
+          isAdmin={isAdmin}
+          editingJournal={
+            editingJournalId
+              ? journalsQuery.data?.find(
+                  (journal) => journal.id === editingJournalId,
+                ) ?? null
+              : null
+          }
+          onClose={() => {
+            setShowWorkForm(false);
+            resetWorkForm();
+          }}
+          onSaved={async () => {
+            await Promise.all([
+              queryClient.invalidateQueries({ queryKey: workJournalKeys.all() }),
+              queryClient.invalidateQueries({
+                queryKey: workJournalKeys.workers(),
+              }),
+            ]);
+          }}
+        />
+      )}
 
+      {activeTab === "records" && (
+        <section className="rounded-xl border border-brand-100 bg-white p-5 shadow-sm">
+          {!verifiedWorkerName ? (
+            <div className="flex min-h-64 items-center justify-center rounded-xl border border-dashed border-gray-200 bg-gray-50/50">
+              <p className="text-sm font-medium text-gray-500">
+                근무자를 선택해 주세요.
+              </p>
+            </div>
+          ) : (
+            <>
           {viewMode === "range" && startDate > endDate && (
             <p className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600">
               종료 날짜는 시작 날짜보다 빠를 수 없습니다.
@@ -642,14 +911,16 @@ export default function WorkJournalPage() {
             <Loading size="sm" text="근무 기록을 불러오는 중..." />
           ) : journalsQuery.data?.length ? (
             <div className="overflow-x-auto rounded-lg border border-gray-100">
-              <table className="w-full min-w-[760px] border-collapse text-sm [&_td]:border [&_td]:border-gray-200 [&_th]:border [&_th]:border-brand-200">
+              <table className="w-full min-w-[1040px] border-collapse text-sm [&_td]:border [&_td]:border-gray-200 [&_th]:border [&_th]:border-brand-200">
                 <thead className="bg-brand-50 text-left text-xs text-brand-700">
                   <tr>
                     <th className="px-3 py-2.5">근무 날짜</th>
                     <th className="px-3 py-2.5">근무자 이름</th>
                     <th className="px-3 py-2.5">출근</th>
-                    <th className="px-3 py-2.5">퇴근</th>
-                    <th className="px-3 py-2.5 text-right">근무시간</th>
+                    <th className="px-3 py-2.5">예상 퇴근</th>
+                    <th className="px-3 py-2.5">실제 퇴근</th>
+                    <th className="px-3 py-2.5 text-right">실제 근무시간</th>
+                    <th className="px-3 py-2.5 text-right">입력 근무시간</th>
                     <th className="px-3 py-2.5">특이사항</th>
                     <th className="px-3 py-2.5 text-center">작업</th>
                   </tr>
@@ -667,10 +938,23 @@ export default function WorkJournalPage() {
                         {journal.start_time.slice(0, 5)}
                       </td>
                       <td className="px-3 py-2.5">
-                        {journal.end_time.slice(0, 5)}
+                        {journal.expected_end_time?.slice(0, 5) ||
+                          journal.end_time.slice(0, 5)}
+                      </td>
+                      <td className="px-3 py-2.5">
+                        {journal.status === "closed"
+                          ? journal.end_time.slice(0, 5)
+                          : "-"}
                       </td>
                       <td className="px-3 py-2.5 text-right font-medium">
-                        {formatHours(Number(journal.work_hours))}
+                        {journal.status === "closed"
+                          ? formatHours(Number(journal.work_hours))
+                          : "-"}
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-semibold text-brand-700">
+                        {journal.input_work_hours != null
+                          ? formatHours(Number(journal.input_work_hours))
+                          : "-"}
                       </td>
                       <td className="max-w-xs px-3 py-2.5">
                         <p className="truncate" title={journal.note ?? ""}>
@@ -716,11 +1000,13 @@ export default function WorkJournalPage() {
               선택한 조건의 근무 기록이 없습니다.
             </p>
           )}
+            </>
+          )}
         </section>
       )}
 
       {isAdmin && activeTab === "payment" && (
-        <section className="space-y-5 rounded-xl border border-brand-100 bg-white p-5 shadow-sm">
+        <>
           <div className="flex flex-col justify-end gap-2 sm:flex-row">
             <input
               type="month"
@@ -742,6 +1028,7 @@ export default function WorkJournalPage() {
             </select>
           </div>
 
+        <section className="space-y-5 rounded-xl border border-brand-100 bg-white p-5 shadow-sm">
           {paymentQuery.isPending ? (
             <Loading size="sm" text="급여 지급 현황을 불러오는 중..." />
           ) : paymentGroups.length ? (
@@ -749,19 +1036,23 @@ export default function WorkJournalPage() {
               <div className="grid gap-3 lg:grid-cols-2">
                 {paymentGroups.map((group) => {
                   const totalHours = group.journals.reduce(
+                    (sum, journal) => sum + getPayableHours(journal),
+                    0,
+                  );
+                  const totalActualHours = group.journals.reduce(
                     (sum, journal) => sum + Number(journal.work_hours),
                     0,
                   );
                   const unpaidHours = group.unpaid.reduce(
-                    (sum, journal) => sum + Number(journal.work_hours),
+                    (sum, journal) => sum + getPayableHours(journal),
                     0,
                   );
                   const advanceHours = group.advance.reduce(
-                    (sum, journal) => sum + Number(journal.work_hours),
+                    (sum, journal) => sum + getPayableHours(journal),
                     0,
                   );
                   const salaryHours = group.salary.reduce(
-                    (sum, journal) => sum + Number(journal.work_hours),
+                    (sum, journal) => sum + getPayableHours(journal),
                     0,
                   );
                   return (
@@ -776,7 +1067,8 @@ export default function WorkJournalPage() {
                           </p>
                           <p className="mt-1 text-xs text-gray-500">
                             총 근무 {group.journals.length}회 ·{" "}
-                            {formatHours(totalHours)}
+                            입력 {formatHours(totalHours)} · 실제{" "}
+                            {formatHours(totalActualHours)}
                           </p>
                           <p className="mt-1 text-xs font-semibold text-brand-700">
                             잔여 지급 {group.unpaid.length}회 ·{" "}
@@ -834,12 +1126,13 @@ export default function WorkJournalPage() {
               </div>
 
               <div className="overflow-x-auto rounded-lg border border-gray-100">
-                <table className="w-full min-w-[760px] border-collapse text-sm [&_td]:border [&_td]:border-gray-200 [&_th]:border [&_th]:border-brand-200">
+                <table className="w-full min-w-[900px] border-collapse text-sm [&_td]:border [&_td]:border-gray-200 [&_th]:border [&_th]:border-brand-200">
                   <thead className="bg-brand-50 text-left text-xs text-brand-700">
                     <tr>
                       <th className="px-3 py-2.5">근무 날짜</th>
                       <th className="px-3 py-2.5">근무자</th>
-                      <th className="px-3 py-2.5 text-right">근무시간</th>
+                      <th className="px-3 py-2.5 text-right">실제 근무시간</th>
+                      <th className="px-3 py-2.5 text-right">입력 근무시간</th>
                       <th className="px-3 py-2.5 text-center">지급 상태</th>
                       <th className="px-3 py-2.5">처리 시간</th>
                       <th className="px-3 py-2.5 text-center">선지급</th>
@@ -858,6 +1151,14 @@ export default function WorkJournalPage() {
                           </td>
                           <td className="px-3 py-2.5 text-right">
                             {formatHours(Number(journal.work_hours))}
+                          </td>
+                          <td className="px-3 py-2.5 text-right font-semibold text-brand-700">
+                            {formatHours(getPayableHours(journal))}
+                            {journal.input_work_hours == null && (
+                              <span className="ml-1 block text-[10px] font-normal text-amber-600">
+                                실제시간 대체
+                              </span>
+                            )}
                           </td>
                           <td className="px-3 py-2.5 text-center">
                             <span
@@ -916,6 +1217,7 @@ export default function WorkJournalPage() {
             </p>
           )}
         </section>
+        </>
       )}
     </main>
   );
@@ -998,6 +1300,108 @@ const NumberTimeInput = ({
         className="min-w-0 rounded-lg border border-gray-200 bg-white px-2 py-2 text-center text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
         placeholder="분"
       />
+    </div>
+  );
+};
+
+const WorkerNamePicker = ({
+  value,
+  options,
+  onChange,
+}: {
+  value: string;
+  options: string[];
+  onChange: (value: string) => void;
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const closeOnOutside = (event: PointerEvent) => {
+      if (!pickerRef.current?.contains(event.target as Node)) setIsOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOnOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    };
+  }, [isOpen]);
+
+  return (
+    <div
+      ref={pickerRef}
+      className="relative min-w-0 flex-1"
+      onMouseEnter={() => {
+        if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+        setIsOpen(true);
+      }}
+      onMouseLeave={() => {
+        closeTimerRef.current = setTimeout(() => setIsOpen(false), 180);
+      }}
+    >
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        onClick={() => setIsOpen(true)}
+        className="flex w-full items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2 text-left text-sm outline-none hover:border-brand-300 focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+      >
+        <span className={value ? "text-gray-900" : "text-gray-400"}>
+          {value || "근무자 선택"}
+        </span>
+        <svg
+          className={`h-4 w-4 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="m6 9 6 6 6-6"
+          />
+        </svg>
+      </button>
+      {isOpen && (
+        <div
+          role="listbox"
+          className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-xl border border-gray-200 bg-white p-1 shadow-xl"
+        >
+          {options.length ? (
+            options.map((name) => (
+              <button
+                type="button"
+                role="option"
+                aria-selected={value === name}
+                key={name}
+                onClick={() => {
+                  onChange(name);
+                  setIsOpen(false);
+                }}
+                className="flex min-h-10 w-full items-center justify-between rounded-lg px-3 text-left text-sm font-medium text-gray-800 hover:bg-brand-50"
+              >
+                {name}
+                {value === name && (
+                  <span className="font-bold text-brand-500">✓</span>
+                )}
+              </button>
+            ))
+          ) : (
+            <p className="px-3 py-4 text-center text-sm text-gray-400">
+              등록된 근무자가 없습니다.
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 };

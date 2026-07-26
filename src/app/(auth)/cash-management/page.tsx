@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { usePathname } from 'next/navigation';
 import toast from 'react-hot-toast';
 import Button from '@/app/_components/Button';
 import Loading from '@/app/_components/Loading';
@@ -9,6 +10,7 @@ import {
   getCashClosing,
   getCashClosingHistory,
   getDailyCashSales,
+  getDailyPaymentSales,
   getPreviousClosing,
   saveCashClosing,
 } from '@/app/_domains/_cashManagement/_services/cashManagementService';
@@ -18,10 +20,23 @@ import {
   CashCounts,
 } from '@/app/_domains/_cashManagement/_types/cashManagement.types';
 import KoreanDatePicker, { formatKoreanDate } from '@/app/_components/KoreanDatePicker';
+import { KoreanDateRangePicker } from '@/app/_components/KoreanDatePicker';
+import { Dropdown, DropdownOption } from '@/app/_components/Dropdown';
 import { getWorkJournalsByDate } from '@/app/_domains/_workJournal/_services/workJournalService';
+import { getDailyClosingReportsByRange } from '@/app/_domains/_dailyClosing/_services/dailyClosingService';
 import { useModal } from '@/app/_contexts/ModalContext';
 import ConfirmModal from '@/app/(auth)/_components/ConfirmModal';
 import { useUser } from '@/app/_contexts/UserContext';
+import DailyClosingReport from './_components/DailyClosingReport';
+import ChecklistManagement from './_components/ChecklistManagement';
+import ReportSnapshotView from './_components/ReportSnapshotView';
+
+type CashManagementTab =
+  | 'save'
+  | 'history'
+  | 'report'
+  | 'reportLookup'
+  | 'checklist';
 
 const getTodayInKorea = () =>
   new Intl.DateTimeFormat('en-CA', {
@@ -51,10 +66,22 @@ const getMonthDateRange = (month: string) => {
 };
 
 export default function CashManagementPage() {
+  const pathname = usePathname();
+  const isReportsPage = pathname?.startsWith('/reports');
   const { isAdmin } = useUser();
   const queryClient = useQueryClient();
   const { open, close } = useModal();
-  const [activeTab, setActiveTab] = useState<'save' | 'history'>('save');
+  const [activeTab, setActiveTab] = useState<CashManagementTab>(
+    isReportsPage ? 'report' : 'save',
+  );
+  const [tabOrder, setTabOrder] = useState<CashManagementTab[]>([
+    'save',
+    'history',
+    'report',
+    'reportLookup',
+    'checklist',
+  ]);
+  const [editingTabOrder, setEditingTabOrder] = useState(false);
   const [businessDate, setBusinessDate] = useState(getTodayInKorea);
   const [openingCash, setOpeningCash] = useState(0);
   const [cashIn, setCashIn] = useState(0);
@@ -66,6 +93,59 @@ export default function CashManagementPage() {
   const [historyMonth, setHistoryMonth] = useState(today.slice(0, 7));
   const [historyStartDate, setHistoryStartDate] = useState(`${today.slice(0, 7)}-01`);
   const [historyEndDate, setHistoryEndDate] = useState(today);
+  const [reportViewMode, setReportViewMode] = useState<'month' | 'range'>(
+    'range',
+  );
+  const [reportStartDate, setReportStartDate] = useState('');
+  const [reportEndDate, setReportEndDate] = useState('');
+  const [selectedReportId, setSelectedReportId] = useState('');
+  const [reportEditRequestKey, setReportEditRequestKey] = useState(0);
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem('cash-management-tab-order');
+    if (!saved) return;
+    try {
+      const parsed = JSON.parse(saved) as CashManagementTab[];
+      const knownTabs: CashManagementTab[] = [
+        'save',
+        'history',
+        'report',
+        'reportLookup',
+        'checklist',
+      ];
+      const normalized = parsed.filter((tab) => knownTabs.includes(tab));
+      knownTabs.forEach((tab) => {
+        if (!normalized.includes(tab)) normalized.push(tab);
+      });
+      setTabOrder(normalized);
+    } catch {
+      window.localStorage.removeItem('cash-management-tab-order');
+    }
+  }, []);
+
+  const moveTab = (index: number, direction: -1 | 1) => {
+    setTabOrder((current) => {
+      const visibleTabs = current.filter((tab) =>
+        isReportsPage
+          ? tab !== 'save' &&
+            tab !== 'history' &&
+            (isAdmin || (tab !== 'reportLookup' && tab !== 'checklist'))
+          : tab === 'save' || tab === 'history',
+      );
+      const currentTab = current[index];
+      const visibleIndex = visibleTabs.indexOf(currentTab);
+      const targetTab = visibleTabs[visibleIndex + direction];
+      if (!targetTab) return current;
+      const target = current.indexOf(targetTab);
+      const next = [...current];
+      [next[index], next[target]] = [next[target], next[index]];
+      window.localStorage.setItem(
+        'cash-management-tab-order',
+        JSON.stringify(next),
+      );
+      return next;
+    });
+  };
 
   const historyDateRange =
     historyViewMode === 'month'
@@ -74,17 +154,25 @@ export default function CashManagementPage() {
   const isHistoryRangeValid =
     Boolean(historyDateRange.start && historyDateRange.end) &&
     historyDateRange.start <= historyDateRange.end;
+  const reportDateRange =
+    reportViewMode === 'month'
+      ? getMonthDateRange(today.slice(0, 7))
+      : { start: reportStartDate, end: reportEndDate };
+  const isReportRangeValid =
+    Boolean(reportDateRange.start && reportDateRange.end) &&
+    reportDateRange.start <= reportDateRange.end;
 
   const dayQuery = useQuery({
     queryKey: cashManagementKeys.day(businessDate),
     queryFn: async () => {
-      const [closing, previousClosing, sales, workJournals] = await Promise.all([
+      const [closing, previousClosing, sales, paymentSales, workJournals] = await Promise.all([
         getCashClosing(businessDate),
         getPreviousClosing(businessDate),
         getDailyCashSales(businessDate),
+        getDailyPaymentSales(businessDate),
         getWorkJournalsByDate(businessDate),
       ]);
-      return { closing, previousClosing, sales, workJournals };
+      return { closing, previousClosing, sales, paymentSales, workJournals };
     },
   });
 
@@ -92,6 +180,12 @@ export default function CashManagementPage() {
     queryKey: cashManagementKeys.history(historyDateRange.start, historyDateRange.end),
     queryFn: () => getCashClosingHistory(historyDateRange.start, historyDateRange.end),
     enabled: isHistoryRangeValid,
+  });
+  const reportHistoryQuery = useQuery({
+    queryKey: ['daily-closing-reports', reportDateRange.start, reportDateRange.end],
+    queryFn: () =>
+      getDailyClosingReportsByRange(reportDateRange.start, reportDateRange.end),
+    enabled: isAdmin && activeTab === 'reportLookup' && isReportRangeValid,
   });
 
   useEffect(() => {
@@ -125,6 +219,13 @@ export default function CashManagementPage() {
   );
 
   const sales = dayQuery.data?.sales ?? { ovape: 0, eguVape: 0, total: 0 };
+  const paymentSales = dayQuery.data?.paymentSales ?? {
+    breakdown: [],
+    ovapeBreakdown: [],
+    eguVapeBreakdown: [],
+    itemSummary: [],
+    total: 0,
+  };
   const workJournals = dayQuery.data?.workJournals ?? [];
   const workShifts = workJournals.map((journal) => ({
     id: journal.id,
@@ -246,32 +347,103 @@ export default function CashManagementPage() {
 
   return (
     <main className="mx-auto max-w-7xl space-y-5 px-4 py-6 sm:px-6 lg:px-8">
-      <div className="flex border-b border-gray-200" role="tablist" aria-label="시재 관리 메뉴">
+      <div className="flex items-end justify-between border-b border-gray-200">
+        <div className="flex min-w-0 overflow-x-auto" role="tablist" aria-label="시재 관리 메뉴">
+          {tabOrder.map((tab, index) => {
+            if (
+              (isReportsPage && (tab === 'save' || tab === 'history')) ||
+              (!isReportsPage &&
+                (tab === 'report' ||
+                  tab === 'reportLookup' ||
+                  tab === 'checklist'))
+            ) {
+              return null;
+            }
+            if (
+              !isAdmin &&
+              (tab === 'reportLookup' || tab === 'checklist')
+            ) {
+              return null;
+            }
+            const label =
+              tab === 'save'
+                ? '시재 저장'
+                : tab === 'history'
+                  ? '시재 이력'
+                  : tab === 'report'
+                    ? '마감보고서'
+                    : tab === 'reportLookup'
+                      ? '보고서 조회'
+                      : '체크리스트 관리';
+            return (
+              <div key={tab} className="flex shrink-0 items-center">
+                {editingTabOrder && (
+                  <button
+                    type="button"
+                    onClick={() => moveTab(index, -1)}
+                    disabled={index === 0}
+                    className="h-7 w-6 cursor-pointer text-xs text-gray-400 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-20"
+                    aria-label={`${label} 왼쪽으로 이동`}
+                  >
+                    ←
+                  </button>
+                )}
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === tab}
+                  onClick={() => {
+                    if (
+                      activeTab === 'reportLookup' &&
+                      tab !== 'reportLookup'
+                    ) {
+                      setReportViewMode('range');
+                      setReportStartDate('');
+                      setReportEndDate('');
+                      setSelectedReportId('');
+                    }
+                    if (tab === 'report') {
+                      setBusinessDate(today);
+                    }
+                    setActiveTab(tab);
+                  }}
+                  className={`cursor-pointer border-b-2 px-5 py-3 text-sm font-semibold transition-colors ${
+                    activeTab === tab
+                      ? 'border-brand-500 text-brand-700'
+                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                  }`}
+                >
+                  {label}
+                </button>
+                {editingTabOrder && (
+                  <button
+                    type="button"
+                    onClick={() => moveTab(index, 1)}
+                    disabled={index === tabOrder.length - 1}
+                    className="h-7 w-6 cursor-pointer text-xs text-gray-400 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-20"
+                    aria-label={`${label} 오른쪽으로 이동`}
+                  >
+                    →
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
         <button
           type="button"
-          role="tab"
-          aria-selected={activeTab === 'save'}
-          onClick={() => setActiveTab('save')}
-          className={`border-b-2 px-5 py-3 text-sm font-semibold transition-colors ${
-            activeTab === 'save'
-              ? 'border-brand-500 text-brand-700'
-              : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+          onClick={() => setEditingTabOrder((current) => !current)}
+          className={`mb-2 ml-3 flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border bg-white transition ${
+            editingTabOrder
+              ? 'border-brand-300 text-brand-700 shadow-sm'
+              : 'border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-brand-700'
           }`}
+          aria-label={editingTabOrder ? '탭 순서 변경 완료' : '탭 순서 변경'}
+          title={editingTabOrder ? '탭 순서 변경 완료' : '탭 순서 변경'}
         >
-          시재 저장
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'history'}
-          onClick={() => setActiveTab('history')}
-          className={`border-b-2 px-5 py-3 text-sm font-semibold transition-colors ${
-            activeTab === 'history'
-              ? 'border-brand-500 text-brand-700'
-              : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-          }`}
-        >
-          시재 이력
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 15.25A3.25 3.25 0 1 0 12 8.75a3.25 3.25 0 0 0 0 6.5Zm7.25-3.25c0-.48-.05-.95-.14-1.4l2.02-1.57-2-3.46-2.48 1a7.4 7.4 0 0 0-2.42-1.4L13.88 2.5h-4l-.35 2.67a7.4 7.4 0 0 0-2.42 1.4l-2.48-1-2 3.46 2.02 1.57a7.18 7.18 0 0 0 0 2.8l-2.02 1.57 2 3.46 2.48-1a7.4 7.4 0 0 0 2.42 1.4l.35 2.67h4l.35-2.67a7.4 7.4 0 0 0 2.42-1.4l2.48 1 2-3.46-2.02-1.57c.09-.45.14-.92.14-1.4Z" />
+          </svg>
         </button>
       </div>
 
@@ -570,6 +742,194 @@ export default function CashManagementPage() {
           <p className="py-8 text-center text-sm text-gray-500">저장된 시재가 없습니다.</p>
         )}
       </section>
+      )}
+
+      {isReportsPage && activeTab === 'report' && (
+        <div>
+          <DailyClosingReport
+            businessDate={businessDate}
+            workJournals={workJournals}
+            paymentSales={paymentSales}
+            expectedCash={expectedCash}
+            actualCash={actualCash}
+            hasCashClosing={Boolean(dayQuery.data?.closing)}
+            showDatePicker={isAdmin}
+            onDateChange={setBusinessDate}
+          />
+        </div>
+      )}
+
+      {isReportsPage && isAdmin && activeTab === 'reportLookup' && (
+        <div className="space-y-4">
+          <section className="rounded-2xl border border-brand-100 bg-white p-4 shadow-sm">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch sm:gap-3">
+              <div className="flex w-full flex-col rounded-xl border border-gray-200 bg-gray-50/70 p-2.5 sm:w-[120px] sm:shrink-0">
+                <p className="mb-1 text-xs font-semibold text-gray-600">
+                  조회 기간
+                </p>
+                <Dropdown controlledValue={reportViewMode}>
+                  <Dropdown.Trigger compact>
+                    {reportViewMode === 'month' ? '당월' : '날짜 선택'}
+                  </Dropdown.Trigger>
+                  <Dropdown.Content compact>
+                    {(
+                      [
+                        { value: 'month', label: '당월' },
+                        { value: 'range', label: '날짜 선택' },
+                      ] as const
+                    ).map((option) => (
+                      <Dropdown.Item
+                        key={option.value}
+                        option={option}
+                        compact
+                        onSelect={(selected: DropdownOption) =>
+                          {
+                            setReportViewMode(
+                              selected.value as 'month' | 'range',
+                            );
+                            setSelectedReportId('');
+                          }
+                        }
+                      />
+                    ))}
+                  </Dropdown.Content>
+                </Dropdown>
+              </div>
+              {reportViewMode === 'range' && (
+                <div className="flex w-full flex-col rounded-xl border border-gray-200 bg-gray-50/70 p-2.5 sm:w-[120px] sm:shrink-0">
+                  <p className="mb-1 text-xs font-semibold text-gray-600">
+                    날짜 선택
+                  </p>
+                  <KoreanDateRangePicker
+                    startDate={reportStartDate}
+                    endDate={reportEndDate}
+                    iconOnly
+                    onApply={(start, end) => {
+                      setReportStartDate(start);
+                      setReportEndDate(end);
+                      setSelectedReportId('');
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+              <h2 className="font-bold text-gray-900">마감보고서</h2>
+              <span className="text-sm font-semibold text-brand-600">
+                {reportHistoryQuery.data?.length ?? 0}건
+              </span>
+            </div>
+            {!isReportRangeValid ? (
+              <p className="px-4 py-10 text-center text-sm text-gray-500">
+                조회할 날짜를 선택해 주세요.
+              </p>
+            ) : reportHistoryQuery.isPending ? (
+              <Loading size="sm" text="보고서를 불러오는 중..." />
+            ) : reportHistoryQuery.data?.length ? (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[900px] border-collapse text-sm [&_td]:border [&_td]:border-gray-200 [&_th]:border [&_th]:border-brand-200">
+                  <thead className="bg-brand-50 text-left text-xs text-brand-700">
+                    <tr>
+                      <th className="px-3 py-2.5">마감 날짜</th>
+                      <th className="px-3 py-2.5">마감 근무자</th>
+                      <th className="px-3 py-2.5 text-right">총 매출</th>
+                      <th className="px-3 py-2.5 text-center">시재 현황</th>
+                      <th className="px-3 py-2.5 text-right">입력 근무시간</th>
+                      <th className="px-3 py-2.5">청소 현황·방식</th>
+                      <th className="px-3 py-2.5">특이사항·전달사항</th>
+                      <th className="px-3 py-2.5 text-center">관리</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reportHistoryQuery.data.map((report) => (
+                      <tr
+                        key={report.id}
+                        onClick={() =>
+                          setSelectedReportId((current) =>
+                            current === report.id ? '' : report.id,
+                          )
+                        }
+                        className={`cursor-pointer hover:bg-brand-50 ${
+                          selectedReportId === report.id ? 'bg-brand-50' : ''
+                        }`}
+                      >
+                        <td className="whitespace-nowrap px-3 py-2.5">
+                          {formatKoreanDate(report.business_date)}
+                        </td>
+                        <td className="px-3 py-2.5 font-semibold text-gray-900">
+                          {report.closer_worker_name}
+                        </td>
+                        <td className="px-3 py-2.5 text-right font-semibold">
+                          {formatWon(report.total_sales)}
+                        </td>
+                        <td className="px-3 py-2.5 text-center">
+                          <span
+                            className={`rounded-full px-2.5 py-1 text-xs font-bold ${
+                              report.cash_difference === 0
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : 'bg-rose-100 text-rose-700'
+                            }`}
+                          >
+                            {report.cash_difference === 0 ? '일치' : '불일치'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2.5 text-right">
+                          {Number(report.input_work_hours).toLocaleString(
+                            'ko-KR',
+                          )}
+                          시간
+                        </td>
+                        <td className="max-w-[240px] px-3 py-2.5 text-gray-600">
+                          {report.cleaning_note || '-'}
+                        </td>
+                        <td className="max-w-[240px] px-3 py-2.5 text-gray-600">
+                          {report.special_note || '-'}
+                        </td>
+                        <td className="px-3 py-2.5 text-center">
+                          <Button
+                            size="sm"
+                            variant="gray"
+                            onClick={(event) => {
+                              event?.stopPropagation();
+                              setSelectedReportId(report.id);
+                              setReportEditRequestKey((current) => current + 1);
+                            }}
+                          >
+                            수정
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="px-4 py-10 text-center text-sm text-gray-500">
+                선택한 기간에 저장된 마감보고서가 없습니다.
+              </p>
+            )}
+          </section>
+          {selectedReportId &&
+            reportHistoryQuery.data?.find(
+              (report) => report.id === selectedReportId,
+            ) && (
+              <ReportSnapshotView
+                report={
+                  reportHistoryQuery.data.find(
+                    (report) => report.id === selectedReportId,
+                  )!
+                }
+                editRequestKey={reportEditRequestKey}
+              />
+            )}
+        </div>
+      )}
+
+      {isReportsPage && isAdmin && activeTab === 'checklist' && (
+        <ChecklistManagement />
       )}
     </main>
   );

@@ -33,3 +33,26 @@ export type DailyCashSales = {
   eguVape: number;
   total: number;
 };
+
+export type DailyPaymentSales = {
+  breakdown: {
+    paymentType: string;
+    label: string;
+    amount: number;
+  }[];
+  ovapeBreakdown: {
+    paymentType: string;
+    label: string;
+    amount: number;
+  }[];
+  eguVapeBreakdown: {
+    paymentType: string;
+    label: string;
+    amount: number;
+  }[];
+  itemSummary: {
+    categoryName: string;
+    quantity: number;
+  }[];
+  total: number;
+};

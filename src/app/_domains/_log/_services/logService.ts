@@ -12,6 +12,43 @@ import {
   LogsResType,
 } from '@/app/_domains/_log/_types/log.types';
 import supabase from '@/libs/supabaseClient';
+import { getCurrentWorkerName } from '@/app/_domains/_workJournal/_utils/currentWorker';
+
+const resolveCurrentWorkerName = async () => {
+  const storedWorkerName = getCurrentWorkerName();
+  if (storedWorkerName) return storedWorkerName;
+
+  const today = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+  const { data } = await supabase
+    .from('work_journals')
+    .select('worker_name')
+    .eq('work_date', today)
+    .eq('status', 'working')
+    .limit(2);
+  return data?.length === 1 ? data[0].worker_name : '';
+};
+
+const withCreatedWorker = async (jsonb: Record<string, unknown> | null) => {
+  const workerName = await resolveCurrentWorkerName();
+  return {
+    ...(jsonb ?? {}),
+    ...(workerName ? { createdWorkerName: workerName } : {}),
+  };
+};
+
+const withModifiedWorker = async (jsonb: Record<string, unknown>) => {
+  const workerName = await resolveCurrentWorkerName();
+  return {
+    ...jsonb,
+    ...(workerName ? { modifiedWorkerName: workerName } : {}),
+    modifiedAt: new Date().toISOString(),
+  };
+};
 
 /**
  * 로그 추가
@@ -42,7 +79,7 @@ export const createLog = async (
       customer_id: customerId,
       action,
       note,
-      jsonb,
+      jsonb: await withCreatedWorker(jsonb),
       category,
     })
     .select()
@@ -246,7 +283,10 @@ export const updateLogNote = async (
     }
   }
 
-  const updatePayload: Record<string, unknown> = { note, jsonb: nextJsonb };
+  const updatePayload: Record<string, unknown> = {
+    note,
+    jsonb: await withModifiedWorker(nextJsonb),
+  };
   if (action !== undefined) updatePayload.action = action;
 
   const { data, error } = await supabase

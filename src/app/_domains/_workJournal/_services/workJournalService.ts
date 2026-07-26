@@ -87,7 +87,7 @@ export const getWorkerDetails = async (): Promise<WorkerDetailType[]> => {
 
   const { data: privateDetails, error: detailsError } = await supabase
     .from('work_journal_worker_private')
-    .select('worker_id, phone_number, bank_account, first_work_date, note');
+    .select('worker_id, phone_number, bank_account, first_work_date, note, pin_hash, pin_code');
 
   if (detailsError) throw detailsError;
   const detailByWorkerId = new Map(
@@ -102,6 +102,8 @@ export const getWorkerDetails = async (): Promise<WorkerDetailType[]> => {
       bank_account: detail?.bank_account ?? '',
       first_work_date: detail?.first_work_date ?? '',
       note: detail?.note ?? null,
+      has_pin: Boolean(detail?.pin_hash),
+      pin_code: detail?.pin_code ?? '',
     };
   });
 };
@@ -112,6 +114,7 @@ export const createWorker = async (values: {
   bankAccount: string;
   firstWorkDate: string;
   note: string;
+  pin: string;
 }): Promise<void> => {
   const {
     data: { session },
@@ -139,6 +142,8 @@ export const createWorker = async (values: {
       bank_account: values.bankAccount.trim(),
       first_work_date: values.firstWorkDate,
       note: values.note.trim() || null,
+      pin_hash: values.pin ? values.pin : null,
+      pin_code: values.pin ? values.pin : null,
     });
 
   if (privateError) {
@@ -154,6 +159,7 @@ export const updateWorkerDetails = async (
     bankAccount: string;
     firstWorkDate: string;
     note: string;
+    pin: string;
   },
 ): Promise<void> => {
   const { error } = await supabase
@@ -165,6 +171,7 @@ export const updateWorkerDetails = async (
         bank_account: values.bankAccount.trim(),
         first_work_date: values.firstWorkDate,
         note: values.note.trim() || null,
+        ...(values.pin ? { pin_hash: values.pin, pin_code: values.pin } : {}),
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'worker_id' },
@@ -192,6 +199,8 @@ export const createWorkJournal = async (values: {
   endTime: string;
   workHours: number;
   note: string;
+  workType: 'solo' | 'shift';
+  pin: string;
 }): Promise<void> => {
   const {
     data: { session },
@@ -200,17 +209,114 @@ export const createWorkJournal = async (values: {
 
   if (sessionError || !session) throw new Error('세션을 찾을 수 없습니다.');
 
+  const { data: verified, error: verifyError } = await supabase.rpc(
+    'verify_work_journal_worker_pin',
+    { p_worker_name: values.workerName.trim(), p_pin: values.pin },
+  );
+  if (verifyError) throw verifyError;
+  if (!verified) throw new Error('INVALID_WORKER_PIN');
+
   const { error } = await supabase.from('work_journals').insert({
     work_date: values.workDate,
     worker_name: values.workerName.trim(),
     start_time: values.startTime,
     end_time: values.endTime,
+    expected_end_time: values.endTime,
     work_hours: values.workHours,
     note: values.note.trim() || null,
+    work_type: values.workType,
+    status: 'working',
     created_by: session.user.id,
   });
 
   if (error) throw error;
+  window.localStorage.setItem(
+    'current-work-worker',
+    JSON.stringify({ name: values.workerName.trim(), workDate: values.workDate }),
+  );
+};
+
+export const completeWorkJournal = async (values: {
+  journalId: string;
+  workerName: string;
+  pin: string;
+  actualEndTime: string;
+  workHours: number;
+  inputWorkHours: number;
+  note: string;
+}): Promise<void> => {
+  const { data: verified, error: verifyError } = await supabase.rpc(
+    'verify_work_journal_worker_pin',
+    { p_worker_name: values.workerName.trim(), p_pin: values.pin },
+  );
+  if (verifyError) throw verifyError;
+  if (!verified) throw new Error('INVALID_WORKER_PIN');
+
+  const { error } = await supabase
+    .from('work_journals')
+    .update({
+      end_time: values.actualEndTime,
+      work_hours: values.workHours,
+      input_work_hours: values.inputWorkHours,
+      note: values.note.trim() || null,
+      status: 'closed',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', values.journalId)
+    .eq('worker_name', values.workerName.trim());
+
+  if (error) throw error;
+  window.localStorage.removeItem('current-work-worker');
+};
+
+export const updateAttendanceJournal = async (
+  journalId: string,
+  values: {
+    workDate: string;
+    workerName: string;
+    startTime: string;
+    expectedEndTime: string;
+    actualEndTime: string;
+    workHours: number;
+    inputWorkHours: number | null;
+    note: string;
+    workType: 'solo' | 'shift';
+    status: 'working' | 'closed';
+  },
+): Promise<void> => {
+  const { error } = await supabase
+    .from('work_journals')
+    .update({
+      work_date: values.workDate,
+      worker_name: values.workerName.trim(),
+      start_time: values.startTime,
+      expected_end_time: values.expectedEndTime,
+      end_time:
+        values.status === 'closed'
+          ? values.actualEndTime
+          : values.expectedEndTime,
+      work_hours: values.workHours,
+      input_work_hours: values.inputWorkHours,
+      note: values.note.trim() || null,
+      work_type: values.workType,
+      status: values.status,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', journalId);
+
+  if (error) throw error;
+};
+
+export const verifyWorkerPin = async (
+  workerName: string,
+  pin: string,
+): Promise<boolean> => {
+  const { data, error } = await supabase.rpc('verify_work_journal_worker_pin', {
+    p_worker_name: workerName.trim(),
+    p_pin: pin,
+  });
+  if (error) throw error;
+  return Boolean(data);
 };
 
 export const updateWorkJournal = async (
@@ -222,6 +328,7 @@ export const updateWorkJournal = async (
     endTime: string;
     workHours: number;
     note: string;
+    workType: 'solo' | 'shift';
   },
 ): Promise<void> => {
   const { error } = await supabase
@@ -231,8 +338,10 @@ export const updateWorkJournal = async (
       worker_name: values.workerName.trim(),
       start_time: values.startTime,
       end_time: values.endTime,
+      expected_end_time: values.endTime,
       work_hours: values.workHours,
       note: values.note.trim() || null,
+      work_type: values.workType,
       updated_at: new Date().toISOString(),
     })
     .eq('id', id);
