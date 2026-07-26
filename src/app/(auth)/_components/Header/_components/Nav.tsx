@@ -27,8 +27,9 @@ const defaultMenuItems: MenuItem[] = [
   { href: '/comparison', label: '기기 비교', group_key: 'product', sort_order: 3 },
   { href: '/liqud-stand', label: '시연대', group_key: 'product', sort_order: 4 },
   { href: '/cash-management', label: '시재', group_key: 'store', sort_order: 0 },
-  { href: '/work-journal', label: '근무일지', group_key: 'store', sort_order: 1 },
-  { href: '/manuals', label: '매뉴얼', group_key: 'store', sort_order: 2 },
+  { href: '/reports', label: '보고서', group_key: 'store', sort_order: 1 },
+  { href: '/work-journal', label: '근무일지', group_key: 'store', sort_order: 2 },
+  { href: '/manuals', label: '매뉴얼', group_key: 'store', sort_order: 3 },
 ];
 
 type NavProps = { orientation?: 'horizontal' | 'vertical'; onNavigate?: () => void };
@@ -38,6 +39,7 @@ const Nav = ({ orientation = 'horizontal', onNavigate }: NavProps) => {
   const { isAdmin } = useUser();
   const [menuItems, setMenuItems] = useState(defaultMenuItems);
   const [openGroup, setOpenGroup] = useState<GroupKey | null>(null);
+  const [inventorySubmenuOpen, setInventorySubmenuOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draftItems, setDraftItems] = useState(defaultMenuItems);
   const [saving, setSaving] = useState(false);
@@ -53,6 +55,7 @@ const Nav = ({ orientation = 'horizontal', onNavigate }: NavProps) => {
 
   useEffect(() => {
     setOpenGroup(null);
+    setInventorySubmenuOpen(false);
   }, [pathname]);
 
   useEffect(() => {
@@ -79,7 +82,6 @@ const Nav = ({ orientation = 'horizontal', onNavigate }: NavProps) => {
     label: groupLabels[key],
     links: visibleMenuItems.filter((item) => item.group_key === key).sort((a, b) => a.sort_order - b.sort_order),
   })), [visibleMenuItems]);
-  const currentItem = menuItems.find((item) => pathname?.startsWith(item.href));
   const closeAfterNavigate = () => { setOpenGroup(null); onNavigate?.(); };
 
   const moveDraft = (href: string, direction: -1 | 1) => {
@@ -107,7 +109,44 @@ const Nav = ({ orientation = 'horizontal', onNavigate }: NavProps) => {
 
   if (orientation === 'vertical') return (
     <nav className="flex flex-col gap-5">
-      {groupedItems.map((group) => <div key={group.key}><p className="mb-1.5 px-2 text-[11px] font-bold tracking-wide text-brand-600/70">{group.label}</p><div className="flex flex-col gap-1">{group.links.map((link) => <Link key={link.href} href={link.href} onClick={closeAfterNavigate} className={`rounded-lg px-4 py-3 text-sm font-medium transition-colors ${pathname?.startsWith(link.href) ? 'bg-white text-brand-700 shadow-sm' : 'text-brand-700 hover:bg-white/60'}`}>{link.label}</Link>)}</div></div>)}
+      {groupedItems.map((group) => (
+        <div key={group.key}>
+          <p className="mb-1.5 px-2 text-[11px] font-bold tracking-wide text-brand-600/70">
+            {group.label}
+          </p>
+          <div className="flex flex-col gap-1">
+            {group.links.map((link) =>
+              link.href === '/inventory' ? (
+                <div key={link.href}>
+                  <button
+                    type="button"
+                    onClick={() => setInventorySubmenuOpen((current) => !current)}
+                    className={`flex w-full items-center justify-between rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
+                      pathname?.startsWith(link.href)
+                        ? 'bg-white text-brand-700 shadow-sm'
+                        : 'text-brand-700 hover:bg-white/60'
+                    }`}
+                    aria-expanded={inventorySubmenuOpen}
+                  >
+                    {link.label}
+                    <span className={`transition-transform ${inventorySubmenuOpen ? 'rotate-90' : ''}`}>›</span>
+                  </button>
+                  {inventorySubmenuOpen && (
+                    <div className="ml-4 mt-1 flex flex-col gap-1 border-l border-brand-200 pl-2">
+                      <Link href="/inventory/stock" onClick={closeAfterNavigate} className="rounded-lg px-4 py-2.5 text-sm font-medium text-brand-700 hover:bg-white/60">재고</Link>
+                      <Link href="/inventory/receive" onClick={closeAfterNavigate} className="rounded-lg px-4 py-2.5 text-sm font-medium text-brand-700 hover:bg-white/60">입고</Link>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <Link key={link.href} href={link.href} onClick={closeAfterNavigate} className={`rounded-lg px-4 py-3 text-sm font-medium transition-colors ${pathname?.startsWith(link.href) ? 'bg-white text-brand-700 shadow-sm' : 'text-brand-700 hover:bg-white/60'}`}>
+                  {link.label}
+                </Link>
+              ),
+            )}
+          </div>
+        </div>
+      ))}
     </nav>
   );
 
@@ -116,9 +155,8 @@ const Nav = ({ orientation = 'horizontal', onNavigate }: NavProps) => {
       <nav ref={navRef} className="flex items-center gap-2" onPointerLeave={(event) => { if (event.pointerType === 'mouse') setOpenGroup(null); }}>
         {groupedItems.map((group) => {
           const active = group.links.some((link) => pathname?.startsWith(link.href));
-          return <div key={group.key} className="relative" onPointerEnter={(event) => { if (event.pointerType === 'mouse') setOpenGroup(group.key); }}><button type="button" aria-haspopup="menu" aria-expanded={openGroup === group.key} onClick={() => setOpenGroup((current) => current === group.key ? null : group.key)} className={`flex min-h-12 items-center gap-1 rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${active ? 'bg-white text-brand-700 shadow-sm' : 'text-brand-700 hover:bg-white/60'}`}>{group.label}<svg className={`h-3.5 w-3.5 transition-transform ${openGroup === group.key ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m6 9 6 6 6-6" /></svg></button>{openGroup === group.key && <div className="absolute left-0 top-[calc(100%-2px)] z-50 min-w-44 pt-2"><div role="menu" className="overflow-hidden rounded-xl border border-gray-100 bg-white p-1.5 shadow-xl">{group.links.map((link) => <Link key={link.href} href={link.href} onClick={closeAfterNavigate} role="menuitem" className={`flex min-h-12 items-center rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${pathname?.startsWith(link.href) ? 'bg-brand-50 text-brand-700' : 'text-gray-700 hover:bg-gray-50 hover:text-brand-700'}`}>{link.label}</Link>)}</div></div>}</div>;
+          return <div key={group.key} className="relative" onPointerEnter={(event) => { if (event.pointerType === 'mouse') setOpenGroup(group.key); }}><button type="button" aria-haspopup="menu" aria-expanded={openGroup === group.key} onClick={() => setOpenGroup((current) => current === group.key ? null : group.key)} className={`flex min-h-12 items-center gap-1 rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${active ? 'bg-white text-brand-700 shadow-sm' : 'text-brand-700 hover:bg-white/60'}`}>{group.label}<svg className={`h-3.5 w-3.5 transition-transform ${openGroup === group.key ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m6 9 6 6 6-6" /></svg></button>{openGroup === group.key && <div className="absolute left-0 top-[calc(100%-2px)] z-50 min-w-44 pt-2"><div role="menu" className="overflow-visible rounded-xl border border-gray-100 bg-white p-1.5 shadow-xl">{group.links.map((link) => link.href === '/inventory' ? <div key={link.href} className="relative" onPointerEnter={(event) => { if (event.pointerType === 'mouse') setInventorySubmenuOpen(true); }} onPointerLeave={(event) => { if (event.pointerType === 'mouse') setInventorySubmenuOpen(false); }}><button type="button" role="menuitem" aria-haspopup="menu" aria-expanded={inventorySubmenuOpen} onClick={() => setInventorySubmenuOpen((current) => !current)} className={`flex min-h-12 w-full items-center justify-between rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${pathname?.startsWith(link.href) ? 'bg-brand-50 text-brand-700' : 'text-gray-700 hover:bg-gray-50 hover:text-brand-700'}`}><span>{link.label}</span><span>›</span></button>{inventorySubmenuOpen && <div className="absolute left-full top-0 z-50 pl-2"><div role="menu" className="min-w-28 rounded-xl border border-gray-100 bg-white p-1.5 shadow-xl"><Link href="/inventory/stock" onClick={closeAfterNavigate} role="menuitem" className="flex min-h-11 items-center rounded-lg px-4 py-2 text-sm font-medium text-gray-700 hover:bg-brand-50 hover:text-brand-700">재고</Link><Link href="/inventory/receive" onClick={closeAfterNavigate} role="menuitem" className="flex min-h-11 items-center rounded-lg px-4 py-2 text-sm font-medium text-gray-700 hover:bg-brand-50 hover:text-brand-700">입고</Link></div></div>}</div> : <Link key={link.href} href={link.href} onClick={closeAfterNavigate} role="menuitem" className={`flex min-h-12 items-center rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${pathname?.startsWith(link.href) ? 'bg-brand-50 text-brand-700' : 'text-gray-700 hover:bg-gray-50 hover:text-brand-700'}`}>{link.label}</Link>)}</div></div>}</div>;
         })}
-        {currentItem && <span className="ml-2 hidden whitespace-nowrap rounded-full bg-white/55 px-3 py-1.5 text-xs font-semibold text-brand-700 xl:inline">현재 접속 : {groupLabels[currentItem.group_key]} - {currentItem.label}</span>}
         {isAdmin && <button type="button" onClick={() => { setDraftItems(menuItems); setEditing(true); }} className="hidden whitespace-nowrap rounded-lg border border-white/60 bg-white/30 px-2.5 py-1.5 text-xs font-semibold text-brand-700 hover:bg-white/60 xl:block">메뉴 편집</button>}
       </nav>
 
