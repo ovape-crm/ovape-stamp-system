@@ -131,7 +131,101 @@ export const getInventoryMovements = async (
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) throw error;
-  return (data ?? []) as InventoryMovement[];
+
+  const movements = (data ?? []) as InventoryMovement[];
+  const outboundLogIds = [
+    ...new Set(
+      movements
+        .filter(
+          (movement) =>
+            movement.reference_type === "outbound_log" &&
+            movement.reference_id,
+        )
+        .map((movement) => movement.reference_id as string),
+    ),
+  ];
+  const purchaseReceiptIds = [
+    ...new Set(
+      movements
+        .filter(
+          (movement) =>
+            ["purchase_receipt", "purchase_receipt_reversal"].includes(
+              movement.reference_type ?? "",
+            ) && movement.reference_id,
+        )
+        .map((movement) => movement.reference_id as string),
+    ),
+  ];
+
+  const [outboundResult, receiptResult] = await Promise.all([
+    outboundLogIds.length
+      ? supabase
+          .from("logs")
+          .select("id, customer_id, customers(name)")
+          .in("id", outboundLogIds)
+      : Promise.resolve({ data: [], error: null }),
+    purchaseReceiptIds.length
+      ? supabase
+          .from("inventory_purchase_receipts")
+          .select("id, order_id, inventory_purchase_orders(inventory_suppliers(name))")
+          .in("id", purchaseReceiptIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  // 연결 정보가 없는 예전 이력도 계속 표시될 수 있도록 이름 조회 실패는
+  // 전체 이력 조회 실패로 처리하지 않고 기존 메모를 대체 정보로 사용한다.
+  const outboundNames = new Map<string, string>();
+  const outboundCustomerIds = new Map<string, string>();
+  if (!outboundResult.error) {
+    for (const row of outboundResult.data ?? []) {
+      const customers = Array.isArray(row.customers)
+        ? row.customers[0]
+        : row.customers;
+      if (customers?.name) outboundNames.set(String(row.id), customers.name);
+      if (row.customer_id) {
+        outboundCustomerIds.set(String(row.id), String(row.customer_id));
+      }
+    }
+  }
+
+  const supplierNames = new Map<string, string>();
+  const receiptOrderIds = new Map<string, string>();
+  if (!receiptResult.error) {
+    for (const row of receiptResult.data ?? []) {
+      const order = Array.isArray(row.inventory_purchase_orders)
+        ? row.inventory_purchase_orders[0]
+        : row.inventory_purchase_orders;
+      const suppliers = Array.isArray(order?.inventory_suppliers)
+        ? order.inventory_suppliers[0]
+        : order?.inventory_suppliers;
+      if (suppliers?.name) supplierNames.set(String(row.id), suppliers.name);
+      if (row.order_id) {
+        receiptOrderIds.set(String(row.id), String(row.order_id));
+      }
+    }
+  }
+
+  return movements.map((movement) => ({
+    ...movement,
+    counterparty_name:
+      movement.reference_type === "outbound_log"
+        ? outboundNames.get(movement.reference_id ?? "") ?? null
+        : ["purchase_receipt", "purchase_receipt_reversal"].includes(
+              movement.reference_type ?? "",
+            )
+          ? supplierNames.get(movement.reference_id ?? "") ?? null
+          : null,
+    counterparty_id:
+      movement.reference_type === "outbound_log"
+        ? outboundCustomerIds.get(movement.reference_id ?? "") ?? null
+        : null,
+    purchase_order_id: [
+      "purchase_receipt",
+      "purchase_receipt_reversal",
+    ].includes(movement.reference_type ?? "")
+      ? receiptOrderIds.get(movement.reference_id ?? "") ?? null
+      : null,
+  }));
 };
 
 export const initializeInventory = async (entries: InventoryEntry[]) => {
@@ -209,11 +303,15 @@ export const saveInventorySupplier = async (
   id: string | null,
   data: Omit<InventorySupplier, "id">,
 ) => {
-  const { error } = await supabase.rpc("save_inventory_supplier", {
+  const { data: savedId, error } = await supabase.rpc(
+    "save_inventory_supplier",
+    {
     p_id: id,
     p_data: data,
-  });
+    },
+  );
   if (error) throw error;
+  return savedId as string;
 };
 export const getPurchaseOrders = async (
   isAdmin = false,
@@ -290,6 +388,17 @@ export const setPurchaseArrivalQuantity = async (
   quantity: number,
 ) => {
   const { error } = await supabase.rpc("set_purchase_arrival_quantity", {
+    p_line_id: lineId,
+    p_quantity: quantity,
+  });
+  if (error) throw error;
+};
+
+export const updatePurchaseOrderQuantity = async (
+  lineId: string,
+  quantity: number,
+) => {
+  const { error } = await supabase.rpc("update_purchase_order_quantity", {
     p_line_id: lineId,
     p_quantity: quantity,
   });

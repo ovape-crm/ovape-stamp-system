@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Dropdown, DropdownOption } from '@/app/_components/Dropdown';
 import Loading from '@/app/_components/Loading';
 import { useUser } from '@/app/_contexts/UserContext';
 import { getProductSearchItems } from '@/app/_domains/_item/_services/productSearchService';
@@ -54,11 +55,13 @@ function ResizableHeader({
   label,
   width,
   onResize,
+  editable,
   align = 'left',
 }: {
   label: string;
   width: number;
   onResize: (width: number) => void;
+  editable: boolean;
   align?: 'left' | 'right';
 }) {
   const drag = useRef<{ x: number; width: number } | null>(null);
@@ -68,6 +71,7 @@ function ResizableHeader({
       style={{ width }}
     >
       {label}
+      {editable && (
       <button
         type="button"
         aria-label={`${label} 열 너비 조절`}
@@ -79,7 +83,13 @@ function ResizableHeader({
         onPointerMove={(event) => {
           if (!drag.current) return;
           onResize(
-            Math.max(70, drag.current.width + event.clientX - drag.current.x),
+            Math.min(
+              360,
+              Math.max(
+                70,
+                drag.current.width + event.clientX - drag.current.x,
+              ),
+            ),
           );
         }}
         onPointerUp={(event) => {
@@ -102,6 +112,7 @@ function ResizableHeader({
           <circle cx="15" cy="18" r="1.6" />
         </svg>
       </button>
+      )}
     </th>
   );
 }
@@ -111,15 +122,25 @@ export default function ProductSearchPage() {
   const [mode, setMode] = useState<SearchMode>('liquid');
   const [usageFilter, setUsageFilter] = useState<UsageFilter>('used');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [columnEditing, setColumnEditing] = useState(false);
+  const [columnWidthSnapshot, setColumnWidthSnapshot] = useState<
+    Record<ProductColumnKey, number> | null
+  >(null);
   const [columnWidths, setColumnWidths] = useState<
     Record<ProductColumnKey, number>
   >(() => {
     if (typeof window === 'undefined') return defaultColumnWidths;
     try {
       const saved = window.localStorage.getItem('product-search-column-widths');
-      return saved
+      const widths = saved
         ? { ...defaultColumnWidths, ...JSON.parse(saved) }
         : defaultColumnWidths;
+      return Object.fromEntries(
+        Object.entries(widths).map(([key, value]) => [
+          key,
+          Math.min(360, Math.max(70, Number(value) || defaultColumnWidths[key as ProductColumnKey])),
+        ]),
+      ) as Record<ProductColumnKey, number>;
     } catch {
       return defaultColumnWidths;
     }
@@ -145,21 +166,35 @@ export default function ProductSearchPage() {
     [liquidCategoryQuery.data],
   );
 
+  const availableItems = useMemo(
+    () =>
+      (query.data ?? []).filter((item) => {
+        const isLiquid = liquidCategoryQuery.isError
+          ? LIQUID_CATEGORIES.has(item.item_categories?.name ?? '')
+          : liquidCategoryIds.has(
+              item.category_id == null ? '' : String(item.category_id),
+            );
+        if ((mode === 'liquid') !== isLiquid) return false;
+        if (usageFilter === 'used' && !item.is_use) return false;
+        if (usageFilter === 'unused' && item.is_use) return false;
+        return true;
+      }),
+    [
+      liquidCategoryIds,
+      liquidCategoryQuery.isError,
+      mode,
+      query.data,
+      usageFilter,
+    ],
+  );
+
   const items = useMemo(() => {
     const normalize = (value: string | null | undefined) =>
       value?.trim().toLocaleLowerCase('ko-KR') ?? '';
     const itemNameKeyword = normalize(activeSearch.itemName);
     const secondKeyword = normalize(activeSearch.second);
     const thirdKeyword = normalize(activeSearch.third);
-    return (query.data ?? []).filter((item) => {
-      const isLiquid = liquidCategoryQuery.isError
-        ? LIQUID_CATEGORIES.has(item.item_categories?.name ?? '')
-        : liquidCategoryIds.has(
-            item.category_id == null ? '' : String(item.category_id),
-          );
-      if ((mode === 'liquid') !== isLiquid) return false;
-      if (usageFilter === 'used' && !item.is_use) return false;
-      if (usageFilter === 'unused' && item.is_use) return false;
+    return availableItems.filter((item) => {
       if (
         itemNameKeyword &&
         !normalize(item.item_name).includes(itemNameKeyword)
@@ -177,11 +212,8 @@ export default function ProductSearchPage() {
     });
   }, [
     activeSearch,
-    liquidCategoryIds,
-    liquidCategoryQuery.isError,
+    availableItems,
     mode,
-    query.data,
-    usageFilter,
   ]);
 
   const updateSearch = (field: keyof SearchValues, value: string) => {
@@ -193,13 +225,25 @@ export default function ProductSearchPage() {
   const hasSearchValue = Object.values(activeSearch).some(Boolean);
   const resizeColumn = (key: ProductColumnKey, width: number) => {
     setColumnWidths((current) => {
-      const next = { ...current, [key]: Math.round(width) };
-      window.localStorage.setItem(
-        'product-search-column-widths',
-        JSON.stringify(next),
-      );
-      return next;
+      return { ...current, [key]: Math.round(width) };
     });
+  };
+  const startColumnEditing = () => {
+    setColumnWidthSnapshot({ ...columnWidths });
+    setColumnEditing(true);
+  };
+  const saveColumnWidths = () => {
+    window.localStorage.setItem(
+      'product-search-column-widths',
+      JSON.stringify(columnWidths),
+    );
+    setColumnWidthSnapshot(null);
+    setColumnEditing(false);
+  };
+  const cancelColumnEditing = () => {
+    if (columnWidthSnapshot) setColumnWidths(columnWidthSnapshot);
+    setColumnWidthSnapshot(null);
+    setColumnEditing(false);
   };
   const visibleColumnKeys: ProductColumnKey[] =
     mode === 'liquid'
@@ -264,51 +308,87 @@ export default function ProductSearchPage() {
                 </button>
               )}
             </div>
-            <div className="grid flex-1 grid-cols-2 grid-rows-1 gap-1 rounded-lg bg-gray-200/70 p-1">
+            <div className="sm:hidden">
+              <Dropdown controlledValue={mode}>
+                <Dropdown.Trigger>
+                  {mode === 'liquid' ? '액상' : '나머지'}
+                </Dropdown.Trigger>
+                <Dropdown.Content>
+                  {(
+                    [
+                      { value: 'liquid', label: '액상' },
+                      { value: 'other', label: '나머지' },
+                    ] as const
+                  ).map((option) => (
+                    <Dropdown.Item
+                      key={option.value}
+                      option={option}
+                      onSelect={(selected: DropdownOption) =>
+                        setMode(selected.value as SearchMode)
+                      }
+                    />
+                  ))}
+                </Dropdown.Content>
+              </Dropdown>
+            </div>
+            <div className="hidden flex-1 grid-cols-2 grid-rows-1 gap-1 rounded-lg bg-gray-200/70 p-1 sm:grid">
               <button
                 type="button"
                 onClick={() => setMode('liquid')}
                 className={`flex items-center justify-center whitespace-nowrap rounded-md px-3 py-2.5 text-xs font-semibold transition ${mode === 'liquid' ? 'bg-white text-brand-700 shadow-sm' : 'text-gray-500 hover:bg-white/50 hover:text-gray-700'}`}
               >
-                액상 검색
+                액상
               </button>
               <button
                 type="button"
                 onClick={() => setMode('other')}
                 className={`flex items-center justify-center whitespace-nowrap rounded-md px-3 py-2.5 text-xs font-semibold transition ${mode === 'other' ? 'bg-white text-brand-700 shadow-sm' : 'text-gray-500 hover:bg-white/50 hover:text-gray-700'}`}
               >
-                나머지 검색
+                나머지
               </button>
             </div>
           </div>
 
-          <div className="flex w-full flex-col rounded-xl border border-gray-200 bg-gray-50/70 p-3 lg:w-[250px] lg:shrink-0">
-            <p className="mb-2 text-xs font-semibold text-gray-500">
+          <div className="flex w-full flex-col rounded-xl border border-gray-200 bg-gray-50/70 p-2.5 sm:w-[120px] sm:shrink-0">
+            <p className="mb-1 text-xs font-semibold text-gray-600">
               사용 구분
             </p>
-            <div className="grid flex-1 grid-cols-3 grid-rows-1 gap-1 rounded-lg bg-gray-200/70 p-1">
+            <Dropdown controlledValue={usageFilter}>
+              <Dropdown.Trigger compact>
+                {
+                  [
+                    { value: 'all', label: '전체' },
+                    { value: 'used', label: '사용' },
+                    { value: 'unused', label: '미사용' },
+                  ].find((option) => option.value === usageFilter)?.label
+                }
+              </Dropdown.Trigger>
+              <Dropdown.Content compact>
               {(
                 [
-                  ['all', '전체'],
-                  ['used', '사용'],
-                  ['unused', '미사용'],
+                  { value: 'all', label: '전체' },
+                  { value: 'used', label: '사용' },
+                  { value: 'unused', label: '미사용' },
                 ] as const
-              ).map(([value, label]) => (
-                <button
-                  type="button"
-                  key={value}
-                  onClick={() => setUsageFilter(value)}
-                  className={`flex min-h-10 items-center justify-center rounded-md px-2 text-xs font-semibold transition ${usageFilter === value ? 'bg-white text-brand-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                >
-                  {label}
-                </button>
+              ).map((option) => (
+                <Dropdown.Item
+                  key={option.value}
+                  option={option}
+                  compact
+                  onSelect={(selected: DropdownOption) =>
+                    setUsageFilter(
+                      selected.value as 'all' | 'used' | 'unused',
+                    )
+                  }
+                />
               ))}
-            </div>
+              </Dropdown.Content>
+            </Dropdown>
           </div>
 
           <div className="h-px w-full bg-gray-200 lg:h-auto lg:w-px lg:self-stretch" />
 
-          <div className="w-full rounded-xl border border-brand-100 bg-brand-50/40 p-3 lg:flex-1">
+          <div className="w-full rounded-xl border border-gray-200 bg-gray-50/70 p-3 lg:w-[740px] lg:shrink-0">
             <div className="grid gap-3 sm:grid-cols-3">
               {(
                 [
@@ -402,41 +482,99 @@ export default function ProductSearchPage() {
         />
       )}
 
-      <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div className="flex items-center px-4 py-3">
+      <div>
+        <div className="mb-3 flex items-center justify-between gap-3">
           <div className="text-xs text-gray-600 sm:text-sm">
             <span className="font-semibold text-brand-600">
               {items.length.toLocaleString()}
             </span>
-            개
+            <span className="text-gray-400"> / </span>
+            <span className="font-semibold text-gray-600">
+              {availableItems.length.toLocaleString()}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            {columnEditing && (
+              <>
+                <button
+                  type="button"
+                  onClick={saveColumnWidths}
+                  className="min-h-9 rounded-lg bg-brand-500 px-3 text-xs font-semibold text-white shadow-sm hover:bg-brand-600"
+                >
+                  변경 값 저장
+                </button>
+                <button
+                  type="button"
+                  onClick={cancelColumnEditing}
+                  className="min-h-9 rounded-lg border border-gray-300 bg-white px-3 text-xs font-semibold text-gray-600 shadow-sm hover:bg-gray-50"
+                >
+                  취소
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={columnEditing ? undefined : startColumnEditing}
+              aria-label="표 열 너비 변경"
+              title={
+                columnEditing
+                  ? "열 너비 편집 중"
+                  : "표 열 너비 변경"
+              }
+              className={`flex h-9 w-9 items-center justify-center rounded-lg border bg-white transition ${
+                columnEditing
+                  ? "border-brand-300 text-brand-700 shadow-sm"
+                  : "border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-brand-700"
+              }`}
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.8}
+                  d="M12 15.25A3.25 3.25 0 1 0 12 8.75a3.25 3.25 0 0 0 0 6.5Zm7.25-3.25c0-.48-.05-.95-.14-1.4l2.02-1.57-2-3.46-2.48 1a7.4 7.4 0 0 0-2.42-1.4L13.88 2.5h-4l-.35 2.67a7.4 7.4 0 0 0-2.42 1.4l-2.48-1-2 3.46 2.02 1.57a7.18 7.18 0 0 0 0 2.8l-2.02 1.57 2 3.46 2.48-1a7.4 7.4 0 0 0 2.42 1.4l.35 2.67h4l.35-2.67a7.4 7.4 0 0 0 2.42-1.4l2.48 1 2-3.46-2.02-1.57c.09-.45.14-.92.14-1.4Z"
+                />
+              </svg>
+            </button>
           </div>
         </div>
-        <div className="overflow-x-auto">
-          <table
-            className="table-fixed border-collapse text-sm"
-            style={{ width: Math.max(tableWidth, 900), minWidth: '100%' }}
-          >
+        <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="overflow-x-auto">
+            <table
+              className="table-fixed border-collapse text-sm"
+              style={{ width: Math.max(tableWidth, 900), minWidth: '100%' }}
+            >
             <thead className="bg-brand-50 text-xs font-semibold text-brand-700">
               <tr>
                 <ResizableHeader
                   label="품목 종류"
                   width={columnWidths.category}
                   onResize={(width) => resizeColumn('category', width)}
+                  editable={columnEditing}
                 />
                 <ResizableHeader
                   label="품목 코드"
                   width={columnWidths.code}
                   onResize={(width) => resizeColumn('code', width)}
+                  editable={columnEditing}
                 />
                 <ResizableHeader
                   label="품목 명"
                   width={columnWidths.name}
                   onResize={(width) => resizeColumn('name', width)}
+                  editable={columnEditing}
                 />
                 <ResizableHeader
                   label="현재 재고"
                   width={columnWidths.stock}
                   onResize={(width) => resizeColumn('stock', width)}
+                  editable={columnEditing}
                   align="right"
                 />
                 {mode === 'other' && (
@@ -444,6 +582,7 @@ export default function ProductSearchPage() {
                     label="매출단가"
                     width={columnWidths.price}
                     onResize={(width) => resizeColumn('price', width)}
+                    editable={columnEditing}
                     align="right"
                   />
                 )}
@@ -451,6 +590,7 @@ export default function ProductSearchPage() {
                   label="비고"
                   width={columnWidths.note}
                   onResize={(width) => resizeColumn('note', width)}
+                  editable={columnEditing}
                 />
                 {mode === 'liquid' && (
                   <>
@@ -458,16 +598,19 @@ export default function ProductSearchPage() {
                       label="액상 종류"
                       width={columnWidths.liquidType}
                       onResize={(width) => resizeColumn('liquidType', width)}
+                      editable={columnEditing}
                     />
                     <ResizableHeader
                       label="액상 맛"
                       width={columnWidths.flavor}
                       onResize={(width) => resizeColumn('flavor', width)}
+                      editable={columnEditing}
                     />
                     <ResizableHeader
                       label="시연대 위치"
                       width={columnWidths.location}
                       onResize={(width) => resizeColumn('location', width)}
+                      editable={columnEditing}
                     />
                   </>
                 )}
@@ -544,9 +687,10 @@ export default function ProductSearchPage() {
                 </tr>
               )}
             </tbody>
-          </table>
-        </div>
-      </section>
+            </table>
+          </div>
+        </section>
+      </div>
     </main>
   );
 }

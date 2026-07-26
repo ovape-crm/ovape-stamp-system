@@ -32,6 +32,7 @@ interface DropdownContextType {
   itemCount: number;
   setItemCount: (count: number) => void;
   disabled: boolean;
+  controlledValue?: string | number;
 }
 
 const DropdownContext = createContext<DropdownContextType | null>(null);
@@ -167,6 +168,7 @@ const DropdownProvider = ({
       itemCount,
       setItemCount,
       disabled,
+      controlledValue,
     }),
     [
       isOpen,
@@ -177,6 +179,7 @@ const DropdownProvider = ({
       focusedIndex,
       itemCount,
       disabled,
+      controlledValue,
     ]
   );
 
@@ -196,7 +199,13 @@ export const useDropdown = () => {
   return context;
 };
 
-const DropdownTrigger = ({ children }: { children: React.ReactNode }) => {
+const DropdownTrigger = ({
+  children,
+  compact = false,
+}: {
+  children: React.ReactNode;
+  compact?: boolean;
+}) => {
   const {
     toggleDropdown,
     isOpen,
@@ -232,10 +241,16 @@ const DropdownTrigger = ({ children }: { children: React.ReactNode }) => {
       onClick={disabled ? undefined : toggleDropdown}
       onKeyDown={handleKeyDown}
       disabled={disabled}
-      className={`w-full rounded-lg font-medium transition-colors shadow-sm outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 focus:border-brand-500 bg-white/70 border border-brand-200 text-brand-700 px-3 py-1.5 text-xs sm:px-6 sm:py-2 sm:text-base flex items-center justify-between gap-2 text-left ${
+      className={`flex w-full items-center justify-between gap-2 rounded-lg border text-left shadow-sm outline-none transition-colors focus:border-brand-500 focus:ring-2 focus:ring-brand-500 ${
+        compact
+          ? 'h-11 border-gray-300 bg-white px-2.5 text-xs font-semibold text-gray-700'
+          : 'border-brand-200 bg-white/70 px-3 py-1.5 text-xs font-medium text-brand-700 focus:ring-offset-2 sm:px-6 sm:py-2 sm:text-base'
+      } ${
         disabled
           ? 'opacity-50 cursor-not-allowed'
-          : 'cursor-pointer hover:bg-brand-50 hover:border-brand-300'
+          : compact
+            ? 'cursor-pointer hover:border-brand-300 hover:bg-gray-50'
+            : 'cursor-pointer hover:bg-brand-50 hover:border-brand-300'
       }`}
       aria-expanded={isOpen}
       aria-haspopup="listbox"
@@ -265,7 +280,13 @@ const DropdownTrigger = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
-const DropdownContent = ({ children }: { children: React.ReactNode }) => {
+const DropdownContent = ({
+  children,
+  compact = false,
+}: {
+  children: React.ReactNode;
+  compact?: boolean;
+}) => {
   const { isOpen, setItemCount, triggerRef, contentRef } = useDropdown();
   const [position, setPosition] = useState<{
     top: number;
@@ -308,8 +329,8 @@ const DropdownContent = ({ children }: { children: React.ReactNode }) => {
       if (triggerRef.current) {
         const rect = triggerRef.current.getBoundingClientRect();
         setPosition({
-          top: rect.bottom + window.scrollY + 8,
-          left: rect.left + window.scrollX,
+          top: rect.bottom + 8,
+          left: rect.left,
           width: rect.width,
         });
       }
@@ -331,7 +352,9 @@ const DropdownContent = ({ children }: { children: React.ReactNode }) => {
   const content = (
     <div
       ref={contentRef}
-      className="fixed z-[3000] rounded-lg shadow-lg bg-white border border-brand-200 overflow-hidden transition-all duration-200 opacity-100 translate-y-0"
+      className={`fixed z-[3000] overflow-hidden rounded-lg border bg-white opacity-100 shadow-lg transition-all duration-200 translate-y-0 ${
+        compact ? "border-gray-300" : "border-brand-200"
+      }`}
       style={{
         top: `${position.top}px`,
         left: `${position.left}px`,
@@ -339,7 +362,11 @@ const DropdownContent = ({ children }: { children: React.ReactNode }) => {
       }}
       role="listbox"
     >
-      <div className="py-1 max-h-[300px] overflow-auto">{itemsWithIndex}</div>
+      <div
+        className={`${compact ? "py-0.5" : "py-1"} max-h-[300px] overflow-auto`}
+      >
+        {itemsWithIndex}
+      </div>
     </div>
   );
 
@@ -351,10 +378,12 @@ const DropdownItem = ({
   option,
   onSelect,
   index = -1,
+  compact = false,
 }: {
   option: DropdownOption;
   onSelect?: (option: DropdownOption) => void;
   index?: number;
+  compact?: boolean;
 }) => {
   const {
     handleSelect,
@@ -362,10 +391,12 @@ const DropdownItem = ({
     focusedIndex,
     setFocusedIndex,
     isOpen,
+    controlledValue,
   } = useDropdown();
   const itemRef = useRef<HTMLDivElement>(null);
 
-  const isSelected = selectedOption?.value === option.value;
+  const selectedValue = selectedOption?.value ?? controlledValue;
+  const isSelected = selectedValue === option.value;
   const isFocused = index >= 0 && focusedIndex === index;
 
   // 포커스된 아이템으로 스크롤
@@ -397,17 +428,31 @@ const DropdownItem = ({
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       onMouseEnter={() => setFocusedIndex(index)}
-      className={`px-4 py-1.5 text-sm sm:px-6 sm:py-2 sm:text-base cursor-pointer transition-colors text-brand-700 outline-none focus:bg-brand-100 focus:ring-2 focus:ring-brand-500 focus:ring-inset ${
+      className={`${
+        compact
+          ? "px-2.5 py-1.5 text-xs text-gray-700 focus:bg-gray-100"
+          : "px-4 py-1.5 text-sm text-brand-700 focus:bg-brand-100 focus:ring-2 focus:ring-brand-500 focus:ring-inset sm:px-6 sm:py-2 sm:text-base"
+      } cursor-pointer outline-none transition-colors ${
         isSelected
-          ? 'bg-brand-50 text-brand-900 font-medium'
-          : 'hover:bg-brand-50'
-      } ${isFocused && !isSelected ? 'bg-brand-100' : ''}`}
+          ? compact
+            ? "bg-gray-100 font-semibold text-brand-700"
+            : "bg-brand-50 font-medium text-brand-900"
+          : compact
+            ? "hover:bg-gray-50"
+            : "hover:bg-brand-50"
+      } ${
+        isFocused && !isSelected
+          ? compact
+            ? "bg-gray-100"
+            : "bg-brand-100"
+          : ""
+      }`}
     >
       <div className="flex items-center justify-between">
         <span>{option.label}</span>
         {isSelected && (
           <svg
-            className="w-5 h-5 text-brand-600 flex-shrink-0"
+            className={`${compact ? "h-3.5 w-3.5" : "h-5 w-5"} flex-shrink-0 text-brand-600`}
             fill="currentColor"
             viewBox="0 0 20 20"
             aria-hidden="true"
