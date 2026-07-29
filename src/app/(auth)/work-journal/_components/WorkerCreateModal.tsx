@@ -11,6 +11,7 @@ type WorkerFormValues = {
   firstWorkDate: string;
   note: string;
   pin: string;
+  isActive: boolean;
 };
 
 interface WorkerCreateModalProps {
@@ -32,6 +33,7 @@ const EMPTY_FORM: WorkerFormValues = {
   firstWorkDate: '',
   note: '',
   pin: '',
+  isActive: true,
 };
 
 const toForm = (worker: WorkerDetailType): WorkerFormValues => ({
@@ -41,6 +43,7 @@ const toForm = (worker: WorkerDetailType): WorkerFormValues => ({
   firstWorkDate: worker.first_work_date,
   note: worker.note ?? '',
   pin: worker.pin_code ?? '',
+  isActive: worker.is_active,
 });
 
 const WorkerCreateModal = ({
@@ -141,6 +144,7 @@ const WorkerCreateModal = ({
           firstWorkDate: form.firstWorkDate,
           note: form.note,
           pin: form.pin,
+          isActive: form.isActive,
         });
         setVisibleWorkers((previous) =>
           previous.map((worker) =>
@@ -153,6 +157,7 @@ const WorkerCreateModal = ({
                   note: form.note || null,
                   has_pin: Boolean(form.pin) || worker.has_pin,
                   pin_code: form.pin || worker.pin_code,
+                  is_active: form.isActive,
                 }
               : worker,
           ),
@@ -229,8 +234,14 @@ const WorkerCreateModal = ({
                     <strong className="truncate text-sm text-gray-900">
                       {worker.name}
                     </strong>
-                    <span className="rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700">
-                      사용
+                    <span
+                      className={`rounded-full px-2 py-1 text-[11px] font-semibold ${
+                        worker.is_active
+                          ? 'bg-emerald-50 text-emerald-700'
+                          : 'bg-gray-100 text-gray-500'
+                      }`}
+                    >
+                      {worker.is_active ? '사용' : '미사용'}
                     </span>
                   </div>
                   <p className="mt-2 text-xs text-gray-500">
@@ -368,13 +379,48 @@ const WorkerCreateModal = ({
                     />
                   </WorkerField>
                   <WorkerField label="사용 상태">
-                    <div className="flex min-h-[42px] items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-3">
+                    <div
+                      className={`flex min-h-[70px] items-center justify-between rounded-xl border px-4 py-3 ${
+                        isEditing
+                          ? 'border-gray-200 bg-gray-50'
+                          : 'border-transparent bg-transparent px-0'
+                      }`}
+                    >
                       <span className="text-sm text-gray-600">
                         근무자 선택 목록 표시
                       </span>
-                      <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                        사용
-                      </span>
+                      {isEditing ? (
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={form.isActive}
+                          onClick={() =>
+                            setForm((previous) => ({
+                              ...previous,
+                              isActive: !previous.isActive,
+                            }))
+                          }
+                          className={`relative h-7 w-12 cursor-pointer rounded-full transition ${
+                            form.isActive ? 'bg-brand-500' : 'bg-gray-300'
+                          }`}
+                        >
+                          <span
+                            className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${
+                              form.isActive ? 'left-6' : 'left-1'
+                            }`}
+                          />
+                        </button>
+                      ) : (
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                            form.isActive
+                              ? 'bg-emerald-50 text-emerald-700'
+                              : 'bg-gray-100 text-gray-500'
+                          }`}
+                        >
+                          {form.isActive ? '사용' : '미사용'}
+                        </span>
+                      )}
                     </div>
                   </WorkerField>
                   <WorkerField label="특이사항" className="sm:col-span-2">

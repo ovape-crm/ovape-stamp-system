@@ -80,7 +80,6 @@ export const getWorkerDetails = async (): Promise<WorkerDetailType[]> => {
   const { data: workers, error: workersError } = await supabase
     .from('work_journal_workers')
     .select('id, name, is_active')
-    .eq('is_active', true)
     .order('name', { ascending: true });
 
   if (workersError) throw workersError;
@@ -115,6 +114,7 @@ export const createWorker = async (values: {
   firstWorkDate: string;
   note: string;
   pin: string;
+  isActive: boolean;
 }): Promise<void> => {
   const {
     data: { session },
@@ -127,6 +127,7 @@ export const createWorker = async (values: {
     .from('work_journal_workers')
     .insert({
       name: values.name.trim(),
+      is_active: values.isActive,
       created_by: session.user.id,
     })
     .select('id')
@@ -160,8 +161,19 @@ export const updateWorkerDetails = async (
     firstWorkDate: string;
     note: string;
     pin: string;
+    isActive: boolean;
   },
 ): Promise<void> => {
+  const { error: workerError } = await supabase
+    .from('work_journal_workers')
+    .update({
+      is_active: values.isActive,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', workerId);
+
+  if (workerError) throw workerError;
+
   const { error } = await supabase
     .from('work_journal_worker_private')
     .upsert(
@@ -216,23 +228,57 @@ export const createWorkJournal = async (values: {
   if (verifyError) throw verifyError;
   if (!verified) throw new Error('INVALID_WORKER_PIN');
 
-  const { error } = await supabase.from('work_journals').insert({
-    work_date: values.workDate,
-    worker_name: values.workerName.trim(),
-    start_time: values.startTime,
-    end_time: values.endTime,
-    expected_end_time: values.endTime,
-    work_hours: values.workHours,
-    note: values.note.trim() || null,
-    work_type: values.workType,
-    status: 'working',
-    created_by: session.user.id,
-  });
+  const normalizedWorkerName = values.workerName.trim();
+  const { data: pendingHandover, error: pendingError } = await supabase
+    .from('work_journals')
+    .select('id')
+    .eq('work_date', values.workDate)
+    .eq('status', 'handover_pending')
+    .neq('worker_name', normalizedWorkerName)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (pendingError) throw pendingError;
+
+  const { data: createdJournal, error } = await supabase
+    .from('work_journals')
+    .insert({
+      work_date: values.workDate,
+      worker_name: normalizedWorkerName,
+      start_time: values.startTime,
+      end_time: values.endTime,
+      expected_end_time: values.endTime,
+      work_hours: values.workHours,
+      note: values.note.trim() || null,
+      work_type: values.workType,
+      status: 'working',
+      created_by: session.user.id,
+    })
+    .select('id')
+    .single();
 
   if (error) throw error;
+
+  if (pendingHandover) {
+    const { error: handoverError } = await supabase
+      .from('work_journals')
+      .update({
+        status: 'shift_completed',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', pendingHandover.id)
+      .eq('status', 'handover_pending');
+
+    if (handoverError) {
+      await supabase.from('work_journals').delete().eq('id', createdJournal.id);
+      throw handoverError;
+    }
+  }
+
   window.localStorage.setItem(
     'current-work-worker',
-    JSON.stringify({ name: values.workerName.trim(), workDate: values.workDate }),
+    JSON.stringify({ name: normalizedWorkerName, workDate: values.workDate }),
   );
 };
 
@@ -244,6 +290,7 @@ export const completeWorkJournal = async (values: {
   workHours: number;
   inputWorkHours: number;
   note: string;
+  workType: 'solo' | 'shift';
 }): Promise<void> => {
   const { data: verified, error: verifyError } = await supabase.rpc(
     'verify_work_journal_worker_pin',
@@ -259,7 +306,7 @@ export const completeWorkJournal = async (values: {
       work_hours: values.workHours,
       input_work_hours: values.inputWorkHours,
       note: values.note.trim() || null,
-      status: 'closed',
+      status: values.workType === 'shift' ? 'handover_pending' : 'closed',
       updated_at: new Date().toISOString(),
     })
     .eq('id', values.journalId)
@@ -267,6 +314,36 @@ export const completeWorkJournal = async (values: {
 
   if (error) throw error;
   window.localStorage.removeItem('current-work-worker');
+};
+
+export const closeHandoverWithoutSuccessor = async (
+  journalId: string,
+  reason: string,
+): Promise<void> => {
+  const normalizedReason = reason.trim();
+  if (!normalizedReason) throw new Error('HANDOVER_CLOSE_REASON_REQUIRED');
+
+  const { data: journal, error: findError } = await supabase
+    .from('work_journals')
+    .select('note')
+    .eq('id', journalId)
+    .eq('status', 'handover_pending')
+    .single();
+
+  if (findError) throw findError;
+
+  const closeNote = `[교대 없이 종료] ${normalizedReason}`;
+  const { error } = await supabase
+    .from('work_journals')
+    .update({
+      status: 'closed',
+      note: [journal.note, closeNote].filter(Boolean).join('\n'),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', journalId)
+    .eq('status', 'handover_pending');
+
+  if (error) throw error;
 };
 
 export const updateAttendanceJournal = async (
@@ -281,7 +358,8 @@ export const updateAttendanceJournal = async (
     inputWorkHours: number | null;
     note: string;
     workType: 'solo' | 'shift';
-    status: 'working' | 'closed';
+    status: 'working' | 'handover_pending' | 'shift_completed' | 'closed';
+    actualStartTime?: string;
   },
 ): Promise<void> => {
   const { error } = await supabase
@@ -292,7 +370,7 @@ export const updateAttendanceJournal = async (
       start_time: values.startTime,
       expected_end_time: values.expectedEndTime,
       end_time:
-        values.status === 'closed'
+        values.status !== 'working'
           ? values.actualEndTime
           : values.expectedEndTime,
       work_hours: values.workHours,
@@ -300,6 +378,13 @@ export const updateAttendanceJournal = async (
       note: values.note.trim() || null,
       work_type: values.workType,
       status: values.status,
+      ...(values.actualStartTime
+        ? {
+            created_at: new Date(
+              `${values.workDate}T${values.actualStartTime}:00+09:00`,
+            ).toISOString(),
+          }
+        : {}),
       updated_at: new Date().toISOString(),
     })
     .eq('id', journalId);

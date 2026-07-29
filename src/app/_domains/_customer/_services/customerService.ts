@@ -158,6 +158,7 @@ export const createCustomer = async (customer: {
   name: string;
   phone: string;
   gender: 'male' | 'female';
+  address?: string;
   note?: string;
 }) => {
   // X는 중복 체크 제외
@@ -174,9 +175,17 @@ export const createCustomer = async (customer: {
     }
   }
 
+  const insertPayload = {
+    name: customer.name,
+    phone: customer.phone,
+    gender: customer.gender,
+    note: customer.note,
+    ...(customer.address?.trim() ? { address: customer.address.trim() } : {}),
+  };
+
   const { data, error } = await supabase
     .from('customers')
-    .insert(customer)
+    .insert(insertPayload)
     .select()
     .single();
 
@@ -202,6 +211,7 @@ export const updateCustomer = async (
     name?: string;
     phone?: string;
     gender?: 'male' | 'female';
+    address?: string;
     note?: string;
   }
 ) => {
@@ -227,12 +237,14 @@ export const updateCustomer = async (
       name: prevCustomer.name,
       phone: prevCustomer.phone,
       gender: prevCustomer.gender,
+      address: prevCustomer?.address ?? '',
       note: prevCustomer?.note ?? '',
     },
     {
       name: updates.name ?? prevCustomer.name,
       phone: updates.phone ?? prevCustomer.phone,
       gender: updates.gender ?? prevCustomer.gender,
+      address: updates.address ?? prevCustomer?.address ?? '',
       note: updates.note ?? prevCustomer?.note ?? '',
     }
   );

@@ -5,6 +5,7 @@ export type CustomerType = {
   name: string;
   phone: string;
   gender: GenderType;
+  address?: string | null;
   note?: string | null;
   created_at: string;
   updated_at: string;

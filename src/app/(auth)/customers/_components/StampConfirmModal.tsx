@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { useModal } from "@/app/_contexts/ModalContext";
 import StampLogForm, { StampLogValue } from "./StampLogForm";
 import TargetCustomerCard from "./TargetCustomerCard";
+import { getCustomerMode } from "@/app/_domains/_customer/_utils/specialCustomer";
 
 const formatAmount = (value: number) => value.toLocaleString("ko-KR");
 
@@ -52,16 +53,13 @@ export default function StampConfirmModal({
   );
   const [stampLog, setStampLog] = useState<StampLogValue | null>(null);
   const [isReservation, setIsReservation] = useState(false);
-  const customerMode =
-    target.name.trim() === "시연용"
-      ? "demo"
-      : target.name.trim() === "재고조정"
-        ? "adjustment"
-        : "normal";
+  const customerMode = getCustomerMode(target.name, target.phone);
+  const usesStandardSalesFlow =
+    customerMode === "normal" || customerMode === "x";
 
   // 출고 이력 추가(mode === 'add') 전용 스텝 상태
   const [addStep, setAddStep] = useState<1 | 2 | 3>(
-    customerMode === "normal" ? 1 : 2,
+    usesStandardSalesFlow ? 1 : 2,
   );
   const [formValidity, setFormValidity] = useState({
     hasPaymentType: false,
@@ -72,13 +70,13 @@ export default function StampConfirmModal({
   useEffect(() => {
     if (mode !== "add") return;
     setSize(
-      customerMode !== "normal" && addStep === 3
+      !usesStandardSalesFlow && addStep === 3
         ? "max-w-xl"
         : addStep >= 2
           ? "max-w-5xl"
           : "max-w-xl",
     );
-  }, [mode, addStep, customerMode, setSize]);
+  }, [mode, addStep, usesStandardSalesFlow, setSize]);
 
   const title =
     mode === "add"
@@ -151,7 +149,7 @@ export default function StampConfirmModal({
   // ── 출고 이력 추가(mode === 'add') 전용 스텝 UI ──────────────────────────────
   const stepIndicator = (
     <div className="mb-5 flex items-start justify-center shrink-0">
-      {(customerMode === "normal"
+      {(usesStandardSalesFlow
         ? addStepLabels.map((label, idx) => ({
             label,
             step: (idx + 1) as 1 | 2 | 3,
@@ -177,7 +175,7 @@ export default function StampConfirmModal({
               >
                 {isDone
                   ? "✓"
-                  : customerMode === "normal"
+                  : usesStandardSalesFlow
                     ? stepNumber
                     : idx + 1}
               </div>
@@ -221,7 +219,7 @@ export default function StampConfirmModal({
       {stepIndicator}
 
       {/* 대상 고객: 모든 스텝에서 고정 노출 */}
-      {!(customerMode !== "normal" && addStep === 3) && (
+      {!(!usesStandardSalesFlow && addStep === 3) && (
         <TargetCustomerCard
           name={target.name}
           phone={target.phone}
@@ -238,6 +236,7 @@ export default function StampConfirmModal({
           onValidityChange={setFormValidity}
           reservationSlot={reservationToggle}
           customerMode={customerMode}
+          isStampAmountEditable={customerMode !== "x"}
         />
 
         {addStep === 3 && (
@@ -248,9 +247,9 @@ export default function StampConfirmModal({
               </div>
             )}
             <div
-              className={`grid grid-cols-1 gap-4 ${customerMode === "normal" ? "lg:grid-cols-2 lg:items-start" : ""}`}
+              className={`grid grid-cols-1 gap-4 ${usesStandardSalesFlow ? "lg:grid-cols-2 lg:items-start" : ""}`}
             >
-              {customerMode === "normal" && (
+              {usesStandardSalesFlow && (
                 <div className="bg-brand-50 rounded-lg p-4 border border-brand-200 space-y-2">
                   {stampLog && (
                     <>
@@ -262,7 +261,7 @@ export default function StampConfirmModal({
                           {stampLog.storeLabel}
                         </p>
                       </div>
-                      {customerMode === "normal" && (
+                      {usesStandardSalesFlow && (
                         <div>
                           <span className="text-sm font-medium text-gray-600">
                             스탬프 개수:
@@ -282,7 +281,7 @@ export default function StampConfirmModal({
                           {stampLog.paymentTypeName}
                         </p>
                       </div>
-                      {customerMode === "normal" && (
+                      {usesStandardSalesFlow && (
                         <div>
                           <span className="text-sm font-medium text-gray-600">
                             금액:
@@ -345,7 +344,7 @@ export default function StampConfirmModal({
                             {item.lineText}
                           </p>
                         </div>
-                        {customerMode === "normal" && (
+                        {usesStandardSalesFlow && (
                           <p className="mt-1 text-xs text-gray-500">
                             개별단가 {formatAmount(item.unitPrice)}원 / 총금액{" "}
                             {formatAmount(item.amount)}원
@@ -368,7 +367,7 @@ export default function StampConfirmModal({
             size="sm"
             onClick={() => {
               if (addStep === 3) setAddStep(2);
-              else if (customerMode === "normal") setAddStep(1);
+              else if (usesStandardSalesFlow) setAddStep(1);
               else onCancel();
             }}
             disabled={isSubmitting}

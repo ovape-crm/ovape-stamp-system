@@ -227,6 +227,15 @@ begin
     raise exception 'CASH_CLOSING_REQUIRED';
   end if;
 
+  if exists (
+    select 1
+    from public.cash_register_closings
+    where business_date = p_business_date
+      and coalesce(actual_cash, 0) <> coalesce(expected_cash, 0)
+  ) or coalesce(p_actual_cash, 0) <> coalesce(p_expected_cash, 0) then
+    raise exception 'CASH_BALANCE_MISMATCH';
+  end if;
+
   if not exists (
     select 1 from public.work_journals
     where work_date = p_business_date
@@ -237,7 +246,7 @@ begin
   if exists (
     select 1 from public.work_journals
     where work_date = p_business_date
-      and coalesce(status, 'working') <> 'closed'
+      and coalesce(status, 'working') in ('working', 'handover_pending')
   ) then
     raise exception 'OPEN_WORK_JOURNAL_EXISTS';
   end if;

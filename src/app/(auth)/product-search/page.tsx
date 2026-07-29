@@ -548,8 +548,13 @@ export default function ProductSearchPage() {
           <div className="overflow-x-auto">
             <table
               className="table-fixed border-collapse text-sm"
-              style={{ width: Math.max(tableWidth, 900), minWidth: '100%' }}
+              style={{ width: tableWidth, minWidth: tableWidth }}
             >
+            <colgroup>
+              {visibleColumnKeys.map((key) => (
+                <col key={key} style={{ width: columnWidths[key] }} />
+              ))}
+            </colgroup>
             <thead className="bg-brand-50 text-xs font-semibold text-brand-700">
               <tr>
                 <ResizableHeader

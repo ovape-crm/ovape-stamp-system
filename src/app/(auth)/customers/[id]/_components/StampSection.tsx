@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import toast from "react-hot-toast";
 import StampCards from "./StampCards";
 import {
@@ -15,12 +16,21 @@ import { useQueryClient } from "@tanstack/react-query";
 import { logKeys } from "@/app/_domains/_log/_queryKeys/logKeys";
 import StampConfirmModal from "../../_components/StampConfirmModal";
 import Button from "@/app/_components/Button";
+import { getCustomerMode } from "@/app/_domains/_customer/_utils/specialCustomer";
 
 interface StampSectionProps {
   stampCount: number;
-  target: { id: string; name: string; phone: string; note?: string | null };
+  target: {
+    id: string;
+    name: string;
+    phone: string;
+    gender?: "male" | "female" | null;
+    note?: string | null;
+  };
   onUpdate: () => void;
   onAddRemark: () => void;
+  autoOpenOutbound?: boolean;
+  onAutoOpenHandled?: () => void;
 }
 
 const getRequestErrorMessage = (error: unknown) => {
@@ -46,12 +56,22 @@ const StampSection = ({
   target,
   onUpdate,
   onAddRemark,
+  autoOpenOutbound = false,
+  onAutoOpenHandled,
 }: StampSectionProps) => {
   const [isLoading, setIsLoading] = useState(false);
+  const hasAutoOpenedOutboundRef = useRef(false);
+  const openOutboundModalRef = useRef<() => void>(() => undefined);
   const { open, close } = useModal();
   const queryClient = useQueryClient();
-  const isSpecialCustomer =
-    target.name.trim() === "시연용" || target.name.trim() === "재고조정";
+  const customerMode = getCustomerMode(target.name, target.phone);
+  const isSpecialCustomer = customerMode !== "normal";
+  const specialAccountLabel =
+    customerMode === "demo"
+      ? "시연용 처리"
+      : customerMode === "adjustment"
+        ? "재고조정"
+        : `미적립 ${target.gender === "female" ? "여자" : "남자"} 고객`;
 
   const openOutboundModal = () =>
     open({
@@ -177,18 +197,50 @@ const StampSection = ({
     }
   };
 
+  openOutboundModalRef.current = openOutboundModal;
+
+  useEffect(() => {
+    if (!autoOpenOutbound || hasAutoOpenedOutboundRef.current) return;
+
+    hasAutoOpenedOutboundRef.current = true;
+    openOutboundModalRef.current();
+    onAutoOpenHandled?.();
+  }, [autoOpenOutbound, onAutoOpenHandled]);
+
   return (
     <section className="flex-1 h-full bg-gradient-to-br from-brand-50 to-brand-100 rounded-lg shadow-sm border border-brand-200 p-6">
       {isSpecialCustomer ? (
-        <div className="flex h-full min-h-32 items-center justify-center">
-          <Button
-            size="sm"
-            className="min-h-12 w-full max-w-sm text-base"
-            onClick={openOutboundModal}
-            disabled={isLoading}
-          >
-            출고 이력
-          </Button>
+        <div className="flex h-full min-h-[280px] flex-col items-center">
+          <div className="flex min-h-0 flex-1 items-center justify-center py-2">
+            <Image
+              src="/images/special-customer-logo.png"
+              alt="OVAPE 로고"
+              width={400}
+              height={400}
+              className="h-80 w-auto object-contain opacity-50"
+              priority
+            />
+          </div>
+
+          <div className="w-full border-t border-brand-200 pt-5">
+            <p className="mb-5 text-center text-base leading-7 text-gray-600 sm:text-lg">
+              <strong className="font-semibold text-brand-700">
+                {specialAccountLabel}
+              </strong>
+              을 위한 특수 계정입니다.
+            </p>
+          </div>
+
+          <div className="w-full border-t border-brand-200 pt-5">
+            <Button
+              size="sm"
+              className="min-h-12 w-full text-base"
+              onClick={openOutboundModal}
+              disabled={isLoading}
+            >
+              출고 이력
+            </Button>
+          </div>
         </div>
       ) : (
         <>

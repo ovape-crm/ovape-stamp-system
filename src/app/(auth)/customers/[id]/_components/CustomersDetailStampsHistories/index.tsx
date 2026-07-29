@@ -42,6 +42,7 @@ const CustomersDetailStampsHistories = ({
     phone: string;
     name: string;
     gender?: 'male' | 'female' | null;
+    note?: string | null;
   };
   isLoading: boolean;
   error: string;
@@ -203,6 +204,11 @@ const CustomersDetailStampsHistories = ({
       open({
         content: (
           <StampLogEditModal
+            target={{
+              name: targetUser.name,
+              phone: targetUser.phone,
+              note: targetUser.note,
+            }}
             initialAction={log.action}
             initialPaymentType={
               log.jsonb?.paymentType as PaymentTypeEnumType['value'] | undefined
@@ -220,7 +226,15 @@ const CustomersDetailStampsHistories = ({
         options: { dismissOnBackdrop: false, dismissOnEsc: true },
       });
     },
-    [open, close, onUpdateLog, isReservation],
+    [
+      open,
+      close,
+      onUpdateLog,
+      isReservation,
+      targetUser.name,
+      targetUser.note,
+      targetUser.phone,
+    ],
   );
 
   if (error) {

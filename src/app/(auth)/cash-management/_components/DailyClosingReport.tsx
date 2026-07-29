@@ -57,6 +57,8 @@ const formatReportDate = (date: string) => {
   return `${dateText} (${weekday})`;
 };
 const PHOTO_SAVE_ENABLED = false;
+const getChecklistDraftKey = (businessDate: string) =>
+  `daily-closing-checklist-draft:${businessDate}`;
 
 export default function DailyClosingReport({
   businessDate,
@@ -87,6 +89,7 @@ export default function DailyClosingReport({
   const [closingChecks, setClosingChecks] = useState<Record<string, boolean>>(
     {},
   );
+  const [checksDraftDate, setChecksDraftDate] = useState("");
   const [cleaningNote, setCleaningNote] = useState("");
   const [specialNote, setSpecialNote] = useState("");
 
@@ -98,9 +101,33 @@ export default function DailyClosingReport({
     queryKey: ["daily-closing-checklist-items"],
     queryFn: getDailyClosingChecklistItems,
   });
-  const checklistItems = checklistQuery.data?.length
-    ? checklistQuery.data
-    : defaultChecklistItems;
+  const savedChecklistItems = reportQuery.data?.report_snapshot
+    ? [
+        ...reportQuery.data.report_snapshot.openingChecklist.map(
+          (item, index) => ({
+            id: item.id,
+            phase: "opening" as const,
+            label: item.label,
+            sort_order: index,
+            is_required: item.isRequired,
+          }),
+        ),
+        ...reportQuery.data.report_snapshot.closingChecklist.map(
+          (item, index) => ({
+            id: item.id,
+            phase: "closing" as const,
+            label: item.label,
+            sort_order: index,
+            is_required: item.isRequired,
+          }),
+        ),
+      ]
+    : null;
+  const checklistItems =
+    savedChecklistItems ??
+    (checklistQuery.data?.length
+      ? checklistQuery.data
+      : defaultChecklistItems);
   const openingTasks = checklistItems.filter(
     (item) => item.phase === "opening",
   );
@@ -109,11 +136,48 @@ export default function DailyClosingReport({
   );
 
   useEffect(() => {
-    setOpeningChecks({});
-    setClosingChecks({});
+    const savedDraft = window.sessionStorage.getItem(
+      getChecklistDraftKey(businessDate),
+    );
+    if (savedDraft) {
+      try {
+        const parsed = JSON.parse(savedDraft) as {
+          openingChecks?: Record<string, boolean>;
+          closingChecks?: Record<string, boolean>;
+        };
+        setOpeningChecks(parsed.openingChecks ?? {});
+        setClosingChecks(parsed.closingChecks ?? {});
+      } catch {
+        window.sessionStorage.removeItem(getChecklistDraftKey(businessDate));
+        setOpeningChecks({});
+        setClosingChecks({});
+      }
+    } else {
+      setOpeningChecks({});
+      setClosingChecks({});
+    }
+    setChecksDraftDate(businessDate);
     setCleaningNote("");
     setSpecialNote("");
   }, [businessDate]);
+
+  useEffect(() => {
+    if (
+      checksDraftDate !== businessDate ||
+      reportQuery.data
+    )
+      return;
+    window.sessionStorage.setItem(
+      getChecklistDraftKey(businessDate),
+      JSON.stringify({ openingChecks, closingChecks }),
+    );
+  }, [
+    businessDate,
+    checksDraftDate,
+    closingChecks,
+    openingChecks,
+    reportQuery.data,
+  ]);
 
   useEffect(() => {
     if (!reportQuery.data) return;
@@ -167,8 +231,11 @@ export default function DailyClosingReport({
   };
 
   const closeMutation = useMutation({
-    mutationFn: () =>
-      completeDailyClosingReport({
+    mutationFn: () => {
+      if (difference !== 0) {
+        throw new Error("CASH_BALANCE_MISMATCH");
+      }
+      return completeDailyClosingReport({
         businessDate,
         openingChecklist: openingChecks,
         closingChecklist: closingChecks,
@@ -214,8 +281,10 @@ export default function DailyClosingReport({
           specialNote: specialNote.trim(),
           capturedAt: new Date().toISOString(),
         },
-      }),
+      });
+    },
     onSuccess: async () => {
+      window.sessionStorage.removeItem(getChecklistDraftKey(businessDate));
       toast.success("당일 마감보고서 처리가 완료되었습니다.");
       await Promise.all([
         reportQuery.refetch(),
@@ -251,6 +320,10 @@ export default function DailyClosingReport({
         toast.error("먼저 해당 날짜의 시재를 저장해 주세요.");
         return;
       }
+      if (message.includes("CASH_BALANCE_MISMATCH")) {
+        toast.error("시재 현황이 일치해야 마감할 수 있습니다.");
+        return;
+      }
       if (message.includes("WORK_JOURNAL_NOT_FOUND")) {
         toast.error("오늘 등록된 근무기록을 찾을 수 없습니다.");
         return;
@@ -280,6 +353,7 @@ export default function DailyClosingReport({
   const cancelMutation = useMutation({
     mutationFn: () => cancelDailyClosingReport(businessDate),
     onSuccess: async () => {
+      window.sessionStorage.removeItem(getChecklistDraftKey(businessDate));
       toast.success("마감 처리를 취소했습니다.");
       setOpeningChecks({});
       setClosingChecks({});
@@ -404,9 +478,9 @@ export default function DailyClosingReport({
                     </strong>
                     <span className="text-gray-600">
                       {journal.start_time.slice(0, 5)} ~{" "}
-                      {journal.status === "closed"
-                        ? journal.end_time.slice(0, 5)
-                        : "근무 중"}
+                      {journal.status === "working"
+                        ? "근무 중"
+                        : journal.end_time.slice(0, 5)}
                     </span>
                     <span className="text-xs text-gray-500">
                       실제 {Number(journal.work_hours)}시간 · 입력{" "}
@@ -426,18 +500,44 @@ export default function DailyClosingReport({
           <SalesBreakdownCard
             title="오베이프 매출"
             items={paymentSales.ovapeBreakdown}
+            rowCount={Math.max(
+              paymentSales.ovapeBreakdown.length,
+              paymentSales.eguVapeBreakdown.length,
+            )}
           />
           <SalesBreakdownCard
             title="이구베이프 매출"
             items={paymentSales.eguVapeBreakdown}
+            rowCount={Math.max(
+              paymentSales.ovapeBreakdown.length,
+              paymentSales.eguVapeBreakdown.length,
+            )}
           />
-          <div className="flex min-h-36 flex-col rounded-xl border border-brand-200 bg-brand-50 p-4">
-            <h2 className="border-b border-brand-200 pb-2 text-sm font-bold text-brand-700">
-              총 매출
-            </h2>
-            <p className="flex flex-1 items-center justify-center text-center text-2xl font-bold text-brand-700">
-              {formatWon(paymentSales.total)}
-            </p>
+          <div className="flex min-h-36 flex-col overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+            <div className="flex min-h-0 flex-1 flex-col p-4">
+              <h2 className="border-b border-gray-200 pb-2 text-sm font-bold text-gray-800">
+                시재 현황
+              </h2>
+              <div className="flex flex-1 items-center justify-center py-3">
+                <span
+                  className={`rounded-full px-4 py-2 text-sm font-bold ${
+                    difference === 0
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-rose-100 text-rose-700"
+                  }`}
+                >
+                  {difference === 0 ? "일치" : "불일치"}
+                </span>
+              </div>
+            </div>
+            <div className="flex min-h-0 flex-1 flex-col border-t border-gray-200 p-4">
+              <h2 className="border-b border-gray-200 pb-2 text-sm font-bold text-gray-800">
+                총 매출
+              </h2>
+              <p className="flex flex-1 items-center justify-center py-3 text-center text-2xl font-bold text-brand-700">
+                {formatWon(paymentSales.total)}
+              </p>
+            </div>
           </div>
           <div className="min-h-36 rounded-xl border border-gray-200 bg-gray-50 p-4">
             <h2 className="border-b border-gray-200 pb-2 text-sm font-bold text-gray-800">
@@ -460,24 +560,6 @@ export default function DailyClosingReport({
             </div>
           </div>
         </div>
-      </section>
-
-      <section className="flex items-center justify-between gap-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
-        <div>
-          <h2 className="font-bold text-gray-900">시재 현황</h2>
-          <p className="mt-1 text-xs text-gray-500">
-            저장된 예상 시재와 실제 시재의 일치 여부입니다.
-          </p>
-        </div>
-        <span
-          className={`rounded-full px-4 py-2 text-sm font-bold ${
-            difference === 0
-              ? "bg-emerald-100 text-emerald-700"
-              : "bg-rose-100 text-rose-700"
-          }`}
-        >
-          {difference === 0 ? "일치" : "불일치"}
-        </span>
       </section>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -540,7 +622,8 @@ export default function DailyClosingReport({
             isClosed ||
             closeMutation.isPending ||
             !hasCashClosing ||
-            !allRequiredChecked
+            !allRequiredChecked ||
+            difference !== 0
           }
         >
           {isClosed
@@ -553,6 +636,11 @@ export default function DailyClosingReport({
       {!hasCashClosing && !isClosed && (
         <p className="text-right text-xs font-medium text-rose-600">
           종합보고서를 마감하려면 먼저 시재 저장을 완료해 주세요.
+        </p>
+      )}
+      {hasCashClosing && difference !== 0 && !isClosed && (
+        <p className="text-right text-xs font-medium text-rose-600">
+          시재 현황이 일치해야 종합보고서를 마감할 수 있습니다.
         </p>
       )}
     </div>
@@ -606,18 +694,23 @@ function Checklist({
 function SalesBreakdownCard({
   title,
   items,
+  rowCount,
 }: {
   title: string;
   items: DailyPaymentSales["breakdown"];
+  rowCount: number;
 }) {
+  const total = items.reduce((sum, item) => sum + item.amount, 0);
   return (
-    <div className="min-h-36 rounded-xl border border-gray-200 bg-gray-50 p-4">
+    <div className="flex min-h-36 flex-col rounded-xl border border-gray-200 bg-gray-50 p-4">
       <h2 className="border-b border-gray-200 pb-2 text-sm font-bold text-gray-800">
         {title}
       </h2>
-      <div className="mt-3 space-y-2">
-        {items.length ? (
-          items.map((item) => (
+      <div className="mt-3 flex flex-1 flex-col">
+        <div className="space-y-2">
+          {Array.from({ length: rowCount }, (_, index) => {
+            const item = items[index];
+            return item ? (
             <div
               key={item.paymentType}
               className="flex items-center justify-between gap-2 border-b border-gray-200 pb-1.5 text-sm last:border-b-0"
@@ -627,10 +720,21 @@ function SalesBreakdownCard({
                 {formatWon(item.amount)}
               </strong>
             </div>
-          ))
-        ) : (
-          <p className="text-sm text-gray-400">결제 내역 없음</p>
-        )}
+            ) : (
+              <div
+                key={`empty-${index}`}
+                aria-hidden="true"
+                className="h-[26px] border-b border-transparent"
+              />
+            );
+          })}
+        </div>
+        <div className="mt-auto flex items-center justify-between gap-2 border-t border-gray-300 pt-2.5 text-sm">
+          <strong className="text-gray-700">합계</strong>
+          <strong className="whitespace-nowrap text-brand-700">
+            {formatWon(total)}
+          </strong>
+        </div>
       </div>
     </div>
   );
