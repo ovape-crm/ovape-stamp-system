@@ -10,6 +10,7 @@ type FormValues = {
   name: string;
   phone: string;
   gender: 'male' | 'female';
+  address?: string;
   note?: string;
 };
 
@@ -28,6 +29,11 @@ const schema = z.object({
     })
     .transform((v) => (v.toUpperCase() === 'X' ? 'X' : v)),
   gender: z.enum(['male', 'female']),
+  address: z.coerce
+    .string()
+    .trim()
+    .max(200, { message: '주소지는 200자 이하로 입력해주세요.' })
+    .optional(),
   note: z.coerce
     .string()
     .trim()
@@ -73,6 +79,7 @@ export default function CustomerEditModal({
     name: string;
     phone: string;
     gender?: 'male' | 'female';
+    address?: string | null;
     note?: string | null;
   };
   onSubmit: (values: FormValues) => Promise<void> | void;
@@ -95,6 +102,7 @@ export default function CustomerEditModal({
       name: customer.name,
       phone: customer.phone,
       gender: customer.gender || 'male',
+      address: customer.address || '',
       note: customer.note || '',
     },
   });
@@ -216,6 +224,16 @@ export default function CustomerEditModal({
                 <p className="text-base text-gray-900">{formData.note}</p>
               </div>
             )}
+            {formData.address && (
+              <div>
+                <span className="text-sm font-medium text-gray-600">
+                  주소지:
+                </span>
+                <p className="text-base text-gray-900 whitespace-pre-wrap">
+                  {formData.address}
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -310,12 +328,28 @@ export default function CustomerEditModal({
           <label className="block text-sm font-medium mb-1">특이사항</label>
           <textarea
             className="w-full min-h-24 rounded border border-brand-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
-            placeholder="결제관련 특이사항, 주소지 등"
+            placeholder="고객,결제 관련 특이사항을 입력하세요. (선택)"
             aria-invalid={!!errors.note || undefined}
             {...register('note')}
           />
           {errors.note && (
             <p className="mt-1 text-xs text-rose-600">{errors.note.message}</p>
+          )}
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">주소지</label>
+          <input
+            type="text"
+            className="w-full rounded border border-brand-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
+            placeholder="주소지를 입력하세요. (선택)"
+            aria-invalid={!!errors.address || undefined}
+            {...register('address')}
+          />
+          {errors.address && (
+            <p className="mt-1 text-xs text-rose-600">
+              {errors.address.message}
+            </p>
           )}
         </div>
       </div>

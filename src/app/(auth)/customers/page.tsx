@@ -13,14 +13,13 @@ import {
 import toast from "react-hot-toast";
 import { useEffect, useState } from "react";
 import Button from "@/app/_components/Button";
-import {
-  addStamp,
-  addReservationStamp,
-} from "@/app/_domains/_stamp/_services/stampService";
 import { useQueryClient } from "@tanstack/react-query";
 import { customerKeys } from "@/app/_domains/_customer/_queryKeys/customerKeys";
 import { logKeys } from "@/app/_domains/_log/_queryKeys/logKeys";
-import type { CustomerCreateValues } from "./_components/CustomerCreateModal";
+import type {
+  CustomerCreateAction,
+  CustomerCreateValues,
+} from "./_components/CustomerCreateModal";
 import { useRouter } from "next/navigation";
 
 const quickLinkDefinitions = [
@@ -29,6 +28,20 @@ const quickLinkDefinitions = [
   { key: "demo", label: "시연용" },
   { key: "adjustment", label: "재고조정" },
 ] as const;
+
+const getCustomerCreateError = (error: unknown) => {
+  if (error instanceof Error) {
+    return { code: "", message: error.message };
+  }
+  if (error && typeof error === "object") {
+    const value = error as { code?: unknown; message?: unknown };
+    return {
+      code: typeof value.code === "string" ? value.code : "",
+      message: typeof value.message === "string" ? value.message : "",
+    };
+  }
+  return { code: "", message: "" };
+};
 
 export default function CustomersPage() {
   // ========================================================================
@@ -96,7 +109,10 @@ export default function CustomersPage() {
   // ========================================================================
   // 고객 추가 핸들러
   // ========================================================================
-  const handleCustomerSubmit = async (values: CustomerCreateValues) => {
+  const handleCustomerSubmit = async (
+    values: CustomerCreateValues,
+    action: CustomerCreateAction,
+  ) => {
     try {
       setIsSubmitting(true);
 
@@ -105,61 +121,40 @@ export default function CustomersPage() {
         name: values.name,
         phone: values.phone,
         gender: values.gender,
+        address: values.address,
         note: values.note,
       });
       toast.success("고객이 추가되었습니다.");
 
-      // 2. 출고 이력 추가 (선택 사항)
-      if (values.isStampAdd && values.stampLog) {
-        const stampLog = values.stampLog;
-        const amount = stampLog.amount;
-        try {
-          if (values.isReservation) {
-            await addReservationStamp(
-              data.id,
-              amount,
-              stampLog.note,
-              stampLog.paymentType,
-              stampLog.logMeta,
-            );
-            toast.success("출고 예약으로 기록되었습니다.");
-          } else {
-            await addStamp(
-              data.id,
-              amount,
-              stampLog.note,
-              stampLog.paymentType,
-              stampLog.logMeta,
-            );
-            toast.success(
-              amount === 0
-                ? "미적립으로 기록되었습니다."
-                : `스탬프 ${amount}개 적립 완료!`,
-            );
-          }
-        } catch (stampError) {
-          console.error("스탬프 추가 실패:", stampError);
-          toast.error(
-            stampError instanceof Error
-              ? stampError.message
-              : "스탬프 적립에 실패했습니다.",
-          );
-          throw stampError;
-        }
-      }
-
       close();
       queryClient.invalidateQueries({ queryKey: customerKeys.lists() });
       queryClient.invalidateQueries({ queryKey: logKeys.lists() });
-    } catch (err) {
-      console.error("고객 추가 실패:", err);
-      if (err instanceof Error && err.message === "DUPLICATE_CUSTOMER") {
-        toast.error("이미 존재하는 전화번호입니다.");
-      } else {
-        toast.error(
-          err instanceof Error ? err.message : "고객 추가에 실패했습니다.",
-        );
+
+      if (action === "add-outbound") {
+        router.push(`/customers/${data.id}?openOutbound=1`);
       }
+      return true;
+    } catch (err) {
+      const errorInfo = getCustomerCreateError(err);
+      console.warn("고객 추가 실패:", errorInfo);
+
+      if (
+        errorInfo.message === "DUPLICATE_CUSTOMER" ||
+        errorInfo.code === "23505"
+      ) {
+        toast.error("이미 존재하는 전화번호입니다.");
+      } else if (
+        errorInfo.message.toLowerCase().includes("address") ||
+        errorInfo.code === "PGRST204" ||
+        errorInfo.code === "42703"
+      ) {
+        toast.error(
+          "주소지 저장을 위해 DB 주소 컬럼 적용이 필요합니다. customer_address.sql을 실행해 주세요.",
+        );
+      } else {
+        toast.error(errorInfo.message || "고객 추가에 실패했습니다.");
+      }
+      return false;
     } finally {
       setIsSubmitting(false);
     }

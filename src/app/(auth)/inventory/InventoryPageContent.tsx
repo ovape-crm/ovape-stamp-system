@@ -2647,7 +2647,7 @@ function PurchaseOrderList({
   const [arrivalNotes, setArrivalNotes] = useState<Record<string, string>>({});
   const [pending, setPending] = useState(false);
   const [listTab, setListTab] = useState<
-    "waiting" | "partial" | "completed"
+    "waiting" | "partial" | "completed" | "closed"
   >("waiting");
   useEffect(() => {
     setQuantities({});
@@ -2667,7 +2667,9 @@ function PurchaseOrderList({
         ? "waiting"
         : target.status === "partial"
           ? "partial"
-          : "completed",
+          : target.status === "closed"
+            ? "closed"
+            : "completed",
     );
     window.setTimeout(() => {
       document
@@ -2682,6 +2684,9 @@ function PurchaseOrderList({
   );
   const [historyStartDate, setHistoryStartDate] = useState("");
   const [historyEndDate, setHistoryEndDate] = useState("");
+  const [expandedClosedOrders, setExpandedClosedOrders] = useState<
+    Record<string, boolean>
+  >({});
   const [editingQuantities, setEditingQuantities] = useState<
     Record<string, boolean>
   >({});
@@ -2717,10 +2722,91 @@ function PurchaseOrderList({
   };
   const waitingOrders = orders.filter((order) => order.status === "pending");
   const partialOrders = orders.filter((order) => order.status === "partial");
-  const completedOrders = orders.filter(
-    (order) => order.status !== "pending" && order.status !== "partial",
+  const draftBaselineRef = useRef(
+    new Map<
+      string,
+      { orderedQuantity: number; pendingQuantity: number }
+    >(),
   );
-  const filteredCompletedOrders = completedOrders.filter((order) => {
+  useEffect(() => {
+    if (
+      (listTab !== "waiting" && listTab !== "partial") ||
+      draftBaselineRef.current.size > 0
+    )
+      return;
+    const currentOrders = orders.filter((order) =>
+      listTab === "waiting"
+        ? order.status === "pending"
+        : order.status === "partial",
+    );
+    currentOrders.forEach((order) =>
+      order.inventory_purchase_order_lines.forEach((line) => {
+        draftBaselineRef.current.set(line.id, {
+          orderedQuantity: line.ordered_quantity,
+          pendingQuantity: line.pending_quantity,
+        });
+      }),
+    );
+  }, [listTab, orders]);
+  const clearDraftState = () => {
+    setQuantities({});
+    setOrderedQuantities({});
+    setEditingQuantities({});
+    setEditingOrderedQuantities({});
+    setSavedQuantities({});
+    setArrivalDates({});
+    setArrivalNotes({});
+  };
+  const changeListTab = async (
+    nextTab: "waiting" | "partial" | "completed" | "closed",
+  ) => {
+    if (nextTab === listTab || pending) return;
+    if (listTab === "waiting" || listTab === "partial") {
+      const currentOrders =
+        listTab === "waiting" ? waitingOrders : partialOrders;
+      setPending(true);
+      try {
+        for (const order of currentOrders) {
+          for (const line of order.inventory_purchase_order_lines) {
+            const baseline = draftBaselineRef.current.get(line.id);
+            if (!baseline) continue;
+            if (
+              order.status === "pending" &&
+              line.ordered_quantity !== baseline.orderedQuantity
+            ) {
+              await updatePurchaseOrderQuantity(
+                line.id,
+                baseline.orderedQuantity,
+              );
+            }
+            await setPurchaseArrivalQuantity(
+              line.id,
+              baseline.pendingQuantity,
+            );
+          }
+        }
+        await onSaved();
+      } catch (error) {
+        toast.error(
+          `입고대기 작업을 초기화하지 못했습니다: ${(error as Error).message}`,
+        );
+      } finally {
+        setPending(false);
+      }
+    }
+    draftBaselineRef.current.clear();
+    clearDraftState();
+    setListTab(nextTab);
+  };
+  const completedOrders = orders.filter(
+    (order) =>
+      order.status !== "pending" &&
+      order.status !== "partial" &&
+      order.status !== "closed",
+  );
+  const closedOrders = orders.filter((order) => order.status === "closed");
+  const filterHistoryOrders = (targetOrders: PurchaseOrder[]) =>
+    targetOrders.filter((order) => {
     const matchesSupplier = (order.inventory_suppliers?.name ?? "")
       .toLocaleLowerCase("ko-KR")
       .includes(historySupplierSearch.trim().toLocaleLowerCase("ko-KR"));
@@ -2746,13 +2832,17 @@ function PurchaseOrderList({
             : date === historyStartDate,
         ));
     return matchesSupplier && matchesItem && matchesDate;
-  });
+    });
+  const filteredCompletedOrders = filterHistoryOrders(completedOrders);
+  const filteredClosedOrders = filterHistoryOrders(closedOrders);
   const visibleOrders =
     listTab === "waiting"
       ? waitingOrders
       : listTab === "partial"
         ? partialOrders
-        : filteredCompletedOrders;
+        : listTab === "completed"
+          ? filteredCompletedOrders
+          : filteredClosedOrders;
   const formatKoreanDate = (value: string) =>
     new Intl.DateTimeFormat("ko-KR", {
       year: "numeric",
@@ -2768,10 +2858,11 @@ function PurchaseOrderList({
   return (
     <section className="mt-4 space-y-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="grid grid-cols-3 gap-1 rounded-xl bg-gray-100 p-1 sm:w-[540px]">
+        <div className="grid grid-cols-2 gap-1 rounded-xl bg-gray-100 p-1 sm:w-[720px] sm:grid-cols-4">
           <button
             type="button"
-            onClick={() => setListTab("waiting")}
+            onClick={() => void changeListTab("waiting")}
+            disabled={pending}
             className={`min-h-11 rounded-lg px-4 text-sm font-bold transition ${listTab === "waiting" ? "bg-white text-brand-700 shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
           >
             입고 대기{" "}
@@ -2779,7 +2870,8 @@ function PurchaseOrderList({
           </button>
           <button
             type="button"
-            onClick={() => setListTab("partial")}
+            onClick={() => void changeListTab("partial")}
+            disabled={pending}
             className={`min-h-11 rounded-lg px-4 text-sm font-bold transition ${listTab === "partial" ? "bg-white text-brand-700 shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
           >
             부분 입고{" "}
@@ -2787,11 +2879,21 @@ function PurchaseOrderList({
           </button>
           <button
             type="button"
-            onClick={() => setListTab("completed")}
+            onClick={() => void changeListTab("completed")}
+            disabled={pending}
             className={`min-h-11 rounded-lg px-4 text-sm font-bold transition ${listTab === "completed" ? "bg-white text-brand-700 shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
           >
             입고 완료{" "}
             <span className="ml-1 text-xs">{completedOrders.length}건</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => void changeListTab("closed")}
+            disabled={pending}
+            className={`min-h-11 rounded-lg px-4 text-sm font-bold transition ${listTab === "closed" ? "bg-white text-brand-700 shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
+          >
+            미입고 종료{" "}
+            <span className="ml-1 text-xs">{closedOrders.length}건</span>
           </button>
         </div>
         {onCreate ? (
@@ -2826,7 +2928,7 @@ function PurchaseOrderList({
           ))}
         </div>
       )}
-      {listTab === "completed" && (
+      {(listTab === "completed" || listTab === "closed") && (
         <div className="flex flex-col gap-2 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm lg:flex-row lg:items-stretch lg:gap-3">
           <div className="flex w-full flex-col rounded-xl border border-gray-200 bg-gray-50/70 p-2.5 sm:w-[120px] sm:shrink-0">
             <p className="mb-1 text-xs font-semibold text-gray-600">
@@ -2962,6 +3064,20 @@ function PurchaseOrderList({
       </div>
       {visibleOrders.map((order) => {
         const open = order.status === "pending" || order.status === "partial";
+        const closedMissingLines = order.inventory_purchase_order_lines.filter(
+          (line) => line.ordered_quantity > line.received_quantity,
+        );
+        const closedCompletedLineCount =
+          order.inventory_purchase_order_lines.length -
+          closedMissingLines.length;
+        const isEntirelyUnreceived =
+          order.status === "closed" &&
+          order.inventory_purchase_order_lines.every(
+            (line) => line.received_quantity === 0,
+          );
+        const visibleClosedLines = expandedClosedOrders[order.id]
+          ? order.inventory_purchase_order_lines
+          : closedMissingLines;
         const orderNote = splitPurchaseOrderNote(order.note);
         const showPartialDetails = order.status === "partial";
         const hasCheckedItems = order.inventory_purchase_order_lines.some(
@@ -2982,7 +3098,11 @@ function PurchaseOrderList({
               <span
                 className={`rounded-full px-2.5 py-1 text-xs font-bold ${order.status === "completed" ? "bg-emerald-100 text-emerald-700" : order.status === "partial" ? "bg-blue-100 text-blue-700" : order.status === "closed" || order.status === "cancelled" ? "bg-gray-200 text-gray-600" : "bg-amber-100 text-amber-700"}`}
               >
-                {statusLabels[order.status]}
+                {order.status === "closed"
+                  ? isEntirelyUnreceived
+                    ? "전체 미입고 종료"
+                    : "일부 미입고 종료"
+                  : statusLabels[order.status]}
               </span>
               <strong>
                 {order.inventory_suppliers?.name ?? "거래처 정보 없음"}
@@ -3445,7 +3565,9 @@ function PurchaseOrderList({
               </table>
               </div>
             </div>
-            {!open && order.inventory_purchase_receipts.length > 0 && (
+            {!open &&
+              listTab !== "closed" &&
+              order.inventory_purchase_receipts.length > 0 && (
               <div className="overflow-auto bg-gray-50 px-4 pb-4 sm:px-5 sm:pb-5">
                 <div className="min-w-[1080px] overflow-hidden rounded-xl border border-brand-200 bg-white">
                 <table className="purchase-order-table purchase-order-table--clean-edges w-full table-fixed border-collapse bg-white text-sm">
@@ -3609,8 +3731,42 @@ function PurchaseOrderList({
               </div>
             )}
             {!open && order.status === "closed" && (
-              <div className="overflow-auto bg-gray-50 px-4 pb-4 sm:px-5 sm:pb-5">
-                <div className="min-w-[760px] overflow-hidden rounded-xl border border-amber-200 bg-white">
+              <div className="bg-gray-50 px-4 pb-4 sm:px-5 sm:pb-5">
+                <div className="mb-3 flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="font-semibold text-gray-800">
+                      전체{" "}
+                      {order.inventory_purchase_order_lines.length.toLocaleString()}
+                      개 품목
+                    </span>
+                    <span className="text-gray-300">·</span>
+                    <span className="font-semibold text-emerald-700">
+                      입고 완료 {closedCompletedLineCount.toLocaleString()}개
+                    </span>
+                    <span className="text-gray-300">·</span>
+                    <span className="font-semibold text-amber-700">
+                      미입고 종료 {closedMissingLines.length.toLocaleString()}개
+                    </span>
+                  </div>
+                  {closedCompletedLineCount > 0 && (
+                    <Button
+                      size="xs"
+                      variant="secondary"
+                      onClick={() =>
+                        setExpandedClosedOrders((current) => ({
+                          ...current,
+                          [order.id]: !current[order.id],
+                        }))
+                      }
+                    >
+                      {expandedClosedOrders[order.id]
+                        ? "미입고 품목만 보기"
+                        : "전체 품목 보기"}
+                    </Button>
+                  )}
+                </div>
+                <div className="overflow-auto">
+                  <div className="min-w-[760px] overflow-hidden rounded-xl border border-amber-200 bg-white">
                 <table className="purchase-order-table purchase-order-table--clean-edges w-full table-fixed border-collapse bg-white text-sm">
                   <thead className="bg-amber-50 text-amber-800">
                     <tr>
@@ -3632,7 +3788,12 @@ function PurchaseOrderList({
                     </tr>
                   </thead>
                   <tbody>
-                    {order.inventory_purchase_order_lines.map((line) => (
+                    {visibleClosedLines.map((line) => {
+                      const missingQuantity = Math.max(
+                        0,
+                        line.ordered_quantity - line.received_quantity,
+                      );
+                      return (
                       <tr key={`closed-${line.id}`}>
                         <td className="border border-gray-200 px-3 py-3 break-words font-semibold">
                           {line.item_name}
@@ -3643,20 +3804,26 @@ function PurchaseOrderList({
                         <td className="border border-gray-200 px-3 py-3 text-right">
                           {line.received_quantity}개
                         </td>
-                        <td className="border border-gray-200 px-3 py-3 text-right font-bold text-amber-700">
-                          {Math.max(
-                            0,
-                            line.ordered_quantity - line.received_quantity,
-                          )}
-                          개
+                        <td
+                          className={`border border-gray-200 px-3 py-3 text-right font-bold ${missingQuantity > 0 ? "text-amber-700" : "text-emerald-700"}`}
+                        >
+                          {missingQuantity}개
                         </td>
                         <td className="border border-gray-200 px-3 py-3 break-words text-gray-600">
-                          {order.closed_reason || "미입고 종료"}
+                          {missingQuantity > 0 ? (
+                            order.closed_reason || "미입고 종료"
+                          ) : (
+                            <span className="font-semibold text-emerald-700">
+                              입고 완료
+                            </span>
+                          )}
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
+                  </div>
                 </div>
               </div>
             )}
@@ -3832,6 +3999,11 @@ function SupplierManageOverlay({
     ]
       .filter(Boolean)
       .join("\n");
+  };
+  const getHomepageHref = (homepageUrl: string) => {
+    const cleanUrl = homepageUrl.trim();
+    if (!cleanUrl) return "";
+    return /^https?:\/\//i.test(cleanUrl) ? cleanUrl : `https://${cleanUrl}`;
   };
   const empty = {
     name: "",
@@ -4112,7 +4284,7 @@ function SupplierManageOverlay({
 
             <fieldset
               disabled={!supplierEditing}
-              className="grid gap-x-4 gap-y-5 disabled:[&_input]:bg-gray-50 disabled:[&_input]:text-gray-700 disabled:[&_textarea]:bg-gray-50 disabled:[&_textarea]:text-gray-700 sm:grid-cols-2"
+              className="grid gap-x-4 gap-y-5 disabled:[&_input]:cursor-default disabled:[&_input]:border-transparent disabled:[&_input]:bg-transparent disabled:[&_input]:px-0 disabled:[&_input]:font-medium disabled:[&_input]:text-gray-900 disabled:[&_textarea]:cursor-default disabled:[&_textarea]:border-transparent disabled:[&_textarea]:bg-transparent disabled:[&_textarea]:p-0 disabled:[&_textarea]:font-medium disabled:[&_textarea]:text-gray-900 sm:grid-cols-2"
             >
               <label className="text-sm font-semibold text-gray-700">
                 거래처명 <span className="text-brand-500">*</span>
@@ -4174,7 +4346,13 @@ function SupplierManageOverlay({
                   className="mt-2 min-h-11 w-full rounded-xl border border-gray-200 px-3 font-normal outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
                 />
               </label>
-              <label className="flex min-h-[70px] cursor-pointer items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+              <label
+                className={`flex min-h-[70px] items-center justify-between rounded-xl border px-4 py-3 ${
+                  supplierEditing
+                    ? "cursor-pointer border-gray-200 bg-gray-50"
+                    : "cursor-default border-transparent bg-transparent px-0"
+                }`}
+              >
                 <div>
                   <p className="text-sm font-semibold text-gray-800">
                     사용 상태
@@ -4183,30 +4361,57 @@ function SupplierManageOverlay({
                     입고 등록 거래처 목록에 표시합니다.
                   </p>
                 </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={form.is_use}
-                  onClick={() => setForm({ ...form, is_use: !form.is_use })}
-                  className={`relative h-7 w-12 rounded-full transition ${form.is_use ? "bg-brand-500" : "bg-gray-300"}`}
-                >
+                {supplierEditing ? (
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={form.is_use}
+                    onClick={() => setForm({ ...form, is_use: !form.is_use })}
+                    className={`relative h-7 w-12 rounded-full transition ${form.is_use ? "bg-brand-500" : "bg-gray-300"}`}
+                  >
+                    <span
+                      className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${form.is_use ? "left-6" : "left-1"}`}
+                    />
+                  </button>
+                ) : (
                   <span
-                    className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${form.is_use ? "left-6" : "left-1"}`}
-                  />
-                </button>
+                    className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                      form.is_use
+                        ? "bg-emerald-50 text-emerald-700"
+                        : "bg-gray-100 text-gray-500"
+                    }`}
+                  >
+                    {form.is_use ? "사용" : "미사용"}
+                  </span>
+                )}
               </label>
               <label className="text-sm font-semibold text-gray-700 sm:col-span-2">
                 홈페이지 링크
-                <input
-                  type="url"
-                  inputMode="url"
-                  value={form.homepage_url}
-                  onChange={(event) =>
-                    setForm({ ...form, homepage_url: event.target.value })
-                  }
-                  placeholder="예: https://example.com"
-                  className="mt-2 min-h-11 w-full rounded-xl border border-gray-200 px-3 font-normal outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
-                />
+                {supplierEditing ? (
+                  <input
+                    type="url"
+                    inputMode="url"
+                    value={form.homepage_url}
+                    onChange={(event) =>
+                      setForm({ ...form, homepage_url: event.target.value })
+                    }
+                    placeholder="예: https://example.com"
+                    className="mt-2 min-h-11 w-full rounded-xl border border-gray-200 px-3 font-normal outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+                  />
+                ) : form.homepage_url.trim() ? (
+                  <a
+                    href={getHomepageHref(form.homepage_url)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 block w-fit cursor-pointer break-all text-sm font-medium text-brand-600 underline decoration-brand-300 underline-offset-4 hover:text-brand-700"
+                  >
+                    {form.homepage_url}
+                  </a>
+                ) : (
+                  <p className="mt-2 text-sm font-medium text-gray-400">
+                    미등록
+                  </p>
+                )}
               </label>
               <label className="text-sm font-semibold text-gray-700 sm:col-span-2">
                 특이사항

@@ -10,6 +10,7 @@ import { KoreanDateRangePicker } from "@/app/_components/KoreanDatePicker";
 import {
   createWorkJournal,
   createWorker,
+  closeHandoverWithoutSuccessor,
   deactivateWorker,
   deleteWorkJournal,
   getWorkJournals,
@@ -54,6 +55,18 @@ const formatKoreanDate = (date: string) => {
     day: "numeric",
     weekday: "long",
   }).format(new Date(`${date}T00:00:00`));
+};
+
+const isWorkEnded = (status?: WorkJournalType["status"]) =>
+  status === "closed" ||
+  status === "handover_pending" ||
+  status === "shift_completed";
+
+const getWorkStatusLabel = (status?: WorkJournalType["status"]) => {
+  if (status === "handover_pending") return "인수인계 대기";
+  if (status === "shift_completed") return "교대 완료";
+  if (status === "closed") return "퇴근 완료";
+  return "근무 중";
 };
 
 export default function WorkJournalPage() {
@@ -254,6 +267,16 @@ export default function WorkJournalPage() {
       await queryClient.invalidateQueries({ queryKey: workJournalKeys.all() });
     },
     onError: () => toast.error("근무 기록 삭제에 실패했습니다."),
+  });
+
+  const closeHandoverMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      closeHandoverWithoutSuccessor(id, reason),
+    onSuccess: async () => {
+      toast.success("교대 없이 퇴근 완료 처리했습니다.");
+      await queryClient.invalidateQueries({ queryKey: workJournalKeys.all() });
+    },
+    onError: () => toast.error("인수인계 대기 종료에 실패했습니다."),
   });
 
   const paymentMutation = useMutation({
@@ -525,9 +548,14 @@ export default function WorkJournalPage() {
           onUpdate={async (workerId, values) => {
             try {
               await updateWorkerDetails(workerId, values);
-              await queryClient.invalidateQueries({
-                queryKey: workJournalKeys.workerDetails(),
-              });
+              await Promise.all([
+                queryClient.invalidateQueries({
+                  queryKey: workJournalKeys.workers(),
+                }),
+                queryClient.invalidateQueries({
+                  queryKey: workJournalKeys.workerDetails(),
+                }),
+              ]);
               toast.success("근무자 정보가 수정되었습니다.");
             } catch {
               toast.error("근무자 정보 수정에 실패했습니다.");
@@ -911,15 +939,17 @@ export default function WorkJournalPage() {
             <Loading size="sm" text="근무 기록을 불러오는 중..." />
           ) : journalsQuery.data?.length ? (
             <div className="overflow-x-auto rounded-lg border border-gray-100">
-              <table className="w-full min-w-[1040px] border-collapse text-sm [&_td]:border [&_td]:border-gray-200 [&_th]:border [&_th]:border-brand-200">
+              <table className="w-full min-w-[1240px] border-collapse text-sm [&_td]:border [&_td]:border-gray-200 [&_th]:border [&_th]:border-brand-200">
                 <thead className="bg-brand-50 text-left text-xs text-brand-700">
                   <tr>
                     <th className="px-3 py-2.5">근무 날짜</th>
                     <th className="px-3 py-2.5">근무자 이름</th>
-                    <th className="px-3 py-2.5">출근</th>
-                    <th className="px-3 py-2.5">예상 퇴근</th>
+                    <th className="px-3 py-2.5">근무 상태</th>
+                    <th className="px-3 py-2.5">실제 출근</th>
                     <th className="px-3 py-2.5">실제 퇴근</th>
                     <th className="px-3 py-2.5 text-right">실제 근무시간</th>
+                    <th className="px-3 py-2.5">입력 출근</th>
+                    <th className="px-3 py-2.5">예상 퇴근</th>
                     <th className="px-3 py-2.5 text-right">입력 근무시간</th>
                     <th className="px-3 py-2.5">특이사항</th>
                     <th className="px-3 py-2.5 text-center">작업</th>
@@ -934,6 +964,39 @@ export default function WorkJournalPage() {
                       <td className="px-3 py-2.5 font-medium text-gray-900">
                         {journal.worker_name}
                       </td>
+                      <td className="px-3 py-2.5 whitespace-nowrap">
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+                            journal.status === "handover_pending"
+                              ? "bg-amber-100 text-amber-700"
+                              : journal.status === "shift_completed"
+                                ? "bg-blue-100 text-blue-700"
+                                : journal.status === "closed"
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : "bg-brand-100 text-brand-700"
+                          }`}
+                        >
+                          {getWorkStatusLabel(journal.status)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        {new Intl.DateTimeFormat("en-GB", {
+                          timeZone: "Asia/Seoul",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          hour12: false,
+                        }).format(new Date(journal.created_at))}
+                      </td>
+                      <td className="px-3 py-2.5">
+                        {isWorkEnded(journal.status)
+                          ? journal.end_time.slice(0, 5)
+                          : "-"}
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-medium">
+                        {isWorkEnded(journal.status)
+                          ? formatHours(Number(journal.work_hours))
+                          : "-"}
+                      </td>
                       <td className="px-3 py-2.5">
                         {journal.start_time.slice(0, 5)}
                       </td>
@@ -941,18 +1004,8 @@ export default function WorkJournalPage() {
                         {journal.expected_end_time?.slice(0, 5) ||
                           journal.end_time.slice(0, 5)}
                       </td>
-                      <td className="px-3 py-2.5">
-                        {journal.status === "closed"
-                          ? journal.end_time.slice(0, 5)
-                          : "-"}
-                      </td>
-                      <td className="px-3 py-2.5 text-right font-medium">
-                        {journal.status === "closed"
-                          ? formatHours(Number(journal.work_hours))
-                          : "-"}
-                      </td>
                       <td className="px-3 py-2.5 text-right font-semibold text-brand-700">
-                        {journal.input_work_hours != null
+                        {Number(journal.input_work_hours ?? 0) > 0
                           ? formatHours(Number(journal.input_work_hours))
                           : "-"}
                       </td>
@@ -963,6 +1016,26 @@ export default function WorkJournalPage() {
                       </td>
                       <td className="px-3 py-2.5 text-center">
                         <div className="flex justify-center gap-1">
+                          {isAdmin &&
+                            journal.status === "handover_pending" && (
+                              <Button
+                                size="xs"
+                                variant="secondary"
+                                disabled={closeHandoverMutation.isPending}
+                                onClick={() => {
+                                  const reason = window.prompt(
+                                    "교대 없이 종료하는 사유를 입력해 주세요.",
+                                  );
+                                  if (!reason?.trim()) return;
+                                  closeHandoverMutation.mutate({
+                                    id: journal.id,
+                                    reason,
+                                  });
+                                }}
+                              >
+                                교대 없이 종료
+                              </Button>
+                            )}
                           <Button
                             size="xs"
                             variant="gray"

@@ -151,6 +151,7 @@ type CustomerValue = {
   name: string;
   phone: string;
   gender: 'male' | 'female';
+  address?: string | null;
   note?: string | null;
 };
 
@@ -162,7 +163,7 @@ export const getUpdateLogNote = (
   const changeObj: Record<string, { old: string | null; new: string | null }> =
     {};
 
-  const fieldNameMap = ['name', 'phone', 'gender', 'note'];
+  const fieldNameMap = ['name', 'phone', 'gender', 'address', 'note'];
 
   const prevValueArray = Object.values(prevValue);
   const newValueArray = Object.values(newValue);

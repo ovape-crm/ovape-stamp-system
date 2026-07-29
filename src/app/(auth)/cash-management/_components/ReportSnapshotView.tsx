@@ -317,6 +317,10 @@ export default function ReportSnapshotView({
               label: item.label,
               value: formatWon(item.amount),
             }))}
+            rowCount={Math.max(ovapePayments.length, eguPayments.length)}
+            total={formatWon(
+              ovapePayments.reduce((sum, item) => sum + item.amount, 0),
+            )}
           />
           <SnapshotList
             title="이구베이프 매출"
@@ -324,12 +328,37 @@ export default function ReportSnapshotView({
               label: item.label,
               value: formatWon(item.amount),
             }))}
+            rowCount={Math.max(ovapePayments.length, eguPayments.length)}
+            total={formatWon(
+              eguPayments.reduce((sum, item) => sum + item.amount, 0),
+            )}
           />
-          <SnapshotList
-            title="총 매출"
-            rows={[{ label: "합계", value: formatWon(snapshot.totalSales) }]}
-            brand
-          />
+          <section className="flex min-h-36 flex-col overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+            <div className="flex min-h-0 flex-1 flex-col p-4">
+              <h3 className="border-b border-gray-200 pb-2 font-bold text-gray-800">
+                시재 현황
+              </h3>
+              <div className="flex flex-1 items-center justify-center py-3">
+                <strong
+                  className={`rounded-full px-4 py-2 text-sm ${
+                    snapshot.cashDifference === 0
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-rose-100 text-rose-700"
+                  }`}
+                >
+                  {snapshot.cashDifference === 0 ? "일치" : "불일치"}
+                </strong>
+              </div>
+            </div>
+            <div className="flex min-h-0 flex-1 flex-col border-t border-gray-200 p-4">
+              <h3 className="border-b border-gray-200 pb-2 font-bold text-gray-800">
+                총 매출
+              </h3>
+              <strong className="flex flex-1 items-center justify-center py-3 text-2xl text-brand-700">
+                {formatWon(snapshot.totalSales)}
+              </strong>
+            </div>
+          </section>
           <SnapshotList
             title="판매종류 및 수량"
             rows={(snapshot.itemSummary ?? []).map((item) => ({
@@ -338,23 +367,6 @@ export default function ReportSnapshotView({
             }))}
           />
         </div>
-
-        <ReportSection title="시재 현황">
-          <div className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
-            <span className="text-sm text-gray-600">
-              실제 시재와 저장된 시재 비교
-            </span>
-            <strong
-              className={
-                snapshot.cashDifference === 0
-                  ? "text-emerald-700"
-                  : "text-rose-700"
-              }
-            >
-              {snapshot.cashDifference === 0 ? "일치" : "불일치"}
-            </strong>
-          </div>
-        </ReportSection>
 
         <div className="grid gap-4 lg:grid-cols-2">
           <SnapshotChecklist
@@ -403,14 +415,18 @@ function SnapshotList({
   title,
   rows,
   brand = false,
+  rowCount = rows.length,
+  total,
 }: {
   title: string;
   rows: Array<{ label: string; value: string }>;
   brand?: boolean;
+  rowCount?: number;
+  total?: string;
 }) {
   return (
     <section
-      className={`min-h-36 rounded-xl border p-4 ${
+      className={`flex min-h-36 flex-col rounded-xl border p-4 ${
         brand
           ? "border-brand-200 bg-brand-50"
           : "border-gray-200 bg-gray-50"
@@ -425,9 +441,11 @@ function SnapshotList({
       >
         {title}
       </h3>
-      <div className="mt-3 space-y-2">
-        {rows.length ? (
-          rows.map((row, index) => (
+      <div className="mt-3 flex flex-1 flex-col">
+        <div className="space-y-2">
+          {Array.from({ length: rowCount }, (_, index) => {
+            const row = rows[index];
+            return row ? (
             <div
               key={`${row.label}-${index}`}
               className="flex justify-between gap-3 border-b border-gray-200 pb-1.5 text-sm last:border-b-0"
@@ -435,9 +453,20 @@ function SnapshotList({
               <span className="text-gray-600">{row.label}</span>
               <strong>{row.value}</strong>
             </div>
-          ))
-        ) : (
-          <p className="text-sm text-gray-400">내역 없음</p>
+            ) : (
+              <div
+                key={`empty-${index}`}
+                aria-hidden="true"
+                className="h-[26px] border-b border-transparent"
+              />
+            );
+          })}
+        </div>
+        {total && (
+          <div className="mt-auto flex items-center justify-between gap-3 border-t border-gray-300 pt-2.5 text-sm">
+            <strong className="text-gray-700">합계</strong>
+            <strong className="text-brand-700">{total}</strong>
+          </div>
         )}
       </div>
     </section>

@@ -63,7 +63,7 @@ export default function ChecklistManagement() {
           <div>
             <h2 className="font-bold text-gray-900">현재 체크리스트</h2>
             <p className="mt-1 text-xs text-gray-500">
-              당일 마감보고서에 현재 표시되는 항목입니다.
+              변경 이후 작성하는 마감보고서에 적용되는 항목입니다.
             </p>
           </div>
           <Button
@@ -170,7 +170,7 @@ function ChecklistEditor({
       <div>
         <h2 className="font-bold text-gray-900">변경될 체크리스트</h2>
         <p className="mt-1 text-xs text-gray-500">
-          저장하면 당일 마감보고서에 동일하게 적용됩니다.
+          저장 이후의 보고서부터 적용되며 기존 마감보고서는 유지됩니다.
         </p>
       </div>
       <div className="mt-4 grid gap-4 lg:grid-cols-2">

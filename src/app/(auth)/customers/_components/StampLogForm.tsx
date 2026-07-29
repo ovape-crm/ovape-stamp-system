@@ -15,6 +15,7 @@ import type {
   StampLogMeta,
 } from "@/app/_domains/_stamp/_services/stampService";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { CustomerMode } from "@/app/_domains/_customer/_utils/specialCustomer";
 
 const ovapePaymentTypes = [
   PaymentTypeEnum.CARD,
@@ -131,7 +132,7 @@ export default function StampLogForm({
   }) => void;
   /** step 모드에서 2번 스텝의 출고 특이사항 입력 오른쪽에 함께 렌더링할 요소 (예: 출고 예약 토글) */
   reservationSlot?: React.ReactNode;
-  customerMode?: "normal" | "demo" | "adjustment";
+  customerMode?: CustomerMode;
 }) {
   const [paymentType, setPaymentType] = useState<
     PaymentTypeEnumType["value"] | ""
@@ -149,6 +150,7 @@ export default function StampLogForm({
   const [exchangeMemo, setExchangeMemo] = useState("");
   const [priceAdjustAmount, setPriceAdjustAmount] = useState("0");
   const [priceAdjustMemo, setPriceAdjustMemo] = useState("");
+  const [operationMemo, setOperationMemo] = useState("");
   const [draftLines, setDraftLines] = useState<DraftStampLogLine[]>(
     () =>
       initialValue?.logMeta?.items?.map((item, index) => ({
@@ -188,7 +190,10 @@ export default function StampLogForm({
   const { items, isLoading: isItemsLoading } = useItems(itemFilters);
 
   const paymentTypeOptions = paymentTypesByStore[storeName];
-  const isSpecialCustomer = customerMode !== "normal";
+  const isNonSalesSpecialCustomer =
+    customerMode === "demo" || customerMode === "adjustment";
+  const usesStandardSalesFlow =
+    customerMode === "normal" || customerMode === "x";
   const visibleRemarkOptions =
     customerMode === "adjustment"
       ? ([
@@ -221,12 +226,12 @@ export default function StampLogForm({
       : amountExpression;
 
   useEffect(() => {
-    if (!isSpecialCustomer) return;
+    if (!isNonSalesSpecialCustomer) return;
     setPaymentType(PaymentTypeEnum.SHIPMENT_REMARK.value);
     setAmount(0);
     setDiscountType("");
     setDiscountAmount(0);
-  }, [isSpecialCustomer]);
+  }, [isNonSalesSpecialCustomer]);
 
   useEffect(() => {
     if (customerMode === "demo") setRemarkType("demo");
@@ -242,6 +247,7 @@ export default function StampLogForm({
     setExchangeMemo("");
     setPriceAdjustAmount("0");
     setPriceAdjustMemo("");
+    setOperationMemo("");
   };
 
   const getItemLabel = (item: ItemType) => {
@@ -351,7 +357,7 @@ export default function StampLogForm({
     setItemSearch("");
     setShowItemResults(false);
     if (
-      customerMode === "normal" &&
+      usesStandardSalesFlow &&
       item.item_categories?.name.trim() === "기기"
     ) {
       setRemarkType("custom");
@@ -385,14 +391,15 @@ export default function StampLogForm({
       remarkType === "exchange_in" || remarkType === "exchange_out";
     const exchangeLabel =
       remarkType === "exchange_in" ? "교환입고" : "교환출고";
+    const optionalOperationMemo = operationMemo.trim();
     const remark =
       customerMode === "demo"
-        ? "시연용"
+        ? `시연용${optionalOperationMemo ? `,${optionalOperationMemo}` : ""}`
         : customerMode === "adjustment"
           ? remarkType === "adjustment_in"
-            ? "입고처리"
+            ? `입고처리${optionalOperationMemo ? `,${optionalOperationMemo}` : ""}`
             : remarkType === "adjustment_out"
-              ? "출고처리"
+              ? `출고처리${optionalOperationMemo ? `,${optionalOperationMemo}` : ""}`
               : ""
           : isExchange
             ? `${exchangeLabel}${exchangeMemo.trim() ? `(${exchangeMemo.trim()})` : ""}`
@@ -405,7 +412,7 @@ export default function StampLogForm({
                   : (remarkOptions.find((option) => option.value === remarkType)
                       ?.name ?? "");
     const isFreeRemark =
-      customerMode !== "normal" || remarkType === "service" || isExchange;
+      isNonSalesSpecialCustomer || remarkType === "service" || isExchange;
     const lineAmount = isFreeRemark
       ? 0
       : remarkType === "price_adjust"
@@ -596,7 +603,9 @@ export default function StampLogForm({
       </div>
       {!isStampAmountEditable ? (
         <p className="mt-1.5 text-xs text-gray-400">
-          수정 시 스탬프 개수는 변경되지 않습니다.
+          {customerMode === "x"
+            ? "미적립 고객은 스탬프가 적립되지 않습니다."
+            : "수정 시 스탬프 개수는 변경되지 않습니다."}
         </p>
       ) : (
         amount === 0 && (
@@ -767,6 +776,25 @@ export default function StampLogForm({
         </div>
       )}
 
+      {(customerMode === "demo" || customerMode === "adjustment") && (
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700">
+            처리 메모
+          </label>
+          <input
+            type="text"
+            value={operationMemo}
+            onChange={(event) => setOperationMemo(event.target.value)}
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+            placeholder={
+              customerMode === "demo"
+                ? "시연용 처리 메모 (선택)"
+                : "입고·출고 처리 메모 (선택)"
+            }
+          />
+        </div>
+      )}
+
       {(remarkType === "exchange_in" || remarkType === "exchange_out") && (
         <input
           type="text"
@@ -819,7 +847,7 @@ export default function StampLogForm({
         <p className="text-xs text-gray-500">
           {selectedItem
             ? `${selectedItem.item_name} / ${formatAmount(
-                customerMode !== "normal" ||
+                isNonSalesSpecialCustomer ||
                   remarkType === "service" ||
                   remarkType === "exchange_in" ||
                   remarkType === "exchange_out"
@@ -998,7 +1026,7 @@ export default function StampLogForm({
         onChange={(e) => setExtraNote(e.target.value)}
         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm"
         placeholder={
-          isSpecialCustomer
+          isNonSalesSpecialCustomer
             ? "특이사항을 적어주세요. (선택)"
             : "배달지주소 , 네이버톡톡 : 아이디"
         }
@@ -1015,7 +1043,7 @@ export default function StampLogForm({
         <div className="space-y-5">
           <div className={step === 1 ? "space-y-5" : "hidden"}>
             {storeField}
-            {isSpecialCustomer ? (
+            {isNonSalesSpecialCustomer ? (
               <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
                 <span className="text-sm font-medium text-gray-600">
                   결제 유형
@@ -1036,7 +1064,7 @@ export default function StampLogForm({
               <div className="min-w-0">{itemSelectionField}</div>
               <div className="min-w-0">{itemListField}</div>
             </div>
-            {!isSpecialCustomer && (
+            {!isNonSalesSpecialCustomer && (
               <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2 lg:items-start">
                 <div className="min-w-0">{discountField}</div>
                 <div className="min-w-0">{amountField}</div>
@@ -1044,7 +1072,7 @@ export default function StampLogForm({
             )}
             <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2 lg:items-start">
               <div className="min-w-0 w-full">{extraNoteField}</div>
-              {!isSpecialCustomer && (
+              {!isNonSalesSpecialCustomer && (
                 <div className="min-w-0">{reservationSlot}</div>
               )}
             </div>

@@ -7,6 +7,7 @@ interface CustomerInfoProps {
     name: string;
     phone: string;
     gender?: 'male' | 'female';
+    address?: string | null;
     note?: string | null;
     created_at: string;
   };
@@ -89,6 +90,14 @@ const CustomerInfo = ({ customer, onEdit }: CustomerInfoProps) => {
             ? customer?.note
             : '—'}
         </p>
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-gray-500 mb-1">
+            주소지
+          </label>
+          <p className="text-sm text-gray-800 whitespace-pre-wrap">
+            {customer.address?.trim() || '—'}
+          </p>
+        </div>
       </div>
     </section>
   );

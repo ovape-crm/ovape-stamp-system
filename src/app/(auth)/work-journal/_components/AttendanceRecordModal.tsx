@@ -31,6 +31,18 @@ const getCurrentTimeInKorea = () =>
     hour12: false,
   }).format(new Date());
 
+const getCreatedTimeInKorea = (createdAt?: string) => {
+  if (!createdAt) return getCurrentTimeInKorea();
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return "-";
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Seoul",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
+};
+
 const calculateHours = (start: string, end: string) => {
   const [startHour, startMinute] = start.split(":").map(Number);
   const [endHour, endMinute] = end.split(":").map(Number);
@@ -54,8 +66,16 @@ export default function AttendanceRecordModal({
 }) {
   const today = getTodayInKorea();
   const isEditing = Boolean(editingJournal);
+  const isPastJournal = Boolean(
+    editingJournal && editingJournal.work_date < today,
+  );
   const initialMode =
-    editingJournal?.status === "closed" ? "end" : editingJournal ? "start" : "";
+    editingJournal &&
+    (editingJournal.status !== "working" || isPastJournal)
+      ? "end"
+      : editingJournal
+        ? "start"
+        : "";
   const [step, setStep] = useState<1 | 2>(editingJournal ? 2 : 1);
   const [workDate, setWorkDate] = useState(
     editingJournal?.work_date ?? today,
@@ -69,6 +89,9 @@ export default function AttendanceRecordModal({
   const [startTime, setStartTime] = useState(
     editingJournal?.start_time.slice(0, 5) ?? getCurrentTimeInKorea(),
   );
+  const [actualStartTime, setActualStartTime] = useState(() =>
+    getCreatedTimeInKorea(editingJournal?.created_at),
+  );
   const [expectedEndTime, setExpectedEndTime] = useState(
     editingJournal?.expected_end_time?.slice(0, 5) ??
       editingJournal?.end_time.slice(0, 5) ??
@@ -81,8 +104,9 @@ export default function AttendanceRecordModal({
     editingJournal?.work_type ?? "solo",
   );
   const [note, setNote] = useState(editingJournal?.note ?? "");
+  const initialInputWorkHours = Number(editingJournal?.input_work_hours ?? 0);
   const [inputWorkHours, setInputWorkHours] = useState(
-    String(editingJournal?.input_work_hours ?? 0),
+    initialInputWorkHours > 0 ? String(initialInputWorkHours) : "",
   );
   const [verifying, setVerifying] = useState(false);
 
@@ -107,12 +131,12 @@ export default function AttendanceRecordModal({
   const isShiftRequired =
     !editingJournal && previousJournal?.work_type === "shift";
   const openJournal =
-    selectedJournal && selectedJournal.status !== "closed"
+    selectedJournal && selectedJournal.status === "working"
       ? selectedJournal
       : null;
   const checkoutJournal = editingJournal ?? openJournal;
   const checkoutHours = checkoutJournal
-    ? calculateHours(checkoutJournal.start_time.slice(0, 5), actualEndTime)
+    ? calculateHours(actualStartTime, actualEndTime)
     : 0;
   const title =
     mode === "start"
@@ -201,10 +225,15 @@ export default function AttendanceRecordModal({
         ),
         inputWorkHours: Number(inputWorkHours),
         note: note || openJournal.note || "",
+        workType: openJournal.work_type ?? "solo",
       });
     },
     onSuccess: async () => {
-      toast.success("퇴근 기록을 확정했습니다.");
+      toast.success(
+        openJournal?.work_type === "shift"
+          ? "퇴근 기록을 저장하고 인수인계 대기로 전환했습니다."
+          : "퇴근 기록을 확정했습니다.",
+      );
       await onSaved();
       onClose();
     },
@@ -220,7 +249,13 @@ export default function AttendanceRecordModal({
   const updateMutation = useMutation({
     mutationFn: () => {
       if (!editingJournal) throw new Error("WORK_JOURNAL_NOT_FOUND");
-      const status = mode === "end" ? "closed" : "working";
+      const status =
+        mode === "start"
+          ? "working"
+          : editingJournal.status === "handover_pending" ||
+              editingJournal.status === "shift_completed"
+            ? editingJournal.status
+            : "closed";
       return updateAttendanceJournal(editingJournal.id, {
         workDate,
         workerName,
@@ -228,14 +263,15 @@ export default function AttendanceRecordModal({
         expectedEndTime,
         actualEndTime,
         workHours:
-          status === "closed"
+          status !== "working"
             ? checkoutHours
             : calculateHours(startTime, expectedEndTime),
         inputWorkHours:
-          status === "closed" ? Number(inputWorkHours) : null,
+          status !== "working" ? Number(inputWorkHours) : null,
         note,
         workType,
         status,
+        actualStartTime: isAdmin ? actualStartTime : undefined,
       });
     },
     onSuccess: async () => {
@@ -259,6 +295,7 @@ export default function AttendanceRecordModal({
     setMode(nextMode);
     if (nextMode === "end" && openJournal) {
       setStartTime(openJournal.start_time.slice(0, 5));
+      setActualStartTime(getCreatedTimeInKorea(openJournal.created_at));
       setExpectedEndTime(
         openJournal.expected_end_time?.slice(0, 5) ||
           openJournal.end_time.slice(0, 5),
@@ -267,7 +304,7 @@ export default function AttendanceRecordModal({
       setNote(openJournal.note ?? "");
       const currentTime = getCurrentTimeInKorea();
       setActualEndTime(currentTime);
-      setInputWorkHours("0");
+      setInputWorkHours("");
     }
   };
 
@@ -458,8 +495,20 @@ export default function AttendanceRecordModal({
           ) : mode === "start" ? (
             <div className="space-y-4">
               <div className="grid gap-3 sm:grid-cols-2">
+                {isAdmin && isEditing ? (
+                  <TimeField
+                    label="실제 출근시간"
+                    value={actualStartTime}
+                    onChange={setActualStartTime}
+                  />
+                ) : (
+                  <ReadOnlyField
+                    label="실제 출근시간"
+                    value={actualStartTime}
+                  />
+                )}
                 <TimeField
-                  label="출근시간"
+                  label="입력 출근시간"
                   value={startTime}
                   onChange={setStartTime}
                 />
@@ -492,19 +541,45 @@ export default function AttendanceRecordModal({
             </div>
           ) : (
             <div className="space-y-4">
+              {isAdmin && isEditing && (
+                <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+                  관리자 보정 모드입니다. 실제 출근·퇴근시간과 입력
+                  근무시간을 수정하면 실제 근무시간이 자동 계산됩니다.
+                </p>
+              )}
               <div className="grid gap-3 sm:grid-cols-2">
+                {isAdmin && isEditing ? (
+                  <TimeField
+                    label="실제 출근시간"
+                    value={actualStartTime}
+                    onChange={setActualStartTime}
+                  />
+                ) : (
+                  <ReadOnlyField
+                    label="실제 출근시간"
+                    value={actualStartTime}
+                  />
+                )}
                 <ReadOnlyField
-                  label="입력된 출근시간"
+                  label="입력 출근시간"
                   value={startTime}
                 />
                 <ReadOnlyField
                   label="예상 퇴근시간"
                   value={expectedEndTime}
                 />
-                <ReadOnlyField
-                  label="실제 퇴근시간"
-                  value={actualEndTime}
-                />
+                {isAdmin && isEditing ? (
+                  <TimeField
+                    label="실제 퇴근시간"
+                    value={actualEndTime}
+                    onChange={setActualEndTime}
+                  />
+                ) : (
+                  <ReadOnlyField
+                    label="실제 퇴근시간"
+                    value={actualEndTime}
+                  />
+                )}
                 <ReadOnlyField
                   label="실제 근무시간"
                   value={`${checkoutHours}시간`}

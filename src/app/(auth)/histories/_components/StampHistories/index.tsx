@@ -168,6 +168,10 @@ const StampHistories = ({
       open({
         content: (
           <StampLogEditModal
+            target={{
+              name: log.customers.name,
+              phone: log.customers.phone,
+            }}
             initialAction={log.action}
             initialPaymentType={
               log.jsonb?.paymentType as

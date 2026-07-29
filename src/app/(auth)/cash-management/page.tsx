@@ -208,6 +208,19 @@ export default function CashManagementPage() {
     setNote('');
   }, [dayQuery.data]);
 
+  const loadPreviousCashCounts = () => {
+    const previousClosing = dayQuery.data?.previousClosing;
+    if (!previousClosing) {
+      toast.error('불러올 전날 시재가 없습니다.');
+      return;
+    }
+    setCashCounts({
+      ...emptyCashCounts(),
+      ...previousClosing.cash_counts,
+    });
+    toast.success('전날 시재를 불러왔습니다.');
+  };
+
   const actualCash = useMemo(
     () =>
       CASH_DENOMINATIONS.reduce(
@@ -473,9 +486,19 @@ export default function CashManagementPage() {
 
       <section className="grid items-stretch gap-5 xl:grid-cols-2">
         <div className="flex h-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-brand-200 bg-brand-50 px-5 py-4">
+          <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-5 py-4">
             <div>
-              <h2 className="font-semibold text-gray-900">실제 현금 입력</h2>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="font-semibold text-gray-900">실제 현금 입력</h2>
+                <Button
+                  size="xs"
+                  variant="gray"
+                  onClick={loadPreviousCashCounts}
+                  className="border-gray-200 bg-white/80 text-[11px] text-gray-600 shadow-xs hover:border-brand-200 hover:text-brand-700"
+                >
+                  전날 시재 불러오기
+                </Button>
+              </div>
               <p className="mt-1 text-xs text-gray-500">
                 지폐와 동전의 개수를 입력하세요.
               </p>
@@ -521,7 +544,7 @@ export default function CashManagementPage() {
         </div>
 
         <div className="flex h-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-          <div className="border-b border-brand-200 bg-brand-50 px-5 py-4">
+          <div className="border-b border-gray-200 bg-gray-50 px-5 py-4">
             <h2 className="font-semibold text-gray-900">근무 및 시재 정산</h2>
             <p className="mt-1 text-xs text-gray-500">근무 정보와 입출금 내역을 확인하고 시재를 저장하세요.</p>
           </div>

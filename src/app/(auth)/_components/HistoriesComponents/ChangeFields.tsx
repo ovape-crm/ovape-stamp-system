@@ -2,6 +2,7 @@ const fieldMap = {
   name: '이름',
   phone: '전화번호',
   gender: '성별',
+  address: '주소지',
   note: '특이사항',
   customer_id: '고객 ID',
   item_type: '기기 종류',

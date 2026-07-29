@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Button from '@/app/_components/Button';
 
 interface RemarkLogCreateModalProps {
@@ -25,14 +25,26 @@ const RemarkLogCreateModal = ({
   placeholder = '특이사항을 입력하세요',
 }: RemarkLogCreateModalProps) => {
   const [note, setNote] = useState(initialNote);
+  const [isLocalSubmitting, setIsLocalSubmitting] = useState(false);
+  const submitLockRef = useRef(false);
+  const isPending = isSubmitting || isLocalSubmitting;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!note.trim()) {
+    if (!note.trim() || isPending || submitLockRef.current) {
       return;
     }
-    await onSubmit(note.trim());
-    if (mode === 'create') setNote('');
+
+    submitLockRef.current = true;
+    setIsLocalSubmitting(true);
+
+    try {
+      await onSubmit(note.trim());
+      if (mode === 'create') setNote('');
+    } finally {
+      submitLockRef.current = false;
+      setIsLocalSubmitting(false);
+    }
   };
 
   return (
@@ -51,7 +63,7 @@ const RemarkLogCreateModal = ({
             onChange={(e) => setNote(e.target.value)}
             className="w-full min-h-32 rounded border border-brand-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 resize-none"
             placeholder={placeholder}
-            disabled={isSubmitting}
+            disabled={isPending}
             rows={6}
           />
         </div>
@@ -61,7 +73,7 @@ const RemarkLogCreateModal = ({
         <Button
           size="sm"
           variant="gray"
-          disabled={isSubmitting}
+          disabled={isPending}
           onClick={onCancel}
           type="button"
         >
@@ -70,9 +82,9 @@ const RemarkLogCreateModal = ({
         <Button
           size="sm"
           type="submit"
-          disabled={isSubmitting || !note.trim()}
+          disabled={isPending || !note.trim()}
         >
-          {isSubmitting
+          {isPending
             ? mode === 'create'
               ? '추가 중...'
               : '저장 중...'

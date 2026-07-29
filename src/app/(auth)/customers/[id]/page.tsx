@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCustomer } from "@/app/_domains/_customer/_hooks/useCustomer";
 import { useLogsByCustomerId } from "@/app/_domains/_log/_hooks/useLogsByCustomerId";
@@ -32,6 +32,7 @@ import {
 import { PaymentTypeEnum } from "@/app/_enums/enums";
 import { customerKeys } from "@/app/_domains/_customer/_queryKeys/customerKeys";
 import { logKeys } from "@/app/_domains/_log/_queryKeys/logKeys";
+import { isSpecialCustomer as checkSpecialCustomer } from "@/app/_domains/_customer/_utils/specialCustomer";
 
 const PAGE_SIZE = 10;
 
@@ -39,6 +40,7 @@ export default function CustomerDetailPage() {
   const { isAdmin } = useUser();
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const customerId = params.id as string;
   const { open, close } = useModal();
   const queryClient = useQueryClient();
@@ -89,6 +91,7 @@ export default function CustomerDetailPage() {
     name: string;
     phone: string;
     gender: "male" | "female";
+    address?: string;
     note?: string;
   }) => {
     try {
@@ -160,8 +163,10 @@ export default function CustomerDetailPage() {
   }
 
   const stampCount = customer.stamps?.[0]?.count || 0;
-  const isSpecialCustomer =
-    customer.name.trim() === "시연용" || customer.name.trim() === "재고조정";
+  const isSpecialCustomer = checkSpecialCustomer(
+    customer.name,
+    customer.phone,
+  );
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10">
@@ -201,10 +206,15 @@ export default function CustomerDetailPage() {
         <div className="flex-1 self-stretch">
           <StampSection
             stampCount={stampCount}
+            autoOpenOutbound={searchParams.get("openOutbound") === "1"}
+            onAutoOpenHandled={() =>
+              router.replace(`/customers/${customerId}`, { scroll: false })
+            }
             target={{
               id: customerId,
               name: customer.name,
               phone: customer.phone,
+              gender: customer.gender,
               note: customer.note,
             }}
             onUpdate={handleUpdate}
@@ -282,6 +292,7 @@ export default function CustomerDetailPage() {
                   phone: customer.phone,
                   name: customer.name,
                   gender: customer.gender,
+                  note: customer.note,
                 }}
                 logs={logs}
                 isLoading={logsLoading}
