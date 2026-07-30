@@ -32,6 +32,17 @@ export type StampLogMeta = {
   storeName?: StoreTypeEnumType['value'];
   totalAmount?: number;
   extraNote?: string;
+  reservationDate?: string;
+  deliveryMethod?: 'store_visit' | 'parcel' | 'delivery';
+  deliveryAddressSource?: 'registered' | 'new';
+  deliveryAddress?: string;
+  deliveryMemo?: string;
+  deliveryFee?: number;
+  payments?: Array<{
+    paymentType: PaymentTypeEnumType['value'];
+    paymentTypeName: string;
+    amount: number;
+  }>;
   discount?: {
     type: string;
     name: string;

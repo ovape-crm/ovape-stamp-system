@@ -130,7 +130,12 @@ const CustomerList = ({
               </tr>
             ) : (
               customers.map((customer, index) => {
-                const stampCount = customer.stamps?.[0]?.count || 0;
+                const isNoStampCustomer =
+                  customer.name.trim() === "X" &&
+                  customer.phone.trim() === "X";
+                const stampCount = isNoStampCustomer
+                  ? 0
+                  : customer.stamps?.[0]?.count || 0;
 
                 return (
                   <tr

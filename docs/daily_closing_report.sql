@@ -98,12 +98,42 @@ create table if not exists public.daily_closing_checklist_items (
   label text not null check (length(trim(label)) > 0),
   sort_order integer not null default 0,
   is_required boolean not null default false,
+  is_opening_gate boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
 alter table public.daily_closing_checklist_items
-  add column if not exists is_required boolean not null default false;
+  add column if not exists is_required boolean not null default false,
+  add column if not exists is_opening_gate boolean not null default false;
+
+create table if not exists public.daily_opening_checklist_progress (
+  business_date date primary key,
+  checks jsonb not null default '{}'::jsonb,
+  updated_by uuid not null references auth.users(id),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.daily_opening_checklist_progress enable row level security;
+
+drop policy if exists "authenticated users can read opening checklist progress"
+  on public.daily_opening_checklist_progress;
+create policy "authenticated users can read opening checklist progress"
+  on public.daily_opening_checklist_progress for select
+  to authenticated using (true);
+
+drop policy if exists "authenticated users can insert opening checklist progress"
+  on public.daily_opening_checklist_progress;
+create policy "authenticated users can insert opening checklist progress"
+  on public.daily_opening_checklist_progress for insert
+  to authenticated with check (auth.uid() = updated_by);
+
+drop policy if exists "authenticated users can update opening checklist progress"
+  on public.daily_opening_checklist_progress;
+create policy "authenticated users can update opening checklist progress"
+  on public.daily_opening_checklist_progress for update
+  to authenticated using (true)
+  with check (auth.uid() = updated_by);
 
 alter table public.daily_closing_checklist_items enable row level security;
 
@@ -181,6 +211,12 @@ from (
 where not exists (
   select 1 from public.daily_closing_checklist_items
 );
+
+update public.daily_closing_checklist_items
+set is_opening_gate = true,
+    updated_at = now()
+where phase = 'opening'
+  and sort_order between 0 and 3;
 
 drop function if exists public.complete_daily_closing_report(
   date, text, text, jsonb, jsonb, text, text, integer, integer, integer

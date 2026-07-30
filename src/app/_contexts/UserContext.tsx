@@ -9,7 +9,10 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import supabase from "@/libs/supabaseClient";
+import supabase, {
+  clearLocalSupabaseSession,
+  isInvalidRefreshTokenError,
+} from "@/libs/supabaseClient";
 import Loading from "@/app/_components/Loading";
 import { UserType } from "@/app/_domains/_user/_types/user.types";
 
@@ -41,8 +44,17 @@ export const UserProvider = ({
       const { data: sessionData, error: sessionError } =
         await supabase.auth.getSession();
 
+      if (sessionError) {
+        if (isInvalidRefreshTokenError(sessionError)) {
+          await clearLocalSupabaseSession();
+        } else {
+          console.error("Session fetch error:", sessionError);
+        }
+      }
+
       if (sessionError || !sessionData.session) {
         setUser(null);
+        setIsAdmin(false);
         // requireAuth가 true면 로그인 페이지로 리다이렉트
         if (requireAuth) {
           router.push("/login");
@@ -71,8 +83,13 @@ export const UserProvider = ({
       setUser(userData);
       setIsAdmin(userData.oss_role === "admin");
     } catch (error) {
-      console.error("Error fetching user:", error);
+      if (isInvalidRefreshTokenError(error)) {
+        await clearLocalSupabaseSession();
+      } else {
+        console.error("Error fetching user:", error);
+      }
       setUser(null);
+      setIsAdmin(false);
       if (requireAuth) {
         router.push("/login");
       }

@@ -5,6 +5,8 @@ import type {
   InventoryMovement,
   InventoryTrackingSettings,
   InventorySupplier,
+  PurchaseAdjustmentCategory,
+  PurchaseOrderAdjustment,
   PurchaseOrder,
 } from "../_types/inventory.types";
 
@@ -14,6 +16,10 @@ export const inventoryKeys = {
   movements: ["inventory", "movements"] as const,
   suppliers: ["inventory", "suppliers"] as const,
   purchaseOrders: ["inventory", "purchase-orders"] as const,
+  purchaseAdjustmentCategories: [
+    "inventory",
+    "purchase-adjustment-categories",
+  ] as const,
 };
 
 export const normalizeInventoryItemName = (value: string) =>
@@ -322,7 +328,7 @@ export const getPurchaseOrders = async (
   const { data, error } = await supabase
     .from("inventory_purchase_orders")
     .select(
-      `*, inventory_suppliers(name), inventory_purchase_order_lines(${lineColumns}), inventory_purchase_receipts(id, arrived_on, note, created_at, reversed_at, inventory_purchase_receipt_lines(id, order_line_id, item_name, quantity, note, quantity_check_note))`,
+      `*, inventory_suppliers(name), inventory_purchase_order_lines(${lineColumns}), inventory_purchase_receipts(id, arrived_on, note, created_at, reversed_at, inventory_purchase_receipt_lines(id, order_line_id, item_name, quantity, note, quantity_check_note)), inventory_purchase_order_adjustments(id, category_id, category_name, kind, amount, note)`,
     )
     .order("created_at", { ascending: false });
   if (!error) return (data ?? []) as unknown as PurchaseOrder[];
@@ -340,6 +346,7 @@ export const getPurchaseOrders = async (
   if (legacyError) throw legacyError;
   return (legacyData ?? []).map((order) => ({
     ...order,
+    inventory_purchase_order_adjustments: [],
     inventory_purchase_order_lines: order.inventory_purchase_order_lines.map(
       (line: Record<string, unknown>) => ({
         ...line,
@@ -363,6 +370,95 @@ export const getPurchaseOrders = async (
       }),
     ),
   })) as unknown as PurchaseOrder[];
+};
+
+export const getPurchaseAdjustmentCategories = async (
+  includeInactive = false,
+): Promise<PurchaseAdjustmentCategory[]> => {
+  let query = supabase
+    .from("inventory_purchase_adjustment_categories")
+    .select("id, name, kind, sort_order, is_active")
+    .order("kind")
+    .order("sort_order")
+    .order("name");
+  if (!includeInactive) query = query.eq("is_active", true);
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []) as PurchaseAdjustmentCategory[];
+};
+
+export const savePurchaseAdjustmentCategory = async (values: {
+  id?: string;
+  name: string;
+  kind: PurchaseAdjustmentCategory["kind"];
+}): Promise<void> => {
+  const { error } = await supabase.rpc(
+    "save_inventory_purchase_adjustment_category",
+    {
+      p_id: values.id ?? null,
+      p_name: values.name.trim(),
+      p_kind: values.kind,
+    },
+  );
+  if (error) throw error;
+};
+
+export const deactivatePurchaseAdjustmentCategory = async (
+  id: string,
+): Promise<void> => {
+  const { error } = await supabase.rpc(
+    "deactivate_inventory_purchase_adjustment_category",
+    { p_id: id },
+  );
+  if (error) throw error;
+};
+
+export const savePurchaseOrderAdjustments = async (
+  orderId: string,
+  adjustments: Array<
+    Pick<
+      PurchaseOrderAdjustment,
+      "category_id" | "category_name" | "kind" | "amount" | "note"
+    >
+  >,
+): Promise<void> => {
+  const { error } = await supabase.rpc(
+    "save_inventory_purchase_order_adjustments",
+    {
+      p_order_id: orderId,
+      p_adjustments: adjustments,
+    },
+  );
+  if (error) throw error;
+};
+
+export const updatePurchaseOrderDetails = async (values: {
+  orderId: string;
+  supplierId: string;
+  orderedOn: string;
+  note: string;
+  lines: Array<{
+    id: string;
+    item_name: string;
+    ordered_quantity: number;
+    unit_price: number | null;
+    note: string;
+  }>;
+  receipts: Array<{
+    id: string;
+    arrived_on: string;
+    note: string;
+  }>;
+}): Promise<void> => {
+  const { error } = await supabase.rpc("update_inventory_purchase_order_details", {
+    p_order_id: values.orderId,
+    p_supplier_id: values.supplierId,
+    p_ordered_on: values.orderedOn,
+    p_note: values.note || null,
+    p_lines: values.lines,
+    p_receipts: values.receipts,
+  });
+  if (error) throw error;
 };
 export const createPurchaseOrder = async (
   supplierId: string,

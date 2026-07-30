@@ -1,14 +1,54 @@
 interface StampCardsProps {
   count: number;
+  compact?: boolean;
+  pendingAmount?: number;
 }
 
-const StampCards = ({ count }: StampCardsProps) => {
+const StampCards = ({
+  count,
+  compact = false,
+  pendingAmount = 0,
+}: StampCardsProps) => {
   const completedCards = Math.floor(count / 10); // 완성된 카드 수
   const currentStamps = count % 10; // 현재 카드의 스탬프 수
   const hasCurrentCard = count > 0; // 현재 진행 중인 카드가 있는지
 
   // 5x2 그리드 (총 10칸)
   const stampSlots = Array.from({ length: 10 }, (_, i) => i);
+
+  if (compact) {
+    const projectedStamps = currentStamps + pendingAmount;
+    const hasRolledOver = projectedStamps >= 10;
+    const previewCount = hasRolledOver
+      ? projectedStamps % 10
+      : projectedStamps;
+    return (
+      <div className="rounded-xl border border-gray-200 bg-white px-4 py-4 shadow-sm">
+        <div className="grid grid-cols-10 gap-2">
+          {stampSlots.map((slot) => {
+            const isCurrent = !hasRolledOver && slot < currentStamps;
+            const isPending = hasRolledOver
+              ? slot < previewCount
+              : slot >= currentStamps && slot < previewCount;
+            return (
+              <div
+                key={slot}
+                className={`flex aspect-square min-w-0 items-center justify-center rounded-lg border-2 text-xl transition-all duration-300 ${
+                  isCurrent
+                    ? "border-brand-500 bg-gradient-to-br from-brand-400 to-brand-500 text-white shadow-md"
+                    : isPending
+                      ? "border-brand-400 bg-gradient-to-br from-brand-100 to-brand-200 text-white"
+                      : "border-dashed border-gray-200 bg-gray-50 text-gray-300"
+                }`}
+              >
+                {isCurrent || isPending ? "🍩" : ""}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

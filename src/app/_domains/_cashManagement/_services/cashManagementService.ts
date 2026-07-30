@@ -54,6 +54,26 @@ export const getDailyCashSales = async (
 
   for (const log of data ?? []) {
     const jsonb = (log.jsonb ?? {}) as Record<string, unknown>;
+    const splitPayments = Array.isArray(jsonb.payments)
+      ? (jsonb.payments as Array<{
+          paymentType?: unknown;
+          amount?: unknown;
+        }>)
+      : [];
+    if (splitPayments.length) {
+      for (const payment of splitPayments) {
+        const splitType = String(payment.paymentType ?? '');
+        const splitAmount = Number(payment.amount ?? 0);
+        if (
+          !CASH_PAYMENT_TYPES.has(splitType) ||
+          !Number.isFinite(splitAmount)
+        )
+          continue;
+        if (splitType.startsWith('egu_')) eguVape += splitAmount;
+        else ovape += splitAmount;
+      }
+      continue;
+    }
     const paymentType = String(jsonb.paymentType ?? '');
     if (!CASH_PAYMENT_TYPES.has(paymentType)) continue;
 
@@ -73,6 +93,7 @@ export const getDailyCashSales = async (
 export const getDailyPaymentSales = async (
   date: string,
 ): Promise<DailyPaymentSales> => {
+  const usesSeparatedDeliveryCounts = date >= '2026-07-31';
   const { start, end } = getKoreaDateRange(date);
   const { data, error } = await supabase
     .from('logs')
@@ -85,40 +106,99 @@ export const getDailyPaymentSales = async (
 
   const amountByPaymentType = new Map<string, number>();
   const quantityByCategory = new Map<string, number>();
+  const deliveryByMethod = new Map<
+    'store_visit' | 'parcel' | 'delivery',
+    { orderCount: number; quantity: number; fee: number }
+  >();
 
   for (const log of data ?? []) {
     const jsonb = (log.jsonb ?? {}) as Record<string, unknown>;
+    const splitPayments = Array.isArray(jsonb.payments)
+      ? (jsonb.payments as Array<{
+          paymentType?: unknown;
+          amount?: unknown;
+        }>)
+      : [];
+    if (splitPayments.length) {
+      for (const payment of splitPayments) {
+        const splitType = String(payment.paymentType ?? '').trim();
+        const splitAmount = Number(payment.amount ?? 0);
+        if (
+          !splitType ||
+          NON_PAYMENT_TYPES.has(splitType) ||
+          !Number.isFinite(splitAmount)
+        )
+          continue;
+        amountByPaymentType.set(
+          splitType,
+          (amountByPaymentType.get(splitType) ?? 0) + splitAmount,
+        );
+      }
+    }
     const paymentType = String(jsonb.paymentType ?? '').trim();
     const amount = Number(jsonb.totalAmount ?? 0);
-    if (
-      !paymentType ||
-      NON_PAYMENT_TYPES.has(paymentType) ||
-      !Number.isFinite(amount)
-    ) {
-      continue;
+    if (!splitPayments.length) {
+      if (
+        paymentType &&
+        !NON_PAYMENT_TYPES.has(paymentType) &&
+        Number.isFinite(amount)
+      ) {
+        amountByPaymentType.set(
+          paymentType,
+          (amountByPaymentType.get(paymentType) ?? 0) + amount,
+        );
+      }
     }
 
-    amountByPaymentType.set(
-      paymentType,
-      (amountByPaymentType.get(paymentType) ?? 0) + amount,
-    );
-
+    const deliveryMethod =
+      jsonb.deliveryMethod === 'store_visit' ||
+      jsonb.deliveryMethod === 'parcel' ||
+      jsonb.deliveryMethod === 'delivery'
+        ? jsonb.deliveryMethod
+        : null;
     const items = Array.isArray(jsonb.items)
       ? (jsonb.items as Array<{
           itemCategoryName?: unknown;
           quantity?: unknown;
         }>)
       : [];
+    let deliveryItemQuantity = 0;
     for (const item of items) {
-      const categoryName =
-        String(item.itemCategoryName ?? "").trim() || "기타";
       const quantity = Number(item.quantity ?? 0);
       if (!Number.isFinite(quantity) || quantity <= 0) continue;
+
+      const categoryName =
+        String(item.itemCategoryName ?? '').trim() || '기타';
       quantityByCategory.set(
         categoryName,
         (quantityByCategory.get(categoryName) ?? 0) + quantity,
       );
+      deliveryItemQuantity += quantity;
     }
+
+    if (deliveryMethod) {
+      const current = deliveryByMethod.get(deliveryMethod) ?? {
+        orderCount: 0,
+        quantity: 0,
+        fee: 0,
+      };
+      deliveryByMethod.set(deliveryMethod, {
+        orderCount: current.orderCount + 1,
+        quantity: current.quantity + deliveryItemQuantity,
+        fee:
+          current.fee +
+          (deliveryMethod === 'store_visit'
+            ? 0
+            : Number(jsonb.deliveryFee ?? 0) || 0),
+      });
+    }
+  }
+
+  if (usesSeparatedDeliveryCounts) {
+    const parcelCount = deliveryByMethod.get('parcel')?.orderCount ?? 0;
+    const deliveryCount = deliveryByMethod.get('delivery')?.orderCount ?? 0;
+    if (parcelCount > 0) quantityByCategory.set('택배', parcelCount);
+    if (deliveryCount > 0) quantityByCategory.set('배달', deliveryCount);
   }
 
   const ovapeBreakdown = OVAPE_PAYMENT_TYPES.map((item) => ({
@@ -138,6 +218,25 @@ export const getDailyPaymentSales = async (
     itemSummary: [...quantityByCategory.entries()]
       .map(([categoryName, quantity]) => ({ categoryName, quantity }))
       .sort((a, b) => b.quantity - a.quantity),
+    outboundTypeSummary: [],
+    deliverySummary: [
+      ['store_visit', '매장방문'],
+      ['parcel', '택배'],
+      ['delivery', '배달'],
+    ].flatMap(([method, label]) => {
+      const summary = deliveryByMethod.get(
+        method as 'store_visit' | 'parcel' | 'delivery',
+      );
+      return summary
+        ? [
+            {
+              method: method as 'store_visit' | 'parcel' | 'delivery',
+              label,
+              ...summary,
+            },
+          ]
+        : [];
+    }),
     total: breakdown.reduce((sum, item) => sum + item.amount, 0),
   };
 };

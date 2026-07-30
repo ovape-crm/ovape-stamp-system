@@ -171,6 +171,8 @@ const StampHistories = ({
             target={{
               name: log.customers.name,
               phone: log.customers.phone,
+              address: log.customers.address,
+              note: log.customers.note,
             }}
             initialAction={log.action}
             initialPaymentType={

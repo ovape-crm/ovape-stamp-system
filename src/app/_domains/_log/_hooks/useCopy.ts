@@ -143,10 +143,15 @@ const useCopy = () => {
     const formattedDate = `${createdAt.getFullYear()}. ${String(
       createdAt.getMonth() + 1,
     ).padStart(2, '0')}. ${createdAt.getDate()}`;
+    const deliveryAddress =
+      typeof log.jsonb?.deliveryAddress === 'string'
+        ? log.jsonb.deliveryAddress.trim()
+        : '';
+    const address = deliveryAddress.replace(/\s+/g, ' ');
 
     const textToCopy = `${storeName}\t${formattedDate}\t${log.note}\t\t${amountFormula}\t${
       paymentTypeName ?? ''
-    }\t${name}\t${phone}\t${gender}`;
+    }\t${name}\t${phone}\t${gender}\t${address}`;
 
     try {
       await navigator.clipboard.writeText(textToCopy);

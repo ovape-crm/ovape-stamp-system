@@ -43,10 +43,43 @@ const withCreatedWorker = async (jsonb: Record<string, unknown> | null) => {
 
 const withModifiedWorker = async (jsonb: Record<string, unknown>) => {
   const workerName = await resolveCurrentWorkerName();
+  const modifiedAt = new Date().toISOString();
+  const storedHistory = Array.isArray(jsonb.modificationHistory)
+    ? jsonb.modificationHistory.filter(
+        (
+          item,
+        ): item is {
+          workerName: string;
+          modifiedAt: string;
+        } =>
+          typeof item === 'object' &&
+          item !== null &&
+          typeof (item as Record<string, unknown>).workerName === 'string' &&
+          typeof (item as Record<string, unknown>).modifiedAt === 'string',
+      )
+    : [];
+  const legacyHistory =
+    storedHistory.length === 0 &&
+    typeof jsonb.modifiedWorkerName === 'string' &&
+    typeof jsonb.modifiedAt === 'string'
+      ? [
+          {
+            workerName: jsonb.modifiedWorkerName,
+            modifiedAt: jsonb.modifiedAt,
+          },
+        ]
+      : [];
+  const nextWorkerName = workerName || '알 수 없음';
+
   return {
     ...jsonb,
-    ...(workerName ? { modifiedWorkerName: workerName } : {}),
-    modifiedAt: new Date().toISOString(),
+    modifiedWorkerName: nextWorkerName,
+    modifiedAt,
+    modificationHistory: [
+      ...storedHistory,
+      ...legacyHistory,
+      { workerName: nextWorkerName, modifiedAt },
+    ],
   };
 };
 
@@ -201,7 +234,7 @@ export const getLogs = async (
       `
       *,
       users!admin_id(name, email),
-      customers(name, phone, gender)
+      customers(name, phone, address, note, gender)
     `,
     )
     .eq('category', category);
@@ -280,6 +313,27 @@ export const updateLogNote = async (
       nextJsonb.extraNote = logMeta.extraNote;
     } else {
       delete nextJsonb.extraNote;
+    }
+    nextJsonb.deliveryMethod = logMeta.deliveryMethod ?? 'store_visit';
+    if (logMeta.deliveryAddressSource) {
+      nextJsonb.deliveryAddressSource = logMeta.deliveryAddressSource;
+    } else {
+      delete nextJsonb.deliveryAddressSource;
+    }
+    if (logMeta.deliveryAddress) {
+      nextJsonb.deliveryAddress = logMeta.deliveryAddress;
+    } else {
+      delete nextJsonb.deliveryAddress;
+    }
+    if (logMeta.deliveryFee !== undefined) {
+      nextJsonb.deliveryFee = logMeta.deliveryFee;
+    } else {
+      delete nextJsonb.deliveryFee;
+    }
+    if (logMeta.payments?.length) {
+      nextJsonb.payments = logMeta.payments;
+    } else {
+      delete nextJsonb.payments;
     }
   }
 

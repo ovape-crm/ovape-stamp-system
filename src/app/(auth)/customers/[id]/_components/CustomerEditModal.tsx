@@ -339,10 +339,10 @@ export default function CustomerEditModal({
 
         <div>
           <label className="block text-sm font-medium mb-1">주소지</label>
-          <input
-            type="text"
-            className="w-full rounded border border-brand-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
-            placeholder="주소지를 입력하세요. (선택)"
+          <textarea
+            rows={3}
+            className="w-full min-h-20 resize-y rounded border border-brand-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
+            placeholder={"주소지를 입력하세요. (선택)\nex) OO구 도로명주소 OO건물 OO동 OO호 (공동현관 : 비밀번호 or X)"}
             aria-invalid={!!errors.address || undefined}
             {...register('address')}
           />

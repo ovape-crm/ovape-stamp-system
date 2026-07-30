@@ -162,7 +162,10 @@ export default function CustomerDetailPage() {
     return <NotFoundView full={false} />;
   }
 
-  const stampCount = customer.stamps?.[0]?.count || 0;
+  const stampCount =
+    customer.name.trim() === "X" && customer.phone.trim() === "X"
+      ? 0
+      : customer.stamps?.[0]?.count || 0;
   const isSpecialCustomer = checkSpecialCustomer(
     customer.name,
     customer.phone,
@@ -214,6 +217,7 @@ export default function CustomerDetailPage() {
               id: customerId,
               name: customer.name,
               phone: customer.phone,
+              address: customer.address,
               gender: customer.gender,
               note: customer.note,
             }}
@@ -292,6 +296,7 @@ export default function CustomerDetailPage() {
                   phone: customer.phone,
                   name: customer.name,
                   gender: customer.gender,
+                  address: customer.address,
                   note: customer.note,
                 }}
                 logs={logs}

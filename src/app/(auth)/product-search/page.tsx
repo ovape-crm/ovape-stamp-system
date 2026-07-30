@@ -121,6 +121,10 @@ export default function ProductSearchPage() {
   const { isAdmin } = useUser();
   const [mode, setMode] = useState<SearchMode>('liquid');
   const [usageFilter, setUsageFilter] = useState<UsageFilter>('used');
+  const [showSoldOut, setShowSoldOut] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.localStorage.getItem('product-search-show-sold-out') === 'true';
+  });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [columnEditing, setColumnEditing] = useState(false);
   const [columnWidthSnapshot, setColumnWidthSnapshot] = useState<
@@ -177,6 +181,12 @@ export default function ProductSearchPage() {
         if ((mode === 'liquid') !== isLiquid) return false;
         if (usageFilter === 'used' && !item.is_use) return false;
         if (usageFilter === 'unused' && item.is_use) return false;
+        if (
+          !showSoldOut &&
+          item.current_quantity != null &&
+          item.current_quantity <= 0
+        )
+          return false;
         return true;
       }),
     [
@@ -184,6 +194,7 @@ export default function ProductSearchPage() {
       liquidCategoryQuery.isError,
       mode,
       query.data,
+      showSoldOut,
       usageFilter,
     ],
   );
@@ -386,9 +397,47 @@ export default function ProductSearchPage() {
             </Dropdown>
           </div>
 
+          <div className="flex w-full flex-col rounded-xl border border-gray-200 bg-gray-50/70 p-2.5 sm:w-[120px] sm:shrink-0">
+            <p className="mb-1 text-xs font-semibold text-gray-600">
+              품절 상품
+            </p>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={showSoldOut}
+              onClick={() => {
+                const next = !showSoldOut;
+                setShowSoldOut(next);
+                window.localStorage.setItem(
+                  'product-search-show-sold-out',
+                  String(next),
+                );
+              }}
+              className={`flex h-11 w-full items-center justify-between gap-1.5 rounded-lg border bg-white px-2.5 text-xs font-semibold shadow-sm transition ${
+                showSoldOut
+                  ? 'border-brand-300 text-brand-700'
+                  : 'border-gray-300 text-gray-600 hover:border-brand-300'
+              }`}
+            >
+              <span>{showSoldOut ? '표시' : '미표시'}</span>
+              <span
+                aria-hidden="true"
+                className={`relative inline-flex h-5 w-9 shrink-0 overflow-hidden rounded-full transition ${
+                  showSoldOut ? 'bg-brand-500' : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
+                    showSoldOut ? 'translate-x-4' : 'translate-x-0'
+                  }`}
+                />
+              </span>
+            </button>
+          </div>
+
           <div className="h-px w-full bg-gray-200 lg:h-auto lg:w-px lg:self-stretch" />
 
-          <div className="w-full rounded-xl border border-gray-200 bg-gray-50/70 p-3 lg:w-[740px] lg:shrink-0">
+          <div className="w-full min-w-0 rounded-xl border border-gray-200 bg-gray-50/70 p-3 lg:flex-1">
             <div className="grid gap-3 sm:grid-cols-3">
               {(
                 [
@@ -646,7 +695,7 @@ export default function ProductSearchPage() {
                     >
                       {item.current_quantity == null
                         ? '-'
-                        : item.current_quantity === 0
+                        : item.current_quantity <= 0
                           ? '품절'
                           : `${item.current_quantity.toLocaleString()}개`}
                     </td>

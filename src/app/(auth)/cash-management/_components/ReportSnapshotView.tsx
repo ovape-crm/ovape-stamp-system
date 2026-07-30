@@ -363,7 +363,11 @@ export default function ReportSnapshotView({
             title="판매종류 및 수량"
             rows={(snapshot.itemSummary ?? []).map((item) => ({
               label: item.categoryName,
-              value: `${item.quantity}개`,
+              value: `${item.quantity}${
+                item.categoryName === "택배" || item.categoryName === "배달"
+                  ? "건"
+                  : "개"
+              }`,
             }))}
           />
         </div>

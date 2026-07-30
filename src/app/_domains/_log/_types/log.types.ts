@@ -22,6 +22,10 @@ export type LogWorkerSnapshot = {
   createdWorkerName?: string;
   modifiedWorkerName?: string;
   modifiedAt?: string;
+  modificationHistory?: Array<{
+    workerName: string;
+    modifiedAt: string;
+  }>;
 };
 
 export type AfterServiceLogType = LogBaseType & {
@@ -31,6 +35,8 @@ export type AfterServiceLogType = LogBaseType & {
 export type LogCustomerInfo = {
   name: string;
   phone: string;
+  address?: string | null;
+  note?: string | null;
   gender?: 'male' | 'female' | null;
 };
 

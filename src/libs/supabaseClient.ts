@@ -9,4 +9,22 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+export const isInvalidRefreshTokenError = (error: unknown) => {
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'object' && error !== null && 'message' in error
+        ? String(error.message)
+        : '';
+
+  return (
+    message.includes('Invalid Refresh Token') ||
+    message.includes('Refresh Token Not Found')
+  );
+};
+
+export const clearLocalSupabaseSession = async () => {
+  await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
+};
+
 export default supabase;

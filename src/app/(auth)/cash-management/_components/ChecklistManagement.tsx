@@ -41,6 +41,7 @@ export default function ChecklistManagement() {
           label: item.label,
           sortOrder: index,
           isRequired: item.is_required,
+          isOpeningGate: item.is_opening_gate,
         })),
       ),
     onSuccess: async () => {
@@ -124,6 +125,13 @@ function ChecklistPreview({
                 필수
               </span>
             )}
+            {item.is_opening_gate && (
+              <span
+                className={`${item.is_required ? '' : 'ml-auto'} rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700`}
+              >
+                오픈
+              </span>
+            )}
           </div>
         ))}
       </div>
@@ -162,6 +170,7 @@ function ChecklistEditor({
         label: "",
         sort_order: items.filter((item) => item.phase === phase).length,
         is_required: false,
+        is_opening_gate: false,
       },
     ]);
 
@@ -203,6 +212,21 @@ function ChecklistEditor({
                       />
                       필수
                     </label>
+                    {phase === "opening" && (
+                      <label className="flex h-10 shrink-0 cursor-pointer items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50/50 px-2 text-xs font-semibold text-emerald-700">
+                        <input
+                          type="checkbox"
+                          checked={item.is_opening_gate}
+                          onChange={(event) =>
+                            updateItem(item.id, {
+                              is_opening_gate: event.target.checked,
+                            })
+                          }
+                          className="cursor-pointer accent-emerald-600"
+                        />
+                        오픈
+                      </label>
+                    )}
                     <button
                       type="button"
                       onClick={() => removeItem(item.id)}

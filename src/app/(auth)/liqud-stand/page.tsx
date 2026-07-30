@@ -47,6 +47,7 @@ export default function LiqudStandPage() {
   const [filter, setFilter] = useState<StatusFilter>('all');
   const [sectionFilters, setSectionFilters] = useState<Record<string, StatusFilter>>({});
   const [selectedDate, setSelectedDate] = useState('');
+  const [itemNameSearch, setItemNameSearch] = useState('');
   const [selectedSectionIds, setSelectedSectionIds] = useState<string[]>([]);
   const [allowMultipleSections, setAllowMultipleSections] = useState(false);
   const [editing, setEditing] = useState<{ section: LiqudStandSection; row: number; column: number; cell?: LiqudStandCell } | null>(null);
@@ -160,9 +161,24 @@ export default function LiqudStandPage() {
   const visibleSections = selectedSectionIds.length
     ? sections.filter((section) => selectedSectionIds.includes(section.id))
     : sections;
+  const normalizedItemNameSearch = itemNameSearch
+    .trim()
+    .toLocaleLowerCase('ko-KR');
+  const matchesItemNameSearch = (cell?: LiqudStandCell) => {
+    if (!normalizedItemNameSearch) return true;
+    return [cell?.items?.item_name, cell?.item_name, cell?.secondary_item?.item_name, cell?.secondary_item_name]
+      .some((name) =>
+        name?.toLocaleLowerCase('ko-KR').includes(normalizedItemNameSearch),
+      );
+  };
   const dateConsumableCounts = visibleSections
     .flatMap((section) => section.liqud_stand_cells)
-    .filter((cell) => selectedDate && cell.item_name && cell.installed_on === selectedDate)
+    .filter((cell) =>
+      selectedDate &&
+      cell.item_name &&
+      cell.installed_on === selectedDate &&
+      matchesItemNameSearch(cell),
+    )
     .reduce<Record<string, number>>((result, cell) => {
       const name = cell.consumable_type || '미지정';
       result[name] = (result[name] ?? 0) + 1;
@@ -173,12 +189,51 @@ export default function LiqudStandPage() {
     <main className="mx-auto max-w-[1600px] space-y-5 px-4 py-6 sm:px-6 lg:px-8">
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="grid gap-4 lg:grid-cols-3 lg:items-start">
-          <div className="w-full text-left">
-            <p className="mb-2 flex min-h-6 items-center text-xs font-semibold text-gray-500">날짜</p>
-            <div className="flex items-center gap-2">
-              <div className="min-w-0 flex-1"><KoreanDatePicker value={selectedDate} onChange={setSelectedDate} selectedLabel="선택한 교체 날짜" /></div>
-              {selectedDate && <Button size="xs" variant="gray" onClick={() => setSelectedDate('')}>날짜 해제</Button>}
+          <div className="grid w-full gap-4 text-left sm:grid-cols-2">
+            <div className="min-w-0">
+              <p className="mb-2 flex min-h-6 items-center text-xs font-semibold text-gray-500">날짜</p>
+              <div className="flex items-center gap-2">
+                <div className="min-w-0 flex-1"><KoreanDatePicker value={selectedDate} onChange={setSelectedDate} selectedLabel="선택한 교체 날짜" /></div>
+                {selectedDate && <Button size="xs" variant="gray" onClick={() => setSelectedDate('')}>해제</Button>}
+              </div>
             </div>
+            <label className="block min-w-0 sm:border-l sm:border-gray-200 sm:pl-4">
+              <span className="mb-2 flex min-h-6 items-center text-xs font-semibold text-gray-500">
+                품목명
+              </span>
+              <span className="relative block">
+                <svg
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="m21 21-4.35-4.35m2.1-5.4a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"
+                  />
+                </svg>
+                <input
+                  value={itemNameSearch}
+                  onChange={(event) => setItemNameSearch(event.target.value)}
+                  className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-9 pr-10 text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                  placeholder="품목명 입력"
+                />
+                {itemNameSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setItemNameSearch('')}
+                    aria-label="품목명 검색어 지우기"
+                    className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-gray-100 text-base font-medium text-gray-500 transition hover:bg-gray-200 hover:text-gray-700 active:bg-gray-300"
+                  >
+                    ×
+                  </button>
+                )}
+              </span>
+            </label>
           </div>
           <div className="text-left lg:border-l lg:border-gray-200 lg:pl-4">
             <div className="mb-2 flex min-h-6 items-center gap-2">
@@ -270,6 +325,7 @@ export default function LiqudStandPage() {
                   .filter((cell) =>
                     cell.item_name &&
                     (!selectedDate || cell.installed_on === selectedDate) &&
+                    matchesItemNameSearch(cell) &&
                     (activeFilter === 'all' || getCellStatus(cell) === activeFilter),
                   )
                   .reduce<Record<string, number>>((result, cell) => {
@@ -307,7 +363,8 @@ export default function LiqudStandPage() {
                 const activeFilter = sectionFilters[section.id] ?? filter;
                 const matchesStatus = activeFilter === 'all' || (Boolean(cell?.item_name) && activeFilter === status);
                 const matchesDate = !selectedDate || (Boolean(cell?.item_name) && cell?.installed_on === selectedDate);
-                const visible = matchesStatus && matchesDate;
+                const matchesSearch = matchesItemNameSearch(cell);
+                const visible = matchesStatus && matchesDate && matchesSearch;
                 const bg = consumables.find((c) => c.name === cell?.consumable_type)?.color ?? '#ffffff';
                 const position = cell ? { sectionId: section.id, row, column, cell } : null;
                 const isMovingSource = moveSource?.sectionId === section.id && moveSource.row === row && moveSource.column === column;

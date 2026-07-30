@@ -24,6 +24,7 @@ interface StampSectionProps {
     id: string;
     name: string;
     phone: string;
+    address?: string | null;
     gender?: "male" | "female" | null;
     note?: string | null;
   };
@@ -80,8 +81,10 @@ const StampSection = ({
           target={{
             name: target.name,
             phone: target.phone,
+            address: target.address,
             note: target.note,
           }}
+          stampCount={stampCount}
           mode="add"
           onCancel={close}
           onConfirm={async (
@@ -120,13 +123,20 @@ const StampSection = ({
   ) => {
     try {
       setIsLoading(true);
-      await addStamp(target.id, amount, memo ?? "", paymentType, logMeta);
+      const effectiveAmount = customerMode === "x" ? 0 : amount;
+      await addStamp(
+        target.id,
+        effectiveAmount,
+        memo ?? "",
+        paymentType,
+        logMeta,
+      );
       onUpdate();
       invalidateLogLists();
       toast.success(
-        amount === 0
+        effectiveAmount === 0
           ? "미적립으로 기록되었습니다."
-          : `스탬프 ${amount}개 적립 완료!`,
+          : `스탬프 ${effectiveAmount}개 적립 완료!`,
       );
     } catch (error) {
       const errorMessage = getRequestErrorMessage(error);
@@ -145,9 +155,10 @@ const StampSection = ({
   ) => {
     try {
       setIsLoading(true);
+      const effectiveAmount = customerMode === "x" ? 0 : amount;
       await addReservationStamp(
         target.id,
-        amount,
+        effectiveAmount,
         memo ?? "",
         paymentType,
         logMeta,
@@ -271,6 +282,7 @@ const StampSection = ({
                         target={{
                           name: target.name,
                           phone: target.phone,
+                          address: target.address,
                           note: target.note,
                         }}
                         mode="use10"
@@ -299,6 +311,7 @@ const StampSection = ({
                         target={{
                           name: target.name,
                           phone: target.phone,
+                          address: target.address,
                           note: target.note,
                         }}
                         mode="adjust"

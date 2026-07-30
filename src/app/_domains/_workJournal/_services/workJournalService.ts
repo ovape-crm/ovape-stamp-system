@@ -280,6 +280,7 @@ export const createWorkJournal = async (values: {
     'current-work-worker',
     JSON.stringify({ name: normalizedWorkerName, workDate: values.workDate }),
   );
+  window.dispatchEvent(new Event('staff-opening-changed'));
 };
 
 export const completeWorkJournal = async (values: {
