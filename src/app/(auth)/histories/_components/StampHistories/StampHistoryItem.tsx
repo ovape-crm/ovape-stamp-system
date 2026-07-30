@@ -31,11 +31,14 @@ const StampHistoryItem = ({
   showCopy = true,
 }: StampHistoryItemProps) => {
   const { copyLogToClipboard } = useCopy();
+  const isNoStampCustomer =
+    log.customers?.name?.trim() === 'X' &&
+    log.customers?.phone?.trim() === 'X';
 
   return (
     <div className="flex items-center justify-between p-2.5 sm:p-4 rounded-lg border border-brand-50 hover:bg-brand-50/30 transition-colors whitespace-nowrap text-xs sm:text-sm">
       <div className="flex items-center gap-2 sm:gap-4">
-        <ActionInfoLabel action={log.action} />
+        {!isNoStampCustomer && <ActionInfoLabel action={log.action} />}
         <CustomerInfo
           name={log.customers?.name}
           phone={log.customers?.phone}
@@ -59,19 +62,29 @@ const StampHistoryItem = ({
       </div>
 
       <div className="flex-1 max-w-[600px] pl-3 ml-3 sm:pl-4 sm:ml-4 border-l border-brand-100">
-        <div className="flex items-center gap-2">
+        <div className="flex items-start gap-2">
           <Button variant="secondary" size="xs" onClick={onEdit}>
             ✏️
           </Button>
-          <span className="flex-1 min-w-[240px] text-xs sm:text-sm text-gray-600 break-words whitespace-pre-line">
-            {log.note || <span className="text-gray-400"> - </span>}
+          <div className="min-w-[240px] flex-1 break-words whitespace-normal text-xs text-gray-600 sm:text-sm">
+            <p className="whitespace-pre-line">
+              {log.note || <span className="text-gray-400"> - </span>}
+            </p>
             {typeof log.jsonb?.extraNote === 'string' &&
               log.jsonb.extraNote.trim() && (
-                <span className="ml-2 italic text-gray-400">
+                <p className="mt-1 italic text-gray-400">
                   출고 특이사항: &quot;{log.jsonb.extraNote.trim()}&quot;
-                </span>
+                </p>
               )}
-          </span>
+            {(log.jsonb?.deliveryMethod === 'parcel' ||
+              log.jsonb?.deliveryMethod === 'delivery') &&
+              typeof log.jsonb?.deliveryAddress === 'string' &&
+              log.jsonb.deliveryAddress.trim() && (
+                <p className="mt-1 break-words italic text-gray-400">
+                  주소: {log.jsonb.deliveryAddress.trim()}
+                </p>
+              )}
+          </div>
         </div>
       </div>
 

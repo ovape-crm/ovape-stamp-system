@@ -116,7 +116,11 @@ const RemarkHistoryItem = ({
           onClick={() =>
             copyLogToClipboard(
               log,
-              { name: log.customers?.name, phone: log.customers?.phone, gender: log.customers?.gender },
+              {
+                name: log.customers?.name,
+                phone: log.customers?.phone,
+                gender: log.customers?.gender,
+              },
               '특이사항',
             )
           }

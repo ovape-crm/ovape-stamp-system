@@ -84,6 +84,22 @@ export type PurchaseReceipt = {
     quantity_check_note: string | null;
   }[];
 };
+export type PurchaseAdjustmentKind = "discount" | "payment";
+export type PurchaseAdjustmentCategory = {
+  id: string;
+  name: string;
+  kind: PurchaseAdjustmentKind;
+  sort_order: number;
+  is_active: boolean;
+};
+export type PurchaseOrderAdjustment = {
+  id: string;
+  category_id: string | null;
+  category_name: string;
+  kind: PurchaseAdjustmentKind;
+  amount: number;
+  note: string | null;
+};
 export type PurchaseOrder = {
   id: string;
   supplier_id: string;
@@ -95,4 +111,5 @@ export type PurchaseOrder = {
   inventory_suppliers: { name: string } | null;
   inventory_purchase_order_lines: PurchaseOrderLine[];
   inventory_purchase_receipts: PurchaseReceipt[];
+  inventory_purchase_order_adjustments: PurchaseOrderAdjustment[];
 };

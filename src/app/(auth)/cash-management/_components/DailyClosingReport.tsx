@@ -10,7 +10,9 @@ import {
   cancelDailyClosingReport,
   completeDailyClosingReport,
   getDailyClosingChecklistItems,
+  getDailyOpeningChecklistProgress,
   getDailyClosingReport,
+  saveDailyOpeningChecklistProgress,
 } from "@/app/_domains/_dailyClosing/_services/dailyClosingService";
 import { cashManagementKeys } from "@/app/_domains/_cashManagement/_queryKeys/cashManagementKeys";
 import type { DailyPaymentSales } from "@/app/_domains/_cashManagement/_types/cashManagement.types";
@@ -24,15 +26,15 @@ import { useModal } from "@/app/_contexts/ModalContext";
 import ConfirmModal from "@/app/(auth)/_components/ConfirmModal";
 
 const defaultChecklistItems: DailyClosingChecklistItem[] = [
-  { id: "device_login", phase: "opening", label: "매장 기기 및 업무 계정 로그인 확인", sort_order: 0, is_required: false },
-  { id: "stock_check", phase: "opening", label: "고객 출고 전 시재·재고 확인", sort_order: 1, is_required: false },
-  { id: "device_charge", phase: "opening", label: "시연용 기기와 업무용 기기 충전 확인", sort_order: 2, is_required: false },
-  { id: "notification_check", phase: "opening", label: "업무용 휴대폰 알림 확인", sort_order: 3, is_required: false },
-  { id: "restroom", phase: "closing", label: "화장실 잠금 및 정리 확인", sort_order: 0, is_required: false },
-  { id: "sales_check", phase: "closing", label: "판매처별 매출과 종합 금액 확인", sort_order: 1, is_required: false },
-  { id: "device_off", phase: "closing", label: "에어컨·송풍·조명 전원 확인", sort_order: 2, is_required: false },
-  { id: "trash", phase: "closing", label: "매장 쓰레기 정리", sort_order: 3, is_required: false },
-  { id: "door_lock", phase: "closing", label: "출입문과 창문 잠금 확인", sort_order: 4, is_required: false },
+  { id: "device_login", phase: "opening", label: "매장 기기 및 업무 계정 로그인 확인", sort_order: 0, is_required: false, is_opening_gate: true },
+  { id: "stock_check", phase: "opening", label: "고객 출고 전 시재·재고 확인", sort_order: 1, is_required: false, is_opening_gate: true },
+  { id: "device_charge", phase: "opening", label: "시연용 기기와 업무용 기기 충전 확인", sort_order: 2, is_required: false, is_opening_gate: true },
+  { id: "notification_check", phase: "opening", label: "업무용 휴대폰 알림 확인", sort_order: 3, is_required: false, is_opening_gate: true },
+  { id: "restroom", phase: "closing", label: "화장실 잠금 및 정리 확인", sort_order: 0, is_required: false, is_opening_gate: false },
+  { id: "sales_check", phase: "closing", label: "판매처별 매출과 종합 금액 확인", sort_order: 1, is_required: false, is_opening_gate: false },
+  { id: "device_off", phase: "closing", label: "에어컨·송풍·조명 전원 확인", sort_order: 2, is_required: false, is_opening_gate: false },
+  { id: "trash", phase: "closing", label: "매장 쓰레기 정리", sort_order: 3, is_required: false, is_opening_gate: false },
+  { id: "door_lock", phase: "closing", label: "출입문과 창문 잠금 확인", sort_order: 4, is_required: false, is_opening_gate: false },
 ];
 
 const formatWon = (value: number) => `${value.toLocaleString("ko-KR")}원`;
@@ -101,6 +103,11 @@ export default function DailyClosingReport({
     queryKey: ["daily-closing-checklist-items"],
     queryFn: getDailyClosingChecklistItems,
   });
+  const openingProgressQuery = useQuery({
+    queryKey: ["daily-opening-checklist-progress", businessDate],
+    queryFn: () => getDailyOpeningChecklistProgress(businessDate),
+    enabled: !reportQuery.data,
+  });
   const savedChecklistItems = reportQuery.data?.report_snapshot
     ? [
         ...reportQuery.data.report_snapshot.openingChecklist.map(
@@ -110,6 +117,7 @@ export default function DailyClosingReport({
             label: item.label,
             sort_order: index,
             is_required: item.isRequired,
+            is_opening_gate: false,
           }),
         ),
         ...reportQuery.data.report_snapshot.closingChecklist.map(
@@ -119,6 +127,7 @@ export default function DailyClosingReport({
             label: item.label,
             sort_order: index,
             is_required: item.isRequired,
+            is_opening_gate: false,
           }),
         ),
       ]
@@ -186,6 +195,11 @@ export default function DailyClosingReport({
     setCleaningNote(reportQuery.data.cleaning_note ?? "");
     setSpecialNote(reportQuery.data.special_note ?? "");
   }, [reportQuery.data]);
+
+  useEffect(() => {
+    if (reportQuery.data || !openingProgressQuery.data) return;
+    setOpeningChecks(openingProgressQuery.data);
+  }, [openingProgressQuery.data, reportQuery.data]);
 
   const requiredItems = [...openingTasks, ...closingTasks].filter(
     (item) => item.is_required,
@@ -261,6 +275,12 @@ export default function DailyClosingReport({
           })),
           payments: paymentSales.breakdown.map((payment) => ({ ...payment })),
           itemSummary: paymentSales.itemSummary.map((item) => ({ ...item })),
+          outboundTypeSummary: paymentSales.outboundTypeSummary.map((item) => ({
+            ...item,
+          })),
+          deliverySummary: paymentSales.deliverySummary.map((item) => ({
+            ...item,
+          })),
           totalSales: paymentSales.total,
           expectedCash,
           actualCash,
@@ -411,6 +431,26 @@ export default function DailyClosingReport({
     key: string,
   ) => setter((current) => ({ ...current, [key]: !current[key] }));
 
+  const toggleOpening = (key: string) => {
+    setOpeningChecks((current) => {
+      const next = { ...current, [key]: !current[key] };
+      void saveDailyOpeningChecklistProgress(businessDate, next)
+        .then(() => {
+          queryClient.setQueryData(
+            ["daily-opening-checklist-progress", businessDate],
+            next,
+          );
+          window.dispatchEvent(new Event("staff-opening-changed"));
+        })
+        .catch((error) => {
+          console.error(error);
+          toast.error("오픈 체크 상태 저장에 실패했습니다.");
+          void openingProgressQuery.refetch();
+        });
+      return next;
+    });
+  };
+
   if (reportQuery.isError) {
     return (
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800">
@@ -551,7 +591,13 @@ export default function DailyClosingReport({
                     className="flex items-center justify-between gap-2 border-b border-gray-200 pb-1.5 text-sm last:border-b-0"
                   >
                     <span className="text-gray-600">{item.categoryName}</span>
-                    <strong className="text-gray-900">{item.quantity}개</strong>
+                    <strong className="text-gray-900">
+                      {item.quantity}
+                      {item.categoryName === "택배" ||
+                      item.categoryName === "배달"
+                        ? "건"
+                        : "개"}
+                    </strong>
                   </div>
                 ))
               ) : (
@@ -562,13 +608,13 @@ export default function DailyClosingReport({
         </div>
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div id="opening-checklist" className="grid scroll-mt-24 gap-4 lg:grid-cols-2">
         <Checklist
           title="출근·교대 확인"
           tasks={openingTasks}
           values={openingChecks}
           disabled={isClosed}
-          onToggle={(key) => toggle(setOpeningChecks, key)}
+          onToggle={toggleOpening}
         />
         <Checklist
           title="마감 확인"
@@ -684,6 +730,13 @@ function Checklist({
                 필수
               </span>
             )}
+            {item.is_opening_gate && (
+              <span
+                className={`${item.is_required ? '' : 'ml-auto'} shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700`}
+              >
+                오픈
+              </span>
+            )}
           </label>
         ))}
       </div>
@@ -766,6 +819,7 @@ export function ChecklistEditor({
         label: "",
         sort_order: items.filter((item) => item.phase === phase).length,
         is_required: false,
+        is_opening_gate: false,
       },
     ]);
   const moveItem = (id: string, direction: -1 | 1) => {

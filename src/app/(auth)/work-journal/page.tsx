@@ -26,6 +26,7 @@ import { workJournalKeys } from "@/app/_domains/_workJournal/_queryKeys/workJour
 import WorkerCreateModal from "./_components/WorkerCreateModal";
 import AttendanceRecordModal from "./_components/AttendanceRecordModal";
 import { useUser } from "@/app/_contexts/UserContext";
+import StaffOpeningProgressBanner from "@/app/(auth)/_components/StaffOpeningProgressBanner";
 import {
   WorkJournalType,
   WorkPaymentStatus,
@@ -212,7 +213,9 @@ export default function WorkJournalPage() {
   const createMutation = useMutation({
     mutationFn: createWorkJournal,
     onSuccess: async () => {
-      toast.success("근무 기록이 저장되었습니다.");
+      toast.success(
+        "출근 처리가 완료되었습니다. 다음으로 시작 시재를 확인해 주세요.",
+      );
       setSelectedMonth(workDate.slice(0, 7));
       resetWorkForm();
       setShowWorkForm(false);
@@ -454,6 +457,7 @@ export default function WorkJournalPage() {
 
   return (
     <main className="mx-auto max-w-7xl space-y-5 px-4 py-6 sm:px-6 lg:px-8">
+      <StaffOpeningProgressBanner />
       <div className="flex items-end justify-between border-b border-gray-200">
         <div className="flex min-w-0 overflow-x-auto" role="tablist" aria-label="근무기록 메뉴">
           {tabOrder.map((tab, index) => {

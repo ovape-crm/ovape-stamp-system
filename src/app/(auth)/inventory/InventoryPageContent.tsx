@@ -33,11 +33,19 @@ import {
   closePurchaseOrderRemainder,
   reversePurchaseReceipt,
   deletePurchaseOrderHistory,
+  deactivatePurchaseAdjustmentCategory,
+  getPurchaseAdjustmentCategories,
+  savePurchaseAdjustmentCategory,
+  savePurchaseOrderAdjustments,
+  updatePurchaseOrderDetails,
 } from "@/app/_domains/_inventory/_services/inventoryService";
 import type {
   InventoryItem,
   InventorySupplier,
+  PurchaseAdjustmentCategory,
+  PurchaseAdjustmentKind,
   PurchaseOrder,
+  PurchaseOrderAdjustment,
 } from "@/app/_domains/_inventory/_types/inventory.types";
 
 type Tab = "stock" | "untracked" | "receive" | "movements" | "initial";
@@ -2387,6 +2395,7 @@ function ReceiptManager({
 
       <PurchaseOrderList
         orders={ordersQuery.data ?? []}
+        suppliers={suppliersQuery.data ?? []}
         loading={ordersQuery.isPending}
         isAdmin={isAdmin}
         focusOrderId={focusOrderId}
@@ -2602,6 +2611,7 @@ function ReceiptManager({
       </section>
       <PurchaseOrderList
         orders={ordersQuery.data ?? []}
+        suppliers={suppliersQuery.data ?? []}
         loading={ordersQuery.isPending}
         isAdmin={isAdmin}
         onSaved={async () => {
@@ -2623,6 +2633,7 @@ function ReceiptManager({
 
 function PurchaseOrderList({
   orders,
+  suppliers,
   loading,
   isAdmin,
   onSaved,
@@ -2630,6 +2641,7 @@ function PurchaseOrderList({
   onCreate,
 }: {
   orders: PurchaseOrder[];
+  suppliers: InventorySupplier[];
   loading: boolean;
   isAdmin: boolean;
   onSaved: () => Promise<void>;
@@ -2646,6 +2658,15 @@ function PurchaseOrderList({
   const [arrivalDates, setArrivalDates] = useState<Record<string, string>>({});
   const [arrivalNotes, setArrivalNotes] = useState<Record<string, string>>({});
   const [pending, setPending] = useState(false);
+  const [adjustmentOrder, setAdjustmentOrder] =
+    useState<PurchaseOrder | null>(null);
+  const [editingOrder, setEditingOrder] = useState<PurchaseOrder | null>(null);
+  const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
+  const adjustmentCategoriesQuery = useQuery({
+    queryKey: inventoryKeys.purchaseAdjustmentCategories,
+    queryFn: () => getPurchaseAdjustmentCategories(true),
+    enabled: isAdmin,
+  });
   const [listTab, setListTab] = useState<
     "waiting" | "partial" | "completed" | "closed"
   >("waiting");
@@ -3088,6 +3109,7 @@ function PurchaseOrderList({
         );
         const showCompletedCumulativeDetails =
           sortedReceipts.filter((receipt) => !receipt.reversed_at).length > 1;
+        const adjustments = order.inventory_purchase_order_adjustments ?? [];
         return (
           <article
             id={`purchase-order-${order.id}`}
@@ -3166,6 +3188,39 @@ function PurchaseOrderList({
                 <span className="rounded-lg bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-700">
                   미입고 종료 사유: {order.closed_reason}
                 </span>
+              )}
+              {isAdmin && (
+                <>
+                  {adjustments.map((adjustment) => (
+                    <span
+                      key={adjustment.id}
+                      className={`rounded-full px-2.5 py-1 text-xs font-bold ${
+                        adjustment.kind === "discount"
+                          ? "bg-blue-100 text-blue-700"
+                          : "bg-orange-100 text-orange-700"
+                      }`}
+                    >
+                      {adjustment.category_name}{" "}
+                      {adjustment.kind === "discount" ? "-" : "+"}
+                      {Number(adjustment.amount).toLocaleString("ko-KR")}원
+                    </span>
+                  ))}
+                  <Button
+                    size="xs"
+                    variant="gray"
+                    onClick={() => setEditingOrder(order)}
+                    className="ml-auto"
+                  >
+                    입고 내용 수정
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant="gray"
+                    onClick={() => setAdjustmentOrder(order)}
+                  >
+                    거래 조정
+                  </Button>
+                </>
               )}
               {!open && isAdmin && (
                 <Button
@@ -3947,7 +4002,797 @@ function PurchaseOrderList({
           등록된 입고 예정이 없습니다.
         </div>
       )}
+      {adjustmentOrder && (
+        <PurchaseAdjustmentOverlay
+          order={adjustmentOrder}
+          categories={adjustmentCategoriesQuery.data ?? []}
+          categoriesError={adjustmentCategoriesQuery.isError}
+          isAdmin={isAdmin}
+          onClose={() => setAdjustmentOrder(null)}
+          onManageCategories={() => setCategoryManagerOpen(true)}
+          onSaved={async () => {
+            setAdjustmentOrder(null);
+            await onSaved();
+          }}
+        />
+      )}
+      {editingOrder && (
+        <PurchaseOrderEditOverlay
+          order={editingOrder}
+          suppliers={suppliers}
+          isAdmin={isAdmin}
+          onClose={() => setEditingOrder(null)}
+          onSaved={async () => {
+            setEditingOrder(null);
+            await onSaved();
+          }}
+        />
+      )}
+      {categoryManagerOpen && (
+        <PurchaseAdjustmentCategoryOverlay
+          categories={adjustmentCategoriesQuery.data ?? []}
+          onClose={() => setCategoryManagerOpen(false)}
+          onSaved={async () => {
+            await adjustmentCategoriesQuery.refetch();
+          }}
+        />
+      )}
     </section>
+  );
+}
+
+type AdjustmentDraft = {
+  key: string;
+  categoryId: string;
+  categoryName: string;
+  kind: PurchaseAdjustmentKind;
+  amount: string;
+  note: string;
+};
+
+const formatPurchaseAdjustmentDate = (value: string) =>
+  new Intl.DateTimeFormat("ko-KR", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  }).format(new Date(`${value}T00:00:00`));
+
+function PurchaseOrderEditOverlay({
+  order,
+  suppliers,
+  isAdmin,
+  onClose,
+  onSaved,
+}: {
+  order: PurchaseOrder;
+  suppliers: InventorySupplier[];
+  isAdmin: boolean;
+  onClose: () => void;
+  onSaved: () => Promise<void>;
+}) {
+  const parsedNote = splitPurchaseOrderNote(order.note);
+  const [supplierId, setSupplierId] = useState(order.supplier_id);
+  const [orderedOn, setOrderedOn] = useState(order.ordered_on);
+  const [overallNote, setOverallNote] = useState(parsedNote.note);
+  const [lines, setLines] = useState(() =>
+    order.inventory_purchase_order_lines.map((line) => ({
+      id: line.id,
+      itemName: line.item_name,
+      orderedQuantity: String(line.ordered_quantity),
+      receivedQuantity: line.received_quantity,
+      unitPrice: line.unit_price == null ? "" : String(line.unit_price),
+      note: line.note ?? "",
+    })),
+  );
+  const [receipts, setReceipts] = useState(() =>
+    order.inventory_purchase_receipts.map((receipt) => ({
+      id: receipt.id,
+      arrivedOn: receipt.arrived_on,
+      note: receipt.note ?? "",
+      reversed: Boolean(receipt.reversed_at),
+    })),
+  );
+  const [saving, setSaving] = useState(false);
+  const selectedSupplier = suppliers.find((item) => item.id === supplierId);
+
+  const save = async () => {
+    if (!supplierId || !orderedOn) {
+      toast.error("거래처와 주문일을 확인해 주세요.");
+      return;
+    }
+    if (
+      lines.some(
+        (line) =>
+          !line.itemName.trim() ||
+          !Number.isInteger(Number(line.orderedQuantity)) ||
+          Number(line.orderedQuantity) <
+            Math.max(1, line.receivedQuantity),
+      )
+    ) {
+      toast.error("품목명과 주문수량을 확인해 주세요.");
+      return;
+    }
+    if (
+      new Set(lines.map((line) => line.itemName.trim())).size !== lines.length
+    ) {
+      toast.error("같은 품목을 중복으로 저장할 수 없습니다.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await updatePurchaseOrderDetails({
+        orderId: order.id,
+        supplierId,
+        orderedOn,
+        note: mergePurchaseOrderNote(
+          parsedNote.taxInvoiceStatus,
+          overallNote,
+        ),
+        lines: lines.map((line) => ({
+          id: line.id,
+          item_name: line.itemName.trim(),
+          ordered_quantity: Number(line.orderedQuantity),
+          unit_price:
+            isAdmin && line.unitPrice !== ""
+              ? Math.max(0, Math.floor(Number(line.unitPrice)))
+              : order.inventory_purchase_order_lines.find(
+                    (item) => item.id === line.id,
+                  )?.unit_price ?? null,
+          note: line.note.trim(),
+        })),
+        receipts: receipts.map((receipt) => ({
+          id: receipt.id,
+          arrived_on: receipt.arrivedOn,
+          note: receipt.note.trim(),
+        })),
+      });
+      toast.success("입고 내용을 수정했습니다.");
+      await onSaved();
+    } catch (error) {
+      const message = (error as Error).message;
+      if (message.includes("RECEIVED_ITEM_NAME_IMMUTABLE")) {
+        toast.error(
+          "입고 처리된 품목명은 재고 이력 보호를 위해 변경할 수 없습니다.",
+        );
+      } else if (message.includes("ORDERED_QUANTITY_BELOW_RECEIVED")) {
+        toast.error("주문수량은 이미 입고된 수량보다 작게 변경할 수 없습니다.");
+      } else {
+        toast.error(message || "입고 내용 수정에 실패했습니다.");
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-gray-950/50 p-4 backdrop-blur-[2px]">
+      <div className="max-h-[92vh] w-full max-w-6xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+        <div className="border-b border-gray-200 px-5 py-4">
+          <h2 className="text-lg font-bold text-gray-900">입고 내용 수정</h2>
+          <p className="mt-1 text-xs text-gray-500">
+            입고 상태와 관계없이 원본 정보를 수정할 수 있습니다. 실제 입고수량은 재고 이력과 연결되어 수정 대상에서 제외됩니다.
+          </p>
+        </div>
+        <div className="space-y-5 p-5">
+          <section className="grid gap-4 rounded-xl border border-gray-200 bg-gray-50/70 p-4 md:grid-cols-2">
+            <label className="text-xs font-semibold text-gray-600">
+              거래처
+              <div className="mt-1.5">
+                <Dropdown controlledValue={supplierId}>
+                  <Dropdown.Trigger>
+                    {selectedSupplier?.name ?? "거래처 선택"}
+                  </Dropdown.Trigger>
+                  <Dropdown.Content>
+                    {suppliers
+                      .filter(
+                        (supplier) =>
+                          supplier.is_use || supplier.id === supplierId,
+                      )
+                      .map((supplier) => (
+                        <Dropdown.Item
+                          key={supplier.id}
+                          option={{
+                            value: supplier.id,
+                            label: supplier.name,
+                          }}
+                          onSelect={(selected: DropdownOption) =>
+                            setSupplierId(String(selected.value))
+                          }
+                        />
+                      ))}
+                  </Dropdown.Content>
+                </Dropdown>
+              </div>
+            </label>
+            <label className="text-xs font-semibold text-gray-600">
+              주문일
+              <input
+                type="date"
+                value={orderedOn}
+                onChange={(event) => setOrderedOn(event.target.value)}
+                className="mt-1.5 h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+              />
+            </label>
+            <label className="text-xs font-semibold text-gray-600 md:col-span-2">
+              전체 메모
+              <textarea
+                value={overallNote}
+                onChange={(event) => setOverallNote(event.target.value)}
+                placeholder="입고 전체 메모"
+                className="mt-1.5 h-24 w-full resize-none rounded-lg border border-gray-300 bg-white p-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+              />
+            </label>
+          </section>
+
+          <section>
+            <h3 className="mb-3 font-bold text-gray-900">입고 품목</h3>
+            <div className="overflow-x-auto rounded-xl border border-gray-200">
+              <table className="min-w-[900px] w-full border-collapse text-sm">
+                <thead className="bg-gray-50 text-xs font-semibold text-gray-600">
+                  <tr>
+                    <th className="px-3 py-3 text-left">품목명</th>
+                    <th className="w-28 px-3 py-3 text-right">주문수량</th>
+                    <th className="w-28 px-3 py-3 text-right">입고수량</th>
+                    {isAdmin && (
+                      <th className="w-36 px-3 py-3 text-right">단가</th>
+                    )}
+                    <th className="w-[280px] px-3 py-3 text-left">품목 메모</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lines.map((line) => (
+                    <tr key={line.id} className="border-t border-gray-200">
+                      <td className="p-2">
+                        <input
+                          value={line.itemName}
+                          disabled={line.receivedQuantity > 0}
+                          title={
+                            line.receivedQuantity > 0
+                              ? "입고 처리된 품목명은 재고 이력 보호를 위해 변경할 수 없습니다."
+                              : undefined
+                          }
+                          onChange={(event) =>
+                            setLines((current) =>
+                              current.map((item) =>
+                                item.id === line.id
+                                  ? { ...item, itemName: event.target.value }
+                                  : item,
+                              ),
+                            )
+                          }
+                          className="h-10 w-full rounded-lg border border-gray-300 px-3 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:bg-gray-100 disabled:text-gray-500"
+                        />
+                      </td>
+                      <td className="p-2">
+                        <input
+                          type="number"
+                          min={Math.max(1, line.receivedQuantity)}
+                          value={line.orderedQuantity}
+                          onChange={(event) =>
+                            setLines((current) =>
+                              current.map((item) =>
+                                item.id === line.id
+                                  ? {
+                                      ...item,
+                                      orderedQuantity: event.target.value,
+                                    }
+                                  : item,
+                              ),
+                            )
+                          }
+                          className="h-10 w-full rounded-lg border border-gray-300 px-3 text-right outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                        />
+                      </td>
+                      <td className="p-2 text-right font-semibold text-gray-600">
+                        {line.receivedQuantity.toLocaleString("ko-KR")}개
+                      </td>
+                      {isAdmin && (
+                        <td className="p-2">
+                          <input
+                            type="number"
+                            min="0"
+                            value={line.unitPrice}
+                            onChange={(event) =>
+                              setLines((current) =>
+                                current.map((item) =>
+                                  item.id === line.id
+                                    ? { ...item, unitPrice: event.target.value }
+                                    : item,
+                                ),
+                              )
+                            }
+                            className="h-10 w-full rounded-lg border border-gray-300 px-3 text-right outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                          />
+                        </td>
+                      )}
+                      <td className="p-2">
+                        <input
+                          value={line.note}
+                          onChange={(event) =>
+                            setLines((current) =>
+                              current.map((item) =>
+                                item.id === line.id
+                                  ? { ...item, note: event.target.value }
+                                  : item,
+                              ),
+                            )
+                          }
+                          placeholder="품목 메모"
+                          className="h-10 w-full rounded-lg border border-gray-300 px-3 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          {receipts.length > 0 && (
+            <section>
+              <h3 className="mb-3 font-bold text-gray-900">입고 처리 이력</h3>
+              <div className="grid gap-3 md:grid-cols-2">
+                {receipts.map((receipt) => (
+                  <div
+                    key={receipt.id}
+                    className="rounded-xl border border-gray-200 bg-gray-50/70 p-3"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-bold text-emerald-700">
+                        입고일
+                      </span>
+                      {receipt.reversed && (
+                        <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-bold text-rose-600">
+                          취소됨
+                        </span>
+                      )}
+                    </div>
+                    <input
+                      type="date"
+                      value={receipt.arrivedOn}
+                      disabled={receipt.reversed}
+                      onChange={(event) =>
+                        setReceipts((current) =>
+                          current.map((item) =>
+                            item.id === receipt.id
+                              ? { ...item, arrivedOn: event.target.value }
+                              : item,
+                          ),
+                        )
+                      }
+                      className="mt-2 h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:bg-gray-100"
+                    />
+                    <input
+                      value={receipt.note}
+                      disabled={receipt.reversed}
+                      onChange={(event) =>
+                        setReceipts((current) =>
+                          current.map((item) =>
+                            item.id === receipt.id
+                              ? { ...item, note: event.target.value }
+                              : item,
+                          ),
+                        )
+                      }
+                      placeholder="입고 처리 메모"
+                      className="mt-2 h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:bg-gray-100"
+                    />
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+        <div className="flex justify-end gap-2 border-t border-gray-200 bg-gray-50 px-5 py-4">
+          <Button variant="gray" onClick={onClose} disabled={saving}>
+            취소
+          </Button>
+          <Button onClick={save} disabled={saving}>
+            {saving ? "저장 중..." : "입고 내용 저장"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PurchaseAdjustmentOverlay({
+  order,
+  categories,
+  categoriesError,
+  isAdmin,
+  onClose,
+  onManageCategories,
+  onSaved,
+}: {
+  order: PurchaseOrder;
+  categories: PurchaseAdjustmentCategory[];
+  categoriesError: boolean;
+  isAdmin: boolean;
+  onClose: () => void;
+  onManageCategories: () => void;
+  onSaved: () => Promise<void>;
+}) {
+  const [rows, setRows] = useState<AdjustmentDraft[]>(() =>
+    (order.inventory_purchase_order_adjustments ?? []).map((item) => ({
+      key: item.id,
+      categoryId: item.category_id ?? "",
+      categoryName: item.category_name,
+      kind: item.kind,
+      amount: String(item.amount),
+      note: item.note ?? "",
+    })),
+  );
+  const [saving, setSaving] = useState(false);
+
+  const addRow = (kind: PurchaseAdjustmentKind) => {
+    const usedIds = new Set(rows.map((row) => row.categoryId));
+    const category = categories.find(
+      (item) => item.kind === kind && item.is_active && !usedIds.has(item.id),
+    );
+    if (!category) {
+      toast.error(
+        isAdmin
+          ? "추가할 수 있는 항목이 없습니다. 거래 항목 관리에서 항목을 등록해 주세요."
+          : "관리자에게 거래 항목 등록을 요청해 주세요.",
+      );
+      return;
+    }
+    setRows((current) => [
+      ...current,
+      {
+        key: `draft-${kind}-${Date.now()}`,
+        categoryId: category.id,
+        categoryName: category.name,
+        kind,
+        amount: "",
+        note: "",
+      },
+    ]);
+  };
+
+  const updateRow = (key: string, values: Partial<AdjustmentDraft>) =>
+    setRows((current) =>
+      current.map((row) => (row.key === key ? { ...row, ...values } : row)),
+    );
+
+  const save = async () => {
+    const normalized = rows
+      .filter((row) => row.categoryName && Number(row.amount) > 0)
+      .map((row) => ({
+        category_id: row.categoryId || null,
+        category_name: row.categoryName,
+        kind: row.kind,
+        amount: Math.floor(Number(row.amount)),
+        note: row.note.trim() || null,
+      })) satisfies Array<
+      Pick<
+        PurchaseOrderAdjustment,
+        "category_id" | "category_name" | "kind" | "amount" | "note"
+      >
+    >;
+    setSaving(true);
+    try {
+      await savePurchaseOrderAdjustments(order.id, normalized);
+      toast.success("입고 거래 조정 내역을 저장했습니다.");
+      await onSaved();
+    } catch (error) {
+      toast.error((error as Error).message || "거래 조정 저장에 실패했습니다.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const totals = {
+    discount: rows
+      .filter((row) => row.kind === "discount")
+      .reduce((sum, row) => sum + (Number(row.amount) || 0), 0),
+    payment: rows
+      .filter((row) => row.kind === "payment")
+      .reduce((sum, row) => sum + (Number(row.amount) || 0), 0),
+  };
+
+  return (
+    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-gray-950/50 p-4 backdrop-blur-[2px]">
+      <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-5 py-4">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">입고 거래 조정</h2>
+            <p className="mt-1 text-xs text-gray-500">
+              {order.inventory_suppliers?.name ?? "거래처 정보 없음"} ·{" "}
+              {formatPurchaseAdjustmentDate(order.ordered_on)}
+            </p>
+          </div>
+          {isAdmin && (
+            <Button size="sm" variant="gray" onClick={onManageCategories}>
+              거래 항목 관리
+            </Button>
+          )}
+        </div>
+        <div className="p-5">
+          {categoriesError && (
+            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+              거래 조정 SQL이 필요합니다.{" "}
+              <code className="font-semibold">
+                docs/inventory_purchase_adjustments.sql
+              </code>
+              을 실행해 주세요.
+            </div>
+          )}
+          <p className="mb-4 rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-500">
+            참고 기록이며 현재 입고금액이나 정산에는 자동 반영되지 않습니다.
+          </p>
+          <div className="grid gap-5 lg:grid-cols-2">
+            {(["discount", "payment"] as const).map((kind) => (
+              <section
+                key={kind}
+                className="rounded-xl border border-gray-200 bg-gray-50/70 p-4"
+              >
+                <div className="flex items-center justify-between">
+                  <h3
+                    className={`font-bold ${
+                      kind === "discount" ? "text-blue-700" : "text-orange-700"
+                    }`}
+                  >
+                    {kind === "discount" ? "할인된 항목" : "지불한 항목"}
+                  </h3>
+                  <strong className="text-sm text-gray-800">
+                    {kind === "discount" ? "-" : "+"}
+                    {totals[kind].toLocaleString("ko-KR")}원
+                  </strong>
+                </div>
+                <div className="mt-3 space-y-3">
+                  {rows
+                    .filter((row) => row.kind === kind)
+                    .map((row) => {
+                      const options = categories.filter(
+                        (item) =>
+                          item.kind === kind &&
+                          (item.is_active || item.id === row.categoryId) &&
+                          (item.id === row.categoryId ||
+                            !rows.some(
+                              (candidate) =>
+                                candidate.key !== row.key &&
+                                candidate.categoryId === item.id,
+                            )),
+                      );
+                      return (
+                        <div
+                          key={row.key}
+                          className="space-y-2 rounded-xl border border-gray-200 bg-white p-3"
+                        >
+                          <div className="grid gap-2 sm:grid-cols-[minmax(140px,1fr)_140px_auto]">
+                            <Dropdown controlledValue={row.categoryId}>
+                              <Dropdown.Trigger>
+                                {row.categoryName || "항목 선택"}
+                              </Dropdown.Trigger>
+                              <Dropdown.Content>
+                                {options.map((option) => (
+                                  <Dropdown.Item
+                                    key={option.id}
+                                    option={{
+                                      value: option.id,
+                                      label: option.name,
+                                    }}
+                                    onSelect={(selected: DropdownOption) => {
+                                      const category = categories.find(
+                                        (item) => item.id === selected.value,
+                                      );
+                                      if (category)
+                                        updateRow(row.key, {
+                                          categoryId: category.id,
+                                          categoryName: category.name,
+                                        });
+                                    }}
+                                  />
+                                ))}
+                              </Dropdown.Content>
+                            </Dropdown>
+                            <div className="relative">
+                              <input
+                                type="number"
+                                min="0"
+                                value={row.amount}
+                                onChange={(event) =>
+                                  updateRow(row.key, {
+                                    amount: event.target.value,
+                                  })
+                                }
+                                placeholder="0"
+                                className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 pr-8 text-right text-sm font-semibold outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                              />
+                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                                원
+                              </span>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="danger"
+                              onClick={() =>
+                                setRows((current) =>
+                                  current.filter(
+                                    (item) => item.key !== row.key,
+                                  ),
+                                )
+                              }
+                            >
+                              삭제
+                            </Button>
+                          </div>
+                          <input
+                            value={row.note}
+                            onChange={(event) =>
+                              updateRow(row.key, { note: event.target.value })
+                            }
+                            placeholder="항목 메모"
+                            className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                          />
+                        </div>
+                      );
+                    })}
+                  <Button
+                    variant="gray"
+                    className="w-full"
+                    onClick={() => addRow(kind)}
+                  >
+                    {kind === "discount"
+                      ? "할인 항목 추가"
+                      : "지불 항목 추가"}
+                  </Button>
+                </div>
+              </section>
+            ))}
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 border-t border-gray-200 bg-gray-50 px-5 py-4">
+          <Button variant="gray" onClick={onClose} disabled={saving}>
+            취소
+          </Button>
+          <Button onClick={save} disabled={saving || categoriesError}>
+            {saving ? "저장 중..." : "조정 내역 저장"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PurchaseAdjustmentCategoryOverlay({
+  categories,
+  onClose,
+  onSaved,
+}: {
+  categories: PurchaseAdjustmentCategory[];
+  onClose: () => void;
+  onSaved: () => Promise<void>;
+}) {
+  const [names, setNames] = useState<Record<string, string>>(() =>
+    Object.fromEntries(categories.map((item) => [item.id, item.name])),
+  );
+  const [newNames, setNewNames] = useState<
+    Record<PurchaseAdjustmentKind, string>
+  >({ discount: "", payment: "" });
+  const [pending, setPending] = useState(false);
+
+  const run = async (task: () => Promise<void>, message: string) => {
+    setPending(true);
+    try {
+      await task();
+      toast.success(message);
+      await onSaved();
+    } catch (error) {
+      toast.error((error as Error).message);
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gray-950/60 p-4 backdrop-blur-[2px]">
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+        <div className="border-b border-gray-200 px-5 py-4">
+          <h2 className="text-lg font-bold text-gray-900">거래 항목 관리</h2>
+          <p className="mt-1 text-xs text-gray-500">
+            삭제한 항목은 새 입고에서 숨겨지고 기존 입고 기록에는 유지됩니다.
+          </p>
+        </div>
+        <div className="grid gap-5 p-5 md:grid-cols-2">
+          {(["discount", "payment"] as const).map((kind) => (
+            <section
+              key={kind}
+              className="rounded-xl border border-gray-200 bg-gray-50/70 p-4"
+            >
+              <h3 className="font-bold text-gray-900">
+                {kind === "discount" ? "할인 항목" : "지불 항목"}
+              </h3>
+              <div className="mt-3 space-y-2">
+                {categories
+                  .filter((item) => item.kind === kind && item.is_active)
+                  .map((item) => (
+                    <div key={item.id} className="flex gap-2">
+                      <input
+                        value={names[item.id] ?? item.name}
+                        onChange={(event) =>
+                          setNames((current) => ({
+                            ...current,
+                            [item.id]: event.target.value,
+                          }))
+                        }
+                        className="h-10 min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                      />
+                      <Button
+                        size="sm"
+                        variant="gray"
+                        disabled={pending}
+                        onClick={() =>
+                          void run(
+                            () =>
+                              savePurchaseAdjustmentCategory({
+                                id: item.id,
+                                name: names[item.id] ?? item.name,
+                                kind,
+                              }),
+                            "항목 이름을 수정했습니다.",
+                          )
+                        }
+                      >
+                        저장
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        disabled={pending}
+                        onClick={() => {
+                          if (window.confirm(`‘${item.name}’ 항목을 삭제할까요?`))
+                            void run(
+                              () =>
+                                deactivatePurchaseAdjustmentCategory(item.id),
+                              "항목을 삭제했습니다.",
+                            );
+                        }}
+                      >
+                        삭제
+                      </Button>
+                    </div>
+                  ))}
+                <div className="flex gap-2 border-t border-gray-200 pt-3">
+                  <input
+                    value={newNames[kind]}
+                    onChange={(event) =>
+                      setNewNames((current) => ({
+                        ...current,
+                        [kind]: event.target.value,
+                      }))
+                    }
+                    placeholder="새 항목 이름"
+                    className="h-10 min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                  />
+                  <Button
+                    size="sm"
+                    disabled={pending || !newNames[kind].trim()}
+                    onClick={() =>
+                      void run(async () => {
+                        await savePurchaseAdjustmentCategory({
+                          name: newNames[kind],
+                          kind,
+                        });
+                        setNewNames((current) => ({ ...current, [kind]: "" }));
+                      }, "새 항목을 등록했습니다.")
+                    }
+                  >
+                    항목 등록
+                  </Button>
+                </div>
+              </div>
+            </section>
+          ))}
+        </div>
+        <div className="flex justify-end border-t border-gray-200 bg-gray-50 px-5 py-4">
+          <Button onClick={onClose}>완료</Button>
+        </div>
+      </div>
+    </div>
   );
 }
 

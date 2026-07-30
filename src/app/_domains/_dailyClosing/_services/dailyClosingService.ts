@@ -103,7 +103,7 @@ export const getDailyClosingChecklistItems = async (): Promise<
 > => {
   const { data, error } = await supabase
     .from('daily_closing_checklist_items')
-    .select('id, phase, label, sort_order, is_required')
+    .select('id, phase, label, sort_order, is_required, is_opening_gate')
     .order('phase', { ascending: true })
     .order('sort_order', { ascending: true });
 
@@ -118,6 +118,7 @@ export const saveDailyClosingChecklistItems = async (
     label: string;
     sortOrder: number;
     isRequired: boolean;
+    isOpeningGate: boolean;
   }[],
 ): Promise<void> => {
   const { error: deleteError } = await supabase
@@ -134,12 +135,51 @@ export const saveDailyClosingChecklistItems = async (
       label: item.label.trim(),
       sort_order: item.sortOrder,
       is_required: item.isRequired,
+      is_opening_gate: item.phase === 'opening' && item.isOpeningGate,
     }));
 
   if (!normalized.length) return;
   const { error } = await supabase
     .from('daily_closing_checklist_items')
     .insert(normalized);
+
+  if (error) throw error;
+};
+
+export const getDailyOpeningChecklistProgress = async (
+  businessDate: string,
+): Promise<DailyClosingChecklist> => {
+  const { data, error } = await supabase
+    .from('daily_opening_checklist_progress')
+    .select('checks')
+    .eq('business_date', businessDate)
+    .maybeSingle();
+
+  if (error) throw error;
+  return (data?.checks ?? {}) as DailyClosingChecklist;
+};
+
+export const saveDailyOpeningChecklistProgress = async (
+  businessDate: string,
+  checks: DailyClosingChecklist,
+): Promise<void> => {
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+  if (sessionError || !session) throw new Error('세션을 찾을 수 없습니다.');
+
+  const { error } = await supabase
+    .from('daily_opening_checklist_progress')
+    .upsert(
+      {
+        business_date: businessDate,
+        checks,
+        updated_by: session.user.id,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'business_date' },
+    );
 
   if (error) throw error;
 };

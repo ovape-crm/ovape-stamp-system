@@ -24,7 +24,26 @@ const LogActorInfo = ({
   const userDisplay =
     createdWorkerName || users?.name || users?.email || '알 수 없음';
 
-  const isModified = Boolean(modifiedWorkerName && modifiedAt);
+  const storedModificationHistory = Array.isArray(jsonb?.modificationHistory)
+    ? jsonb.modificationHistory.filter(
+        (
+          item,
+        ): item is {
+          workerName: string;
+          modifiedAt: string;
+        } =>
+          typeof item === 'object' &&
+          item !== null &&
+          typeof (item as Record<string, unknown>).workerName === 'string' &&
+          typeof (item as Record<string, unknown>).modifiedAt === 'string',
+      )
+    : [];
+  const modificationHistory =
+    storedModificationHistory.length > 0
+      ? storedModificationHistory
+      : modifiedWorkerName && modifiedAt
+        ? [{ workerName: modifiedWorkerName, modifiedAt }]
+        : [];
   const formatDate = (value: string) => new Date(value).toLocaleString('ko-KR', {
     year: '2-digit',
     month: '2-digit',
@@ -34,21 +53,30 @@ const LogActorInfo = ({
     hour12: false,
   });
   const createdDateText = formatDate(created_at);
-  const modifiedDateText = modifiedAt ? formatDate(modifiedAt) : '';
 
   return (
-    <>
+    <div>
       <div className="text-xs text-gray-500">
         작업자 · <span className="font-medium text-gray-700">{userDisplay}</span>
       </div>
       <div className="mt-0.5 text-xs text-gray-400">{createdDateText}</div>
-      {isModified && (
-        <div className="mt-1 rounded-md bg-gray-50 px-2 py-1 text-xs text-gray-500">
-          수정 · <span className="font-medium">{modifiedWorkerName}</span>
-          <span className="ml-1">{modifiedDateText}</span>
+      {modificationHistory.map((history, index) => (
+        <div
+          key={`${history.modifiedAt}-${history.workerName}-${index}`}
+          className="mt-1"
+        >
+          <div className="text-xs text-gray-500">
+            수정{' '}
+            <span className="font-medium text-gray-700">
+              {history.workerName}
+            </span>
+          </div>
+          <div className="mt-0.5 text-xs text-gray-400">
+            {formatDate(history.modifiedAt)}
+          </div>
         </div>
-      )}
-    </>
+      ))}
+    </div>
   );
 };
 

@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import toast from 'react-hot-toast';
 import Button from '@/app/_components/Button';
 import { useUser } from '@/app/_contexts/UserContext';
+import { useStaffOpening } from '@/app/_contexts/StaffOpeningContext';
 import supabase from '@/libs/supabaseClient';
 
 type GroupKey = 'customer' | 'product' | 'store';
@@ -37,6 +38,7 @@ type NavProps = { orientation?: 'horizontal' | 'vertical'; onNavigate?: () => vo
 const Nav = ({ orientation = 'horizontal', onNavigate }: NavProps) => {
   const pathname = usePathname();
   const { isAdmin } = useUser();
+  const { isLocked, step: staffOpeningStep } = useStaffOpening();
   const [menuItems, setMenuItems] = useState(defaultMenuItems);
   const [openGroup, setOpenGroup] = useState<GroupKey | null>(null);
   const [inventorySubmenuOpen, setInventorySubmenuOpen] = useState(false);
@@ -76,12 +78,31 @@ const Nav = ({ orientation = 'horizontal', onNavigate }: NavProps) => {
     };
   }, [openGroup]);
 
-  const visibleMenuItems = useMemo(() => menuItems.filter((item) => isAdmin || item.href !== '/items'), [isAdmin, menuItems]);
-  const groupedItems = useMemo(() => groupOrder.map((key) => ({
-    key,
-    label: groupLabels[key],
-    links: visibleMenuItems.filter((item) => item.group_key === key).sort((a, b) => a.sort_order - b.sort_order),
-  })), [visibleMenuItems]);
+  const visibleMenuItems = useMemo(
+    () =>
+      menuItems.filter(
+        (item) =>
+          (isAdmin || item.href !== '/items') &&
+          (!isLocked ||
+            item.href === '/work-journal' ||
+            item.href === '/cash-management' ||
+            (staffOpeningStep === 'checklist' && item.href === '/reports')),
+      ),
+    [isAdmin, isLocked, menuItems, staffOpeningStep],
+  );
+  const groupedItems = useMemo(
+    () =>
+      groupOrder
+        .map((key) => ({
+          key,
+          label: groupLabels[key],
+          links: visibleMenuItems
+            .filter((item) => item.group_key === key)
+            .sort((a, b) => a.sort_order - b.sort_order),
+        }))
+        .filter((group) => group.links.length > 0),
+    [visibleMenuItems],
+  );
   const closeAfterNavigate = () => { setOpenGroup(null); onNavigate?.(); };
 
   const moveDraft = (href: string, direction: -1 | 1) => {

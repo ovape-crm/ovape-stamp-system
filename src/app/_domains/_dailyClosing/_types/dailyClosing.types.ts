@@ -8,6 +8,7 @@ export type DailyClosingChecklistItem = {
   label: string;
   sort_order: number;
   is_required: boolean;
+  is_opening_gate: boolean;
 };
 
 export type DailyClosingReportSnapshot = {
@@ -29,6 +30,18 @@ export type DailyClosingReportSnapshot = {
   itemSummary: Array<{
     categoryName: string;
     quantity: number;
+  }>;
+  outboundTypeSummary?: Array<{
+    type: string;
+    label: string;
+    quantity: number;
+  }>;
+  deliverySummary?: Array<{
+    method: 'store_visit' | 'parcel' | 'delivery';
+    label: string;
+    orderCount: number;
+    quantity: number;
+    fee: number;
   }>;
   totalSales: number;
   expectedCash: number;

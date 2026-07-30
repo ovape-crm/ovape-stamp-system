@@ -27,9 +27,11 @@ import { getDailyClosingReportsByRange } from '@/app/_domains/_dailyClosing/_ser
 import { useModal } from '@/app/_contexts/ModalContext';
 import ConfirmModal from '@/app/(auth)/_components/ConfirmModal';
 import { useUser } from '@/app/_contexts/UserContext';
+import { useStaffOpening } from '@/app/_contexts/StaffOpeningContext';
 import DailyClosingReport from './_components/DailyClosingReport';
 import ChecklistManagement from './_components/ChecklistManagement';
 import ReportSnapshotView from './_components/ReportSnapshotView';
+import StaffOpeningProgressBanner from '@/app/(auth)/_components/StaffOpeningProgressBanner';
 
 type CashManagementTab =
   | 'save'
@@ -69,6 +71,11 @@ export default function CashManagementPage() {
   const pathname = usePathname();
   const isReportsPage = pathname?.startsWith('/reports');
   const { isAdmin } = useUser();
+  const {
+    step: staffOpeningStep,
+    previousCash: requiredOpeningCash,
+    refresh: refreshStaffOpening,
+  } = useStaffOpening();
   const queryClient = useQueryClient();
   const { open, close } = useModal();
   const [activeTab, setActiveTab] = useState<CashManagementTab>(
@@ -237,6 +244,8 @@ export default function CashManagementPage() {
     ovapeBreakdown: [],
     eguVapeBreakdown: [],
     itemSummary: [],
+    outboundTypeSummary: [],
+    deliverySummary: [],
     total: 0,
   };
   const workJournals = dayQuery.data?.workJournals ?? [];
@@ -279,6 +288,8 @@ export default function CashManagementPage() {
           queryKey: cashManagementKeys.history(),
         }),
       ]);
+      window.dispatchEvent(new Event('staff-opening-changed'));
+      await refreshStaffOpening();
     },
     onError: (error) => {
       console.error(error);
@@ -295,12 +306,26 @@ export default function CashManagementPage() {
   });
 
   const handleSave = () => {
+    if (staffOpeningStep === 'attendance') {
+      toast.error('시재를 저장하기 전에 근무기록에서 먼저 출근 처리해 주세요.');
+      return;
+    }
     if (!hasWorkerInfo) {
       toast.error('시재를 저장하려면 해당 날짜의 근무자 정보가 필요합니다.');
       return;
     }
     if (!canModifyClosing) {
       toast.error('staff 계정은 오늘 날짜의 시재만 수정할 수 있습니다.');
+      return;
+    }
+    if (
+      staffOpeningStep === 'cash' &&
+      requiredOpeningCash !== null &&
+      actualCash !== requiredOpeningCash
+    ) {
+      toast.error(
+        `영업 시작 시재는 전날 시재 ${requiredOpeningCash.toLocaleString('ko-KR')}원과 일치해야 합니다.`,
+      );
       return;
     }
     if (!isEditing && difference === 0) {
@@ -360,6 +385,7 @@ export default function CashManagementPage() {
 
   return (
     <main className="mx-auto max-w-7xl space-y-5 px-4 py-6 sm:px-6 lg:px-8">
+      <StaffOpeningProgressBanner />
       <div className="flex items-end justify-between border-b border-gray-200">
         <div className="flex min-w-0 overflow-x-auto" role="tablist" aria-label="시재 관리 메뉴">
           {tabOrder.map((tab, index) => {

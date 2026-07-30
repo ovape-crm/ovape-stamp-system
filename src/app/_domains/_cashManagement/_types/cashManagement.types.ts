@@ -54,5 +54,17 @@ export type DailyPaymentSales = {
     categoryName: string;
     quantity: number;
   }[];
+  outboundTypeSummary: {
+    type: string;
+    label: string;
+    quantity: number;
+  }[];
+  deliverySummary: {
+    method: 'store_visit' | 'parcel' | 'delivery';
+    label: string;
+    orderCount: number;
+    quantity: number;
+    fee: number;
+  }[];
   total: number;
 };
