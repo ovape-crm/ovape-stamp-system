@@ -94,6 +94,7 @@ export default function DailyClosingReport({
   const [checksDraftDate, setChecksDraftDate] = useState("");
   const [cleaningNote, setCleaningNote] = useState("");
   const [specialNote, setSpecialNote] = useState("");
+  const usesSeparatedOutboundSummary = businessDate >= "2026-07-31";
 
   const reportQuery = useQuery({
     queryKey: ["daily-closing-report", businessDate],
@@ -579,32 +580,107 @@ export default function DailyClosingReport({
               </p>
             </div>
           </div>
-          <div className="min-h-36 rounded-xl border border-gray-200 bg-gray-50 p-4">
-            <h2 className="border-b border-gray-200 pb-2 text-sm font-bold text-gray-800">
-              판매종류 및 수량
-            </h2>
-            <div className="mt-3 grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
-              {paymentSales.itemSummary.length ? (
-                paymentSales.itemSummary.map((item) => (
-                  <div
-                    key={item.categoryName}
-                    className="flex items-center justify-between gap-2 border-b border-gray-200 pb-1.5 text-sm last:border-b-0"
-                  >
-                    <span className="text-gray-600">{item.categoryName}</span>
-                    <strong className="text-gray-900">
-                      {item.quantity}
-                      {item.categoryName === "택배" ||
-                      item.categoryName === "배달"
-                        ? "건"
-                        : "개"}
-                    </strong>
-                  </div>
-                ))
-              ) : (
-                <p className="text-sm text-gray-400">판매 품목 없음</p>
-              )}
+          {usesSeparatedOutboundSummary ? (
+          <div className="min-h-36 overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+            <div className="grid min-h-36 sm:h-full sm:grid-cols-[7fr_7fr_4fr]">
+              <div className="p-4">
+                <h2 className="border-b border-gray-200 pb-2 text-sm font-bold text-gray-800">
+                  일반 출고
+                </h2>
+                <div className="mt-3 space-y-2">
+                  {paymentSales.itemSummary.length ? (
+                    paymentSales.itemSummary.map((item) => (
+                      <div
+                        key={item.categoryName}
+                        className="flex items-center justify-between gap-2 border-b border-gray-200 pb-1.5 text-sm last:border-b-0"
+                      >
+                        <span className="text-gray-600">
+                          {item.categoryName}
+                        </span>
+                        <strong className="text-gray-900">
+                          {item.quantity}개
+                        </strong>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-gray-400">출고 없음</p>
+                  )}
+                </div>
+              </div>
+              <div className="border-t border-gray-300 p-4 sm:border-l sm:border-t-0">
+                <h2 className="border-b border-gray-200 pb-2 text-sm font-bold text-gray-800">
+                  나머지 출고
+                </h2>
+                <div className="mt-3 space-y-2">
+                  {paymentSales.outboundTypeSummary.length ? (
+                    paymentSales.outboundTypeSummary.map((item) => (
+                      <div
+                        key={`${item.type}-${item.label}`}
+                        className="flex items-center justify-between gap-2 border-b border-gray-200 pb-1.5 text-sm last:border-b-0"
+                      >
+                        <span className="text-gray-600">{item.label}</span>
+                        <strong className="shrink-0 text-gray-900">
+                          {item.quantity}개
+                        </strong>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-gray-400">출고 없음</p>
+                  )}
+                </div>
+              </div>
+              <div className="border-t border-gray-300 p-4 sm:border-l sm:border-t-0">
+                <h2 className="border-b border-gray-200 pb-2 text-sm font-bold text-gray-800">
+                  수령 방식
+                </h2>
+                <div className="mt-3 space-y-2">
+                  {paymentSales.deliverySummary.length ? (
+                    paymentSales.deliverySummary.map((item) => (
+                      <div
+                        key={item.method}
+                        className="flex items-center justify-between gap-2 border-b border-gray-200 pb-1.5 text-sm last:border-b-0"
+                      >
+                        <span className="text-gray-600">{item.label}</span>
+                        <strong className="text-gray-900">
+                          {item.orderCount}건
+                        </strong>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-gray-400">등록 없음</p>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
+          ) : (
+            <div className="min-h-36 rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <h2 className="border-b border-gray-200 pb-2 text-sm font-bold text-gray-800">
+                판매종류 및 수량
+              </h2>
+              <div className="mt-3 grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+                {paymentSales.itemSummary.length ? (
+                  paymentSales.itemSummary.map((item) => (
+                    <div
+                      key={item.categoryName}
+                      className="flex items-center justify-between gap-2 border-b border-gray-200 pb-1.5 text-sm last:border-b-0"
+                    >
+                      <span className="text-gray-600">{item.categoryName}</span>
+                      <strong className="text-gray-900">
+                        {item.quantity}
+                        {item.categoryName === "택배" ||
+                        item.categoryName === "배달"
+                          ? "건"
+                          : "개"}
+                      </strong>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-400">판매 품목 없음</p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </section>
 

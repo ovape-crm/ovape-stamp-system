@@ -93,7 +93,7 @@ export const getDailyCashSales = async (
 export const getDailyPaymentSales = async (
   date: string,
 ): Promise<DailyPaymentSales> => {
-  const usesSeparatedDeliveryCounts = date >= '2026-07-31';
+  const usesSeparatedOutboundSummary = date >= '2026-07-31';
   const { start, end } = getKoreaDateRange(date);
   const { data, error } = await supabase
     .from('logs')
@@ -106,6 +106,10 @@ export const getDailyPaymentSales = async (
 
   const amountByPaymentType = new Map<string, number>();
   const quantityByCategory = new Map<string, number>();
+  const quantityByOtherOutboundType = new Map<
+    string,
+    { type: string; label: string; quantity: number }
+  >();
   const deliveryByMethod = new Map<
     'store_visit' | 'parcel' | 'delivery',
     { orderCount: number; quantity: number; fee: number }
@@ -160,23 +164,64 @@ export const getDailyPaymentSales = async (
       ? (jsonb.items as Array<{
           itemCategoryName?: unknown;
           quantity?: unknown;
+          adjustedUnitPrice?: unknown;
+          inventoryAction?: unknown;
+          remark?: unknown;
         }>)
       : [];
     let deliveryItemQuantity = 0;
+    let hasOutboundItem = false;
     for (const item of items) {
       const quantity = Number(item.quantity ?? 0);
       if (!Number.isFinite(quantity) || quantity <= 0) continue;
 
       const categoryName =
         String(item.itemCategoryName ?? '').trim() || '기타';
-      quantityByCategory.set(
-        categoryName,
-        (quantityByCategory.get(categoryName) ?? 0) + quantity,
-      );
+      const inventoryAction = String(item.inventoryAction ?? '').trim();
+      if (
+        usesSeparatedOutboundSummary &&
+        (inventoryAction === 'exchange_in' ||
+          inventoryAction === 'adjustment_in')
+      ) {
+        continue;
+      }
+      hasOutboundItem = true;
+      const remark = String(item.remark ?? '').trim();
+      const outboundType =
+        inventoryAction === 'exchange_in'
+          ? '교환입고'
+          : inventoryAction === 'exchange_out'
+            ? '교환출고'
+            : item.adjustedUnitPrice != null
+              ? '가격조정'
+              : remark.startsWith('서비스')
+                ? '서비스'
+                : remark.startsWith('시연용')
+                  ? '시연용'
+                  : remark.startsWith('입고처리')
+                    ? '입고처리'
+                    : remark.startsWith('출고처리')
+                      ? '출고처리'
+                      : remark || null;
+
+      if (usesSeparatedOutboundSummary && outboundType) {
+        const key = `${categoryName}\u0000${outboundType}`;
+        const current = quantityByOtherOutboundType.get(key);
+        quantityByOtherOutboundType.set(key, {
+          type: outboundType,
+          label: `${categoryName} - ${outboundType}`,
+          quantity: (current?.quantity ?? 0) + quantity,
+        });
+      } else {
+        quantityByCategory.set(
+          categoryName,
+          (quantityByCategory.get(categoryName) ?? 0) + quantity,
+        );
+      }
       deliveryItemQuantity += quantity;
     }
 
-    if (deliveryMethod) {
+    if (deliveryMethod && (!usesSeparatedOutboundSummary || hasOutboundItem)) {
       const current = deliveryByMethod.get(deliveryMethod) ?? {
         orderCount: 0,
         quantity: 0,
@@ -194,7 +239,7 @@ export const getDailyPaymentSales = async (
     }
   }
 
-  if (usesSeparatedDeliveryCounts) {
+  if (!usesSeparatedOutboundSummary) {
     const parcelCount = deliveryByMethod.get('parcel')?.orderCount ?? 0;
     const deliveryCount = deliveryByMethod.get('delivery')?.orderCount ?? 0;
     if (parcelCount > 0) quantityByCategory.set('택배', parcelCount);
@@ -218,7 +263,10 @@ export const getDailyPaymentSales = async (
     itemSummary: [...quantityByCategory.entries()]
       .map(([categoryName, quantity]) => ({ categoryName, quantity }))
       .sort((a, b) => b.quantity - a.quantity),
-    outboundTypeSummary: [],
+    outboundTypeSummary: [...quantityByOtherOutboundType.values()].sort(
+      (a, b) =>
+        b.quantity - a.quantity || a.label.localeCompare(b.label, 'ko-KR'),
+    ),
     deliverySummary: [
       ['store_visit', '매장방문'],
       ['parcel', '택배'],

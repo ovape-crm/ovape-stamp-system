@@ -36,7 +36,7 @@ export default function TargetCustomerCard({
             <p className="flex items-center bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-600">
               주소지
             </p>
-            <p className="whitespace-pre-wrap break-words border-l border-gray-200 px-3 py-2 text-sm text-gray-800">
+            <p className="flex items-center whitespace-pre-wrap break-words border-l border-gray-200 px-3 py-2 text-left text-sm text-gray-800">
               {address?.trim() || "등록 없음"}
             </p>
           </div>
@@ -44,7 +44,7 @@ export default function TargetCustomerCard({
             <p className="flex items-center bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-600">
               특이사항
             </p>
-            <p className="whitespace-pre-wrap break-words border-l border-gray-200 px-3 py-2 text-sm text-gray-800">
+            <p className="flex items-center whitespace-pre-wrap break-words border-l border-gray-200 px-3 py-2 text-left text-sm text-gray-800">
               {note?.trim() || "등록 없음"}
             </p>
           </div>

@@ -33,7 +33,9 @@ const resolveCurrentWorkerName = async () => {
   return data?.length === 1 ? data[0].worker_name : '';
 };
 
-const withCreatedWorker = async (jsonb: Record<string, unknown> | null) => {
+export const withCreatedWorker = async (
+  jsonb: Record<string, unknown> | null,
+) => {
   const workerName = await resolveCurrentWorkerName();
   return {
     ...(jsonb ?? {}),
@@ -265,7 +267,9 @@ export const getLogs = async (
  * 로그 삭제
  */
 export const deleteLog = async (logId: string) => {
-  const { error } = await supabase.from('logs').delete().eq('id', logId);
+  const { error } = await supabase.rpc('cancel_or_delete_log_operation', {
+    p_log_id: String(logId),
+  });
   if (error) throw error;
 };
 
