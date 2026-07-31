@@ -40,6 +40,7 @@
 body {
   background: var(--background);
   color: var(--foreground);
+  caret-color: transparent;
   font-family:
     "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
 }
@@ -51,12 +52,23 @@ summary,
 [role="button"]:not([aria-disabled="true"]),
 [role="option"]:not([aria-disabled="true"]) {
   cursor: pointer !important;
+  user-select: none;
+  caret-color: transparent;
 }
 
 button:disabled,
 select:disabled,
 [aria-disabled="true"] {
   cursor: not-allowed !important;
+  user-select: none;
+  caret-color: transparent;
+}
+
+input,
+textarea,
+[contenteditable="true"] {
+  user-select: text;
+  caret-color: auto;
 }
 
 /* 표의 줄바꿈은 각 표가 지정한 너비/nowrap 설정을 존중합니다. */

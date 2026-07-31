@@ -310,7 +310,7 @@ export default function ReportSnapshotView({
           </div>
         </ReportSection>
 
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[190px_190px_190px_minmax(0,1fr)]">
           <SnapshotList
             title="오베이프 매출"
             rows={ovapePayments.map((item) => ({
@@ -359,17 +359,51 @@ export default function ReportSnapshotView({
               </strong>
             </div>
           </section>
-          <SnapshotList
-            title="판매종류 및 수량"
-            rows={(snapshot.itemSummary ?? []).map((item) => ({
-              label: item.categoryName,
-              value: `${item.quantity}${
-                item.categoryName === "택배" || item.categoryName === "배달"
-                  ? "건"
-                  : "개"
-              }`,
-            }))}
-          />
+          {snapshot.businessDate >= "2026-07-31" ? (
+            <section className="min-h-36 overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+              <div className="grid min-h-36 sm:h-full sm:grid-cols-[7fr_7fr_4fr]">
+                <SnapshotListSection
+                  title="일반 출고"
+                  rows={(snapshot.itemSummary ?? []).map((item) => ({
+                    label: item.categoryName,
+                    value: `${item.quantity}개`,
+                  }))}
+                  emptyText="출고 없음"
+                  className="p-4"
+                />
+                <SnapshotListSection
+                  title="나머지 출고"
+                  rows={(snapshot.outboundTypeSummary ?? []).map((item) => ({
+                    label: item.label,
+                    value: `${item.quantity}개`,
+                  }))}
+                  emptyText="출고 없음"
+                  className="border-t border-gray-300 p-4 sm:border-l sm:border-t-0"
+                />
+                <SnapshotListSection
+                  title="수령 방식"
+                  rows={(snapshot.deliverySummary ?? []).map((item) => ({
+                    label: item.label,
+                    value: `${item.orderCount}건`,
+                  }))}
+                  emptyText="등록 없음"
+                  className="border-t border-gray-300 p-4 sm:border-l sm:border-t-0"
+                />
+              </div>
+            </section>
+          ) : (
+            <SnapshotList
+              title="판매종류 및 수량"
+              rows={(snapshot.itemSummary ?? []).map((item) => ({
+                label: item.categoryName,
+                value: `${item.quantity}${
+                  item.categoryName === "택배" || item.categoryName === "배달"
+                    ? "건"
+                    : "개"
+                }`,
+              }))}
+            />
+          )}
         </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
@@ -412,6 +446,41 @@ function ReportSection({
       <h3 className="mb-3 font-bold text-gray-900">{title}</h3>
       {children}
     </section>
+  );
+}
+
+function SnapshotListSection({
+  title,
+  rows,
+  emptyText,
+  className = "",
+}: {
+  title: string;
+  rows: Array<{ label: string; value: string }>;
+  emptyText: string;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <h3 className="border-b border-gray-200 pb-2 font-bold text-gray-800">
+        {title}
+      </h3>
+      <div className="mt-3 space-y-2">
+        {rows.length ? (
+          rows.map((row, index) => (
+            <div
+              key={`${row.label}-${index}`}
+              className="flex justify-between gap-2 border-b border-gray-200 pb-1.5 text-sm last:border-b-0"
+            >
+              <span className="text-gray-600">{row.label}</span>
+              <strong className="shrink-0 text-gray-900">{row.value}</strong>
+            </div>
+          ))
+        ) : (
+          <p className="text-sm text-gray-400">{emptyText}</p>
+        )}
+      </div>
+    </div>
   );
 }
 

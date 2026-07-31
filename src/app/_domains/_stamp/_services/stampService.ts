@@ -1,5 +1,8 @@
 import supabase from '@/libs/supabaseClient';
-import { createLog } from '@/app/_domains/_log/_services/logService';
+import {
+  createLog,
+  withCreatedWorker,
+} from '@/app/_domains/_log/_services/logService';
 import {
   LogCategoryEnum,
   PaymentTypeEnumType,
@@ -53,57 +56,6 @@ export type StampLogMeta = {
 };
 
 /**
- * action 문자열에서 스탬프 개수 추출 ('add-3' → 3, 'no-stamp' → 0)
- */
-const getStampAmountFromAction = (action: string) => {
-  if (action.startsWith('add-')) {
-    const amount = Number(action.replace('add-', ''));
-    return Number.isFinite(amount) ? amount : 0;
-  }
-  return 0;
-};
-
-/**
- * 스탬프 카운트 적용 (로그 기록 없이 count만 증가)
- */
-const applyStampCount = async (customerId: string, amount: number) => {
-  // 먼저 해당 customer의 stamp 레코드가 있는지 확인
-  const { data: existing } = await supabase
-    .from('stamps')
-    .select('*')
-    .eq('customer_id', customerId)
-    .single();
-
-  if (amount === 0) {
-    // 미적립: 스탬프 카운트 변경 없음
-    return existing ?? null;
-  }
-
-  if (existing) {
-    // 기존 레코드가 있으면 count 증가
-    const { data, error } = await supabase
-      .from('stamps')
-      .update({ count: existing.count + amount })
-      .eq('customer_id', customerId)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
-  }
-
-  // 없으면 새로 생성
-  const { data, error } = await supabase
-    .from('stamps')
-    .insert({ customer_id: customerId, count: amount })
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
-};
-
-/**
  * 스탬프 추가 (count 증가)
  */
 export const addStamp = async (
@@ -116,18 +68,14 @@ export const addStamp = async (
   if (!(await confirmOutboundInventory(logMeta?.items ?? []))) {
     throw new Error('출고 처리를 취소했습니다.');
   }
-  const result = await applyStampCount(customerId, amount);
-
-  // 로그 추가
-  await createLog(
-    LogCategoryEnum.STAMP.value,
-    customerId,
-    amount === 0 ? 'no-stamp' : `add-${amount}`,
-    note,
-    { paymentType, ...logMeta },
-  );
-
-  return result;
+  const { error } = await supabase.rpc('apply_stamp_log_operation', {
+    p_customer_id: customerId,
+    p_stamp_delta: amount,
+    p_action: amount === 0 ? 'no-stamp' : `add-${amount}`,
+    p_note: note,
+    p_jsonb: await withCreatedWorker({ paymentType, ...logMeta }),
+  });
+  if (error) throw error;
 };
 
 /**
@@ -169,25 +117,11 @@ export const confirmReservationStamp = async (logId: string) => {
     throw new Error('출고 확정을 취소했습니다.');
   }
 
-  const amount = getStampAmountFromAction(log.action);
-
-  if (amount > 0 && log.customer_id) {
-    await applyStampCount(log.customer_id, amount);
-  }
-
-  const { data: updated, error: updateError } = await supabase
-    .from('logs')
-    .update({
-      category: LogCategoryEnum.STAMP.value,
-      created_at: new Date().toISOString(),
-    })
-    .eq('id', logId)
-    .select()
-    .single();
-
+  const { error: updateError } = await supabase.rpc(
+    'confirm_reservation_stamp_operation',
+    { p_log_id: String(logId) },
+  );
   if (updateError) throw updateError;
-
-  return updated;
 };
 
 /**
@@ -199,39 +133,14 @@ export const removeStamp = async (
   amount: number = 1,
   note: string = '',
 ) => {
-  // 먼저 해당 customer의 stamp 레코드 확인
-  const { data: existing, error: findError } = await supabase
-    .from('stamps')
-    .select('*')
-    .eq('customer_id', customerId)
-    .single();
-
-  if (findError) throw findError;
-  if (!existing) {
-    throw new Error('스탬프가 없습니다');
-  }
-
-  const newCount = existing.count - amount;
-
-  if (newCount < 0) {
-    throw new Error('차감할 스탬프가 부족합니다');
-  }
-
-  // count 업데이트 (0이 되어도 레코드는 유지하여 UI 일관성 확보)
-  const { error: updateError } = await supabase
-    .from('stamps')
-    .update({ count: newCount })
-    .eq('customer_id', customerId);
-
-  if (updateError) throw updateError;
-
-  // 로그 추가
-  await createLog(
-    LogCategoryEnum.STAMP.value,
-    customerId,
-    `${mode}-${amount}`,
-    note,
-  );
+  const { error } = await supabase.rpc('apply_stamp_log_operation', {
+    p_customer_id: customerId,
+    p_stamp_delta: -amount,
+    p_action: `${mode}-${amount}`,
+    p_note: note,
+    p_jsonb: await withCreatedWorker(null),
+  });
+  if (error) throw error;
 };
 
 /**

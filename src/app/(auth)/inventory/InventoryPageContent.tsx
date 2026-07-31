@@ -20,7 +20,6 @@ import {
   resetInventoryForReinitialization,
   inventoryKeys,
   normalizeInventoryItemName,
-  reverseInventoryMovement,
   saveInventoryTrackingSettings,
   getInventorySuppliers,
   saveInventorySupplier,
@@ -920,14 +919,18 @@ function StockOverview({
     });
   const copyForKakao = async () => {
     const text = [
-      "품목코드\t품목명\t현재재고",
-      ...filtered.map(
+      "품목 코드\t품목명\t현재 재고",
+      ...sortedItems.map(
         (item) =>
-          `${item.item_code || "-"}\t${item.item_name}\t${item.quantity === 0 ? "품절" : `${item.quantity}개`}`,
+          [
+            item.item_code || "-",
+            item.item_name,
+            item.quantity === 0 ? "품절" : `${item.quantity}개`,
+          ].join("\t"),
       ),
     ].join("\n");
     await navigator.clipboard.writeText(text);
-    toast.success(`${filtered.length}개 품목을 복사했습니다.`);
+    toast.success(`${sortedItems.length}개 품목을 표 순서대로 복사했습니다.`);
   };
   const headings = [
     { label: "사용 상태", key: "usage" },
@@ -5450,6 +5453,9 @@ function MovementHistory({
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [visibleCount, setVisibleCount] = useState(10);
+  const [movementToReverse, setMovementToReverse] = useState<
+    (typeof movements)[number] | null
+  >(null);
   const localDate = (value: string) => {
     const date = new Date(value);
     const offset = date.getTimezoneOffset() * 60000;
@@ -5522,8 +5528,20 @@ function MovementHistory({
     setVisibleCount(10);
   }, [search, dateMode, startDate, endDate]);
   const reverseMutation = useMutation({
-    mutationFn: reverseInventoryMovement,
+    mutationFn: (movement: (typeof movements)[number]) => {
+      if (
+        movement.reference_type !== "purchase_receipt" ||
+        !movement.reference_id
+      ) {
+        throw new Error("연결된 입고 전표를 찾을 수 없습니다.");
+      }
+      return reversePurchaseReceipt(
+        movement.reference_id,
+        "재고 변동 화면에서 입고 취소",
+      );
+    },
     onSuccess: async () => {
+      setMovementToReverse(null);
       toast.success("입고를 취소했습니다.");
       await onSaved();
     },
@@ -5719,11 +5737,13 @@ function MovementHistory({
                     <td className="border border-gray-200 px-3 py-3">
                       {isAdmin &&
                         movement.movement_type === "purchase_in" &&
+                        movement.reference_type === "purchase_receipt" &&
+                        movement.reference_id &&
                         !reversedIds.has(movement.id) && (
                           <Button
                             size="xs"
                             variant="danger"
-                            onClick={() => reverseMutation.mutate(movement.id)}
+                            onClick={() => setMovementToReverse(movement)}
                             disabled={reverseMutation.isPending}
                           >
                             입고 취소
@@ -5758,6 +5778,15 @@ function MovementHistory({
           </div>
         )}
       </section>
+      {movementToReverse && (
+        <ConfirmOverlay
+          title="입고를 취소하시겠습니까?"
+          description={`${movementToReverse.item_name} ${movementToReverse.quantity_delta.toLocaleString()}개 입고를 취소합니다.\n재고가 차감되고 입고 관리의 완료 수량과 주문 상태도 함께 되돌아갑니다.`}
+          pending={reverseMutation.isPending}
+          onCancel={() => setMovementToReverse(null)}
+          onConfirm={() => reverseMutation.mutate(movementToReverse)}
+        />
+      )}
     </div>
   );
 }

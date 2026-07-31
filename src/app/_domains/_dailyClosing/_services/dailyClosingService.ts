@@ -121,13 +121,6 @@ export const saveDailyClosingChecklistItems = async (
     isOpeningGate: boolean;
   }[],
 ): Promise<void> => {
-  const { error: deleteError } = await supabase
-    .from('daily_closing_checklist_items')
-    .delete()
-    .in('phase', ['opening', 'closing']);
-
-  if (deleteError) throw deleteError;
-
   const normalized = items
     .filter((item) => item.label.trim())
     .map((item) => ({
@@ -138,11 +131,9 @@ export const saveDailyClosingChecklistItems = async (
       is_opening_gate: item.phase === 'opening' && item.isOpeningGate,
     }));
 
-  if (!normalized.length) return;
-  const { error } = await supabase
-    .from('daily_closing_checklist_items')
-    .insert(normalized);
-
+  const { error } = await supabase.rpc('save_daily_closing_checklist_items', {
+    p_items: normalized,
+  });
   if (error) throw error;
 };
 

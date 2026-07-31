@@ -1,6 +1,7 @@
 import Logo from './_components/Logo';
 import Nav from './_components/Nav';
 import UserInfo from './_components/UserInfo';
+import FullscreenButton from './_components/FullscreenButton';
 
 const Header = () => {
   return (
@@ -14,7 +15,8 @@ const Header = () => {
           </div>
 
           {/* 유저 정보 */}
-          <div className="flex items-center whitespace-nowrap">
+          <div className="flex items-center gap-5 whitespace-nowrap">
+            <FullscreenButton />
             <UserInfo />
           </div>
         </div>

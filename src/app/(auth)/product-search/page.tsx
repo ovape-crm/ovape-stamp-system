@@ -51,6 +51,34 @@ const defaultColumnWidths: Record<ProductColumnKey, number> = {
   location: 120,
 };
 
+const loadColumnWidths = (
+  mode: SearchMode,
+): Record<ProductColumnKey, number> => {
+  if (typeof window === 'undefined') return { ...defaultColumnWidths };
+  try {
+    const saved =
+      window.localStorage.getItem(`product-search-column-widths-${mode}`) ??
+      window.localStorage.getItem('product-search-column-widths');
+    const widths = saved
+      ? { ...defaultColumnWidths, ...JSON.parse(saved) }
+      : defaultColumnWidths;
+    return Object.fromEntries(
+      Object.entries(widths).map(([key, value]) => [
+        key,
+        Math.min(
+          360,
+          Math.max(
+            70,
+            Number(value) || defaultColumnWidths[key as ProductColumnKey],
+          ),
+        ),
+      ]),
+    ) as Record<ProductColumnKey, number>;
+  } catch {
+    return { ...defaultColumnWidths };
+  }
+};
+
 function ResizableHeader({
   label,
   width,
@@ -127,28 +155,17 @@ export default function ProductSearchPage() {
   });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [columnEditing, setColumnEditing] = useState(false);
-  const [columnWidthSnapshot, setColumnWidthSnapshot] = useState<
-    Record<ProductColumnKey, number> | null
-  >(null);
-  const [columnWidths, setColumnWidths] = useState<
+  const [columnWidthSnapshot, setColumnWidthSnapshot] = useState<Record<
+    SearchMode,
     Record<ProductColumnKey, number>
-  >(() => {
-    if (typeof window === 'undefined') return defaultColumnWidths;
-    try {
-      const saved = window.localStorage.getItem('product-search-column-widths');
-      const widths = saved
-        ? { ...defaultColumnWidths, ...JSON.parse(saved) }
-        : defaultColumnWidths;
-      return Object.fromEntries(
-        Object.entries(widths).map(([key, value]) => [
-          key,
-          Math.min(360, Math.max(70, Number(value) || defaultColumnWidths[key as ProductColumnKey])),
-        ]),
-      ) as Record<ProductColumnKey, number>;
-    } catch {
-      return defaultColumnWidths;
-    }
-  });
+  > | null>(null);
+  const [columnWidthsByMode, setColumnWidthsByMode] = useState<
+    Record<SearchMode, Record<ProductColumnKey, number>>
+  >(() => ({
+    liquid: loadColumnWidths('liquid'),
+    other: loadColumnWidths('other'),
+  }));
+  const columnWidths = columnWidthsByMode[mode];
   const [searchValues, setSearchValues] = useState<
     Record<SearchMode, SearchValues>
   >({
@@ -235,24 +252,30 @@ export default function ProductSearchPage() {
   };
   const hasSearchValue = Object.values(activeSearch).some(Boolean);
   const resizeColumn = (key: ProductColumnKey, width: number) => {
-    setColumnWidths((current) => {
-      return { ...current, [key]: Math.round(width) };
+    setColumnWidthsByMode((current) => {
+      return {
+        ...current,
+        [mode]: { ...current[mode], [key]: Math.round(width) },
+      };
     });
   };
   const startColumnEditing = () => {
-    setColumnWidthSnapshot({ ...columnWidths });
+    setColumnWidthSnapshot({
+      liquid: { ...columnWidthsByMode.liquid },
+      other: { ...columnWidthsByMode.other },
+    });
     setColumnEditing(true);
   };
   const saveColumnWidths = () => {
     window.localStorage.setItem(
-      'product-search-column-widths',
+      `product-search-column-widths-${mode}`,
       JSON.stringify(columnWidths),
     );
     setColumnWidthSnapshot(null);
     setColumnEditing(false);
   };
   const cancelColumnEditing = () => {
-    if (columnWidthSnapshot) setColumnWidths(columnWidthSnapshot);
+    if (columnWidthSnapshot) setColumnWidthsByMode(columnWidthSnapshot);
     setColumnWidthSnapshot(null);
     setColumnEditing(false);
   };
