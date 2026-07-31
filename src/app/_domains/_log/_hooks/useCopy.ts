@@ -93,6 +93,20 @@ const useCopy = () => {
     const basePaymentTypeName =
       paymentTypeLabelOverride ??
       (paymentTypeValue ? paymentTypeNameByValue[paymentTypeValue] : undefined);
+    const splitPayments = Array.isArray(log.jsonb?.payments)
+      ? log.jsonb.payments.filter(
+          (
+            payment,
+          ): payment is {
+            paymentType: PaymentTypeEnumType['value'];
+            amount: number;
+          } =>
+            typeof payment === 'object' &&
+            payment !== null &&
+            typeof payment.paymentType === 'string' &&
+            typeof payment.amount === 'number',
+        )
+      : [];
 
     const isEguPayment =
       typeof paymentTypeValue === 'string' &&
@@ -149,9 +163,29 @@ const useCopy = () => {
         : '';
     const address = deliveryAddress.replace(/\s+/g, ' ');
 
-    const textToCopy = `${storeName}\t${formattedDate}\t${log.note}\t\t${amountFormula}\t${
-      paymentTypeName ?? ''
-    }\t${name}\t${phone}\t${gender}\t${address}`;
+    const buildClipboardRow = (
+      note: string,
+      copiedAmount: string,
+      copiedPaymentType: string,
+    ) =>
+      `${storeName}\t${formattedDate}\t${note}\t\t${copiedAmount}\t${copiedPaymentType}\t${name}\t${phone}\t${gender}\t${address}`;
+
+    const textToCopy =
+      splitPayments.length >= 2
+        ? splitPayments
+            .map((payment) =>
+              buildClipboardRow(
+                `분할결제) ${log.note}`,
+                String(payment.amount),
+                paymentTypeNameByValue[payment.paymentType] ?? '',
+              ),
+            )
+            .join('\n')
+        : buildClipboardRow(
+            log.note,
+            amountFormula,
+            paymentTypeName ?? '',
+          );
 
     try {
       await navigator.clipboard.writeText(textToCopy);

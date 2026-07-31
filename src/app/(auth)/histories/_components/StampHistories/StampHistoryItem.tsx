@@ -10,6 +10,7 @@ import {
   StoreLabel,
 } from '@/app/(auth)/_components/HistoriesComponents';
 import useCopy from '@/app/_domains/_log/_hooks/useCopy';
+import { isSpecialCustomer } from '@/app/_domains/_customer/_utils/specialCustomer';
 
 interface StampHistoryItemProps {
   log: LogsResType;
@@ -31,14 +32,24 @@ const StampHistoryItem = ({
   showCopy = true,
 }: StampHistoryItemProps) => {
   const { copyLogToClipboard } = useCopy();
-  const isNoStampCustomer =
-    log.customers?.name?.trim() === 'X' &&
-    log.customers?.phone?.trim() === 'X';
+  const isSplitPayment =
+    Array.isArray(log.jsonb?.payments) && log.jsonb.payments.length >= 2;
+  const hasSpecialCustomer =
+    Boolean(log.customers?.name) &&
+    isSpecialCustomer(log.customers.name, log.customers.phone);
 
   return (
-    <div className="flex items-center justify-between p-2.5 sm:p-4 rounded-lg border border-brand-50 hover:bg-brand-50/30 transition-colors whitespace-nowrap text-xs sm:text-sm">
-      <div className="flex items-center gap-2 sm:gap-4">
-        {!isNoStampCustomer && <ActionInfoLabel action={log.action} />}
+    <div className="grid grid-cols-[125px_88px_minmax(260px,1fr)_115px_auto] items-center gap-2 whitespace-nowrap rounded-lg border border-brand-50 p-2.5 text-xs transition-colors hover:bg-brand-50/30 sm:px-2 sm:py-4 sm:text-sm">
+      <div className="flex min-w-0 self-start flex-col items-center text-center">
+        <div>
+          {hasSpecialCustomer ? (
+            <span className="inline-flex whitespace-nowrap rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
+              특수계정
+            </span>
+          ) : (
+            <ActionInfoLabel action={log.action} />
+          )}
+        </div>
         <CustomerInfo
           name={log.customers?.name}
           phone={log.customers?.phone}
@@ -46,7 +57,7 @@ const StampHistoryItem = ({
         />
       </div>
 
-      <div className="flex flex-col items-start gap-1">
+      <div className="ml-2 flex min-w-0 self-start flex-col items-start gap-1">
         {log.jsonb && 'storeName' in log.jsonb && (
           <StoreLabel jsonb={log.jsonb} />
         )}
@@ -61,14 +72,18 @@ const StampHistoryItem = ({
           )}
       </div>
 
-      <div className="flex-1 max-w-[600px] pl-3 ml-3 sm:pl-4 sm:ml-4 border-l border-brand-100">
+      <div className="min-w-0 border-l border-brand-100 pl-3 sm:pl-4">
         <div className="flex items-start gap-2">
           <Button variant="secondary" size="xs" onClick={onEdit}>
             ✏️
           </Button>
-          <div className="min-w-[240px] flex-1 break-words whitespace-normal text-xs text-gray-600 sm:text-sm">
+          <div className="min-w-0 flex-1 break-words whitespace-normal text-xs text-gray-600 sm:text-sm">
             <p className="whitespace-pre-line">
-              {log.note || <span className="text-gray-400"> - </span>}
+              {log.note ? (
+                `${isSplitPayment ? '분할결제) ' : ''}${log.note}`
+              ) : (
+                <span className="text-gray-400"> - </span>
+              )}
             </p>
             {typeof log.jsonb?.extraNote === 'string' &&
               log.jsonb.extraNote.trim() && (
@@ -99,7 +114,7 @@ const StampHistoryItem = ({
         )}
       </div>
 
-      <div className="ml-4 flex shrink-0 items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2">
         {onConfirm && (
           <Button variant="primary" size="sm" onClick={onConfirm}>
             출고 확정
