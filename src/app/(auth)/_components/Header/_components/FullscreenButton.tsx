@@ -1,26 +1,72 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+
+const FULLSCREEN_PREFERENCE_KEY = 'app-fullscreen-preferred';
 
 const FullscreenButton = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const prefersFullscreenRef = useRef(false);
+
+  const requestFullscreen = useCallback(async () => {
+    if (document.fullscreenElement || !document.fullscreenEnabled) return true;
+
+    try {
+      await document.documentElement.requestFullscreen();
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
 
   useEffect(() => {
     const handleFullscreenChange = () =>
       setIsFullscreen(Boolean(document.fullscreenElement));
+    const restoreFullscreen = () => {
+      if (
+        prefersFullscreenRef.current &&
+        document.visibilityState === 'visible' &&
+        !document.fullscreenElement
+      ) {
+        void requestFullscreen();
+      }
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') restoreFullscreen();
+    };
 
+    prefersFullscreenRef.current =
+      window.localStorage.getItem(FULLSCREEN_PREFERENCE_KEY) === 'true';
     handleFullscreenChange();
+    restoreFullscreen();
     document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () =>
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('pointerdown', restoreFullscreen, true);
+    document.addEventListener('keydown', restoreFullscreen, true);
+
+    return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, []);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('pointerdown', restoreFullscreen, true);
+      document.removeEventListener('keydown', restoreFullscreen, true);
+    };
+  }, [requestFullscreen]);
 
   const toggleFullscreen = async () => {
     if (document.fullscreenElement) {
+      prefersFullscreenRef.current = false;
+      window.localStorage.removeItem(FULLSCREEN_PREFERENCE_KEY);
       await document.exitFullscreen();
       return;
     }
-    await document.documentElement.requestFullscreen();
+
+    prefersFullscreenRef.current = true;
+    window.localStorage.setItem(FULLSCREEN_PREFERENCE_KEY, 'true');
+    const enteredFullscreen = await requestFullscreen();
+    if (!enteredFullscreen) {
+      prefersFullscreenRef.current = false;
+      window.localStorage.removeItem(FULLSCREEN_PREFERENCE_KEY);
+    }
   };
 
   return (

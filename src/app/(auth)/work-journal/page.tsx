@@ -509,7 +509,7 @@ export default function WorkJournalPage() {
             );
           })}
         </div>
-        <button
+        {isAdmin && <button
           type="button"
           onClick={() => setEditingTabOrder((current) => !current)}
           className={`mb-2 ml-3 flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border bg-white transition ${
@@ -523,7 +523,7 @@ export default function WorkJournalPage() {
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 15.25A3.25 3.25 0 1 0 12 8.75a3.25 3.25 0 0 0 0 6.5Zm7.25-3.25c0-.48-.05-.95-.14-1.4l2.02-1.57-2-3.46-2.48 1a7.4 7.4 0 0 0-2.42-1.4L13.88 2.5h-4l-.35 2.67a7.4 7.4 0 0 0-2.42 1.4l-2.48-1-2 3.46 2.02 1.57a7.18 7.18 0 0 0 0 2.8l-2.02 1.57 2 3.46 2.48-1a7.4 7.4 0 0 0 2.42 1.4l.35 2.67h4l.35-2.67a7.4 7.4 0 0 0 2.42-1.4l2.48 1 2-3.46-2.02-1.57c.09-.45.14-.92.14-1.4Z" />
           </svg>
-        </button>
+        </button>}
       </div>
 
       {activeTab === "workers" && isAdmin && (

@@ -1,7 +1,9 @@
 -- 출고·스탬프·로그와 설정 저장을 한 트랜잭션으로 처리합니다.
 
+drop function if exists public.apply_stamp_log_operation(uuid,integer,text,text,jsonb);
+
 create or replace function public.apply_stamp_log_operation(
-  p_customer_id uuid,
+  p_customer_id bigint,
   p_stamp_delta integer,
   p_action text,
   p_note text,
@@ -162,11 +164,11 @@ begin
 end;
 $$;
 
-revoke all on function public.apply_stamp_log_operation(uuid,integer,text,text,jsonb) from public,anon;
+revoke all on function public.apply_stamp_log_operation(bigint,integer,text,text,jsonb) from public,anon;
 revoke all on function public.confirm_reservation_stamp_operation(text) from public,anon;
 revoke all on function public.cancel_or_delete_log_operation(text) from public,anon;
 revoke all on function public.save_daily_closing_checklist_items(jsonb) from public,anon;
-grant execute on function public.apply_stamp_log_operation(uuid,integer,text,text,jsonb) to authenticated;
+grant execute on function public.apply_stamp_log_operation(bigint,integer,text,text,jsonb) to authenticated;
 grant execute on function public.confirm_reservation_stamp_operation(text) to authenticated;
 grant execute on function public.cancel_or_delete_log_operation(text) to authenticated;
 grant execute on function public.save_daily_closing_checklist_items(jsonb) to authenticated;
