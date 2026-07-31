@@ -248,7 +248,12 @@ export const getLogs = async (
   }
 
   if (paymentMethod) {
-    query = query.eq('jsonb->>paymentType', paymentMethod);
+    const splitPaymentFilter = JSON.stringify([
+      { paymentType: paymentMethod },
+    ]);
+    query = query.or(
+      `jsonb->>paymentType.eq.${paymentMethod},jsonb->payments.cs.${splitPaymentFilter}`,
+    );
   }
 
   if (searchKeyword) {

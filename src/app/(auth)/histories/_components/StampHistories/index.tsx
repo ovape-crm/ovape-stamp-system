@@ -336,7 +336,7 @@ const StampHistories = ({
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <div className="w-max min-w-[1100px] space-y-4 sm:space-y-6 text-xs sm:text-sm">
+          <div className="w-full min-w-[960px] space-y-4 text-xs sm:space-y-6 sm:text-sm">
             {sortedDates.map((dateKey) => {
               const logsOfDate = itemsByDate[dateKey];
 
