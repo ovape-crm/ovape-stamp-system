@@ -144,8 +144,7 @@ export const getInventoryMovements = async (
       movements
         .filter(
           (movement) =>
-            movement.reference_type === "outbound_log" &&
-            movement.reference_id,
+            movement.reference_type === "outbound_log" && movement.reference_id,
         )
         .map((movement) => movement.reference_id as string),
     ),
@@ -167,13 +166,15 @@ export const getInventoryMovements = async (
     outboundLogIds.length
       ? supabase
           .from("logs")
-          .select("id, customer_id, customers(name)")
+          .select("id, customer_id, jsonb, customers(name)")
           .in("id", outboundLogIds)
       : Promise.resolve({ data: [], error: null }),
     purchaseReceiptIds.length
       ? supabase
           .from("inventory_purchase_receipts")
-          .select("id, order_id, inventory_purchase_orders(inventory_suppliers(name))")
+          .select(
+            "id, order_id, inventory_purchase_orders(inventory_suppliers(name))",
+          )
           .in("id", purchaseReceiptIds)
       : Promise.resolve({ data: [], error: null }),
   ]);
@@ -182,6 +183,10 @@ export const getInventoryMovements = async (
   // 전체 이력 조회 실패로 처리하지 않고 기존 메모를 대체 정보로 사용한다.
   const outboundNames = new Map<string, string>();
   const outboundCustomerIds = new Map<string, string>();
+  const outboundItemDetails = new Map<
+    string,
+    { inventoryAction: InventoryMovement["inventory_action"]; remark: string }
+  >();
   if (!outboundResult.error) {
     for (const row of outboundResult.data ?? []) {
       const customers = Array.isArray(row.customers)
@@ -190,6 +195,36 @@ export const getInventoryMovements = async (
       if (customers?.name) outboundNames.set(String(row.id), customers.name);
       if (row.customer_id) {
         outboundCustomerIds.set(String(row.id), String(row.customer_id));
+      }
+      const jsonb = row.jsonb as {
+        items?: Array<{
+          itemName?: unknown;
+          inventoryAction?: unknown;
+          remark?: unknown;
+        }>;
+      } | null;
+      for (const item of Array.isArray(jsonb?.items) ? jsonb.items : []) {
+        const itemName = normalizeInventoryItemName(
+          String(item.itemName ?? ""),
+        );
+        if (!itemName) continue;
+        const action = String(item.inventoryAction ?? "");
+        const inventoryAction = [
+          "out",
+          "exchange_in",
+          "exchange_out",
+          "adjustment_in",
+          "adjustment_out",
+        ].includes(action)
+          ? (action as InventoryMovement["inventory_action"])
+          : null;
+        const direction = ["exchange_in", "adjustment_in"].includes(action)
+          ? "in"
+          : "out";
+        outboundItemDetails.set(`${row.id}\u0000${itemName}\u0000${direction}`, {
+          inventoryAction,
+          remark: String(item.remark ?? ""),
+        });
       }
     }
   }
@@ -211,27 +246,34 @@ export const getInventoryMovements = async (
     }
   }
 
-  return movements.map((movement) => ({
-    ...movement,
-    counterparty_name:
-      movement.reference_type === "outbound_log"
-        ? outboundNames.get(movement.reference_id ?? "") ?? null
-        : ["purchase_receipt", "purchase_receipt_reversal"].includes(
-              movement.reference_type ?? "",
-            )
-          ? supplierNames.get(movement.reference_id ?? "") ?? null
+  return movements.map((movement) => {
+    const itemDetail = outboundItemDetails.get(
+      `${movement.reference_id ?? ""}\u0000${normalizeInventoryItemName(movement.item_name)}\u0000${movement.quantity_delta > 0 ? "in" : "out"}`,
+    );
+    return {
+      ...movement,
+      counterparty_name:
+        movement.reference_type === "outbound_log"
+          ? (outboundNames.get(movement.reference_id ?? "") ?? null)
+          : ["purchase_receipt", "purchase_receipt_reversal"].includes(
+                movement.reference_type ?? "",
+              )
+            ? (supplierNames.get(movement.reference_id ?? "") ?? null)
+            : null,
+      counterparty_id:
+        movement.reference_type === "outbound_log"
+          ? (outboundCustomerIds.get(movement.reference_id ?? "") ?? null)
           : null,
-    counterparty_id:
-      movement.reference_type === "outbound_log"
-        ? outboundCustomerIds.get(movement.reference_id ?? "") ?? null
+      purchase_order_id: [
+        "purchase_receipt",
+        "purchase_receipt_reversal",
+      ].includes(movement.reference_type ?? "")
+        ? (receiptOrderIds.get(movement.reference_id ?? "") ?? null)
         : null,
-    purchase_order_id: [
-      "purchase_receipt",
-      "purchase_receipt_reversal",
-    ].includes(movement.reference_type ?? "")
-      ? receiptOrderIds.get(movement.reference_id ?? "") ?? null
-      : null,
-  }));
+      inventory_action: itemDetail?.inventoryAction ?? null,
+      item_remark: itemDetail?.remark ?? null,
+    };
+  });
 };
 
 export const initializeInventory = async (entries: InventoryEntry[]) => {
@@ -274,19 +316,6 @@ export const receiveInventory = async (
   if (error) throw error;
 };
 
-export const adjustInventory = async (
-  itemName: string,
-  quantity: number,
-  note: string,
-) => {
-  const { error } = await supabase.rpc("adjust_inventory", {
-    p_item_name: normalizeInventoryItemName(itemName),
-    p_quantity: quantity,
-    p_note: note.trim(),
-  });
-  if (error) throw error;
-};
-
 export const reverseInventoryMovement = async (movementId: string) => {
   const { error } = await supabase.rpc("reverse_inventory_movement", {
     p_movement_id: movementId,
@@ -312,8 +341,8 @@ export const saveInventorySupplier = async (
   const { data: savedId, error } = await supabase.rpc(
     "save_inventory_supplier",
     {
-    p_id: id,
-    p_data: data,
+      p_id: id,
+      p_data: data,
     },
   );
   if (error) throw error;
@@ -450,14 +479,17 @@ export const updatePurchaseOrderDetails = async (values: {
     note: string;
   }>;
 }): Promise<void> => {
-  const { error } = await supabase.rpc("update_inventory_purchase_order_details", {
-    p_order_id: values.orderId,
-    p_supplier_id: values.supplierId,
-    p_ordered_on: values.orderedOn,
-    p_note: values.note || null,
-    p_lines: values.lines,
-    p_receipts: values.receipts,
-  });
+  const { error } = await supabase.rpc(
+    "update_inventory_purchase_order_details",
+    {
+      p_order_id: values.orderId,
+      p_supplier_id: values.supplierId,
+      p_ordered_on: values.orderedOn,
+      p_note: values.note || null,
+      p_lines: values.lines,
+      p_receipts: values.receipts,
+    },
+  );
   if (error) throw error;
 };
 export const createPurchaseOrder = async (

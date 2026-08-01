@@ -3,34 +3,46 @@ import {
   LogCategoryEnumType,
   PaymentTypeEnumType,
   StoreTypeEnumType,
-} from '@/app/_enums/enums';
-import type { StampLogMeta } from '@/app/_domains/_stamp/_services/stampService';
-import { confirmOutboundInventory } from '@/app/_domains/_inventory/_services/outboundInventoryService';
+} from "@/app/_enums/enums";
+import type { StampLogMeta } from "@/app/_domains/_stamp/_services/stampService";
+import { confirmOutboundInventory } from "@/app/_domains/_inventory/_services/outboundInventoryService";
 import {
   AfterServiceLogsResType,
   CustomersLogsResType,
   LogsResType,
-} from '@/app/_domains/_log/_types/log.types';
-import supabase from '@/libs/supabaseClient';
-import { getCurrentWorkerName } from '@/app/_domains/_workJournal/_utils/currentWorker';
+} from "@/app/_domains/_log/_types/log.types";
+import supabase from "@/libs/supabaseClient";
+import { getCurrentWorkerName } from "@/app/_domains/_workJournal/_utils/currentWorker";
 
 const resolveCurrentWorkerName = async () => {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (session) {
+    const { data: currentUser } = await supabase
+      .from("users")
+      .select("oss_role")
+      .eq("id", session.user.id)
+      .maybeSingle();
+    if (currentUser?.oss_role === "admin") return "관리자";
+  }
+
   const storedWorkerName = getCurrentWorkerName();
   if (storedWorkerName) return storedWorkerName;
 
-  const today = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Seoul',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
   }).format(new Date());
   const { data } = await supabase
-    .from('work_journals')
-    .select('worker_name')
-    .eq('work_date', today)
-    .eq('status', 'working')
+    .from("work_journals")
+    .select("worker_name")
+    .eq("work_date", today)
+    .eq("status", "working")
     .limit(2);
-  return data?.length === 1 ? data[0].worker_name : '';
+  return data?.length === 1 ? data[0].worker_name : "";
 };
 
 export const withCreatedWorker = async (
@@ -54,16 +66,16 @@ const withModifiedWorker = async (jsonb: Record<string, unknown>) => {
           workerName: string;
           modifiedAt: string;
         } =>
-          typeof item === 'object' &&
+          typeof item === "object" &&
           item !== null &&
-          typeof (item as Record<string, unknown>).workerName === 'string' &&
-          typeof (item as Record<string, unknown>).modifiedAt === 'string',
+          typeof (item as Record<string, unknown>).workerName === "string" &&
+          typeof (item as Record<string, unknown>).modifiedAt === "string",
       )
     : [];
   const legacyHistory =
     storedHistory.length === 0 &&
-    typeof jsonb.modifiedWorkerName === 'string' &&
-    typeof jsonb.modifiedAt === 'string'
+    typeof jsonb.modifiedWorkerName === "string" &&
+    typeof jsonb.modifiedAt === "string"
       ? [
           {
             workerName: jsonb.modifiedWorkerName,
@@ -71,7 +83,7 @@ const withModifiedWorker = async (jsonb: Record<string, unknown>) => {
           },
         ]
       : [];
-  const nextWorkerName = workerName || '알 수 없음';
+  const nextWorkerName = workerName || "알 수 없음";
 
   return {
     ...jsonb,
@@ -89,10 +101,10 @@ const withModifiedWorker = async (jsonb: Record<string, unknown>) => {
  * 로그 추가
  */
 export const createLog = async (
-  category: LogCategoryEnumType['value'],
+  category: LogCategoryEnumType["value"],
   customerId: string,
   action: string,
-  note: string = '',
+  note: string = "",
   jsonb: Record<string, unknown> | null = null,
 ) => {
   // 현재 세션에서 user id 가져오기
@@ -102,13 +114,13 @@ export const createLog = async (
   } = await supabase.auth.getSession();
 
   if (sessionError || !session) {
-    throw new Error('세션을 찾을 수 없습니다');
+    throw new Error("세션을 찾을 수 없습니다");
   }
 
   const adminId = session.user.id;
 
   const { data, error } = await supabase
-    .from('logs')
+    .from("logs")
     .insert({
       admin_id: adminId,
       customer_id: customerId,
@@ -129,7 +141,7 @@ export const createLog = async (
  * 특정 고객의 로그 조회 (최신순)
  */
 export const getLogsByCustomer = async (
-  category: LogCategoryEnumType['value'] = 'stamp',
+  category: LogCategoryEnumType["value"] = "stamp",
   customerId: string,
   limit = 10,
   offset = 0,
@@ -137,16 +149,16 @@ export const getLogsByCustomer = async (
   const from = offset;
   const to = offset + limit - 1;
   const { data, error } = await supabase
-    .from('logs')
+    .from("logs")
     .select(
       `
       *,
-      users!admin_id(name, email)
+      users!admin_id(name, email, oss_role)
     `,
     )
-    .eq('customer_id', customerId)
-    .eq('category', category)
-    .order('created_at', { ascending: false })
+    .eq("customer_id", customerId)
+    .eq("category", category)
+    .order("created_at", { ascending: false })
     .range(from, to);
 
   if (error) throw error;
@@ -158,7 +170,7 @@ export const createAfterServiceLog = async (
   customerId: string | null,
   afterServiceId: number,
   action: string,
-  note: string = '',
+  note: string = "",
   jsonb: Record<string, unknown> | null = null,
 ) => {
   // 현재 세션에서 user id 가져오기
@@ -168,13 +180,13 @@ export const createAfterServiceLog = async (
   } = await supabase.auth.getSession();
 
   if (sessionError || !session) {
-    throw new Error('세션을 찾을 수 없습니다');
+    throw new Error("세션을 찾을 수 없습니다");
   }
 
   const adminId = session.user.id;
 
   const { data, error } = await supabase
-    .from('logs')
+    .from("logs")
     .insert({
       admin_id: adminId,
       customer_id: customerId ? String(customerId) : null,
@@ -203,14 +215,14 @@ export const getLogsByAfterServiceId = async (
   const from = offset;
   const to = offset + limit - 1;
   const { data, error } = await supabase
-    .from('logs')
+    .from("logs")
     .select(
       `*,
-      users!admin_id(name, email)`,
+      users!admin_id(name, email, oss_role)`,
     )
-    .eq('after_service_id', afterServiceId)
-    .eq('category', 'after_service')
-    .order('created_at', { ascending: false })
+    .eq("after_service_id", afterServiceId)
+    .eq("category", "after_service")
+    .order("created_at", { ascending: false })
     .range(from, to);
 
   if (error) throw error;
@@ -223,7 +235,7 @@ export const getLogsByAfterServiceId = async (
 export const getLogs = async (
   limit = 10,
   offset = 0,
-  category: LogCategoryEnumType['value'] = 'stamp',
+  category: LogCategoryEnumType["value"] = "stamp",
   dateRange?: { start: string; end: string },
   paymentMethod?: string,
   searchKeyword?: string,
@@ -231,37 +243,35 @@ export const getLogs = async (
   const from = offset;
   const to = offset + limit - 1;
   let query = supabase
-    .from('logs')
+    .from("logs")
     .select(
       `
       *,
-      users!admin_id(name, email),
+      users!admin_id(name, email, oss_role),
       customers(name, phone, address, note, gender)
     `,
     )
-    .eq('category', category);
+    .eq("category", category);
 
   if (dateRange) {
     query = query
-      .gte('created_at', dateRange.start)
-      .lte('created_at', `${dateRange.end}T23:59:59.999Z`);
+      .gte("created_at", dateRange.start)
+      .lte("created_at", `${dateRange.end}T23:59:59.999Z`);
   }
 
   if (paymentMethod) {
-    const splitPaymentFilter = JSON.stringify([
-      { paymentType: paymentMethod },
-    ]);
+    const splitPaymentFilter = JSON.stringify([{ paymentType: paymentMethod }]);
     query = query.or(
       `jsonb->>paymentType.eq.${paymentMethod},jsonb->payments.cs.${splitPaymentFilter}`,
     );
   }
 
   if (searchKeyword) {
-    query = query.ilike('note', `%${searchKeyword}%`);
+    query = query.ilike("note", `%${searchKeyword}%`);
   }
 
   const { data, error } = await query
-    .order('created_at', { ascending: !!dateRange })
+    .order("created_at", { ascending: !!dateRange })
     .range(from, to);
 
   if (error) throw error;
@@ -272,7 +282,7 @@ export const getLogs = async (
  * 로그 삭제
  */
 export const deleteLog = async (logId: string) => {
-  const { error } = await supabase.rpc('cancel_or_delete_log_operation', {
+  const { error } = await supabase.rpc("cancel_or_delete_log_operation", {
     p_log_id: String(logId),
   });
   if (error) throw error;
@@ -284,15 +294,15 @@ export const deleteLog = async (logId: string) => {
 export const updateLogNote = async (
   logId: string,
   note: string,
-  paymentType?: PaymentTypeEnumType['value'],
-  storeName?: StoreTypeEnumType['value'],
+  paymentType?: PaymentTypeEnumType["value"],
+  storeName?: StoreTypeEnumType["value"],
   logMeta?: StampLogMeta,
   action?: string,
 ) => {
   const { data: existing, error: fetchError } = await supabase
-    .from('logs')
-    .select('jsonb, category')
-    .eq('id', logId)
+    .from("logs")
+    .select("jsonb, category")
+    .eq("id", logId)
     .single();
 
   if (fetchError) throw fetchError;
@@ -302,7 +312,7 @@ export const updateLogNote = async (
     existing?.category === LogCategoryEnum.STAMP.value &&
     !(await confirmOutboundInventory(logMeta.items, logId))
   ) {
-    throw new Error('사용자가 출고 수정을 취소했습니다.');
+    throw new Error("사용자가 출고 수정을 취소했습니다.");
   }
 
   const currentJsonb =
@@ -323,7 +333,7 @@ export const updateLogNote = async (
     } else {
       delete nextJsonb.extraNote;
     }
-    nextJsonb.deliveryMethod = logMeta.deliveryMethod ?? 'store_visit';
+    nextJsonb.deliveryMethod = logMeta.deliveryMethod ?? "store_visit";
     if (logMeta.deliveryAddressSource) {
       nextJsonb.deliveryAddressSource = logMeta.deliveryAddressSource;
     } else {
@@ -353,9 +363,9 @@ export const updateLogNote = async (
   if (action !== undefined) updatePayload.action = action;
 
   const { data, error } = await supabase
-    .from('logs')
+    .from("logs")
     .update(updatePayload)
-    .eq('id', logId)
+    .eq("id", logId)
     .select()
     .single();
 

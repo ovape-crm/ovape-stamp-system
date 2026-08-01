@@ -122,14 +122,16 @@ export default function ComparisonExpandView({
       <div className="relative z-10 w-full max-w-5xl mx-4 bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
         {/* 워터마크 */}
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-20">
-          <Image
-            src="/logo.PNG"
-            alt=""
-            width={256}
-            height={256}
-            className="w-64 opacity-[0.06] select-none mix-blend-multiply"
-            draggable={false}
-          />
+          <div className="relative h-64 w-64">
+            <Image
+              src="/logo.PNG"
+              alt=""
+              fill
+              sizes="256px"
+              className="select-none object-contain opacity-[0.06] mix-blend-multiply"
+              draggable={false}
+            />
+          </div>
         </div>
         {/* 헤더 */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-brand-100 shrink-0">

@@ -14,6 +14,7 @@ import {
   getDailyClosingReportRevisions,
   reviseDailyClosingReport,
 } from "@/app/_domains/_dailyClosing/_services/dailyClosingService";
+import { getDailyPaymentSales } from "@/app/_domains/_cashManagement/_services/cashManagementService";
 
 const formatWon = (value: number) =>
   `${Number(value).toLocaleString("ko-KR")}원`;
@@ -37,10 +38,20 @@ export default function ReportSnapshotView({
   });
   const snapshot = useMemo(
     () =>
-      revisionsQuery.data?.at(-1)?.report_snapshot ??
-      report.report_snapshot,
+      revisionsQuery.data?.at(-1)?.report_snapshot ?? report.report_snapshot,
     [report.report_snapshot, revisionsQuery.data],
   );
+  const inboundSummaryQuery = useQuery({
+    queryKey: ["daily-closing-inbound-summary", snapshot?.businessDate],
+    queryFn: () => getDailyPaymentSales(snapshot!.businessDate),
+    enabled: Boolean(
+      snapshot?.businessDate &&
+        snapshot.inboundSummary?.some(
+          (item) =>
+            item.type === "purchase" && item.aggregationUnit !== "count",
+        ),
+    ),
+  });
   useEffect(() => {
     setEditing(false);
     setRevisionReason("");
@@ -65,6 +76,22 @@ export default function ReportSnapshotView({
         reportId: report.id,
         reportSnapshot: {
           ...draft,
+          inboundSummary: draft.inboundSummary?.map((item) => {
+            if (item.type !== "purchase") return item;
+            const correctedCount =
+              item.aggregationUnit === "count"
+                ? item.quantity
+                : inboundSummaryQuery.data?.inboundSummary.find(
+                    (current) =>
+                      current.type === "purchase" &&
+                      current.label === item.label,
+                  )?.quantity;
+            return {
+              ...item,
+              quantity: correctedCount ?? 0,
+              aggregationUnit: "count" as const,
+            };
+          }),
           capturedAt: new Date().toISOString(),
         },
         revisionReason,
@@ -118,7 +145,9 @@ export default function ReportSnapshotView({
       ]);
       toast.success("마감보고서 사진을 복사했습니다.");
     } catch {
-      toast.error("사진 복사를 지원하지 않는 환경입니다. 사진 저장을 이용해 주세요.");
+      toast.error(
+        "사진 복사를 지원하지 않는 환경입니다. 사진 저장을 이용해 주세요.",
+      );
     }
   };
 
@@ -126,8 +155,8 @@ export default function ReportSnapshotView({
     return (
       <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800">
         이 보고서의 스냅샷이 DB에 저장되지 않았습니다. 최신
-        daily_closing_report.sql 적용 여부를 확인한 뒤 해당 마감을 취소하고
-        다시 마감해 주세요.
+        daily_closing_report.sql 적용 여부를 확인한 뒤 해당 마감을 취소하고 다시
+        마감해 주세요.
       </section>
     );
   }
@@ -231,9 +260,7 @@ export default function ReportSnapshotView({
             </Button>
             <Button
               onClick={() => revisionMutation.mutate()}
-              disabled={
-                revisionMutation.isPending || !revisionReason.trim()
-              }
+              disabled={revisionMutation.isPending || !revisionReason.trim()}
             >
               {revisionMutation.isPending ? "저장 중..." : "수정본 저장"}
             </Button>
@@ -280,14 +307,12 @@ export default function ReportSnapshotView({
         </div>
 
         <ReportSection title="근무자 명단">
-          <div className="overflow-hidden rounded-xl border border-gray-200">
+          <div className="max-w-[500px] overflow-hidden rounded-xl border border-gray-200">
             <table className="w-full border-collapse text-sm [&_td]:border [&_td]:border-gray-200 [&_th]:border [&_th]:border-gray-200">
               <thead className="bg-gray-50 text-gray-600">
                 <tr>
                   <th className="px-3 py-2">근무자</th>
                   <th className="px-3 py-2">근무시간</th>
-                  <th className="px-3 py-2 text-right">실제 근무시간</th>
-                  <th className="px-3 py-2 text-right">입력 근무시간</th>
                 </tr>
               </thead>
               <tbody>
@@ -297,12 +322,6 @@ export default function ReportSnapshotView({
                     <td className="px-3 py-2 text-center">
                       {worker.startTime} ~ {worker.actualEndTime}
                     </td>
-                    <td className="px-3 py-2 text-right">
-                      {worker.actualWorkHours}시간
-                    </td>
-                    <td className="px-3 py-2 text-right font-semibold text-brand-700">
-                      {worker.inputWorkHours}시간
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -310,7 +329,7 @@ export default function ReportSnapshotView({
           </div>
         </ReportSection>
 
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[190px_190px_190px_minmax(0,1fr)]">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[170px_170px_140px_minmax(0,1fr)]">
           <SnapshotList
             title="오베이프 매출"
             rows={ovapePayments.map((item) => ({
@@ -354,14 +373,14 @@ export default function ReportSnapshotView({
               <h3 className="border-b border-gray-200 pb-2 font-bold text-gray-800">
                 총 매출
               </h3>
-              <strong className="flex flex-1 items-center justify-center py-3 text-2xl text-brand-700">
+              <strong className="flex flex-1 items-center justify-center whitespace-nowrap py-3 text-xl text-brand-700">
                 {formatWon(snapshot.totalSales)}
               </strong>
             </div>
           </section>
           {snapshot.businessDate >= "2026-07-31" ? (
             <section className="min-h-36 overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
-              <div className="grid min-h-36 sm:h-full sm:grid-cols-[7fr_7fr_4fr]">
+              <div className="grid min-h-36 sm:h-full sm:grid-cols-[180px_180px_130px_minmax(0,1fr)]">
                 <SnapshotListSection
                   title="일반 출고"
                   rows={(snapshot.itemSummary ?? []).map((item) => ({
@@ -387,6 +406,30 @@ export default function ReportSnapshotView({
                     value: `${item.orderCount}건`,
                   }))}
                   emptyText="등록 없음"
+                  className="border-t border-gray-300 p-4 sm:border-l sm:border-t-0"
+                />
+                <SnapshotListSection
+                  title="입고"
+                  rows={(snapshot.inboundSummary ?? []).map((item) => {
+                    const receiptCount =
+                      inboundSummaryQuery.data?.inboundSummary.find(
+                        (current) =>
+                          current.type === "purchase" &&
+                          current.label === item.label,
+                      )?.quantity;
+                    return {
+                      label: item.label,
+                      value:
+                        item.type === "purchase"
+                          ? item.aggregationUnit === "count"
+                            ? `${item.quantity}건`
+                            : receiptCount == null
+                            ? ""
+                            : `${receiptCount}건`
+                          : `${item.quantity}개`,
+                    };
+                  })}
+                  emptyText="입고 없음"
                   className="border-t border-gray-300 p-4 sm:border-l sm:border-t-0"
                 />
               </div>
@@ -472,8 +515,12 @@ function SnapshotListSection({
               key={`${row.label}-${index}`}
               className="flex justify-between gap-2 border-b border-gray-200 pb-1.5 text-sm last:border-b-0"
             >
-              <span className="text-gray-600">{row.label}</span>
-              <strong className="shrink-0 text-gray-900">{row.value}</strong>
+              <span className="min-w-0 break-all text-gray-600">
+                {row.label}
+              </span>
+              <strong className="shrink-0 whitespace-nowrap text-gray-900">
+                {row.value}
+              </strong>
             </div>
           ))
         ) : (
@@ -500,9 +547,7 @@ function SnapshotList({
   return (
     <section
       className={`flex min-h-36 flex-col rounded-xl border p-4 ${
-        brand
-          ? "border-brand-200 bg-brand-50"
-          : "border-gray-200 bg-gray-50"
+        brand ? "border-brand-200 bg-brand-50" : "border-gray-200 bg-gray-50"
       }`}
     >
       <h3
@@ -519,13 +564,13 @@ function SnapshotList({
           {Array.from({ length: rowCount }, (_, index) => {
             const row = rows[index];
             return row ? (
-            <div
-              key={`${row.label}-${index}`}
-              className="flex justify-between gap-3 border-b border-gray-200 pb-1.5 text-sm last:border-b-0"
-            >
-              <span className="text-gray-600">{row.label}</span>
-              <strong>{row.value}</strong>
-            </div>
+              <div
+                key={`${row.label}-${index}`}
+                className="flex justify-between gap-3 border-b border-gray-200 pb-1.5 text-sm last:border-b-0"
+              >
+                <span className="text-gray-600">{row.label}</span>
+                <strong>{row.value}</strong>
+              </div>
             ) : (
               <div
                 key={`empty-${index}`}
@@ -566,7 +611,9 @@ function SnapshotChecklist({
             key={item.id}
             className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm"
           >
-            <span className={item.checked ? "text-emerald-600" : "text-gray-400"}>
+            <span
+              className={item.checked ? "text-emerald-600" : "text-gray-400"}
+            >
               {item.checked ? "✓" : "□"}
             </span>
             <span>{item.label}</span>

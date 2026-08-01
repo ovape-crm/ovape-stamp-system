@@ -46,7 +46,134 @@ const formatHours = (hours: number) =>
     : `${hours.toFixed(2).replace(/0+$/, "")}시간`;
 
 const getPayableHours = (journal: WorkJournalType) =>
-  Number(journal.input_work_hours ?? journal.work_hours);
+  Number(journal.input_work_hours ?? 0);
+
+type WorkJournalColumnKey =
+  | "date"
+  | "worker"
+  | "status"
+  | "checkIn"
+  | "checkOut"
+  | "actualHours"
+  | "inputStart"
+  | "expectedEnd"
+  | "inputHours"
+  | "note"
+  | "actions";
+
+const defaultWorkJournalColumnWidths: Record<WorkJournalColumnKey, number> = {
+  date: 180,
+  worker: 100,
+  status: 105,
+  checkIn: 100,
+  checkOut: 100,
+  actualHours: 120,
+  inputStart: 100,
+  expectedEnd: 110,
+  inputHours: 120,
+  note: 220,
+  actions: 190,
+};
+
+const workJournalColumnKeys = Object.keys(
+  defaultWorkJournalColumnWidths,
+) as WorkJournalColumnKey[];
+
+const loadWorkJournalColumnWidths = (role: "admin" | "staff") => {
+  if (typeof window === "undefined")
+    return { ...defaultWorkJournalColumnWidths };
+  try {
+    const saved = JSON.parse(
+      window.localStorage.getItem(`work-journal-column-widths-${role}`) ?? "{}",
+    ) as Partial<Record<WorkJournalColumnKey, number>>;
+    return Object.fromEntries(
+      workJournalColumnKeys.map((key) => [
+        key,
+        Math.min(
+          360,
+          Math.max(
+            70,
+            Number(saved[key]) || defaultWorkJournalColumnWidths[key],
+          ),
+        ),
+      ]),
+    ) as Record<WorkJournalColumnKey, number>;
+  } catch {
+    return { ...defaultWorkJournalColumnWidths };
+  }
+};
+
+function ResizableWorkJournalHeader({
+  label,
+  width,
+  onResize,
+  editable,
+  align = "left",
+}: {
+  label: string;
+  width: number;
+  onResize: (width: number) => void;
+  editable: boolean;
+  align?: "left" | "right" | "center";
+}) {
+  const drag = useRef<{ x: number; width: number } | null>(null);
+  return (
+    <th
+      className={`relative select-none px-3 py-2.5 ${
+        align === "right"
+          ? "text-right"
+          : align === "center"
+            ? "text-center"
+            : "text-left"
+      }`}
+      style={{ width }}
+    >
+      {label}
+      {editable && (
+        <button
+          type="button"
+          aria-label={`${label} 열 너비 조절`}
+          title="좌우로 드래그해 열 너비 조절"
+          onPointerDown={(event) => {
+            drag.current = { x: event.clientX, width };
+            event.currentTarget.setPointerCapture(event.pointerId);
+          }}
+          onPointerMove={(event) => {
+            if (!drag.current) return;
+            onResize(
+              Math.min(
+                360,
+                Math.max(
+                  70,
+                  drag.current.width + event.clientX - drag.current.x,
+                ),
+              ),
+            );
+          }}
+          onPointerUp={(event) => {
+            drag.current = null;
+            event.currentTarget.releasePointerCapture(event.pointerId);
+          }}
+          className="group absolute -right-1.5 top-0 z-10 flex h-full w-5 cursor-col-resize touch-none items-center justify-center pr-1"
+        >
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            className="h-4 w-4 text-brand-200 transition-colors group-hover:text-brand-500"
+          >
+            <circle cx="9" cy="6" r="1.6" />
+            <circle cx="15" cy="6" r="1.6" />
+            <circle cx="9" cy="12" r="1.6" />
+            <circle cx="15" cy="12" r="1.6" />
+            <circle cx="9" cy="18" r="1.6" />
+            <circle cx="15" cy="18" r="1.6" />
+          </svg>
+        </button>
+      )}
+    </th>
+  );
+}
 
 const formatKoreanDate = (date: string) => {
   if (!date) return "";
@@ -74,13 +201,21 @@ export default function WorkJournalPage() {
   const queryClient = useQueryClient();
   const { isAdmin } = useUser();
   const today = getTodayInKorea();
-  const [activeTab, setActiveTab] = useState<
-    "records" | "payment" | "workers"
-  >("records");
+  const [activeTab, setActiveTab] = useState<"records" | "payment" | "workers">(
+    "records",
+  );
   const [tabOrder, setTabOrder] = useState<
     ("records" | "workers" | "payment")[]
   >(["records", "workers", "payment"]);
   const [editingTabOrder, setEditingTabOrder] = useState(false);
+  const [columnEditing, setColumnEditing] = useState(false);
+  const [columnWidthSnapshot, setColumnWidthSnapshot] = useState<Record<
+    WorkJournalColumnKey,
+    number
+  > | null>(null);
+  const [columnWidths, setColumnWidths] = useState(() =>
+    loadWorkJournalColumnWidths(isAdmin ? "admin" : "staff"),
+  );
   const [showWorkForm, setShowWorkForm] = useState(false);
   const [recordWorkerName, setRecordWorkerName] = useState("");
   const [recordWorkerPin, setRecordWorkerPin] = useState("");
@@ -104,17 +239,54 @@ export default function WorkJournalPage() {
   const [editingJournalId, setEditingJournalId] = useState("");
 
   useEffect(() => {
+    setColumnWidths(loadWorkJournalColumnWidths(isAdmin ? "admin" : "staff"));
+    setColumnWidthSnapshot(null);
+    setColumnEditing(false);
+  }, [isAdmin]);
+
+  const resizeColumn = (key: WorkJournalColumnKey, width: number) => {
+    setColumnWidths((current) => ({
+      ...current,
+      [key]: Math.round(width),
+    }));
+  };
+  const startColumnEditing = () => {
+    setColumnWidthSnapshot({ ...columnWidths });
+    setColumnEditing(true);
+  };
+  const saveColumnWidths = () => {
+    window.localStorage.setItem(
+      `work-journal-column-widths-${isAdmin ? "admin" : "staff"}`,
+      JSON.stringify(columnWidths),
+    );
+    setColumnWidthSnapshot(null);
+    setColumnEditing(false);
+  };
+  const cancelColumnEditing = () => {
+    if (columnWidthSnapshot) setColumnWidths(columnWidthSnapshot);
+    setColumnWidthSnapshot(null);
+    setColumnEditing(false);
+  };
+  const visibleWorkJournalColumnKeys = isAdmin
+    ? workJournalColumnKeys
+    : workJournalColumnKeys.filter(
+        (key) => !["checkIn", "checkOut", "actualHours"].includes(key),
+      );
+  const workJournalTableWidth = visibleWorkJournalColumnKeys.reduce(
+    (sum, key) => sum + columnWidths[key],
+    0,
+  );
+
+  useEffect(() => {
     const saved = window.localStorage.getItem("work-journal-tab-order");
     if (!saved) return;
     try {
-      const parsed = JSON.parse(saved) as (
-        | "records"
-        | "workers"
-        | "payment"
-      )[];
+      const parsed = JSON.parse(saved) as ("records" | "workers" | "payment")[];
       if (
         parsed.length === 3 &&
-        ["records", "workers", "payment"].every((tab) => parsed.includes(tab as "records" | "workers" | "payment"))
+        ["records", "workers", "payment"].every((tab) =>
+          parsed.includes(tab as "records" | "workers" | "payment"),
+        )
       ) {
         setTabOrder(parsed);
       }
@@ -169,7 +341,7 @@ export default function WorkJournalPage() {
   const summary = useMemo(() => {
     const journals = journalsQuery.data ?? [];
     const totalHours = journals.reduce(
-      (sum, journal) => sum + Number(journal.work_hours),
+      (sum, journal) => sum + Number(journal.input_work_hours ?? 0),
       0,
     );
     return {
@@ -459,7 +631,11 @@ export default function WorkJournalPage() {
     <main className="mx-auto max-w-7xl space-y-5 px-4 py-6 sm:px-6 lg:px-8">
       <StaffOpeningProgressBanner />
       <div className="flex items-end justify-between border-b border-gray-200">
-        <div className="flex min-w-0 overflow-x-auto" role="tablist" aria-label="근무기록 메뉴">
+        <div
+          className="flex min-w-0 overflow-x-auto"
+          role="tablist"
+          aria-label="근무기록 메뉴"
+        >
           {tabOrder.map((tab, index) => {
             if (!isAdmin && tab !== "records") return null;
             const label =
@@ -509,21 +685,34 @@ export default function WorkJournalPage() {
             );
           })}
         </div>
-        {isAdmin && <button
-          type="button"
-          onClick={() => setEditingTabOrder((current) => !current)}
-          className={`mb-2 ml-3 flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border bg-white transition ${
-            editingTabOrder
-              ? "border-brand-300 text-brand-700 shadow-sm"
-              : "border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-brand-700"
-          }`}
-          aria-label={editingTabOrder ? "탭 순서 변경 완료" : "탭 순서 변경"}
-          title={editingTabOrder ? "탭 순서 변경 완료" : "탭 순서 변경"}
-        >
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 15.25A3.25 3.25 0 1 0 12 8.75a3.25 3.25 0 0 0 0 6.5Zm7.25-3.25c0-.48-.05-.95-.14-1.4l2.02-1.57-2-3.46-2.48 1a7.4 7.4 0 0 0-2.42-1.4L13.88 2.5h-4l-.35 2.67a7.4 7.4 0 0 0-2.42 1.4l-2.48-1-2 3.46 2.02 1.57a7.18 7.18 0 0 0 0 2.8l-2.02 1.57 2 3.46 2.48-1a7.4 7.4 0 0 0 2.42 1.4l.35 2.67h4l.35-2.67a7.4 7.4 0 0 0 2.42-1.4l2.48 1 2-3.46-2.02-1.57c.09-.45.14-.92.14-1.4Z" />
-          </svg>
-        </button>}
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={() => setEditingTabOrder((current) => !current)}
+            className={`mb-2 ml-3 flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border bg-white transition ${
+              editingTabOrder
+                ? "border-brand-300 text-brand-700 shadow-sm"
+                : "border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-brand-700"
+            }`}
+            aria-label={editingTabOrder ? "탭 순서 변경 완료" : "탭 순서 변경"}
+            title={editingTabOrder ? "탭 순서 변경 완료" : "탭 순서 변경"}
+          >
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.8}
+                d="M12 15.25A3.25 3.25 0 1 0 12 8.75a3.25 3.25 0 0 0 0 6.5Zm7.25-3.25c0-.48-.05-.95-.14-1.4l2.02-1.57-2-3.46-2.48 1a7.4 7.4 0 0 0-2.42-1.4L13.88 2.5h-4l-.35 2.67a7.4 7.4 0 0 0-2.42 1.4l-2.48-1-2 3.46 2.02 1.57a7.18 7.18 0 0 0 0 2.8l-2.02 1.57 2 3.46 2.48-1a7.4 7.4 0 0 0 2.42 1.4l.35 2.67h4l.35-2.67a7.4 7.4 0 0 0 2.42-1.4l2.48 1 2-3.46-2.02-1.57c.09-.45.14-.92.14-1.4Z"
+              />
+            </svg>
+          </button>
+        )}
       </div>
 
       {activeTab === "workers" && isAdmin && (
@@ -602,33 +791,33 @@ export default function WorkJournalPage() {
                 <Dropdown.Trigger compact>
                   {recordWorkerName || "선택"}
                 </Dropdown.Trigger>
-                 <Dropdown.Content compact>
-                   {isAdmin && (
-                     <Dropdown.Item
-                       option={{ value: "전체", label: "전체" }}
-                       compact
-                       onSelect={(selected: DropdownOption) => {
-                         const selectedName = String(selected.value);
-                         setRecordWorkerName(selectedName);
-                         setRecordWorkerPin("");
-                         setVerifiedWorkerName(selectedName);
-                         setViewMode("month");
-                         setSelectedMonth(today.slice(0, 7));
-                         setStartDate(`${today.slice(0, 7)}-01`);
-                         setEndDate(today);
-                       }}
-                     />
-                   )}
-                   {(workersQuery.data ?? []).map((name) => (
+                <Dropdown.Content compact>
+                  {isAdmin && (
+                    <Dropdown.Item
+                      option={{ value: "전체", label: "전체" }}
+                      compact
+                      onSelect={(selected: DropdownOption) => {
+                        const selectedName = String(selected.value);
+                        setRecordWorkerName(selectedName);
+                        setRecordWorkerPin("");
+                        setVerifiedWorkerName(selectedName);
+                        setViewMode("month");
+                        setSelectedMonth(today.slice(0, 7));
+                        setStartDate(`${today.slice(0, 7)}-01`);
+                        setEndDate(today);
+                      }}
+                    />
+                  )}
+                  {(workersQuery.data ?? []).map((name) => (
                     <Dropdown.Item
                       key={name}
                       option={{ value: name, label: name }}
                       compact
-                       onSelect={(selected: DropdownOption) => {
-                         const selectedName = String(selected.value);
-                         setRecordWorkerName(selectedName);
-                         setRecordWorkerPin("");
-                         setVerifiedWorkerName(isAdmin ? selectedName : "");
+                      onSelect={(selected: DropdownOption) => {
+                        const selectedName = String(selected.value);
+                        setRecordWorkerName(selectedName);
+                        setRecordWorkerPin("");
+                        setVerifiedWorkerName(isAdmin ? selectedName : "");
                         setViewMode("month");
                         setSelectedMonth(today.slice(0, 7));
                         setStartDate(`${today.slice(0, 7)}-01`);
@@ -714,7 +903,8 @@ export default function WorkJournalPage() {
                           option={option}
                           compact
                           onSelect={(selected: DropdownOption) => {
-                            const nextMode = selected.value as "month" | "range";
+                            const nextMode = selected.value as
+                              "month" | "range";
                             setViewMode(nextMode);
                             if (nextMode === "month") {
                               setSelectedMonth(today.slice(0, 7));
@@ -810,7 +1000,9 @@ export default function WorkJournalPage() {
                   value={workerPin}
                   disabled={Boolean(editingJournalId)}
                   onChange={(event) =>
-                    setWorkerPin(event.target.value.replace(/\D/g, "").slice(0, 4))
+                    setWorkerPin(
+                      event.target.value.replace(/\D/g, "").slice(0, 4),
+                    )
                   }
                   className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-center text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 disabled:bg-gray-100"
                   placeholder="4자리"
@@ -892,9 +1084,9 @@ export default function WorkJournalPage() {
           isAdmin={isAdmin}
           editingJournal={
             editingJournalId
-              ? journalsQuery.data?.find(
+              ? (journalsQuery.data?.find(
                   (journal) => journal.id === editingJournalId,
-                ) ?? null
+                ) ?? null)
               : null
           }
           onClose={() => {
@@ -903,7 +1095,9 @@ export default function WorkJournalPage() {
           }}
           onSaved={async () => {
             await Promise.all([
-              queryClient.invalidateQueries({ queryKey: workJournalKeys.all() }),
+              queryClient.invalidateQueries({
+                queryKey: workJournalKeys.all(),
+              }),
               queryClient.invalidateQueries({
                 queryKey: workJournalKeys.workers(),
               }),
@@ -922,161 +1116,299 @@ export default function WorkJournalPage() {
             </div>
           ) : (
             <>
-          {viewMode === "range" && startDate > endDate && (
-            <p className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600">
-              종료 날짜는 시작 날짜보다 빠를 수 없습니다.
-            </p>
-          )}
+              {viewMode === "range" && startDate > endDate && (
+                <p className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600">
+                  종료 날짜는 시작 날짜보다 빠를 수 없습니다.
+                </p>
+              )}
 
-          <div className="mb-5 grid gap-3 sm:grid-cols-2">
-            <SummaryCard
-              label="총 근무시간"
-              value={formatHours(summary.totalHours)}
-            />
-            <SummaryCard
-              label="출근 횟수"
-              value={`${summary.attendanceCount}회`}
-            />
-          </div>
+              <div className="mb-5 grid gap-3 sm:grid-cols-2">
+                <SummaryCard
+                  label="입력 근무시간"
+                  value={formatHours(summary.totalHours)}
+                />
+                <SummaryCard
+                  label="출근 횟수"
+                  value={`${summary.attendanceCount}회`}
+                />
+              </div>
 
-          {journalsQuery.isPending ? (
-            <Loading size="sm" text="근무 기록을 불러오는 중..." />
-          ) : journalsQuery.data?.length ? (
-            <div className="overflow-x-auto rounded-lg border border-gray-100">
-              <table className="w-full min-w-[1240px] border-collapse text-sm [&_td]:border [&_td]:border-gray-200 [&_th]:border [&_th]:border-brand-200">
-                <thead className="bg-brand-50 text-left text-xs text-brand-700">
-                  <tr>
-                    <th className="px-3 py-2.5">근무 날짜</th>
-                    <th className="px-3 py-2.5">근무자 이름</th>
-                    <th className="px-3 py-2.5">근무 상태</th>
-                    <th className="px-3 py-2.5">실제 출근</th>
-                    <th className="px-3 py-2.5">실제 퇴근</th>
-                    <th className="px-3 py-2.5 text-right">실제 근무시간</th>
-                    <th className="px-3 py-2.5">입력 출근</th>
-                    <th className="px-3 py-2.5">예상 퇴근</th>
-                    <th className="px-3 py-2.5 text-right">입력 근무시간</th>
-                    <th className="px-3 py-2.5">특이사항</th>
-                    <th className="px-3 py-2.5 text-center">작업</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {journalsQuery.data.map((journal) => (
-                    <tr key={journal.id} className="hover:bg-gray-50">
-                      <td className="px-3 py-2.5 whitespace-nowrap">
-                        {formatKoreanDate(journal.work_date)}
-                      </td>
-                      <td className="px-3 py-2.5 font-medium text-gray-900">
-                        {journal.worker_name}
-                      </td>
-                      <td className="px-3 py-2.5 whitespace-nowrap">
-                        <span
-                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-                            journal.status === "handover_pending"
-                              ? "bg-amber-100 text-amber-700"
-                              : journal.status === "shift_completed"
-                                ? "bg-blue-100 text-blue-700"
-                                : journal.status === "closed"
-                                  ? "bg-emerald-100 text-emerald-700"
-                                  : "bg-brand-100 text-brand-700"
-                          }`}
-                        >
-                          {getWorkStatusLabel(journal.status)}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2.5">
-                        {new Intl.DateTimeFormat("en-GB", {
-                          timeZone: "Asia/Seoul",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          hour12: false,
-                        }).format(new Date(journal.created_at))}
-                      </td>
-                      <td className="px-3 py-2.5">
-                        {isWorkEnded(journal.status)
-                          ? journal.end_time.slice(0, 5)
-                          : "-"}
-                      </td>
-                      <td className="px-3 py-2.5 text-right font-medium">
-                        {isWorkEnded(journal.status)
-                          ? formatHours(Number(journal.work_hours))
-                          : "-"}
-                      </td>
-                      <td className="px-3 py-2.5">
-                        {journal.start_time.slice(0, 5)}
-                      </td>
-                      <td className="px-3 py-2.5">
-                        {journal.expected_end_time?.slice(0, 5) ||
-                          journal.end_time.slice(0, 5)}
-                      </td>
-                      <td className="px-3 py-2.5 text-right font-semibold text-brand-700">
-                        {Number(journal.input_work_hours ?? 0) > 0
-                          ? formatHours(Number(journal.input_work_hours))
-                          : "-"}
-                      </td>
-                      <td className="max-w-xs px-3 py-2.5">
-                        <p className="truncate" title={journal.note ?? ""}>
-                          {journal.note || "-"}
-                        </p>
-                      </td>
-                      <td className="px-3 py-2.5 text-center">
-                        <div className="flex justify-center gap-1">
-                          {isAdmin &&
-                            journal.status === "handover_pending" && (
+              <div className="mb-3 flex justify-end gap-2">
+                {columnEditing && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={saveColumnWidths}
+                      className="min-h-9 rounded-lg bg-brand-500 px-3 text-xs font-semibold text-white shadow-sm hover:bg-brand-600"
+                    >
+                      변경값 저장
+                    </button>
+                    <button
+                      type="button"
+                      onClick={cancelColumnEditing}
+                      className="min-h-9 rounded-lg border border-gray-300 bg-white px-3 text-xs font-semibold text-gray-600 shadow-sm hover:bg-gray-50"
+                    >
+                      취소
+                    </button>
+                  </>
+                )}
+                <button
+                  type="button"
+                  onClick={columnEditing ? undefined : startColumnEditing}
+                  aria-label="표 열 너비 변경"
+                  title={columnEditing ? "열 너비 편집 중" : "표 열 너비 변경"}
+                  className={`flex h-9 w-9 items-center justify-center rounded-lg border bg-white transition ${
+                    columnEditing
+                      ? "border-brand-300 text-brand-700 shadow-sm"
+                      : "border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-brand-700"
+                  }`}
+                >
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.8}
+                      d="M12 15.25A3.25 3.25 0 1 0 12 8.75a3.25 3.25 0 0 0 0 6.5Zm7.25-3.25c0-.48-.05-.95-.14-1.4l2.02-1.57-2-3.46-2.48 1a7.4 7.4 0 0 0-2.42-1.4L13.88 2.5h-4l-.35 2.67a7.4 7.4 0 0 0-2.42 1.4l-2.48-1-2 3.46 2.02 1.57a7.18 7.18 0 0 0 0 2.8l-2.02 1.57 2 3.46 2.48-1a7.4 7.4 0 0 0 2.42 1.4l.35 2.67h4l.35-2.67a7.4 7.4 0 0 0 2.42-1.4l2.48 1 2-3.46-2.02-1.57c.09-.45.14-.92.14-1.4Z"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              {journalsQuery.isPending ? (
+                <Loading size="sm" text="근무 기록을 불러오는 중..." />
+              ) : journalsQuery.data?.length ? (
+                <div className="overflow-x-auto rounded-lg border border-gray-100">
+                  <table
+                    className="table-fixed border-collapse text-sm [&_td]:border [&_td]:border-gray-200 [&_th]:border [&_th]:border-brand-200"
+                    style={{
+                      width: workJournalTableWidth,
+                      minWidth: workJournalTableWidth,
+                    }}
+                  >
+                    <colgroup>
+                      {visibleWorkJournalColumnKeys.map((key) => (
+                        <col key={key} style={{ width: columnWidths[key] }} />
+                      ))}
+                    </colgroup>
+                    <thead className="bg-brand-50 text-left text-xs text-brand-700">
+                      <tr>
+                        <ResizableWorkJournalHeader
+                          label="근무 날짜"
+                          width={columnWidths.date}
+                          onResize={(width) => resizeColumn("date", width)}
+                          editable={columnEditing}
+                        />
+                        <ResizableWorkJournalHeader
+                          label="근무자 이름"
+                          width={columnWidths.worker}
+                          onResize={(width) => resizeColumn("worker", width)}
+                          editable={columnEditing}
+                        />
+                        <ResizableWorkJournalHeader
+                          label="근무 상태"
+                          width={columnWidths.status}
+                          onResize={(width) => resizeColumn("status", width)}
+                          editable={columnEditing}
+                        />
+                        {isAdmin && (
+                          <>
+                            <ResizableWorkJournalHeader
+                              label="출근 처리"
+                              width={columnWidths.checkIn}
+                              onResize={(width) =>
+                                resizeColumn("checkIn", width)
+                              }
+                              editable={columnEditing}
+                            />
+                            <ResizableWorkJournalHeader
+                              label="퇴근 처리"
+                              width={columnWidths.checkOut}
+                              onResize={(width) =>
+                                resizeColumn("checkOut", width)
+                              }
+                              editable={columnEditing}
+                            />
+                            <ResizableWorkJournalHeader
+                              label="실제 근무시간"
+                              width={columnWidths.actualHours}
+                              onResize={(width) =>
+                                resizeColumn("actualHours", width)
+                              }
+                              editable={columnEditing}
+                              align="right"
+                            />
+                          </>
+                        )}
+                        <ResizableWorkJournalHeader
+                          label="입력 출근"
+                          width={columnWidths.inputStart}
+                          onResize={(width) =>
+                            resizeColumn("inputStart", width)
+                          }
+                          editable={columnEditing}
+                        />
+                        <ResizableWorkJournalHeader
+                          label="입력 퇴근"
+                          width={columnWidths.expectedEnd}
+                          onResize={(width) =>
+                            resizeColumn("expectedEnd", width)
+                          }
+                          editable={columnEditing}
+                        />
+                        <ResizableWorkJournalHeader
+                          label="입력 근무시간"
+                          width={columnWidths.inputHours}
+                          onResize={(width) =>
+                            resizeColumn("inputHours", width)
+                          }
+                          editable={columnEditing}
+                          align="right"
+                        />
+                        <ResizableWorkJournalHeader
+                          label="특이사항"
+                          width={columnWidths.note}
+                          onResize={(width) => resizeColumn("note", width)}
+                          editable={columnEditing}
+                        />
+                        <ResizableWorkJournalHeader
+                          label="작업"
+                          width={columnWidths.actions}
+                          onResize={(width) => resizeColumn("actions", width)}
+                          editable={columnEditing}
+                          align="center"
+                        />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {journalsQuery.data.map((journal) => (
+                        <tr key={journal.id} className="hover:bg-gray-50">
+                          <td className="px-3 py-2.5 whitespace-nowrap">
+                            {formatKoreanDate(journal.work_date)}
+                          </td>
+                          <td className="px-3 py-2.5 font-medium text-gray-900">
+                            {journal.worker_name}
+                          </td>
+                          <td className="px-3 py-2.5 whitespace-nowrap">
+                            <span
+                              className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+                                journal.status === "handover_pending"
+                                  ? "bg-amber-100 text-amber-700"
+                                  : journal.status === "shift_completed"
+                                    ? "bg-blue-100 text-blue-700"
+                                    : journal.status === "closed"
+                                      ? "bg-emerald-100 text-emerald-700"
+                                      : "bg-brand-100 text-brand-700"
+                              }`}
+                            >
+                              {getWorkStatusLabel(journal.status)}
+                            </span>
+                          </td>
+                          {isAdmin && (
+                            <>
+                              <td className="px-3 py-2.5">
+                                {new Intl.DateTimeFormat("en-GB", {
+                                  timeZone: "Asia/Seoul",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                  hour12: false,
+                                }).format(new Date(journal.created_at))}
+                              </td>
+                              <td className="px-3 py-2.5">
+                                {isWorkEnded(journal.status)
+                                  ? journal.end_time.slice(0, 5)
+                                  : "-"}
+                              </td>
+                              <td className="px-3 py-2.5 text-right font-medium">
+                                {isWorkEnded(journal.status)
+                                  ? formatHours(Number(journal.work_hours))
+                                  : "-"}
+                              </td>
+                            </>
+                          )}
+                          <td className="px-3 py-2.5">
+                            {journal.start_time.slice(0, 5)}
+                          </td>
+                          <td className="px-3 py-2.5">
+                            {isWorkEnded(journal.status)
+                              ? journal.expected_end_time?.slice(0, 5) ||
+                                journal.end_time.slice(0, 5)
+                              : "-"}
+                          </td>
+                          <td className="px-3 py-2.5 text-right font-semibold text-brand-700">
+                            {Number(journal.input_work_hours ?? 0) > 0
+                              ? formatHours(Number(journal.input_work_hours))
+                              : "-"}
+                          </td>
+                          <td className="max-w-xs px-3 py-2.5">
+                            <p className="truncate" title={journal.note ?? ""}>
+                              {journal.note || "-"}
+                            </p>
+                          </td>
+                          <td className="px-3 py-2.5 text-center">
+                            <div className="flex justify-center gap-1">
+                              {isAdmin &&
+                                journal.status === "handover_pending" && (
+                                  <Button
+                                    size="xs"
+                                    variant="secondary"
+                                    disabled={closeHandoverMutation.isPending}
+                                    onClick={() => {
+                                      const reason = window.prompt(
+                                        "교대 없이 종료하는 사유를 입력해 주세요.",
+                                      );
+                                      if (!reason?.trim()) return;
+                                      closeHandoverMutation.mutate({
+                                        id: journal.id,
+                                        reason,
+                                      });
+                                    }}
+                                  >
+                                    교대 없이 종료
+                                  </Button>
+                                )}
                               <Button
                                 size="xs"
-                                variant="secondary"
-                                disabled={closeHandoverMutation.isPending}
-                                onClick={() => {
-                                  const reason = window.prompt(
-                                    "교대 없이 종료하는 사유를 입력해 주세요.",
-                                  );
-                                  if (!reason?.trim()) return;
-                                  closeHandoverMutation.mutate({
-                                    id: journal.id,
-                                    reason,
-                                  });
-                                }}
+                                variant="gray"
+                                onClick={() => handleStartEditing(journal)}
                               >
-                                교대 없이 종료
+                                수정
                               </Button>
-                            )}
-                          <Button
-                            size="xs"
-                            variant="gray"
-                            onClick={() => handleStartEditing(journal)}
-                          >
-                            수정
-                          </Button>
-                          {isAdmin && (
-                            <Button
-                              size="xs"
-                              variant="danger"
-                              disabled={deleteMutation.isPending}
-                              onClick={() => {
-                                if (
-                                  window.confirm(
-                                    "이 근무 기록을 삭제하시겠습니까?",
-                                  )
-                                ) {
-                                  deleteMutation.mutate(journal.id);
-                                }
-                              }}
-                            >
-                              삭제
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="py-10 text-center text-sm text-gray-500">
-              선택한 조건의 근무 기록이 없습니다.
-            </p>
-          )}
+                              {isAdmin && (
+                                <Button
+                                  size="xs"
+                                  variant="danger"
+                                  disabled={deleteMutation.isPending}
+                                  onClick={() => {
+                                    if (
+                                      window.confirm(
+                                        "이 근무 기록을 삭제하시겠습니까?",
+                                      )
+                                    ) {
+                                      deleteMutation.mutate(journal.id);
+                                    }
+                                  }}
+                                >
+                                  삭제
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="py-10 text-center text-sm text-gray-500">
+                  선택한 조건의 근무 기록이 없습니다.
+                </p>
+              )}
             </>
           )}
         </section>
@@ -1105,195 +1437,202 @@ export default function WorkJournalPage() {
             </select>
           </div>
 
-        <section className="space-y-5 rounded-xl border border-brand-100 bg-white p-5 shadow-sm">
-          {paymentQuery.isPending ? (
-            <Loading size="sm" text="급여 지급 현황을 불러오는 중..." />
-          ) : paymentGroups.length ? (
-            <>
-              <div className="grid gap-3 lg:grid-cols-2">
-                {paymentGroups.map((group) => {
-                  const totalHours = group.journals.reduce(
-                    (sum, journal) => sum + getPayableHours(journal),
-                    0,
-                  );
-                  const totalActualHours = group.journals.reduce(
-                    (sum, journal) => sum + Number(journal.work_hours),
-                    0,
-                  );
-                  const unpaidHours = group.unpaid.reduce(
-                    (sum, journal) => sum + getPayableHours(journal),
-                    0,
-                  );
-                  const advanceHours = group.advance.reduce(
-                    (sum, journal) => sum + getPayableHours(journal),
-                    0,
-                  );
-                  const salaryHours = group.salary.reduce(
-                    (sum, journal) => sum + getPayableHours(journal),
-                    0,
-                  );
-                  return (
-                    <div
-                      key={group.workerName}
-                      className="rounded-xl border border-gray-200 bg-gray-50 p-4"
-                    >
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <p className="font-semibold text-gray-900">
-                            {group.workerName}
-                          </p>
-                          <p className="mt-1 text-xs text-gray-500">
-                            총 근무 {group.journals.length}회 ·{" "}
-                            입력 {formatHours(totalHours)} · 실제{" "}
-                            {formatHours(totalActualHours)}
-                          </p>
-                          <p className="mt-1 text-xs font-semibold text-brand-700">
-                            잔여 지급 {group.unpaid.length}회 ·{" "}
-                            {formatHours(unpaidHours)}
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            size="sm"
-                            disabled={
-                              paymentMutation.isPending || !group.unpaid.length
-                            }
-                            onClick={() => handleWorkerSalaryPayment(group)}
-                          >
-                            {group.unpaid.length
-                              ? `월급 지급 (${group.unpaid.length}건)`
-                              : "지급 처리 완료"}
-                          </Button>
-                          {group.salary.length > 0 && (
+          <section className="space-y-5 rounded-xl border border-brand-100 bg-white p-5 shadow-sm">
+            {paymentQuery.isPending ? (
+              <Loading size="sm" text="급여 지급 현황을 불러오는 중..." />
+            ) : paymentGroups.length ? (
+              <>
+                <div className="grid gap-3 lg:grid-cols-2">
+                  {paymentGroups.map((group) => {
+                    const totalHours = group.journals.reduce(
+                      (sum, journal) => sum + getPayableHours(journal),
+                      0,
+                    );
+                    const totalActualHours = group.journals.reduce(
+                      (sum, journal) => sum + Number(journal.work_hours),
+                      0,
+                    );
+                    const unpaidHours = group.unpaid.reduce(
+                      (sum, journal) => sum + getPayableHours(journal),
+                      0,
+                    );
+                    const advanceHours = group.advance.reduce(
+                      (sum, journal) => sum + getPayableHours(journal),
+                      0,
+                    );
+                    const salaryHours = group.salary.reduce(
+                      (sum, journal) => sum + getPayableHours(journal),
+                      0,
+                    );
+                    return (
+                      <div
+                        key={group.workerName}
+                        className="rounded-xl border border-gray-200 bg-gray-50 p-4"
+                      >
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <p className="font-semibold text-gray-900">
+                              {group.workerName}
+                            </p>
+                            <p className="mt-1 text-xs text-gray-500">
+                              총 근무 {group.journals.length}회 · 입력{" "}
+                              {formatHours(totalHours)} · 실제{" "}
+                              {formatHours(totalActualHours)}
+                            </p>
+                            <p className="mt-1 text-xs font-semibold text-brand-700">
+                              잔여 지급 {group.unpaid.length}회 ·{" "}
+                              {formatHours(unpaidHours)}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
                             <Button
                               size="sm"
-                              variant="gray"
-                              disabled={paymentMutation.isPending}
-                              onClick={() => handleWorkerSalaryCancel(group)}
+                              disabled={
+                                paymentMutation.isPending ||
+                                !group.unpaid.length
+                              }
+                              onClick={() => handleWorkerSalaryPayment(group)}
                             >
-                              월급 지급 취소
+                              {group.unpaid.length
+                                ? `월급 지급 (${group.unpaid.length}건)`
+                                : "지급 처리 완료"}
                             </Button>
-                          )}
-                        </div>
-                      </div>
-                      <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
-                        <div className="rounded-lg bg-white px-2 py-2 text-gray-600">
-                          <span className="block">미지급</span>
-                          <strong className="mt-1 block text-gray-900">
-                            {group.unpaid.length}회 · {formatHours(unpaidHours)}
-                          </strong>
-                        </div>
-                        <div className="rounded-lg bg-amber-50 px-2 py-2 text-amber-700">
-                          <span className="block">선지급</span>
-                          <strong className="mt-1 block">
-                            {group.advance.length}회 ·{" "}
-                            {formatHours(advanceHours)}
-                          </strong>
-                        </div>
-                        <div className="rounded-lg bg-emerald-50 px-2 py-2 text-emerald-700">
-                          <span className="block">월급 지급 완료</span>
-                          <strong className="mt-1 block">
-                            {group.salary.length}회 · {formatHours(salaryHours)}
-                          </strong>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="overflow-x-auto rounded-lg border border-gray-100">
-                <table className="w-full min-w-[900px] border-collapse text-sm [&_td]:border [&_td]:border-gray-200 [&_th]:border [&_th]:border-brand-200">
-                  <thead className="bg-brand-50 text-left text-xs text-brand-700">
-                    <tr>
-                      <th className="px-3 py-2.5">근무 날짜</th>
-                      <th className="px-3 py-2.5">근무자</th>
-                      <th className="px-3 py-2.5 text-right">실제 근무시간</th>
-                      <th className="px-3 py-2.5 text-right">입력 근무시간</th>
-                      <th className="px-3 py-2.5 text-center">지급 상태</th>
-                      <th className="px-3 py-2.5">처리 시간</th>
-                      <th className="px-3 py-2.5 text-center">선지급</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {paymentQuery.data?.map((journal) => {
-                      const status = journal.payment_status ?? "unpaid";
-                      return (
-                        <tr key={journal.id} className="hover:bg-gray-50">
-                          <td className="whitespace-nowrap px-3 py-2.5">
-                            {formatKoreanDate(journal.work_date)}
-                          </td>
-                          <td className="px-3 py-2.5 font-medium text-gray-900">
-                            {journal.worker_name}
-                          </td>
-                          <td className="px-3 py-2.5 text-right">
-                            {formatHours(Number(journal.work_hours))}
-                          </td>
-                          <td className="px-3 py-2.5 text-right font-semibold text-brand-700">
-                            {formatHours(getPayableHours(journal))}
-                            {journal.input_work_hours == null && (
-                              <span className="ml-1 block text-[10px] font-normal text-amber-600">
-                                실제시간 대체
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-3 py-2.5 text-center">
-                            <span
-                              className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-                                status === "advance"
-                                  ? "bg-amber-100 text-amber-700"
-                                  : status === "salary"
-                                    ? "bg-emerald-100 text-emerald-700"
-                                    : "bg-gray-100 text-gray-600"
-                              }`}
-                            >
-                              {status === "advance"
-                                ? "선지급"
-                                : status === "salary"
-                                  ? "월급 지급"
-                                  : "미지급"}
-                            </span>
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-2.5 text-xs text-gray-500">
-                            {journal.paid_at
-                              ? new Date(journal.paid_at).toLocaleString(
-                                  "ko-KR",
-                                )
-                              : "-"}
-                          </td>
-                          <td className="px-3 py-2.5 text-center">
-                            {status === "salary" ? (
-                              <span className="text-xs text-gray-400">
-                                월급 지급 완료
-                              </span>
-                            ) : (
+                            {group.salary.length > 0 && (
                               <Button
-                                size="xs"
-                                variant={
-                                  status === "advance" ? "gray" : undefined
-                                }
+                                size="sm"
+                                variant="gray"
                                 disabled={paymentMutation.isPending}
-                                onClick={() => handleAdvanceToggle(journal)}
+                                onClick={() => handleWorkerSalaryCancel(group)}
                               >
-                                {status === "advance"
-                                  ? "선지급 취소"
-                                  : "선지급 처리"}
+                                월급 지급 취소
                               </Button>
                             )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          ) : (
-            <p className="py-10 text-center text-sm text-gray-500">
-              선택한 월의 근무 기록이 없습니다.
-            </p>
-          )}
-        </section>
+                          </div>
+                        </div>
+                        <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+                          <div className="rounded-lg bg-white px-2 py-2 text-gray-600">
+                            <span className="block">미지급</span>
+                            <strong className="mt-1 block text-gray-900">
+                              {group.unpaid.length}회 ·{" "}
+                              {formatHours(unpaidHours)}
+                            </strong>
+                          </div>
+                          <div className="rounded-lg bg-amber-50 px-2 py-2 text-amber-700">
+                            <span className="block">선지급</span>
+                            <strong className="mt-1 block">
+                              {group.advance.length}회 ·{" "}
+                              {formatHours(advanceHours)}
+                            </strong>
+                          </div>
+                          <div className="rounded-lg bg-emerald-50 px-2 py-2 text-emerald-700">
+                            <span className="block">월급 지급 완료</span>
+                            <strong className="mt-1 block">
+                              {group.salary.length}회 ·{" "}
+                              {formatHours(salaryHours)}
+                            </strong>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="overflow-x-auto rounded-lg border border-gray-100">
+                  <table className="w-full min-w-[900px] border-collapse text-sm [&_td]:border [&_td]:border-gray-200 [&_th]:border [&_th]:border-brand-200">
+                    <thead className="bg-brand-50 text-left text-xs text-brand-700">
+                      <tr>
+                        <th className="px-3 py-2.5">근무 날짜</th>
+                        <th className="px-3 py-2.5">근무자</th>
+                        <th className="px-3 py-2.5 text-right">
+                          실제 근무시간
+                        </th>
+                        <th className="px-3 py-2.5 text-right">
+                          입력 근무시간
+                        </th>
+                        <th className="px-3 py-2.5 text-center">지급 상태</th>
+                        <th className="px-3 py-2.5">처리 시간</th>
+                        <th className="px-3 py-2.5 text-center">선지급</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {paymentQuery.data?.map((journal) => {
+                        const status = journal.payment_status ?? "unpaid";
+                        return (
+                          <tr key={journal.id} className="hover:bg-gray-50">
+                            <td className="whitespace-nowrap px-3 py-2.5">
+                              {formatKoreanDate(journal.work_date)}
+                            </td>
+                            <td className="px-3 py-2.5 font-medium text-gray-900">
+                              {journal.worker_name}
+                            </td>
+                            <td className="px-3 py-2.5 text-right">
+                              {formatHours(Number(journal.work_hours))}
+                            </td>
+                            <td className="px-3 py-2.5 text-right font-semibold text-brand-700">
+                              {formatHours(getPayableHours(journal))}
+                              {journal.input_work_hours == null && (
+                                <span className="ml-1 block text-[10px] font-normal text-amber-600">
+                                  실제시간 대체
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2.5 text-center">
+                              <span
+                                className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+                                  status === "advance"
+                                    ? "bg-amber-100 text-amber-700"
+                                    : status === "salary"
+                                      ? "bg-emerald-100 text-emerald-700"
+                                      : "bg-gray-100 text-gray-600"
+                                }`}
+                              >
+                                {status === "advance"
+                                  ? "선지급"
+                                  : status === "salary"
+                                    ? "월급 지급"
+                                    : "미지급"}
+                              </span>
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-2.5 text-xs text-gray-500">
+                              {journal.paid_at
+                                ? new Date(journal.paid_at).toLocaleString(
+                                    "ko-KR",
+                                  )
+                                : "-"}
+                            </td>
+                            <td className="px-3 py-2.5 text-center">
+                              {status === "salary" ? (
+                                <span className="text-xs text-gray-400">
+                                  월급 지급 완료
+                                </span>
+                              ) : (
+                                <Button
+                                  size="xs"
+                                  variant={
+                                    status === "advance" ? "gray" : undefined
+                                  }
+                                  disabled={paymentMutation.isPending}
+                                  onClick={() => handleAdvanceToggle(journal)}
+                                >
+                                  {status === "advance"
+                                    ? "선지급 취소"
+                                    : "선지급 처리"}
+                                </Button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            ) : (
+              <p className="py-10 text-center text-sm text-gray-500">
+                선택한 월의 근무 기록이 없습니다.
+              </p>
+            )}
+          </section>
         </>
       )}
     </main>

@@ -26,15 +26,78 @@ import { useModal } from "@/app/_contexts/ModalContext";
 import ConfirmModal from "@/app/(auth)/_components/ConfirmModal";
 
 const defaultChecklistItems: DailyClosingChecklistItem[] = [
-  { id: "device_login", phase: "opening", label: "매장 기기 및 업무 계정 로그인 확인", sort_order: 0, is_required: false, is_opening_gate: true },
-  { id: "stock_check", phase: "opening", label: "고객 출고 전 시재·재고 확인", sort_order: 1, is_required: false, is_opening_gate: true },
-  { id: "device_charge", phase: "opening", label: "시연용 기기와 업무용 기기 충전 확인", sort_order: 2, is_required: false, is_opening_gate: true },
-  { id: "notification_check", phase: "opening", label: "업무용 휴대폰 알림 확인", sort_order: 3, is_required: false, is_opening_gate: true },
-  { id: "restroom", phase: "closing", label: "화장실 잠금 및 정리 확인", sort_order: 0, is_required: false, is_opening_gate: false },
-  { id: "sales_check", phase: "closing", label: "판매처별 매출과 종합 금액 확인", sort_order: 1, is_required: false, is_opening_gate: false },
-  { id: "device_off", phase: "closing", label: "에어컨·송풍·조명 전원 확인", sort_order: 2, is_required: false, is_opening_gate: false },
-  { id: "trash", phase: "closing", label: "매장 쓰레기 정리", sort_order: 3, is_required: false, is_opening_gate: false },
-  { id: "door_lock", phase: "closing", label: "출입문과 창문 잠금 확인", sort_order: 4, is_required: false, is_opening_gate: false },
+  {
+    id: "device_login",
+    phase: "opening",
+    label: "매장 기기 및 업무 계정 로그인 확인",
+    sort_order: 0,
+    is_required: false,
+    is_opening_gate: true,
+  },
+  {
+    id: "stock_check",
+    phase: "opening",
+    label: "고객 출고 전 시재·재고 확인",
+    sort_order: 1,
+    is_required: false,
+    is_opening_gate: true,
+  },
+  {
+    id: "device_charge",
+    phase: "opening",
+    label: "시연용 기기와 업무용 기기 충전 확인",
+    sort_order: 2,
+    is_required: false,
+    is_opening_gate: true,
+  },
+  {
+    id: "notification_check",
+    phase: "opening",
+    label: "업무용 휴대폰 알림 확인",
+    sort_order: 3,
+    is_required: false,
+    is_opening_gate: true,
+  },
+  {
+    id: "restroom",
+    phase: "closing",
+    label: "화장실 잠금 및 정리 확인",
+    sort_order: 0,
+    is_required: false,
+    is_opening_gate: false,
+  },
+  {
+    id: "sales_check",
+    phase: "closing",
+    label: "판매처별 매출과 종합 금액 확인",
+    sort_order: 1,
+    is_required: false,
+    is_opening_gate: false,
+  },
+  {
+    id: "device_off",
+    phase: "closing",
+    label: "에어컨·송풍·조명 전원 확인",
+    sort_order: 2,
+    is_required: false,
+    is_opening_gate: false,
+  },
+  {
+    id: "trash",
+    phase: "closing",
+    label: "매장 쓰레기 정리",
+    sort_order: 3,
+    is_required: false,
+    is_opening_gate: false,
+  },
+  {
+    id: "door_lock",
+    phase: "closing",
+    label: "출입문과 창문 잠금 확인",
+    sort_order: 4,
+    is_required: false,
+    is_opening_gate: false,
+  },
 ];
 
 const formatWon = (value: number) => `${value.toLocaleString("ko-KR")}원`;
@@ -53,9 +116,7 @@ const formatReportDate = (date: string) => {
     month: "long",
     day: "numeric",
   }).format(parsed);
-  const weekday = ["일", "월", "화", "수", "목", "금", "토"][
-    parsed.getDay()
-  ];
+  const weekday = ["일", "월", "화", "수", "목", "금", "토"][parsed.getDay()];
   return `${dateText} (${weekday})`;
 };
 const PHOTO_SAVE_ENABLED = false;
@@ -135,9 +196,7 @@ export default function DailyClosingReport({
     : null;
   const checklistItems =
     savedChecklistItems ??
-    (checklistQuery.data?.length
-      ? checklistQuery.data
-      : defaultChecklistItems);
+    (checklistQuery.data?.length ? checklistQuery.data : defaultChecklistItems);
   const openingTasks = checklistItems.filter(
     (item) => item.phase === "opening",
   );
@@ -172,11 +231,7 @@ export default function DailyClosingReport({
   }, [businessDate]);
 
   useEffect(() => {
-    if (
-      checksDraftDate !== businessDate ||
-      reportQuery.data
-    )
-      return;
+    if (checksDraftDate !== businessDate || reportQuery.data) return;
     window.sessionStorage.setItem(
       getChecklistDraftKey(businessDate),
       JSON.stringify({ openingChecks, closingChecks }),
@@ -270,14 +325,17 @@ export default function DailyClosingReport({
               journal.end_time.slice(0, 5),
             actualEndTime: journal.end_time.slice(0, 5),
             actualWorkHours: Number(journal.work_hours),
-            inputWorkHours: Number(
-              journal.input_work_hours ?? journal.work_hours,
-            ),
+            inputWorkHours: Number(journal.input_work_hours ?? 0),
           })),
           payments: paymentSales.breakdown.map((payment) => ({ ...payment })),
           itemSummary: paymentSales.itemSummary.map((item) => ({ ...item })),
           outboundTypeSummary: paymentSales.outboundTypeSummary.map((item) => ({
             ...item,
+          })),
+          inboundSummary: paymentSales.inboundSummary.map((item) => ({
+            ...item,
+            aggregationUnit:
+              item.type === "purchase" ? "count" : "quantity",
           })),
           deliverySummary: paymentSales.deliverySummary.map((item) => ({
             ...item,
@@ -350,7 +408,9 @@ export default function DailyClosingReport({
         return;
       }
       if (message.includes("OPEN_WORK_JOURNAL_EXISTS")) {
-        toast.error("퇴근하지 않은 근무자가 있습니다. 근무기록에서 먼저 퇴근 처리해 주세요.");
+        toast.error(
+          "퇴근하지 않은 근무자가 있습니다. 근무기록에서 먼저 퇴근 처리해 주세요.",
+        );
         return;
       }
       if (message.includes("ALREADY_CLOSED")) {
@@ -496,98 +556,196 @@ export default function DailyClosingReport({
       </div>
 
       <div ref={captureRef} className="space-y-4 bg-white">
-      <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-          <div className="shrink-0">
-            <p className="text-xs font-semibold text-gray-500">마감 날짜</p>
-            <h2 className="mt-1 text-lg font-bold text-gray-900">
-              {formatReportDate(businessDate)}
-            </h2>
-          </div>
-          <div className="h-px bg-gray-200 lg:h-auto lg:w-px lg:self-stretch" />
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold text-gray-500">근무자 명단</p>
-            <div className="mt-2 grid gap-2 md:grid-cols-2">
-              {workJournals.length ? (
-                workJournals.map((journal) => (
-                  <div
-                    key={journal.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm"
-                  >
-                    <strong className="text-gray-900">
-                      {journal.worker_name}
-                    </strong>
-                    <span className="text-gray-600">
-                      {journal.start_time.slice(0, 5)} ~{" "}
-                      {journal.status === "working"
-                        ? "근무 중"
-                        : journal.end_time.slice(0, 5)}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      실제 {Number(journal.work_hours)}시간 · 입력{" "}
-                      {Number(journal.input_work_hours ?? 0)}시간
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <p className="text-sm text-gray-400">등록된 근무자 없음</p>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
-      <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[190px_190px_190px_minmax(0,1fr)]">
-          <SalesBreakdownCard
-            title="오베이프 매출"
-            items={paymentSales.ovapeBreakdown}
-            rowCount={Math.max(
-              paymentSales.ovapeBreakdown.length,
-              paymentSales.eguVapeBreakdown.length,
-            )}
-          />
-          <SalesBreakdownCard
-            title="이구베이프 매출"
-            items={paymentSales.eguVapeBreakdown}
-            rowCount={Math.max(
-              paymentSales.ovapeBreakdown.length,
-              paymentSales.eguVapeBreakdown.length,
-            )}
-          />
-          <div className="flex min-h-36 flex-col overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
-            <div className="flex min-h-0 flex-1 flex-col p-4">
-              <h2 className="border-b border-gray-200 pb-2 text-sm font-bold text-gray-800">
-                시재 현황
+        <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="flex flex-col gap-4 lg:w-[500px] lg:flex-row lg:items-start">
+            <div className="shrink-0">
+              <p className="text-xs font-semibold text-gray-500">마감 날짜</p>
+              <h2 className="mt-1 text-lg font-bold text-gray-900">
+                {formatReportDate(businessDate)}
               </h2>
-              <div className="flex flex-1 items-center justify-center py-3">
-                <span
-                  className={`rounded-full px-4 py-2 text-sm font-bold ${
-                    difference === 0
-                      ? "bg-emerald-100 text-emerald-700"
-                      : "bg-rose-100 text-rose-700"
-                  }`}
-                >
-                  {difference === 0 ? "일치" : "불일치"}
-                </span>
+            </div>
+            <div className="h-px bg-gray-200 lg:h-auto lg:w-px lg:self-stretch" />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-gray-500">근무자 명단</p>
+              <div className="mt-2 grid gap-2">
+                {workJournals.length ? (
+                  workJournals.map((journal) => (
+                    <div
+                      key={journal.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm"
+                    >
+                      <strong className="text-gray-900">
+                        {journal.worker_name}
+                      </strong>
+                      <span className="text-gray-600">
+                        {journal.start_time.slice(0, 5)} ~{" "}
+                        {journal.status === "working"
+                          ? "근무 중"
+                          : journal.end_time.slice(0, 5)}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-400">등록된 근무자 없음</p>
+                )}
               </div>
             </div>
-            <div className="flex min-h-0 flex-1 flex-col border-t border-gray-200 p-4">
-              <h2 className="border-b border-gray-200 pb-2 text-sm font-bold text-gray-800">
-                총 매출
-              </h2>
-              <p className="flex flex-1 items-center justify-center py-3 text-center text-2xl font-bold text-brand-700">
-                {formatWon(paymentSales.total)}
-              </p>
-            </div>
           </div>
-          {usesSeparatedOutboundSummary ? (
-          <div className="min-h-36 overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
-            <div className="grid min-h-36 sm:h-full sm:grid-cols-[7fr_7fr_4fr]">
-              <div className="p-4">
+        </section>
+        <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[170px_170px_140px_minmax(0,1fr)]">
+            <SalesBreakdownCard
+              title="오베이프 매출"
+              items={paymentSales.ovapeBreakdown}
+              rowCount={Math.max(
+                paymentSales.ovapeBreakdown.length,
+                paymentSales.eguVapeBreakdown.length,
+              )}
+            />
+            <SalesBreakdownCard
+              title="이구베이프 매출"
+              items={paymentSales.eguVapeBreakdown}
+              rowCount={Math.max(
+                paymentSales.ovapeBreakdown.length,
+                paymentSales.eguVapeBreakdown.length,
+              )}
+            />
+            <div className="flex min-h-36 flex-col overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+              <div className="flex min-h-0 flex-1 flex-col p-4">
                 <h2 className="border-b border-gray-200 pb-2 text-sm font-bold text-gray-800">
-                  일반 출고
+                  시재 현황
                 </h2>
-                <div className="mt-3 space-y-2">
+                <div className="flex flex-1 items-center justify-center py-3">
+                  <span
+                    className={`rounded-full px-4 py-2 text-sm font-bold ${
+                      difference === 0
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-rose-100 text-rose-700"
+                    }`}
+                  >
+                    {difference === 0 ? "일치" : "불일치"}
+                  </span>
+                </div>
+              </div>
+              <div className="flex min-h-0 flex-1 flex-col border-t border-gray-200 p-4">
+                <h2 className="border-b border-gray-200 pb-2 text-sm font-bold text-gray-800">
+                  총 매출
+                </h2>
+                <p className="flex flex-1 items-center justify-center whitespace-nowrap py-3 text-center text-xl font-bold text-brand-700">
+                  {formatWon(paymentSales.total)}
+                </p>
+              </div>
+            </div>
+            {usesSeparatedOutboundSummary ? (
+              <div className="min-h-36 overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+                <div className="grid min-h-36 sm:h-full sm:grid-cols-[180px_180px_130px_minmax(0,1fr)]">
+                  <div className="p-4">
+                    <h2 className="border-b border-gray-200 pb-2 text-sm font-bold text-gray-800">
+                      일반 출고
+                    </h2>
+                    <div className="mt-3 space-y-2">
+                      {paymentSales.itemSummary.length ? (
+                        paymentSales.itemSummary.map((item) => (
+                          <div
+                            key={item.categoryName}
+                            className="flex items-center justify-between gap-2 border-b border-gray-200 pb-1.5 text-sm last:border-b-0"
+                          >
+                            <span className="text-gray-600">
+                              {item.categoryName}
+                            </span>
+                            <strong className="text-gray-900">
+                              {item.quantity}개
+                            </strong>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-400">출고 없음</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="border-t border-gray-300 p-4 sm:border-l sm:border-t-0">
+                    <h2 className="border-b border-gray-200 pb-2 text-sm font-bold text-gray-800">
+                      나머지 출고
+                    </h2>
+                    <div className="mt-3 space-y-2">
+                      {paymentSales.outboundTypeSummary.length ? (
+                        paymentSales.outboundTypeSummary.map((item) => (
+                          <div
+                            key={`${item.type}-${item.label}`}
+                            className="flex items-center justify-between gap-2 border-b border-gray-200 pb-1.5 text-sm last:border-b-0"
+                          >
+                            <span className="min-w-0 break-all text-gray-600">
+                              {item.label}
+                            </span>
+                            {item.type !== "purchase" && (
+                              <strong className="shrink-0 text-gray-900">
+                                {item.quantity}개
+                              </strong>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-400">출고 없음</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="border-t border-gray-300 p-4 sm:border-l sm:border-t-0">
+                    <h2 className="border-b border-gray-200 pb-2 text-sm font-bold text-gray-800">
+                      수령 방식
+                    </h2>
+                    <div className="mt-3 space-y-2">
+                      {paymentSales.deliverySummary.length ? (
+                        paymentSales.deliverySummary.map((item) => (
+                          <div
+                            key={item.method}
+                            className="flex items-center justify-between gap-2 border-b border-gray-200 pb-1.5 text-sm last:border-b-0"
+                          >
+                            <span className="whitespace-nowrap text-gray-600">
+                              {item.label}
+                            </span>
+                            <strong className="shrink-0 whitespace-nowrap text-gray-900">
+                              {item.orderCount}건
+                            </strong>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-400">등록 없음</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="border-t border-gray-300 p-4 sm:border-l sm:border-t-0">
+                    <h2 className="border-b border-gray-200 pb-2 text-sm font-bold text-gray-800">
+                      입고
+                    </h2>
+                    <div className="mt-3 space-y-2">
+                      {paymentSales.inboundSummary.length ? (
+                        paymentSales.inboundSummary.map((item) => (
+                          <div
+                            key={`${item.type}-${item.label}`}
+                            className="flex items-center justify-between gap-2 border-b border-gray-200 pb-1.5 text-sm last:border-b-0"
+                          >
+                            <span className="min-w-0 break-all text-gray-600">
+                              {item.label}
+                            </span>
+                            <strong className="shrink-0 text-gray-900">
+                              {item.quantity}
+                              {item.type === "purchase" ? "건" : "개"}
+                            </strong>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-400">입고 없음</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="min-h-36 rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <h2 className="border-b border-gray-200 pb-2 text-sm font-bold text-gray-800">
+                  판매종류 및 수량
+                </h2>
+                <div className="mt-3 grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
                   {paymentSales.itemSummary.length ? (
                     paymentSales.itemSummary.map((item) => (
                       <div
@@ -598,145 +756,79 @@ export default function DailyClosingReport({
                           {item.categoryName}
                         </span>
                         <strong className="text-gray-900">
-                          {item.quantity}개
+                          {item.quantity}
+                          {item.categoryName === "택배" ||
+                          item.categoryName === "배달"
+                            ? "건"
+                            : "개"}
                         </strong>
                       </div>
                     ))
                   ) : (
-                    <p className="text-sm text-gray-400">출고 없음</p>
+                    <p className="text-sm text-gray-400">판매 품목 없음</p>
                   )}
                 </div>
               </div>
-              <div className="border-t border-gray-300 p-4 sm:border-l sm:border-t-0">
-                <h2 className="border-b border-gray-200 pb-2 text-sm font-bold text-gray-800">
-                  나머지 출고
-                </h2>
-                <div className="mt-3 space-y-2">
-                  {paymentSales.outboundTypeSummary.length ? (
-                    paymentSales.outboundTypeSummary.map((item) => (
-                      <div
-                        key={`${item.type}-${item.label}`}
-                        className="flex items-center justify-between gap-2 border-b border-gray-200 pb-1.5 text-sm last:border-b-0"
-                      >
-                        <span className="text-gray-600">{item.label}</span>
-                        <strong className="shrink-0 text-gray-900">
-                          {item.quantity}개
-                        </strong>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-gray-400">출고 없음</p>
-                  )}
-                </div>
-              </div>
-              <div className="border-t border-gray-300 p-4 sm:border-l sm:border-t-0">
-                <h2 className="border-b border-gray-200 pb-2 text-sm font-bold text-gray-800">
-                  수령 방식
-                </h2>
-                <div className="mt-3 space-y-2">
-                  {paymentSales.deliverySummary.length ? (
-                    paymentSales.deliverySummary.map((item) => (
-                      <div
-                        key={item.method}
-                        className="flex items-center justify-between gap-2 border-b border-gray-200 pb-1.5 text-sm last:border-b-0"
-                      >
-                        <span className="text-gray-600">{item.label}</span>
-                        <strong className="text-gray-900">
-                          {item.orderCount}건
-                        </strong>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-gray-400">등록 없음</p>
-                  )}
-                </div>
-              </div>
-            </div>
+            )}
           </div>
-          ) : (
-            <div className="min-h-36 rounded-xl border border-gray-200 bg-gray-50 p-4">
-              <h2 className="border-b border-gray-200 pb-2 text-sm font-bold text-gray-800">
-                판매종류 및 수량
-              </h2>
-              <div className="mt-3 grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
-                {paymentSales.itemSummary.length ? (
-                  paymentSales.itemSummary.map((item) => (
-                    <div
-                      key={item.categoryName}
-                      className="flex items-center justify-between gap-2 border-b border-gray-200 pb-1.5 text-sm last:border-b-0"
-                    >
-                      <span className="text-gray-600">{item.categoryName}</span>
-                      <strong className="text-gray-900">
-                        {item.quantity}
-                        {item.categoryName === "택배" ||
-                        item.categoryName === "배달"
-                          ? "건"
-                          : "개"}
-                      </strong>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-gray-400">판매 품목 없음</p>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
+        </section>
 
-      <div id="opening-checklist" className="grid scroll-mt-24 gap-4 lg:grid-cols-2">
-        <Checklist
-          title="출근·교대 확인"
-          tasks={openingTasks}
-          values={openingChecks}
-          disabled={isClosed}
-          onToggle={toggleOpening}
-        />
-        <Checklist
-          title="마감 확인"
-          tasks={closingTasks}
-          values={closingChecks}
-          disabled={isClosed}
-          onToggle={(key) => toggle(setClosingChecks, key)}
-        />
-      </div>
-      <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
-        <div className="grid gap-4 lg:grid-cols-2">
-          <label className="text-sm font-semibold text-gray-700">
-            청소 현황·방식
-            <textarea
-              value={cleaningNote}
-              onChange={(event) => setCleaningNote(event.target.value)}
-              disabled={isClosed}
-              placeholder="예: 창문 닦기, 쇼케이스 닦기, 매장 바닥 청소"
-              className="mt-2 h-28 w-full resize-none rounded-xl border border-gray-300 p-3 font-normal outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:bg-gray-100"
-            />
-          </label>
-          <label className="text-sm font-semibold text-gray-700">
-            특이사항·전달사항
-            <textarea
-              value={specialNote}
-              onChange={(event) => setSpecialNote(event.target.value)}
-              disabled={isClosed}
-              placeholder="없으면 비워 두어도 됩니다."
-              className="mt-2 h-28 w-full resize-none rounded-xl border border-gray-300 p-3 font-normal outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:bg-gray-100"
-            />
-          </label>
+        <div
+          id="opening-checklist"
+          className="grid scroll-mt-24 gap-4 lg:grid-cols-2"
+        >
+          <Checklist
+            title="출근·교대 확인"
+            tasks={openingTasks}
+            values={openingChecks}
+            disabled={isClosed}
+            onToggle={toggleOpening}
+          />
+          <Checklist
+            title="마감 확인"
+            tasks={closingTasks}
+            values={closingChecks}
+            disabled={isClosed}
+            onToggle={(key) => toggle(setClosingChecks, key)}
+          />
         </div>
-      </section>
+        <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <label className="text-sm font-semibold text-gray-700">
+              청소 현황·방식
+              <textarea
+                value={cleaningNote}
+                onChange={(event) => setCleaningNote(event.target.value)}
+                disabled={isClosed}
+                placeholder="예: 창문 닦기, 쇼케이스 닦기, 매장 바닥 청소"
+                className="mt-2 h-28 w-full resize-none rounded-xl border border-gray-300 p-3 font-normal outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:bg-gray-100"
+              />
+            </label>
+            <label className="text-sm font-semibold text-gray-700">
+              특이사항·전달사항
+              <textarea
+                value={specialNote}
+                onChange={(event) => setSpecialNote(event.target.value)}
+                disabled={isClosed}
+                placeholder="없으면 비워 두어도 됩니다."
+                className="mt-2 h-28 w-full resize-none rounded-xl border border-gray-300 p-3 font-normal outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:bg-gray-100"
+              />
+            </label>
+          </div>
+        </section>
       </div>
 
       <div className="flex items-center justify-between gap-2">
         <div>
-        {canCancelClosing && (
-          <Button
-            variant="gray"
-            onClick={handleCancelClosing}
-            disabled={cancelMutation.isPending}
-          >
-            마감 취소
-          </Button>
-        )}
+          {canCancelClosing && (
+            <Button
+              variant="gray"
+              onClick={handleCancelClosing}
+              disabled={cancelMutation.isPending}
+            >
+              마감 취소
+            </Button>
+          )}
         </div>
         <Button
           onClick={() => closeMutation.mutate()}
@@ -808,7 +900,7 @@ function Checklist({
             )}
             {item.is_opening_gate && (
               <span
-                className={`${item.is_required ? '' : 'ml-auto'} shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700`}
+                className={`${item.is_required ? "" : "ml-auto"} shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700`}
               >
                 오픈
               </span>
@@ -840,15 +932,15 @@ function SalesBreakdownCard({
           {Array.from({ length: rowCount }, (_, index) => {
             const item = items[index];
             return item ? (
-            <div
-              key={item.paymentType}
-              className="flex items-center justify-between gap-2 border-b border-gray-200 pb-1.5 text-sm last:border-b-0"
-            >
-              <span className="text-gray-600">{item.label}</span>
-              <strong className="whitespace-nowrap text-gray-900">
-                {formatWon(item.amount)}
-              </strong>
-            </div>
+              <div
+                key={item.paymentType}
+                className="flex items-center justify-between gap-2 border-b border-gray-200 pb-1.5 text-sm last:border-b-0"
+              >
+                <span className="text-gray-600">{item.label}</span>
+                <strong className="whitespace-nowrap text-gray-900">
+                  {formatWon(item.amount)}
+                </strong>
+              </div>
             ) : (
               <div
                 key={`empty-${index}`}
@@ -910,7 +1002,10 @@ export function ChecklistEditor({
     const targetIndex = phaseIndexes[position + direction];
     if (targetIndex === undefined) return;
     const next = [...items];
-    [next[currentIndex], next[targetIndex]] = [next[targetIndex], next[currentIndex]];
+    [next[currentIndex], next[targetIndex]] = [
+      next[targetIndex],
+      next[currentIndex],
+    ];
     onChange(next);
   };
 
@@ -943,7 +1038,10 @@ export function ChecklistEditor({
       </div>
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         {(["opening", "closing"] as const).map((phase) => (
-          <div key={phase} className="rounded-xl border border-gray-200 bg-white p-3">
+          <div
+            key={phase}
+            className="rounded-xl border border-gray-200 bg-white p-3"
+          >
             <div className="mb-3 flex items-center justify-between">
               <h3 className="font-bold text-gray-800">
                 {phase === "opening" ? "출근·교대 확인" : "마감 확인"}
@@ -959,7 +1057,9 @@ export function ChecklistEditor({
                   <div key={item.id} className="flex items-center gap-1.5">
                     <input
                       value={item.label}
-                      onChange={(event) => updateLabel(item.id, event.target.value)}
+                      onChange={(event) =>
+                        updateLabel(item.id, event.target.value)
+                      }
                       placeholder="확인 내용을 입력하세요"
                       className="h-10 min-w-0 flex-1 rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                     />

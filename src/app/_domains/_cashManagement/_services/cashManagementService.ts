@@ -1,33 +1,33 @@
-import supabase from '@/libs/supabaseClient';
+import supabase from "@/libs/supabaseClient";
 import {
   CashClosingType,
   CashCounts,
   DailyCashSales,
   DailyPaymentSales,
   WorkShift,
-} from '../_types/cashManagement.types';
+} from "../_types/cashManagement.types";
 
 const CASH_PAYMENT_TYPES = new Set([
-  'cash',
-  'cash_receipt',
-  'egu_cash',
-  'egu_cash_receipt',
+  "cash",
+  "cash_receipt",
+  "egu_cash",
+  "egu_cash_receipt",
 ]);
 
-const NON_PAYMENT_TYPES = new Set(['remark', 'shipment_remark']);
+const NON_PAYMENT_TYPES = new Set(["remark", "shipment_remark"]);
 const OVAPE_PAYMENT_TYPES = [
-  { paymentType: 'card', label: '카드' },
-  { paymentType: 'transfer', label: '이체' },
-  { paymentType: 'cash', label: '현금' },
-  { paymentType: 'cash_receipt', label: '현금영수증' },
-  { paymentType: 'transfer_cash_receipt', label: '이체현금영수증' },
-  { paymentType: 'kakaotalk', label: '카카오톡' },
+  { paymentType: "card", label: "카드" },
+  { paymentType: "transfer", label: "이체" },
+  { paymentType: "cash", label: "현금" },
+  { paymentType: "cash_receipt", label: "현금영수증" },
+  { paymentType: "transfer_cash_receipt", label: "이체현금영수증" },
+  { paymentType: "kakaotalk", label: "카카오톡" },
 ] as const;
 const EGU_PAYMENT_TYPES = [
-  { paymentType: 'egu_card', label: '카드' },
-  { paymentType: 'egu_transfer', label: '이체' },
-  { paymentType: 'egu_cash', label: '현금' },
-  { paymentType: 'egu_cash_receipt', label: '현금영수증' },
+  { paymentType: "egu_card", label: "카드" },
+  { paymentType: "egu_transfer", label: "이체" },
+  { paymentType: "egu_cash", label: "현금" },
+  { paymentType: "egu_cash_receipt", label: "현금영수증" },
 ] as const;
 
 const getKoreaDateRange = (date: string) => {
@@ -41,11 +41,11 @@ export const getDailyCashSales = async (
 ): Promise<DailyCashSales> => {
   const { start, end } = getKoreaDateRange(date);
   const { data, error } = await supabase
-    .from('logs')
-    .select('jsonb')
-    .eq('category', 'stamp')
-    .gte('created_at', start)
-    .lt('created_at', end);
+    .from("logs")
+    .select("jsonb")
+    .eq("category", "stamp")
+    .gte("created_at", start)
+    .lt("created_at", end);
 
   if (error) throw error;
 
@@ -62,25 +62,22 @@ export const getDailyCashSales = async (
       : [];
     if (splitPayments.length) {
       for (const payment of splitPayments) {
-        const splitType = String(payment.paymentType ?? '');
+        const splitType = String(payment.paymentType ?? "");
         const splitAmount = Number(payment.amount ?? 0);
-        if (
-          !CASH_PAYMENT_TYPES.has(splitType) ||
-          !Number.isFinite(splitAmount)
-        )
+        if (!CASH_PAYMENT_TYPES.has(splitType) || !Number.isFinite(splitAmount))
           continue;
-        if (splitType.startsWith('egu_')) eguVape += splitAmount;
+        if (splitType.startsWith("egu_")) eguVape += splitAmount;
         else ovape += splitAmount;
       }
       continue;
     }
-    const paymentType = String(jsonb.paymentType ?? '');
+    const paymentType = String(jsonb.paymentType ?? "");
     if (!CASH_PAYMENT_TYPES.has(paymentType)) continue;
 
     const amount = Number(jsonb.totalAmount ?? 0);
     if (!Number.isFinite(amount)) continue;
 
-    if (paymentType.startsWith('egu_')) {
+    if (paymentType.startsWith("egu_")) {
       eguVape += amount;
     } else {
       ovape += amount;
@@ -93,16 +90,27 @@ export const getDailyCashSales = async (
 export const getDailyPaymentSales = async (
   date: string,
 ): Promise<DailyPaymentSales> => {
-  const usesSeparatedOutboundSummary = date >= '2026-07-31';
+  const usesSeparatedOutboundSummary = date >= "2026-07-31";
   const { start, end } = getKoreaDateRange(date);
-  const { data, error } = await supabase
-    .from('logs')
-    .select('jsonb')
-    .eq('category', 'stamp')
-    .gte('created_at', start)
-    .lt('created_at', end);
+  const [logsResult, receiptsResult] = await Promise.all([
+    supabase
+      .from("logs")
+      .select("jsonb")
+      .eq("category", "stamp")
+      .gte("created_at", start)
+      .lt("created_at", end),
+    supabase
+      .from("inventory_purchase_receipts")
+      .select(
+        "id, inventory_purchase_orders(inventory_suppliers(name)), inventory_purchase_receipt_lines(quantity)",
+      )
+      .eq("arrived_on", date)
+      .is("reversed_at", null),
+  ]);
 
-  if (error) throw error;
+  if (logsResult.error) throw logsResult.error;
+  if (receiptsResult.error) throw receiptsResult.error;
+  const data = logsResult.data;
 
   const amountByPaymentType = new Map<string, number>();
   const quantityByCategory = new Map<string, number>();
@@ -110,8 +118,16 @@ export const getDailyPaymentSales = async (
     string,
     { type: string; label: string; quantity: number }
   >();
+  const quantityByInboundType = new Map<
+    string,
+    {
+      type: "purchase" | "adjustment_in" | "exchange_in";
+      label: string;
+      quantity: number;
+    }
+  >();
   const deliveryByMethod = new Map<
-    'store_visit' | 'parcel' | 'delivery',
+    "store_visit" | "parcel" | "delivery",
     { orderCount: number; quantity: number; fee: number }
   >();
 
@@ -125,7 +141,7 @@ export const getDailyPaymentSales = async (
       : [];
     if (splitPayments.length) {
       for (const payment of splitPayments) {
-        const splitType = String(payment.paymentType ?? '').trim();
+        const splitType = String(payment.paymentType ?? "").trim();
         const splitAmount = Number(payment.amount ?? 0);
         if (
           !splitType ||
@@ -139,7 +155,7 @@ export const getDailyPaymentSales = async (
         );
       }
     }
-    const paymentType = String(jsonb.paymentType ?? '').trim();
+    const paymentType = String(jsonb.paymentType ?? "").trim();
     const amount = Number(jsonb.totalAmount ?? 0);
     if (!splitPayments.length) {
       if (
@@ -155,9 +171,9 @@ export const getDailyPaymentSales = async (
     }
 
     const deliveryMethod =
-      jsonb.deliveryMethod === 'store_visit' ||
-      jsonb.deliveryMethod === 'parcel' ||
-      jsonb.deliveryMethod === 'delivery'
+      jsonb.deliveryMethod === "store_visit" ||
+      jsonb.deliveryMethod === "parcel" ||
+      jsonb.deliveryMethod === "delivery"
         ? jsonb.deliveryMethod
         : null;
     const items = Array.isArray(jsonb.items)
@@ -175,34 +191,46 @@ export const getDailyPaymentSales = async (
       const quantity = Number(item.quantity ?? 0);
       if (!Number.isFinite(quantity) || quantity <= 0) continue;
 
-      const categoryName =
-        String(item.itemCategoryName ?? '').trim() || '기타';
-      const inventoryAction = String(item.inventoryAction ?? '').trim();
+      const categoryName = String(item.itemCategoryName ?? "").trim() || "기타";
+      const inventoryAction = String(item.inventoryAction ?? "").trim();
+      if (
+        inventoryAction === "exchange_in" ||
+        inventoryAction === "adjustment_in"
+      ) {
+        const type = inventoryAction;
+        const label =
+          inventoryAction === "exchange_in" ? "교환입고" : "재고조정-입고";
+        const current = quantityByInboundType.get(type);
+        quantityByInboundType.set(type, {
+          type,
+          label,
+          quantity: (current?.quantity ?? 0) + quantity,
+        });
+      }
       if (
         usesSeparatedOutboundSummary &&
-        (inventoryAction === 'exchange_in' ||
-          inventoryAction === 'adjustment_in')
+        (inventoryAction === "exchange_in" ||
+          inventoryAction === "adjustment_in")
       ) {
         continue;
       }
       hasOutboundItem = true;
-      const remark = String(item.remark ?? '').trim();
+      const remark = String(item.remark ?? "").trim();
       const outboundType =
-        inventoryAction === 'exchange_in'
-          ? '교환입고'
-          : inventoryAction === 'exchange_out'
-            ? '교환출고'
+        inventoryAction === "exchange_out"
+          ? "교환출고"
+          : inventoryAction === "adjustment_out"
+            ? "재고조정-출고"
             : item.adjustedUnitPrice != null
-              ? '가격조정'
-              : remark.startsWith('서비스')
-                ? '서비스'
-                : remark.startsWith('시연용')
-                  ? '시연용'
-                  : remark.startsWith('입고처리')
-                    ? '입고처리'
-                    : remark.startsWith('출고처리')
-                      ? '출고처리'
-                      : remark || null;
+              ? "가격조정"
+              : remark.startsWith("서비스")
+                ? "서비스"
+                : remark.startsWith("시연용")
+                  ? "시연용"
+                  : remark.startsWith("재고조정-출고") ||
+                      remark.startsWith("출고처리")
+                    ? "재고조정-출고"
+                    : null;
 
       if (usesSeparatedOutboundSummary && outboundType) {
         const key = `${categoryName}\u0000${outboundType}`;
@@ -232,18 +260,41 @@ export const getDailyPaymentSales = async (
         quantity: current.quantity + deliveryItemQuantity,
         fee:
           current.fee +
-          (deliveryMethod === 'store_visit'
+          (deliveryMethod === "store_visit"
             ? 0
             : Number(jsonb.deliveryFee ?? 0) || 0),
       });
     }
   }
 
+  for (const receipt of receiptsResult.data ?? []) {
+    const order = Array.isArray(receipt.inventory_purchase_orders)
+      ? receipt.inventory_purchase_orders[0]
+      : receipt.inventory_purchase_orders;
+    const supplier = Array.isArray(order?.inventory_suppliers)
+      ? order.inventory_suppliers[0]
+      : order?.inventory_suppliers;
+    const supplierName = String(supplier?.name ?? "").trim();
+    if (!supplierName) continue;
+    const quantity = (receipt.inventory_purchase_receipt_lines ?? []).reduce(
+      (sum, line) => sum + Number(line.quantity ?? 0),
+      0,
+    );
+    if (quantity <= 0) continue;
+    const key = `purchase:${supplierName}`;
+    const current = quantityByInboundType.get(key);
+    quantityByInboundType.set(key, {
+      type: "purchase",
+      label: supplierName,
+      quantity: (current?.quantity ?? 0) + 1,
+    });
+  }
+
   if (!usesSeparatedOutboundSummary) {
-    const parcelCount = deliveryByMethod.get('parcel')?.orderCount ?? 0;
-    const deliveryCount = deliveryByMethod.get('delivery')?.orderCount ?? 0;
-    if (parcelCount > 0) quantityByCategory.set('택배', parcelCount);
-    if (deliveryCount > 0) quantityByCategory.set('배달', deliveryCount);
+    const parcelCount = deliveryByMethod.get("parcel")?.orderCount ?? 0;
+    const deliveryCount = deliveryByMethod.get("delivery")?.orderCount ?? 0;
+    if (parcelCount > 0) quantityByCategory.set("택배", parcelCount);
+    if (deliveryCount > 0) quantityByCategory.set("배달", deliveryCount);
   }
 
   const ovapeBreakdown = OVAPE_PAYMENT_TYPES.map((item) => ({
@@ -265,20 +316,24 @@ export const getDailyPaymentSales = async (
       .sort((a, b) => b.quantity - a.quantity),
     outboundTypeSummary: [...quantityByOtherOutboundType.values()].sort(
       (a, b) =>
-        b.quantity - a.quantity || a.label.localeCompare(b.label, 'ko-KR'),
+        b.quantity - a.quantity || a.label.localeCompare(b.label, "ko-KR"),
+    ),
+    inboundSummary: [...quantityByInboundType.values()].sort(
+      (a, b) =>
+        b.quantity - a.quantity || a.label.localeCompare(b.label, "ko-KR"),
     ),
     deliverySummary: [
-      ['store_visit', '매장방문'],
-      ['parcel', '택배'],
-      ['delivery', '배달'],
+      ["store_visit", "매장방문"],
+      ["parcel", "택배"],
+      ["delivery", "배달"],
     ].flatMap(([method, label]) => {
       const summary = deliveryByMethod.get(
-        method as 'store_visit' | 'parcel' | 'delivery',
+        method as "store_visit" | "parcel" | "delivery",
       );
       return summary
         ? [
             {
-              method: method as 'store_visit' | 'parcel' | 'delivery',
+              method: method as "store_visit" | "parcel" | "delivery",
               label,
               ...summary,
             },
@@ -293,9 +348,9 @@ export const getCashClosing = async (
   date: string,
 ): Promise<CashClosingType | null> => {
   const { data, error } = await supabase
-    .from('cash_register_closings')
-    .select('*')
-    .eq('business_date', date)
+    .from("cash_register_closings")
+    .select("*")
+    .eq("business_date", date)
     .maybeSingle();
 
   if (error) throw error;
@@ -306,10 +361,10 @@ export const getPreviousClosing = async (
   date: string,
 ): Promise<CashClosingType | null> => {
   const { data, error } = await supabase
-    .from('cash_register_closings')
-    .select('*')
-    .lt('business_date', date)
-    .order('business_date', { ascending: false })
+    .from("cash_register_closings")
+    .select("*")
+    .lt("business_date", date)
+    .order("business_date", { ascending: false })
     .limit(1)
     .maybeSingle();
 
@@ -322,11 +377,11 @@ export const getCashClosingHistory = async (
   endDate: string,
 ): Promise<CashClosingType[]> => {
   const { data, error } = await supabase
-    .from('cash_register_closings')
-    .select('*')
-    .gte('business_date', startDate)
-    .lte('business_date', endDate)
-    .order('business_date', { ascending: false })
+    .from("cash_register_closings")
+    .select("*")
+    .gte("business_date", startDate)
+    .lte("business_date", endDate)
+    .order("business_date", { ascending: false })
     .limit(366);
 
   if (error) throw error;
@@ -352,9 +407,9 @@ export const saveCashClosing = async (values: {
     error: sessionError,
   } = await supabase.auth.getSession();
 
-  if (sessionError || !session) throw new Error('세션을 찾을 수 없습니다.');
+  if (sessionError || !session) throw new Error("세션을 찾을 수 없습니다.");
 
-  const { error } = await supabase.from('cash_register_closings').upsert(
+  const { error } = await supabase.from("cash_register_closings").upsert(
     {
       business_date: values.businessDate,
       opening_cash: values.openingCash,
@@ -371,7 +426,7 @@ export const saveCashClosing = async (values: {
       created_by: session.user.id,
       updated_at: new Date().toISOString(),
     },
-    { onConflict: 'business_date' },
+    { onConflict: "business_date" },
   );
 
   if (error) throw error;

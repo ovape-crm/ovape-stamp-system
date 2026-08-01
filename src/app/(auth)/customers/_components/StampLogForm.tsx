@@ -243,8 +243,8 @@ export default function StampLogForm({
   const visibleRemarkOptions =
     customerMode === "adjustment"
       ? ([
-          { value: "adjustment_in", name: "입고처리" },
-          { value: "adjustment_out", name: "출고처리" },
+          { value: "adjustment_in", name: "재고조정-입고" },
+          { value: "adjustment_out", name: "재고조정-출고" },
         ] as const)
       : customerMode === "demo"
         ? ([{ value: "demo", name: "시연용" }] as const)
@@ -519,7 +519,7 @@ export default function StampLogForm({
       remarkType !== "adjustment_in" &&
       remarkType !== "adjustment_out"
     ) {
-      toast.error("입고처리 또는 출고처리를 선택해 주세요.");
+      toast.error("재고조정-입고 또는 재고조정-출고를 선택해 주세요.");
       return;
     }
 
@@ -536,9 +536,9 @@ export default function StampLogForm({
         ? `시연용${optionalOperationMemo ? `,${optionalOperationMemo}` : ""}`
         : customerMode === "adjustment"
           ? remarkType === "adjustment_in"
-            ? `입고처리${optionalOperationMemo ? `,${optionalOperationMemo}` : ""}`
+            ? `재고조정-입고${optionalOperationMemo ? `,${optionalOperationMemo}` : ""}`
             : remarkType === "adjustment_out"
-              ? `출고처리${optionalOperationMemo ? `,${optionalOperationMemo}` : ""}`
+              ? `재고조정-출고${optionalOperationMemo ? `,${optionalOperationMemo}` : ""}`
               : ""
           : isExchange
             ? `${exchangeLabel}${exchangeMemo.trim() ? `(${exchangeMemo.trim()})` : ""}`
@@ -658,8 +658,11 @@ export default function StampLogForm({
   };
 
   const getShipmentTypeLabel = (line: DraftStampLogLine) => {
+    if (line.inventoryAction === "adjustment_in") return "재고조정-입고";
+    if (line.inventoryAction === "adjustment_out") return "재고조정-출고";
     if (line.inventoryAction === "exchange_in") return "교환입고";
     if (line.inventoryAction === "exchange_out") return "교환출고";
+    if (line.remark?.startsWith("시연용")) return "시연용";
     if (typeof line.adjustedUnitPrice === "number") return "가격조정";
     if (line.remark?.startsWith("서비스")) return "서비스";
     return "일반판매";
@@ -1357,9 +1360,6 @@ export default function StampLogForm({
 
         {(customerMode === "demo" || customerMode === "adjustment") && (
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              처리 메모
-            </label>
             <input
               type="text"
               value={operationMemo}
@@ -1368,7 +1368,11 @@ export default function StampLogForm({
               placeholder={
                 customerMode === "demo"
                   ? "시연용 처리 메모 (선택)"
-                  : "입고·출고 처리 메모 (선택)"
+                  : remarkType === "adjustment_in"
+                    ? "재고조정-입고 메모 (선택)"
+                    : remarkType === "adjustment_out"
+                      ? "재고조정-출고 메모 (선택)"
+                      : "처리 메모 (선택)"
               }
             />
           </div>
