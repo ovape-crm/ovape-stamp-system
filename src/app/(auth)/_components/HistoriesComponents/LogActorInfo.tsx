@@ -1,4 +1,4 @@
-import { LogActorUserInfo } from '@/app/_domains/_log/_types/log.types';
+import { LogActorUserInfo } from "@/app/_domains/_log/_types/log.types";
 
 const LogActorInfo = ({
   users,
@@ -12,17 +12,17 @@ const LogActorInfo = ({
   jsonb?: Record<string, unknown>;
 }) => {
   const createdWorkerName =
-    typeof jsonb?.createdWorkerName === 'string'
-      ? jsonb.createdWorkerName
-      : '';
+    typeof jsonb?.createdWorkerName === "string" ? jsonb.createdWorkerName : "";
   const modifiedWorkerName =
-    typeof jsonb?.modifiedWorkerName === 'string'
+    typeof jsonb?.modifiedWorkerName === "string"
       ? jsonb.modifiedWorkerName
-      : '';
+      : "";
   const modifiedAt =
-    typeof jsonb?.modifiedAt === 'string' ? jsonb.modifiedAt : updated_at;
+    typeof jsonb?.modifiedAt === "string" ? jsonb.modifiedAt : updated_at;
   const userDisplay =
-    createdWorkerName || users?.name || users?.email || '알 수 없음';
+    users?.oss_role === "admin"
+      ? "관리자"
+      : createdWorkerName || users?.name || users?.email || "알 수 없음";
 
   const storedModificationHistory = Array.isArray(jsonb?.modificationHistory)
     ? jsonb.modificationHistory.filter(
@@ -32,10 +32,10 @@ const LogActorInfo = ({
           workerName: string;
           modifiedAt: string;
         } =>
-          typeof item === 'object' &&
+          typeof item === "object" &&
           item !== null &&
-          typeof (item as Record<string, unknown>).workerName === 'string' &&
-          typeof (item as Record<string, unknown>).modifiedAt === 'string',
+          typeof (item as Record<string, unknown>).workerName === "string" &&
+          typeof (item as Record<string, unknown>).modifiedAt === "string",
       )
     : [];
   const modificationHistory =
@@ -44,20 +44,22 @@ const LogActorInfo = ({
       : modifiedWorkerName && modifiedAt
         ? [{ workerName: modifiedWorkerName, modifiedAt }]
         : [];
-  const formatDate = (value: string) => new Date(value).toLocaleString('ko-KR', {
-    year: '2-digit',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
+  const formatDate = (value: string) =>
+    new Date(value).toLocaleString("ko-KR", {
+      year: "2-digit",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
   const createdDateText = formatDate(created_at);
 
   return (
     <div>
       <div className="text-xs text-gray-500">
-        작업자 · <span className="font-medium text-gray-700">{userDisplay}</span>
+        작업자 ·{" "}
+        <span className="font-medium text-gray-700">{userDisplay}</span>
       </div>
       <div className="mt-0.5 text-xs text-gray-400">{createdDateText}</div>
       {modificationHistory.map((history, index) => (
@@ -66,7 +68,7 @@ const LogActorInfo = ({
           className="mt-1"
         >
           <div className="text-xs text-gray-500">
-            수정{' '}
+            수정{" "}
             <span className="font-medium text-gray-700">
               {history.workerName}
             </span>

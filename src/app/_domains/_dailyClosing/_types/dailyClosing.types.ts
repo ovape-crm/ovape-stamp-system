@@ -1,6 +1,6 @@
 export type DailyClosingChecklist = Record<string, boolean>;
 
-export type DailyClosingChecklistPhase = 'opening' | 'closing';
+export type DailyClosingChecklistPhase = "opening" | "closing";
 
 export type DailyClosingChecklistItem = {
   id: string;
@@ -36,8 +36,14 @@ export type DailyClosingReportSnapshot = {
     label: string;
     quantity: number;
   }>;
+  inboundSummary?: Array<{
+    type: "purchase" | "adjustment_in" | "exchange_in";
+    label: string;
+    quantity: number;
+    aggregationUnit?: "quantity" | "count";
+  }>;
   deliverySummary?: Array<{
-    method: 'store_visit' | 'parcel' | 'delivery';
+    method: "store_visit" | "parcel" | "delivery";
     label: string;
     orderCount: number;
     quantity: number;

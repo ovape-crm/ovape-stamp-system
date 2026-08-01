@@ -12,7 +12,6 @@ import KoreanDatePicker, {
 } from "@/app/_components/KoreanDatePicker";
 import { useUser } from "@/app/_contexts/UserContext";
 import {
-  adjustInventory,
   getInventoryMovements,
   getInventoryOverview,
   initializeInventory,
@@ -74,11 +73,11 @@ const movementLabels: Record<string, string> = {
   initial: "기초재고",
   purchase_in: "입고",
   adjustment: "재고 조정",
-  reversal: "입고 취소",
+  reversal: "입고/취소",
   sale_out: "출고",
-  exchange_in: "교환/입고",
-  outbound_edit: "출고 수정",
-  outbound_cancel: "출고 취소",
+  exchange_in: "입고/교환",
+  outbound_edit: "출고/수정",
+  outbound_cancel: "출고/취소",
 };
 
 export function InventoryPageContent({
@@ -213,84 +212,92 @@ export function InventoryPageContent({
   return (
     <main className="mx-auto max-w-7xl space-y-4 px-4 py-6 sm:px-6 lg:px-8">
       {inventorySection === "stock" && (
-      <div className="flex items-end justify-between border-b border-gray-200">
-        <div className="flex min-w-0 overflow-x-auto" role="tablist" aria-label="재고 관리 메뉴">
-          {tabOrder.map((item, index) =>
-            item === "receive" || (item === "initial" && !isAdmin) ? null : (
-              <div key={item} className="flex shrink-0 items-center">
-                {editingTabOrder && (
+        <div className="flex items-end justify-between border-b border-gray-200">
+          <div
+            className="flex min-w-0 overflow-x-auto"
+            role="tablist"
+            aria-label="재고 관리 메뉴"
+          >
+            {tabOrder.map((item, index) =>
+              item === "receive" || (item === "initial" && !isAdmin) ? null : (
+                <div key={item} className="flex shrink-0 items-center">
+                  {editingTabOrder && (
+                    <button
+                      type="button"
+                      onClick={() => moveTab(index, -1)}
+                      disabled={index === 0}
+                      className="h-7 w-6 text-xs text-gray-400 hover:text-brand-600 disabled:opacity-20"
+                      aria-label={`${tabLabels[item]} 왼쪽으로 이동`}
+                    >
+                      ‹
+                    </button>
+                  )}
                   <button
                     type="button"
-                    onClick={() => moveTab(index, -1)}
-                    disabled={index === 0}
-                    className="h-7 w-6 text-xs text-gray-400 hover:text-brand-600 disabled:opacity-20"
-                    aria-label={`${tabLabels[item]} 왼쪽으로 이동`}
+                    role="tab"
+                    aria-selected={tab === item}
+                    onClick={() => setTab(item)}
+                    className={`border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${
+                      tab === item
+                        ? "border-brand-500 text-brand-700"
+                        : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
+                    }`}
                   >
-                    ‹
+                    {tabLabels[item]}
                   </button>
-                )}
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={tab === item}
-                  onClick={() => setTab(item)}
-                  className={`border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${
-                    tab === item
-                      ? "border-brand-500 text-brand-700"
-                      : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-                  }`}
-                >
-                  {tabLabels[item]}
-                </button>
-                {editingTabOrder && (
-                  <button
-                    type="button"
-                    onClick={() => moveTab(index, 1)}
-                    disabled={index === tabOrder.length - 1}
-                    className="h-7 w-6 text-xs text-gray-400 hover:text-brand-600 disabled:opacity-20"
-                    aria-label={`${tabLabels[item]} 오른쪽으로 이동`}
-                  >
-                    ›
-                  </button>
-                )}
-              </div>
-            ),
+                  {editingTabOrder && (
+                    <button
+                      type="button"
+                      onClick={() => moveTab(index, 1)}
+                      disabled={index === tabOrder.length - 1}
+                      className="h-7 w-6 text-xs text-gray-400 hover:text-brand-600 disabled:opacity-20"
+                      aria-label={`${tabLabels[item]} 오른쪽으로 이동`}
+                    >
+                      ›
+                    </button>
+                  )}
+                </div>
+              ),
+            )}
+          </div>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => setEditingTabOrder((current) => !current)}
+              className={`mb-2 ml-3 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border bg-white transition ${
+                editingTabOrder
+                  ? "border-brand-300 text-brand-700 shadow-sm"
+                  : "border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-brand-700"
+              }`}
+              aria-label={
+                editingTabOrder ? "탭 순서 변경 완료" : "탭 순서 변경"
+              }
+              title={editingTabOrder ? "탭 순서 변경 완료" : "탭 순서 변경"}
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.8}
+                  d="M12 15.25A3.25 3.25 0 1 0 12 8.75a3.25 3.25 0 0 0 0 6.5Zm7.25-3.25c0-.48-.05-.95-.14-1.4l2.02-1.57-2-3.46-2.48 1a7.4 7.4 0 0 0-2.42-1.4L13.88 2.5h-4l-.35 2.67a7.4 7.4 0 0 0-2.42 1.4l-2.48-1-2 3.46 2.02 1.57a7.18 7.18 0 0 0 0 2.8l-2.02 1.57 2 3.46 2.48-1a7.4 7.4 0 0 0 2.42 1.4l.35 2.67h4l.35-2.67a7.4 7.4 0 0 0 2.42-1.4l2.48 1 2-3.46-2.02-1.57c.09-.45.14-.92.14-1.4Z"
+                />
+              </svg>
+            </button>
           )}
         </div>
-        {isAdmin && <button
-          type="button"
-          onClick={() => setEditingTabOrder((current) => !current)}
-          className={`mb-2 ml-3 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border bg-white transition ${
-            editingTabOrder
-              ? "border-brand-300 text-brand-700 shadow-sm"
-              : "border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-brand-700"
-          }`}
-          aria-label={
-            editingTabOrder ? "탭 순서 변경 완료" : "탭 순서 변경"
-          }
-          title={editingTabOrder ? "탭 순서 변경 완료" : "탭 순서 변경"}
-        >
-          <svg
-            className="h-4 w-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.8}
-              d="M12 15.25A3.25 3.25 0 1 0 12 8.75a3.25 3.25 0 0 0 0 6.5Zm7.25-3.25c0-.48-.05-.95-.14-1.4l2.02-1.57-2-3.46-2.48 1a7.4 7.4 0 0 0-2.42-1.4L13.88 2.5h-4l-.35 2.67a7.4 7.4 0 0 0-2.42 1.4l-2.48-1-2 3.46 2.02 1.57a7.18 7.18 0 0 0 0 2.8l-2.02 1.57 2 3.46 2.48-1a7.4 7.4 0 0 0 2.42 1.4l.35 2.67h4l.35-2.67a7.4 7.4 0 0 0 2.42-1.4l2.48 1 2-3.46-2.02-1.57c.09-.45.14-.92.14-1.4Z"
-            />
-          </svg>
-        </button>}
-      </div>
       )}
       {inventorySection === "receive" && (
         <div className="flex items-end justify-between border-b border-gray-200">
           <div className="flex" role="tablist" aria-label="입고 관리 메뉴">
-            {receiveTabOrder.map((item, index) => (
+            {receiveTabOrder
+              .filter((item) => isAdmin || item === "receive")
+              .map((item, index) => (
               <div key={item} className="flex items-center">
                 {editingReceiveTabOrder && (
                   <button
@@ -328,33 +335,44 @@ export function InventoryPageContent({
                   </button>
                 )}
               </div>
-            ))}
+              ))}
           </div>
-          {isAdmin && <button
-            type="button"
-            onClick={() =>
-              setEditingReceiveTabOrder((current) => !current)
-            }
-            className={`mb-2 ml-3 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border bg-white transition ${
-              editingReceiveTabOrder
-                ? "border-brand-300 text-brand-700 shadow-sm"
-                : "border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-brand-700"
-            }`}
-            aria-label={
-              editingReceiveTabOrder
-                ? "입고 탭 순서 변경 완료"
-                : "입고 탭 순서 변경"
-            }
-            title={
-              editingReceiveTabOrder
-                ? "입고 탭 순서 변경 완료"
-                : "입고 탭 순서 변경"
-            }
-          >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 15.25A3.25 3.25 0 1 0 12 8.75a3.25 3.25 0 0 0 0 6.5Zm7.25-3.25c0-.48-.05-.95-.14-1.4l2.02-1.57-2-3.46-2.48 1a7.4 7.4 0 0 0-2.42-1.4L13.88 2.5h-4l-.35 2.67a7.4 7.4 0 0 0-2.42 1.4l-2.48-1-2 3.46 2.02 1.57a7.18 7.18 0 0 0 0 2.8l-2.02 1.57 2 3.46 2.48-1a7.4 7.4 0 0 0 2.42 1.4l.35 2.67h4l.35-2.67a7.4 7.4 0 0 0 2.42-1.4l2.48 1 2-3.46-2.02-1.57c.09-.45.14-.92.14-1.4Z" />
-            </svg>
-          </button>}
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => setEditingReceiveTabOrder((current) => !current)}
+              className={`mb-2 ml-3 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border bg-white transition ${
+                editingReceiveTabOrder
+                  ? "border-brand-300 text-brand-700 shadow-sm"
+                  : "border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-brand-700"
+              }`}
+              aria-label={
+                editingReceiveTabOrder
+                  ? "입고 탭 순서 변경 완료"
+                  : "입고 탭 순서 변경"
+              }
+              title={
+                editingReceiveTabOrder
+                  ? "입고 탭 순서 변경 완료"
+                  : "입고 탭 순서 변경"
+              }
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.8}
+                  d="M12 15.25A3.25 3.25 0 1 0 12 8.75a3.25 3.25 0 0 0 0 6.5Zm7.25-3.25c0-.48-.05-.95-.14-1.4l2.02-1.57-2-3.46-2.48 1a7.4 7.4 0 0 0-2.42-1.4L13.88 2.5h-4l-.35 2.67a7.4 7.4 0 0 0-2.42 1.4l-2.48-1-2 3.46 2.02 1.57a7.18 7.18 0 0 0 0 2.8l-2.02 1.57 2 3.46 2.48-1a7.4 7.4 0 0 0 2.42 1.4l.35 2.67h4l.35-2.67a7.4 7.4 0 0 0 2.42-1.4l2.48 1 2-3.46-2.02-1.57c.09-.45.14-.92.14-1.4Z"
+                />
+              </svg>
+            </button>
+          )}
         </div>
       )}
 
@@ -379,18 +397,14 @@ export function InventoryPageContent({
           onSaved={refresh}
         />
       ) : tab === "stock" ? (
-        <StockOverview
-          items={items.filter((item) => item.is_tracked)}
-          isAdmin={isAdmin}
-          onSaved={refresh}
-        />
+        <StockOverview items={items.filter((item) => item.is_tracked)} />
       ) : tab === "untracked" ? (
         <UntrackedOverview
           items={items.filter((item) => !item.is_tracked && item.is_use)}
           isAdmin={isAdmin}
           onSettings={() => setSettingsOpen(true)}
         />
-      ) : tab === "receive" && receiveView === "suppliers" ? (
+      ) : tab === "receive" && receiveView === "suppliers" && isAdmin ? (
         <SupplierManagementTab isAdmin={isAdmin} />
       ) : tab === "receive" ? (
         <ReceiptManager
@@ -811,15 +825,7 @@ function InitialStockSetup({
   );
 }
 
-function StockOverview({
-  items,
-  isAdmin,
-  onSaved,
-}: {
-  items: InventoryItem[];
-  isAdmin: boolean;
-  onSaved: () => Promise<void>;
-}) {
+function StockOverview({ items }: { items: InventoryItem[] }) {
   const [nameSearch, setNameSearch] = useState("");
   const [codeSearch, setCodeSearch] = useState("");
   const [categorySearch, setCategorySearch] = useState("");
@@ -827,18 +833,12 @@ function StockOverview({
     "all",
   );
   const [usage, setUsage] = useState<"all" | "active" | "inactive">("active");
-  const [adjusting, setAdjusting] = useState<InventoryItem | null>(null);
   const [dateMode, setDateMode] = useState<"today" | "custom">("today");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [visibleCount, setVisibleCount] = useState(10);
   type SortKey =
-    | "category"
-    | "code"
-    | "name"
-    | "usage"
-    | "quantity"
-    | "updated";
+    "category" | "code" | "name" | "usage" | "quantity" | "updated";
   const [sort, setSort] = useState<{
     key: SortKey;
     direction: "asc" | "desc";
@@ -849,52 +849,49 @@ function StockOverview({
     return new Date(date.getTime() - offset).toISOString().slice(0, 10);
   };
   const filtered = items.filter((item) => {
-      const matchesName = item.item_name
-        .toLocaleLowerCase("ko-KR")
-        .includes(nameSearch.trim().toLocaleLowerCase("ko-KR"));
-      const matchesCode = (item.item_code ?? "")
-        .toLocaleLowerCase("ko-KR")
-        .includes(codeSearch.trim().toLocaleLowerCase("ko-KR"));
-      const matchesCategory = (item.category_name ?? "")
-        .toLocaleLowerCase("ko-KR")
-        .includes(categorySearch.trim().toLocaleLowerCase("ko-KR"));
-      const itemStatus =
-        item.quantity < 0 ? "negative" : item.quantity === 0 ? "out" : "normal";
-      const date = item.updated_at ? localDate(item.updated_at) : "";
-      const matchesDate =
-        dateMode === "today" ||
-        (Boolean(date) &&
-          Boolean(startDate) &&
-          (endDate
-            ? date >= startDate && date <= endDate
-            : date === startDate));
-      return (
-        matchesName &&
-        matchesCode &&
-        matchesCategory &&
-        matchesDate &&
-        (usage === "all" ||
-          (usage === "active" ? item.is_use : !item.is_use)) &&
-        (status === "all" || status === itemStatus)
-      );
-    });
+    const matchesName = item.item_name
+      .toLocaleLowerCase("ko-KR")
+      .includes(nameSearch.trim().toLocaleLowerCase("ko-KR"));
+    const matchesCode = (item.item_code ?? "")
+      .toLocaleLowerCase("ko-KR")
+      .includes(codeSearch.trim().toLocaleLowerCase("ko-KR"));
+    const matchesCategory = (item.category_name ?? "")
+      .toLocaleLowerCase("ko-KR")
+      .includes(categorySearch.trim().toLocaleLowerCase("ko-KR"));
+    const itemStatus =
+      item.quantity < 0 ? "negative" : item.quantity === 0 ? "out" : "normal";
+    const date = item.updated_at ? localDate(item.updated_at) : "";
+    const matchesDate =
+      dateMode === "today" ||
+      (Boolean(date) &&
+        Boolean(startDate) &&
+        (endDate ? date >= startDate && date <= endDate : date === startDate));
+    return (
+      matchesName &&
+      matchesCode &&
+      matchesCategory &&
+      matchesDate &&
+      (usage === "all" || (usage === "active" ? item.is_use : !item.is_use)) &&
+      (status === "all" || status === itemStatus)
+    );
+  });
   const sortedItems = sort
     ? [...filtered].sort((a, b) => {
-      const values = {
-        category: [a.category_name ?? "", b.category_name ?? ""],
-        code: [a.item_code, b.item_code],
-        name: [a.item_name, b.item_name],
-        usage: [a.is_use ? 1 : 0, b.is_use ? 1 : 0],
-        quantity: [a.quantity, b.quantity],
-        updated: [a.updated_at ?? "", b.updated_at ?? ""],
+        const values = {
+          category: [a.category_name ?? "", b.category_name ?? ""],
+          code: [a.item_code, b.item_code],
+          name: [a.item_name, b.item_name],
+          usage: [a.is_use ? 1 : 0, b.is_use ? 1 : 0],
+          quantity: [a.quantity, b.quantity],
+          updated: [a.updated_at ?? "", b.updated_at ?? ""],
         }[sort.key];
-      const result =
-        typeof values[0] === "number"
-          ? (values[0] as number) - (values[1] as number)
-          : String(values[0]).localeCompare(String(values[1]), "ko-KR", {
-              numeric: true,
-              sensitivity: "base",
-            });
+        const result =
+          typeof values[0] === "number"
+            ? (values[0] as number) - (values[1] as number)
+            : String(values[0]).localeCompare(String(values[1]), "ko-KR", {
+                numeric: true,
+                sensitivity: "base",
+              });
         return sort.direction === "asc" ? result : -result;
       })
     : filtered;
@@ -920,13 +917,12 @@ function StockOverview({
   const copyForKakao = async () => {
     const text = [
       "품목 코드\t품목명\t현재 재고",
-      ...sortedItems.map(
-        (item) =>
-          [
-            item.item_code || "-",
-            item.item_name,
-            item.quantity === 0 ? "품절" : `${item.quantity}개`,
-          ].join("\t"),
+      ...sortedItems.map((item) =>
+        [
+          item.item_code || "-",
+          item.item_name,
+          item.quantity === 0 ? "품절" : `${item.quantity}개`,
+        ].join("\t"),
       ),
     ].join("\n");
     await navigator.clipboard.writeText(text);
@@ -944,263 +940,262 @@ function StockOverview({
     <div className="space-y-4">
       <section className="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
         <div className="space-y-3">
-        <div className="flex flex-col gap-2 lg:flex-row lg:items-stretch lg:gap-3">
-          <div className="flex w-full flex-col rounded-xl border border-gray-200 bg-gray-50/70 p-2.5 sm:w-[120px] sm:shrink-0">
-            <p className="mb-1 text-xs font-semibold text-gray-600">
-              재고 상태
-            </p>
-            <Dropdown controlledValue={status}>
-              <Dropdown.Trigger compact>
-                {
-                  [
-                    { value: "all", label: "전체" },
-                    { value: "normal", label: "정상" },
-                    { value: "out", label: "품절" },
-                    { value: "negative", label: "마이너스" },
-                  ].find((option) => option.value === status)?.label
-                }
-              </Dropdown.Trigger>
-              <Dropdown.Content compact>
-                {(
-                  [
-                    { value: "all", label: "전체" },
-                    { value: "normal", label: "정상" },
-                    { value: "out", label: "품절" },
-                    { value: "negative", label: "마이너스" },
-                  ] as const
-                ).map((option) => (
-                  <Dropdown.Item
-                    key={option.value}
-                    option={option}
-                    compact
-                    onSelect={(selected: DropdownOption) =>
-                      setStatus(
-                        selected.value as
-                          | "all"
-                          | "normal"
-                          | "out"
-                          | "negative",
-                      )
-                    }
-                  />
-                ))}
-              </Dropdown.Content>
-            </Dropdown>
-          </div>
-
-          <div className="h-px w-full bg-gray-200 lg:h-auto lg:w-px lg:self-stretch" />
-
-          <div className="flex w-full flex-col rounded-xl border border-gray-200 bg-gray-50/70 p-2.5 sm:w-[120px] sm:shrink-0">
-            <p className="mb-1 text-xs font-semibold text-gray-600">
-              사용 구분
-            </p>
-            <Dropdown controlledValue={usage}>
-              <Dropdown.Trigger compact>
-                {
-                  [
-                    { value: "all", label: "전체" },
-                    { value: "active", label: "사용" },
-                    { value: "inactive", label: "미사용" },
-                  ].find((option) => option.value === usage)?.label
-                }
-              </Dropdown.Trigger>
-              <Dropdown.Content compact>
-              {(
-                [
-                  { value: "all", label: "전체" },
-                  { value: "active", label: "사용" },
-                  { value: "inactive", label: "미사용" },
-                ] as const
-              ).map((option) => (
-                <Dropdown.Item
-                  key={option.value}
-                  option={option}
-                  compact
-                  onSelect={(selected: DropdownOption) =>
-                    setUsage(
-                      selected.value as "all" | "active" | "inactive",
-                    )
-                  }
-                />
-              ))}
-              </Dropdown.Content>
-            </Dropdown>
-          </div>
-
-          <div className="h-px w-full bg-gray-200 lg:h-auto lg:w-px lg:self-stretch" />
-
-          <div className="flex w-full flex-col rounded-xl border border-gray-200 bg-gray-50/70 p-2.5 sm:w-[120px] sm:shrink-0">
-            <p className="mb-1 text-xs font-semibold text-gray-600">
-              조회 기간
-            </p>
-            <Dropdown controlledValue={dateMode}>
-              <Dropdown.Trigger compact>
-                {
-                  [
-                    { value: "today", label: "당일" },
-                    { value: "custom", label: "날짜 선택" },
-                  ].find((option) => option.value === dateMode)?.label
-                }
-              </Dropdown.Trigger>
-              <Dropdown.Content compact>
-                {(
-                  [
-                    { value: "today", label: "당일" },
-                    { value: "custom", label: "날짜 선택" },
-                  ] as const
-                ).map((option) => (
-                  <Dropdown.Item
-                    key={option.value}
-                    option={option}
-                    compact
-                    onSelect={(selected: DropdownOption) => {
-                      const nextMode = selected.value as "today" | "custom";
-                      if (nextMode === "today") {
-                        setStartDate("");
-                        setEndDate("");
-                      }
-                      setDateMode(nextMode);
-                    }}
-                  />
-                ))}
-              </Dropdown.Content>
-            </Dropdown>
-          </div>
-          {dateMode === "custom" && (
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-stretch lg:gap-3">
             <div className="flex w-full flex-col rounded-xl border border-gray-200 bg-gray-50/70 p-2.5 sm:w-[120px] sm:shrink-0">
               <p className="mb-1 text-xs font-semibold text-gray-600">
-                날짜 선택
+                재고 상태
               </p>
-              <KoreanDateRangePicker
-                startDate={startDate}
-                endDate={endDate}
-                iconOnly
-                onApply={(start, end) => {
-                  setStartDate(start);
-                  setEndDate(end);
-                }}
-              />
+              <Dropdown controlledValue={status}>
+                <Dropdown.Trigger compact>
+                  {
+                    [
+                      { value: "all", label: "전체" },
+                      { value: "normal", label: "정상" },
+                      { value: "out", label: "품절" },
+                      { value: "negative", label: "마이너스" },
+                    ].find((option) => option.value === status)?.label
+                  }
+                </Dropdown.Trigger>
+                <Dropdown.Content compact>
+                  {(
+                    [
+                      { value: "all", label: "전체" },
+                      { value: "normal", label: "정상" },
+                      { value: "out", label: "품절" },
+                      { value: "negative", label: "마이너스" },
+                    ] as const
+                  ).map((option) => (
+                    <Dropdown.Item
+                      key={option.value}
+                      option={option}
+                      compact
+                      onSelect={(selected: DropdownOption) =>
+                        setStatus(
+                          selected.value as
+                            "all" | "normal" | "out" | "negative",
+                        )
+                      }
+                    />
+                  ))}
+                </Dropdown.Content>
+              </Dropdown>
             </div>
-          )}
 
-          <div className="h-px w-full bg-gray-200 lg:h-auto lg:w-px lg:self-stretch" />
+            <div className="h-px w-full bg-gray-200 lg:h-auto lg:w-px lg:self-stretch" />
 
-          <div className="w-full rounded-xl border border-gray-200 bg-gray-50/70 p-3 lg:flex-1">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <label className="block w-full">
-                <span className="mb-2 block text-xs font-semibold text-gray-500">
-                  품목명
-                </span>
-                <span className="relative block">
-                  <svg
-                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="m21 21-4.35-4.35m2.1-5.4a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"
+            <div className="flex w-full flex-col rounded-xl border border-gray-200 bg-gray-50/70 p-2.5 sm:w-[120px] sm:shrink-0">
+              <p className="mb-1 text-xs font-semibold text-gray-600">
+                사용 구분
+              </p>
+              <Dropdown controlledValue={usage}>
+                <Dropdown.Trigger compact>
+                  {
+                    [
+                      { value: "all", label: "전체" },
+                      { value: "active", label: "사용" },
+                      { value: "inactive", label: "미사용" },
+                    ].find((option) => option.value === usage)?.label
+                  }
+                </Dropdown.Trigger>
+                <Dropdown.Content compact>
+                  {(
+                    [
+                      { value: "all", label: "전체" },
+                      { value: "active", label: "사용" },
+                      { value: "inactive", label: "미사용" },
+                    ] as const
+                  ).map((option) => (
+                    <Dropdown.Item
+                      key={option.value}
+                      option={option}
+                      compact
+                      onSelect={(selected: DropdownOption) =>
+                        setUsage(
+                          selected.value as "all" | "active" | "inactive",
+                        )
+                      }
                     />
-                  </svg>
-                  <input
-                    value={nameSearch}
-                    onChange={(event) => setNameSearch(event.target.value)}
-                    placeholder="품목명 입력"
-                    className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-9 pr-10 text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-                  />
-                  {nameSearch && (
-                    <button
-                      type="button"
-                      onClick={() => setNameSearch("")}
-                      aria-label="품목명 검색어 지우기"
-                      className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-gray-100 text-base font-medium text-gray-500 transition hover:bg-gray-200 hover:text-gray-700 active:bg-gray-300"
-                    >
-                      ×
-                    </button>
-                  )}
-                </span>
-              </label>
-              <label className="block w-full sm:border-l sm:border-gray-200 sm:pl-3">
-                <span className="mb-2 block text-xs font-semibold text-gray-500">
-                  품목 코드
-                </span>
-                <span className="relative block">
-                  <svg
-                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="m21 21-4.35-4.35m2.1-5.4a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"
+                  ))}
+                </Dropdown.Content>
+              </Dropdown>
+            </div>
+
+            <div className="h-px w-full bg-gray-200 lg:h-auto lg:w-px lg:self-stretch" />
+
+            <div className="flex w-full flex-col rounded-xl border border-gray-200 bg-gray-50/70 p-2.5 sm:w-[120px] sm:shrink-0">
+              <p className="mb-1 text-xs font-semibold text-gray-600">
+                조회 기간
+              </p>
+              <Dropdown controlledValue={dateMode}>
+                <Dropdown.Trigger compact>
+                  {
+                    [
+                      { value: "today", label: "당일" },
+                      { value: "custom", label: "날짜 선택" },
+                    ].find((option) => option.value === dateMode)?.label
+                  }
+                </Dropdown.Trigger>
+                <Dropdown.Content compact>
+                  {(
+                    [
+                      { value: "today", label: "당일" },
+                      { value: "custom", label: "날짜 선택" },
+                    ] as const
+                  ).map((option) => (
+                    <Dropdown.Item
+                      key={option.value}
+                      option={option}
+                      compact
+                      onSelect={(selected: DropdownOption) => {
+                        const nextMode = selected.value as "today" | "custom";
+                        if (nextMode === "today") {
+                          setStartDate("");
+                          setEndDate("");
+                        }
+                        setDateMode(nextMode);
+                      }}
                     />
-                  </svg>
-                  <input
-                    value={codeSearch}
-                    onChange={(event) => setCodeSearch(event.target.value)}
-                    placeholder="품목 코드 입력"
-                    className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-9 pr-10 text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-                  />
-                  {codeSearch && (
-                    <button
-                      type="button"
-                      onClick={() => setCodeSearch("")}
-                      aria-label="품목 코드 검색어 지우기"
-                      className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-gray-100 text-base font-medium text-gray-500 transition hover:bg-gray-200 hover:text-gray-700 active:bg-gray-300"
+                  ))}
+                </Dropdown.Content>
+              </Dropdown>
+            </div>
+            {dateMode === "custom" && (
+              <div className="flex w-full flex-col rounded-xl border border-gray-200 bg-gray-50/70 p-2.5 sm:w-[120px] sm:shrink-0">
+                <p className="mb-1 text-xs font-semibold text-gray-600">
+                  날짜 선택
+                </p>
+                <KoreanDateRangePicker
+                  startDate={startDate}
+                  endDate={endDate}
+                  iconOnly
+                  onApply={(start, end) => {
+                    setStartDate(start);
+                    setEndDate(end);
+                  }}
+                />
+              </div>
+            )}
+
+            <div className="h-px w-full bg-gray-200 lg:h-auto lg:w-px lg:self-stretch" />
+
+            <div className="w-full rounded-xl border border-gray-200 bg-gray-50/70 p-3 lg:flex-1">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <label className="block w-full">
+                  <span className="mb-2 block text-xs font-semibold text-gray-500">
+                    품목명
+                  </span>
+                  <span className="relative block">
+                    <svg
+                      className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
                     >
-                      ×
-                    </button>
-                  )}
-                </span>
-              </label>
-              <label className="block w-full sm:border-l sm:border-gray-200 sm:pl-3">
-                <span className="mb-2 block text-xs font-semibold text-gray-500">
-                  품목 종류
-                </span>
-                <span className="relative block">
-                  <svg
-                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="m21 21-4.35-4.35m2.1-5.4a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="m21 21-4.35-4.35m2.1-5.4a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"
+                      />
+                    </svg>
+                    <input
+                      value={nameSearch}
+                      onChange={(event) => setNameSearch(event.target.value)}
+                      placeholder="품목명 입력"
+                      className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-9 pr-10 text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                     />
-                  </svg>
-                  <input
-                    value={categorySearch}
-                    onChange={(event) => setCategorySearch(event.target.value)}
-                    placeholder="품목 종류 입력"
-                    className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-9 pr-10 text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-                  />
-                  {categorySearch && (
-                    <button
-                      type="button"
-                      onClick={() => setCategorySearch("")}
-                      aria-label="품목 종류 검색어 지우기"
-                      className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-gray-100 text-base font-medium text-gray-500 transition hover:bg-gray-200 hover:text-gray-700 active:bg-gray-300"
+                    {nameSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setNameSearch("")}
+                        aria-label="품목명 검색어 지우기"
+                        className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-gray-100 text-base font-medium text-gray-500 transition hover:bg-gray-200 hover:text-gray-700 active:bg-gray-300"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </span>
+                </label>
+                <label className="block w-full sm:border-l sm:border-gray-200 sm:pl-3">
+                  <span className="mb-2 block text-xs font-semibold text-gray-500">
+                    품목 코드
+                  </span>
+                  <span className="relative block">
+                    <svg
+                      className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
                     >
-                      ×
-                    </button>
-                  )}
-                </span>
-              </label>
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="m21 21-4.35-4.35m2.1-5.4a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"
+                      />
+                    </svg>
+                    <input
+                      value={codeSearch}
+                      onChange={(event) => setCodeSearch(event.target.value)}
+                      placeholder="품목 코드 입력"
+                      className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-9 pr-10 text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                    />
+                    {codeSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setCodeSearch("")}
+                        aria-label="품목 코드 검색어 지우기"
+                        className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-gray-100 text-base font-medium text-gray-500 transition hover:bg-gray-200 hover:text-gray-700 active:bg-gray-300"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </span>
+                </label>
+                <label className="block w-full sm:border-l sm:border-gray-200 sm:pl-3">
+                  <span className="mb-2 block text-xs font-semibold text-gray-500">
+                    품목 종류
+                  </span>
+                  <span className="relative block">
+                    <svg
+                      className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="m21 21-4.35-4.35m2.1-5.4a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"
+                      />
+                    </svg>
+                    <input
+                      value={categorySearch}
+                      onChange={(event) =>
+                        setCategorySearch(event.target.value)
+                      }
+                      placeholder="품목 종류 입력"
+                      className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-9 pr-10 text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                    />
+                    {categorySearch && (
+                      <button
+                        type="button"
+                        onClick={() => setCategorySearch("")}
+                        aria-label="품목 종류 검색어 지우기"
+                        className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-gray-100 text-base font-medium text-gray-500 transition hover:bg-gray-200 hover:text-gray-700 active:bg-gray-300"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </span>
+                </label>
+              </div>
             </div>
           </div>
-        </div>
         </div>
       </section>
 
@@ -1228,88 +1223,74 @@ function StockOverview({
       <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
         <div className="overflow-auto rounded-xl border border-gray-200">
           <table className="w-full min-w-[850px] border-collapse text-sm">
-          <thead className="bg-brand-50 text-brand-700">
-            <tr>
-              {headings.map((heading) => (
-                <th
-                  key={heading.key}
-                  className="border border-brand-200 p-0 text-left"
-                >
-                  <button
-                    onClick={() => changeSort(heading.key)}
-                    className="flex min-h-12 w-full items-center justify-between gap-2 px-4 py-3 font-semibold"
+            <thead className="bg-brand-50 text-brand-700">
+              <tr>
+                {headings.map((heading) => (
+                  <th
+                    key={heading.key}
+                    className="border border-brand-200 p-0 text-left"
                   >
-                    <span>{heading.label}</span>
-                    <span
-                      className={
-                        sort?.key === heading.key
-                          ? "text-brand-700"
-                          : "text-gray-300"
-                      }
+                    <button
+                      onClick={() => changeSort(heading.key)}
+                      className="flex min-h-12 w-full items-center justify-between gap-2 px-4 py-3 font-semibold"
                     >
-                      {sort?.key === heading.key
-                        ? sort.direction === "asc"
-                          ? "▲"
-                          : "▼"
-                        : "↕"}
-                    </span>
-                  </button>
-                </th>
-              ))}
-              <th className="border border-brand-200 px-4 py-3 text-left">
-                관리
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {visibleItems.map((item) => {
-              const negative = item.quantity < 0;
-              const out = item.quantity === 0;
-              return (
-                <tr key={item.item_name} className="hover:bg-brand-50/30">
-                  <td className="border border-gray-200 px-4 py-3">
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${item.is_use ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"}`}
-                    >
-                      {item.is_use ? "사용" : "미사용"}
-                    </span>
-                  </td>
-                  <td className="border border-gray-200 px-4 py-3">
-                    {item.category_name ?? (
-                      <span className="text-amber-600">품목 정보 없음</span>
-                    )}
-                  </td>
-                  <td className="border border-gray-200 px-4 py-3 font-mono text-gray-500">
-                    {item.item_code || "-"}
-                  </td>
-                  <td className="border border-gray-200 px-4 py-3 font-semibold">
-                    {item.item_name}
-                  </td>
-                  <td
-                    className={`border border-gray-200 px-4 py-3 text-right text-lg font-bold ${negative ? "text-rose-600" : out ? "text-gray-400" : "text-gray-900"}`}
-                  >
-                    {out ? "품절" : `${item.quantity.toLocaleString()}개`}
-                  </td>
-                  <td className="border border-gray-200 px-4 py-3 text-gray-500">
-                    {item.updated_at
-                      ? new Date(item.updated_at).toLocaleString("ko-KR")
-                      : "-"}
-                  </td>
-                  <td className="border border-gray-200 px-4 py-3">
-                    {isAdmin && (
-                      <Button
-                        size="xs"
-                        variant="gray"
-                        onClick={() => setAdjusting(item)}
+                      <span>{heading.label}</span>
+                      <span
+                        className={
+                          sort?.key === heading.key
+                            ? "text-brand-700"
+                            : "text-gray-300"
+                        }
                       >
-                        조정
-                      </Button>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
+                        {sort?.key === heading.key
+                          ? sort.direction === "asc"
+                            ? "▲"
+                            : "▼"
+                          : "↕"}
+                      </span>
+                    </button>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {visibleItems.map((item) => {
+                const negative = item.quantity < 0;
+                const out = item.quantity === 0;
+                return (
+                  <tr key={item.item_name} className="hover:bg-brand-50/30">
+                    <td className="border border-gray-200 px-4 py-3">
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-xs font-semibold ${item.is_use ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"}`}
+                      >
+                        {item.is_use ? "사용" : "미사용"}
+                      </span>
+                    </td>
+                    <td className="border border-gray-200 px-4 py-3">
+                      {item.category_name ?? (
+                        <span className="text-amber-600">품목 정보 없음</span>
+                      )}
+                    </td>
+                    <td className="border border-gray-200 px-4 py-3 font-mono text-gray-500">
+                      {item.item_code || "-"}
+                    </td>
+                    <td className="border border-gray-200 px-4 py-3 font-semibold">
+                      {item.item_name}
+                    </td>
+                    <td
+                      className={`border border-gray-200 px-4 py-3 text-right text-lg font-bold ${negative ? "text-rose-600" : out ? "text-gray-400" : "text-gray-900"}`}
+                    >
+                      {out ? "품절" : `${item.quantity.toLocaleString()}개`}
+                    </td>
+                    <td className="border border-gray-200 px-4 py-3 text-gray-500">
+                      {item.updated_at
+                        ? new Date(item.updated_at).toLocaleString("ko-KR")
+                        : "-"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
           </table>
         </div>
         {visibleCount < filtered.length && (
@@ -1324,16 +1305,6 @@ function StockOverview({
           </div>
         )}
       </section>
-      {adjusting && (
-        <AdjustmentOverlay
-          item={adjusting}
-          onClose={() => setAdjusting(null)}
-          onSaved={async () => {
-            setAdjusting(null);
-            await onSaved();
-          }}
-        />
-      )}
     </div>
   );
 }
@@ -1446,50 +1417,48 @@ function UntrackedOverview({
         )}
       </div>
       <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
-      <div className="overflow-auto rounded-xl border border-gray-200">
-        <table className="w-full min-w-[620px] border-collapse text-sm">
-          <thead className="bg-gray-50 text-gray-600">
-            <tr>
-                {["품목 종류", "품목 코드", "품목명"].map(
-                (label) => (
+        <div className="overflow-auto rounded-xl border border-gray-200">
+          <table className="w-full min-w-[620px] border-collapse text-sm">
+            <thead className="bg-gray-50 text-gray-600">
+              <tr>
+                {["품목 종류", "품목 코드", "품목명"].map((label) => (
                   <th
                     key={label}
                     className="border border-gray-200 px-4 py-3 text-left"
                   >
                     {label}
                   </th>
-                ),
-              )}
-            </tr>
-          </thead>
-          <tbody>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
               {filteredItems.length ? (
                 filteredItems.map((item) => (
-                <tr key={item.item_name}>
-                <td className="border border-gray-200 px-4 py-3">
-                  {item.category_name ?? "미분류"}
-                </td>
-                <td className="border border-gray-200 px-4 py-3 font-mono text-gray-500">
-                  {item.item_code}
-                </td>
-                <td className="border border-gray-200 px-4 py-3 font-medium">
-                  {item.item_name}
-                </td>
+                  <tr key={item.item_name}>
+                    <td className="border border-gray-200 px-4 py-3">
+                      {item.category_name ?? "미분류"}
+                    </td>
+                    <td className="border border-gray-200 px-4 py-3 font-mono text-gray-500">
+                      {item.item_code}
+                    </td>
+                    <td className="border border-gray-200 px-4 py-3 font-medium">
+                      {item.item_name}
+                    </td>
                   </tr>
-              ))
-            ) : (
-              <tr>
-                <td
+                ))
+              ) : (
+                <tr>
+                  <td
                     colSpan={3}
-                  className="px-4 py-12 text-center text-sm text-gray-400"
-                >
+                    className="px-4 py-12 text-center text-sm text-gray-400"
+                  >
                     조건에 맞는 수량 미관리 품목이 없습니다.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </section>
     </div>
   );
@@ -1512,10 +1481,7 @@ const splitPurchaseOrderNote = (value: string | null | undefined) => {
   };
 };
 
-const mergePurchaseOrderNote = (
-  status: TaxInvoiceStatus,
-  note: string,
-) =>
+const mergePurchaseOrderNote = (status: TaxInvoiceStatus, note: string) =>
   [`[[tax_invoice:${status}]]`, note.trim()].filter(Boolean).join("\n");
 
 function QuantityEditControl({
@@ -2005,8 +1971,8 @@ function ReceiptManager({
                         )}
                       </div>
                     </div>
-                    </div>
                   </div>
+                </div>
               )}
 
               {createStep === 2 && (
@@ -2371,9 +2337,7 @@ function ReceiptManager({
                 >
                   이미 추가된 품목입니다.
                 </h3>
-                <p className="mt-2 text-sm text-gray-600">
-                  추가하시겠습니까?
-                </p>
+                <p className="mt-2 text-sm text-gray-600">추가하시겠습니까?</p>
                 <div className="mt-5 flex justify-end gap-2">
                   <Button
                     variant="gray"
@@ -2661,8 +2625,9 @@ function PurchaseOrderList({
   const [arrivalDates, setArrivalDates] = useState<Record<string, string>>({});
   const [arrivalNotes, setArrivalNotes] = useState<Record<string, string>>({});
   const [pending, setPending] = useState(false);
-  const [adjustmentOrder, setAdjustmentOrder] =
-    useState<PurchaseOrder | null>(null);
+  const [adjustmentOrder, setAdjustmentOrder] = useState<PurchaseOrder | null>(
+    null,
+  );
   const [editingOrder, setEditingOrder] = useState<PurchaseOrder | null>(null);
   const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
   const adjustmentCategoriesQuery = useQuery({
@@ -2747,10 +2712,7 @@ function PurchaseOrderList({
   const waitingOrders = orders.filter((order) => order.status === "pending");
   const partialOrders = orders.filter((order) => order.status === "partial");
   const draftBaselineRef = useRef(
-    new Map<
-      string,
-      { orderedQuantity: number; pendingQuantity: number }
-    >(),
+    new Map<string, { orderedQuantity: number; pendingQuantity: number }>(),
   );
   useEffect(() => {
     if (
@@ -2803,10 +2765,7 @@ function PurchaseOrderList({
                 baseline.orderedQuantity,
               );
             }
-            await setPurchaseArrivalQuantity(
-              line.id,
-              baseline.pendingQuantity,
-            );
+            await setPurchaseArrivalQuantity(line.id, baseline.pendingQuantity);
           }
         }
         await onSaved();
@@ -2831,31 +2790,31 @@ function PurchaseOrderList({
   const closedOrders = orders.filter((order) => order.status === "closed");
   const filterHistoryOrders = (targetOrders: PurchaseOrder[]) =>
     targetOrders.filter((order) => {
-    const matchesSupplier = (order.inventory_suppliers?.name ?? "")
-      .toLocaleLowerCase("ko-KR")
-      .includes(historySupplierSearch.trim().toLocaleLowerCase("ko-KR"));
-    const normalizedItemSearch = historyItemSearch
-      .trim()
-      .toLocaleLowerCase("ko-KR");
-    const matchesItem =
-      !normalizedItemSearch ||
-      order.inventory_purchase_order_lines.some((line) =>
-        line.item_name
-          .toLocaleLowerCase("ko-KR")
-          .includes(normalizedItemSearch),
+      const matchesSupplier = (order.inventory_suppliers?.name ?? "")
+        .toLocaleLowerCase("ko-KR")
+        .includes(historySupplierSearch.trim().toLocaleLowerCase("ko-KR"));
+      const normalizedItemSearch = historyItemSearch
+        .trim()
+        .toLocaleLowerCase("ko-KR");
+      const matchesItem =
+        !normalizedItemSearch ||
+        order.inventory_purchase_order_lines.some((line) =>
+          line.item_name
+            .toLocaleLowerCase("ko-KR")
+            .includes(normalizedItemSearch),
+        );
+      const receiptDates = order.inventory_purchase_receipts.map(
+        (receipt) => receipt.arrived_on,
       );
-    const receiptDates = order.inventory_purchase_receipts.map(
-      (receipt) => receipt.arrived_on,
-    );
-    const matchesDate =
-      historyDateMode === "all" ||
-      (Boolean(historyStartDate) &&
-        receiptDates.some((date) =>
-          historyEndDate
-            ? date >= historyStartDate && date <= historyEndDate
-            : date === historyStartDate,
-        ));
-    return matchesSupplier && matchesItem && matchesDate;
+      const matchesDate =
+        historyDateMode === "all" ||
+        (Boolean(historyStartDate) &&
+          receiptDates.some((date) =>
+            historyEndDate
+              ? date >= historyStartDate && date <= historyEndDate
+              : date === historyStartDate,
+          ));
+      return matchesSupplier && matchesItem && matchesDate;
     });
   const filteredCompletedOrders = filterHistoryOrders(completedOrders);
   const filteredClosedOrders = filterHistoryOrders(closedOrders);
@@ -2932,26 +2891,26 @@ function PurchaseOrderList({
       </div>
       {(listTab === "waiting" || listTab === "partial") &&
         visibleOrders.length > 0 && (
-        <div className="flex items-center gap-2 overflow-x-auto rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
-          <span className="shrink-0 text-xs font-bold text-gray-500">
-            거래처 바로가기
-          </span>
-          {visibleOrders.map((order) => (
-            <button
-              type="button"
-              key={order.id}
-              onClick={() =>
-                document
-                  .getElementById(`purchase-order-${order.id}`)
-                  ?.scrollIntoView({ behavior: "smooth", block: "start" })
-              }
-              className="shrink-0 rounded-full border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
-            >
-              {order.inventory_suppliers?.name ?? "거래처 정보 없음"}
-            </button>
-          ))}
-        </div>
-      )}
+          <div className="flex items-center gap-2 overflow-x-auto rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+            <span className="shrink-0 text-xs font-bold text-gray-500">
+              거래처 바로가기
+            </span>
+            {visibleOrders.map((order) => (
+              <button
+                type="button"
+                key={order.id}
+                onClick={() =>
+                  document
+                    .getElementById(`purchase-order-${order.id}`)
+                    ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                }
+                className="shrink-0 rounded-full border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
+              >
+                {order.inventory_suppliers?.name ?? "거래처 정보 없음"}
+              </button>
+            ))}
+          </div>
+        )}
       {(listTab === "completed" || listTab === "closed") && (
         <div className="flex flex-col gap-2 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm lg:flex-row lg:items-stretch lg:gap-3">
           <div className="flex w-full flex-col rounded-xl border border-gray-200 bg-gray-50/70 p-2.5 sm:w-[120px] sm:shrink-0">
@@ -3016,7 +2975,12 @@ function PurchaseOrderList({
                   viewBox="0 0 24 24"
                   aria-hidden="true"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m21 21-4.35-4.35m2.1-5.4a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="m21 21-4.35-4.35m2.1-5.4a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"
+                  />
                 </svg>
                 <input
                   value={historySupplierSearch}
@@ -3251,185 +3215,305 @@ function PurchaseOrderList({
               className={`${open ? "block" : "hidden"} overflow-auto bg-gray-50 px-4 sm:px-5`}
             >
               <div className="min-w-[820px] overflow-hidden rounded-xl border border-brand-200 bg-white">
-              <table className="purchase-order-table purchase-order-table--clean-edges w-full table-fixed border-collapse bg-white text-sm">
-                <colgroup>
-                  <col className="w-[240px]" />
-                  <col className="w-[84px]" />
-                  {showPartialDetails && <col className="w-[90px]" />}
-                  {showPartialDetails && <col className="w-[90px]" />}
-                  {showPartialDetails && <col className="w-[100px]" />}
-                  <col className="w-[84px]" />
-                  <col className="w-[280px]" />
-                  <col className="w-[120px]" />
-                </colgroup>
-                <thead className="bg-brand-50 text-brand-700">
-                  <tr>
-                    {[
-                      "품목명",
-                      "주문 수량",
-                      "누적 입고",
-                      "남은 수량",
-                      "입고 차이",
-                      "입고 수량",
-                      "개별 메모",
-                      "수량 확인",
-                    ]
-                      .filter(
-                        (label) =>
-                          showPartialDetails ||
-                          (label !== "누적 입고" &&
-                            label !== "남은 수량" &&
-                            label !== "입고 차이"),
-                      )
-                      .map((label) => (
-                        <th
-                          key={label}
-                          className="border border-brand-200 px-3 py-3 text-left"
-                        >
-                          {label}
-                          {false && label === "개별 메모" && (
-                            <button
-                              type="button"
-                              aria-label="개별 메모 열 너비 조절"
-                              title="좌우로 드래그해 너비 조절"
-                              onPointerDown={(event) => {
-                                const startX = event.clientX;
-                                const startWidth = purchaseNoteWidth;
-                                const handleMove = (
-                                  moveEvent: PointerEvent,
-                                ) => {
-                                  const nextWidth = Math.max(
-                                    140,
-                                    startWidth + moveEvent.clientX - startX,
-                                  );
-                                  setPurchaseNoteWidth(nextWidth);
-                                  window.localStorage.setItem(
-                                    "purchase-note-column-width",
-                                    String(Math.round(nextWidth)),
-                                  );
-                                };
-                                const handleUp = () => {
-                                  document.removeEventListener(
+                <table className="purchase-order-table purchase-order-table--clean-edges w-full table-fixed border-collapse bg-white text-sm">
+                  <colgroup>
+                    <col className="w-[240px]" />
+                    <col className="w-[84px]" />
+                    {showPartialDetails && <col className="w-[90px]" />}
+                    {showPartialDetails && <col className="w-[90px]" />}
+                    {showPartialDetails && <col className="w-[100px]" />}
+                    <col className="w-[84px]" />
+                    <col className="w-[280px]" />
+                    <col className="w-[120px]" />
+                  </colgroup>
+                  <thead className="bg-brand-50 text-brand-700">
+                    <tr>
+                      {[
+                        "품목명",
+                        "주문 수량",
+                        "누적 입고",
+                        "남은 수량",
+                        "입고 차이",
+                        "입고 수량",
+                        "개별 메모",
+                        "수량 확인",
+                      ]
+                        .filter(
+                          (label) =>
+                            showPartialDetails ||
+                            (label !== "누적 입고" &&
+                              label !== "남은 수량" &&
+                              label !== "입고 차이"),
+                        )
+                        .map((label) => (
+                          <th
+                            key={label}
+                            className="border border-brand-200 px-3 py-3 text-left"
+                          >
+                            {label}
+                            {false && label === "개별 메모" && (
+                              <button
+                                type="button"
+                                aria-label="개별 메모 열 너비 조절"
+                                title="좌우로 드래그해 너비 조절"
+                                onPointerDown={(event) => {
+                                  const startX = event.clientX;
+                                  const startWidth = purchaseNoteWidth;
+                                  const handleMove = (
+                                    moveEvent: PointerEvent,
+                                  ) => {
+                                    const nextWidth = Math.max(
+                                      140,
+                                      startWidth + moveEvent.clientX - startX,
+                                    );
+                                    setPurchaseNoteWidth(nextWidth);
+                                    window.localStorage.setItem(
+                                      "purchase-note-column-width",
+                                      String(Math.round(nextWidth)),
+                                    );
+                                  };
+                                  const handleUp = () => {
+                                    document.removeEventListener(
+                                      "pointermove",
+                                      handleMove,
+                                    );
+                                    document.removeEventListener(
+                                      "pointerup",
+                                      handleUp,
+                                    );
+                                  };
+                                  document.addEventListener(
                                     "pointermove",
                                     handleMove,
                                   );
-                                  document.removeEventListener(
+                                  document.addEventListener(
                                     "pointerup",
                                     handleUp,
                                   );
-                                };
-                                document.addEventListener(
-                                  "pointermove",
-                                  handleMove,
-                                );
-                                document.addEventListener(
-                                  "pointerup",
-                                  handleUp,
-                                );
-                              }}
-                              className="absolute -right-1 top-0 z-20 h-full w-4 cursor-col-resize touch-none after:absolute after:bottom-2 after:left-1/2 after:top-2 after:w-0.5 after:-translate-x-1/2 after:bg-brand-300 hover:after:bg-brand-600"
-                            />
-                          )}
-                        </th>
-                      ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {order.inventory_purchase_order_lines.map((line) => {
-                    const lineRemaining = Math.max(
-                      0,
-                      line.ordered_quantity - line.received_quantity,
-                    );
-                    const arrivalDifference =
-                      line.pending_quantity - lineRemaining;
-                    const quantityCheckLabel =
-                      arrivalDifference === 0
-                        ? "수량 일치 체크"
-                        : arrivalDifference > 0
-                          ? `${arrivalDifference}개 추가입고 체크`
-                          : `${Math.abs(arrivalDifference)}개 미입고 체크`;
-                    const value =
-                      quantities[line.id] ?? String(line.pending_quantity);
-                    const editingQuantity =
-                      editingQuantities[line.id] ||
-                      (!savedQuantities[line.id] &&
-                        line.pending_quantity === 0);
-                    return (
-                      <tr key={line.id}>
-                        <td className="border border-gray-200 px-3 py-3 font-semibold">
-                          {line.item_name}
-                        </td>
-                        <td className="border border-gray-200 px-3 py-3 text-right">
-                          {order.status === "pending" &&
-                          editingOrderedQuantities[line.id] ? (
-                            <QuantityEditControl
-                              min={1}
-                              disabled={pending}
-                              value={
-                                orderedQuantities[line.id] ??
-                                String(line.ordered_quantity)
-                              }
-                              onChange={(nextValue) =>
-                                setOrderedQuantities((current) => ({
-                                  ...current,
-                                  [line.id]: nextValue,
-                                }))
-                              }
-                              onSave={() => {
-                                const nextQuantity = Number(
+                                }}
+                                className="absolute -right-1 top-0 z-20 h-full w-4 cursor-col-resize touch-none after:absolute after:bottom-2 after:left-1/2 after:top-2 after:w-0.5 after:-translate-x-1/2 after:bg-brand-300 hover:after:bg-brand-600"
+                              />
+                            )}
+                          </th>
+                        ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {order.inventory_purchase_order_lines.map((line) => {
+                      const lineRemaining = Math.max(
+                        0,
+                        line.ordered_quantity - line.received_quantity,
+                      );
+                      const arrivalDifference =
+                        line.pending_quantity - lineRemaining;
+                      const quantityCheckLabel =
+                        arrivalDifference === 0
+                          ? "수량 일치 체크"
+                          : arrivalDifference > 0
+                            ? `${arrivalDifference}개 추가입고 체크`
+                            : `${Math.abs(arrivalDifference)}개 미입고 체크`;
+                      const value =
+                        quantities[line.id] ?? String(line.pending_quantity);
+                      const editingQuantity =
+                        editingQuantities[line.id] ||
+                        (!savedQuantities[line.id] &&
+                          line.pending_quantity === 0);
+                      return (
+                        <tr key={line.id}>
+                          <td className="border border-gray-200 px-3 py-3 font-semibold">
+                            {line.item_name}
+                          </td>
+                          <td className="border border-gray-200 px-3 py-3 text-right">
+                            {order.status === "pending" &&
+                            editingOrderedQuantities[line.id] ? (
+                              <QuantityEditControl
+                                min={1}
+                                disabled={pending}
+                                value={
                                   orderedQuantities[line.id] ??
-                                    line.ordered_quantity,
-                                );
-                                if (
-                                  !Number.isInteger(nextQuantity) ||
-                                  nextQuantity < 1
-                                ) {
-                                  toast.error(
-                                    "주문 수량은 1개 이상 입력해 주세요.",
-                                  );
-                                  return;
+                                  String(line.ordered_quantity)
                                 }
-                                void (async () => {
-                                  const saved = await run(
-                                    () =>
-                                      updatePurchaseOrderQuantity(
-                                        line.id,
-                                        nextQuantity,
-                                      ),
-                                    "주문 수량을 변경했습니다.",
+                                onChange={(nextValue) =>
+                                  setOrderedQuantities((current) => ({
+                                    ...current,
+                                    [line.id]: nextValue,
+                                  }))
+                                }
+                                onSave={() => {
+                                  const nextQuantity = Number(
+                                    orderedQuantities[line.id] ??
+                                      line.ordered_quantity,
                                   );
-                                  if (saved) {
-                                    setEditingOrderedQuantities((current) => ({
-                                      ...current,
-                                      [line.id]: false,
-                                    }));
+                                  if (
+                                    !Number.isInteger(nextQuantity) ||
+                                    nextQuantity < 1
+                                  ) {
+                                    toast.error(
+                                      "주문 수량은 1개 이상 입력해 주세요.",
+                                    );
+                                    return;
                                   }
-                                })();
-                              }}
-                              onCancel={() => {
-                                setOrderedQuantities((current) => ({
-                                  ...current,
-                                  [line.id]: String(line.ordered_quantity),
-                                }));
-                                setEditingOrderedQuantities((current) => ({
-                                  ...current,
-                                  [line.id]: false,
-                                }));
-                              }}
-                            />
-                          ) : (
-                            <div className="flex w-full items-center justify-start gap-1">
-                              {order.status === "pending" && isAdmin && (
+                                  void (async () => {
+                                    const saved = await run(
+                                      () =>
+                                        updatePurchaseOrderQuantity(
+                                          line.id,
+                                          nextQuantity,
+                                        ),
+                                      "주문 수량을 변경했습니다.",
+                                    );
+                                    if (saved) {
+                                      setEditingOrderedQuantities(
+                                        (current) => ({
+                                          ...current,
+                                          [line.id]: false,
+                                        }),
+                                      );
+                                    }
+                                  })();
+                                }}
+                                onCancel={() => {
+                                  setOrderedQuantities((current) => ({
+                                    ...current,
+                                    [line.id]: String(line.ordered_quantity),
+                                  }));
+                                  setEditingOrderedQuantities((current) => ({
+                                    ...current,
+                                    [line.id]: false,
+                                  }));
+                                }}
+                              />
+                            ) : (
+                              <div className="flex w-full items-center justify-start gap-1">
+                                {order.status === "pending" && isAdmin && (
+                                  <Button
+                                    size="icon-xs"
+                                    variant="secondary"
+                                    aria-label="주문 수량 수정"
+                                    onClick={() => {
+                                      setOrderedQuantities((current) => ({
+                                        ...current,
+                                        [line.id]: String(
+                                          line.ordered_quantity,
+                                        ),
+                                      }));
+                                      setEditingOrderedQuantities(
+                                        (current) => ({
+                                          ...current,
+                                          [line.id]: true,
+                                        }),
+                                      );
+                                    }}
+                                  >
+                                    ✏️
+                                  </Button>
+                                )}
+                                <strong className="text-gray-900">
+                                  {line.ordered_quantity}개
+                                </strong>
+                              </div>
+                            )}
+                          </td>
+                          {showPartialDetails && (
+                            <td className="border border-gray-200 px-3 py-3 text-right">
+                              {line.received_quantity}개
+                            </td>
+                          )}
+                          {showPartialDetails && (
+                            <td className="border border-gray-200 px-3 py-3 text-right font-bold text-gray-900">
+                              {lineRemaining}개
+                            </td>
+                          )}
+                          {showPartialDetails && (
+                            <td className="border border-gray-200 px-3 py-3 text-right font-bold">
+                              {line.pending_quantity > 0 &&
+                              arrivalDifference === 0 ? (
+                                <span className="inline-flex rounded-full bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">
+                                  수량 일치
+                                </span>
+                              ) : line.pending_quantity > 0 &&
+                                arrivalDifference > 0 ? (
+                                <span className="inline-flex rounded-full bg-blue-50 px-2 py-1 text-xs font-bold text-blue-700">
+                                  {arrivalDifference}개 추가 입고
+                                </span>
+                              ) : line.pending_quantity > 0 ? (
+                                <span className="inline-flex rounded-full bg-amber-50 px-2 py-1 text-xs font-bold text-amber-700">
+                                  {Math.abs(arrivalDifference)}개 미입고
+                                </span>
+                              ) : (
+                                "-"
+                              )}
+                            </td>
+                          )}
+                          <td className="border border-gray-200 p-2">
+                            {open && editingQuantity ? (
+                              <QuantityEditControl
+                                min={0}
+                                disabled={
+                                  pending ||
+                                  !Number.isInteger(Number(value)) ||
+                                  Number(value) < 0
+                                }
+                                value={value}
+                                onChange={(nextValue) =>
+                                  setQuantities((current) => ({
+                                    ...current,
+                                    [line.id]: nextValue,
+                                  }))
+                                }
+                                onSave={() => {
+                                  const qty = Number(value);
+                                  if (
+                                    qty > lineRemaining &&
+                                    !window.confirm(
+                                      `주문 잔량은 ${lineRemaining}개입니다. ${qty}개로 저장할까요?`,
+                                    )
+                                  )
+                                    return;
+                                  void (async () => {
+                                    const saved = await run(
+                                      () =>
+                                        setPurchaseArrivalQuantity(
+                                          line.id,
+                                          qty,
+                                        ),
+                                      "도착 수량을 저장했습니다.",
+                                    );
+                                    if (saved) {
+                                      setSavedQuantities((current) => ({
+                                        ...current,
+                                        [line.id]: true,
+                                      }));
+                                      setEditingQuantities((current) => ({
+                                        ...current,
+                                        [line.id]: false,
+                                      }));
+                                    }
+                                  })();
+                                }}
+                                onCancel={() => {
+                                  setQuantities((current) => ({
+                                    ...current,
+                                    [line.id]: String(line.pending_quantity),
+                                  }));
+                                  setEditingQuantities((current) => ({
+                                    ...current,
+                                    [line.id]: false,
+                                  }));
+                                }}
+                              />
+                            ) : open ? (
+                              <div className="flex w-full items-center justify-start gap-1">
                                 <Button
                                   size="icon-xs"
                                   variant="secondary"
-                                  aria-label="주문 수량 수정"
+                                  aria-label="입고 수량 수정"
                                   onClick={() => {
-                                    setOrderedQuantities((current) => ({
+                                    setQuantities((current) => ({
                                       ...current,
-                                      [line.id]: String(line.ordered_quantity),
+                                      [line.id]: String(line.pending_quantity),
                                     }));
-                                    setEditingOrderedQuantities((current) => ({
+                                    setEditingQuantities((current) => ({
                                       ...current,
                                       [line.id]: true,
                                     }));
@@ -3437,357 +3521,249 @@ function PurchaseOrderList({
                                 >
                                   ✏️
                                 </Button>
-                              )}
-                              <strong className="text-gray-900">
-                                {line.ordered_quantity}개
+                                <strong className="text-gray-900">
+                                  {line.pending_quantity}개
+                                </strong>
+                              </div>
+                            ) : (
+                              <strong className="block text-right text-gray-900">
+                                {line.received_quantity}개
                               </strong>
-                            </div>
-                          )}
-                        </td>
-                        {showPartialDetails && (
-                          <td className="border border-gray-200 px-3 py-3 text-right">
-                            {line.received_quantity}개
+                            )}
                           </td>
-                        )}
-                        {showPartialDetails && (
-                          <td className="border border-gray-200 px-3 py-3 text-right font-bold text-gray-900">
-                            {lineRemaining}개
-                          </td>
-                        )}
-                        {showPartialDetails && (
-                          <td className="border border-gray-200 px-3 py-3 text-right font-bold">
-                            {line.pending_quantity > 0 &&
-                            arrivalDifference === 0 ? (
-                              <span className="inline-flex rounded-full bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">
-                                수량 일치
-                              </span>
-                            ) : line.pending_quantity > 0 &&
-                              arrivalDifference > 0 ? (
-                              <span className="inline-flex rounded-full bg-blue-50 px-2 py-1 text-xs font-bold text-blue-700">
-                                {arrivalDifference}개 추가 입고
-                              </span>
-                            ) : line.pending_quantity > 0 ? (
-                              <span className="inline-flex rounded-full bg-amber-50 px-2 py-1 text-xs font-bold text-amber-700">
-                                {Math.abs(arrivalDifference)}개 미입고
-                              </span>
+                          <td className="border border-gray-200 px-3 py-3 text-gray-500">
+                            {line.note || line.quantity_check_note ? (
+                              <div className="space-y-1">
+                                {line.note && (
+                                  <p>{cleanQuantityMemo(line.note)}</p>
+                                )}
+                                {line.quantity_check_note && (
+                                  <p className="font-semibold text-brand-700">
+                                    {line.quantity_check_note}
+                                  </p>
+                                )}
+                              </div>
                             ) : (
                               "-"
                             )}
                           </td>
-                        )}
-                        <td className="border border-gray-200 p-2">
-                          {open && editingQuantity ? (
-                            <QuantityEditControl
-                              min={0}
-                              disabled={
-                                pending ||
-                                !Number.isInteger(Number(value)) ||
-                                Number(value) < 0
-                              }
-                              value={value}
-                              onChange={(nextValue) =>
-                                setQuantities((current) => ({
-                                  ...current,
-                                  [line.id]: nextValue,
-                                }))
-                              }
-                              onSave={() => {
-                                const qty = Number(value);
-                                if (
-                                  qty > lineRemaining &&
-                                  !window.confirm(
-                                    `주문 잔량은 ${lineRemaining}개입니다. ${qty}개로 저장할까요?`,
-                                  )
-                                )
-                                  return;
-                                void (async () => {
-                                  const saved = await run(
-                                    () =>
-                                      setPurchaseArrivalQuantity(line.id, qty),
-                                    "도착 수량을 저장했습니다.",
-                                  );
-                                  if (saved) {
-                                    setSavedQuantities((current) => ({
-                                      ...current,
-                                      [line.id]: true,
-                                    }));
-                                    setEditingQuantities((current) => ({
-                                      ...current,
-                                      [line.id]: false,
-                                    }));
-                                  }
-                                })();
-                              }}
-                              onCancel={() => {
-                                setQuantities((current) => ({
-                                  ...current,
-                                  [line.id]: String(line.pending_quantity),
-                                }));
-                                setEditingQuantities((current) => ({
-                                  ...current,
-                                  [line.id]: false,
-                                }));
-                              }}
-                            />
-                          ) : open ? (
-                            <div className="flex w-full items-center justify-start gap-1">
-                              <Button
-                                size="icon-xs"
-                                variant="secondary"
-                                aria-label="입고 수량 수정"
-                                onClick={() => {
-                                  setQuantities((current) => ({
-                                    ...current,
-                                    [line.id]: String(line.pending_quantity),
-                                  }));
-                                  setEditingQuantities((current) => ({
-                                    ...current,
-                                    [line.id]: true,
-                                  }));
-                                }}
+                          <td className="border border-gray-200 px-3 py-3">
+                            {!open ? (
+                              <span
+                                className={`rounded-full px-2 py-1 text-xs font-bold ${order.status === "completed" && line.received_quantity === line.ordered_quantity ? "bg-emerald-100 text-emerald-700" : order.status === "completed" && line.received_quantity > line.ordered_quantity ? "bg-blue-100 text-blue-700" : (order.status === "completed" || order.status === "closed") && line.received_quantity < line.ordered_quantity ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-600"}`}
                               >
-                                ✏️
+                                {order.status === "completed"
+                                  ? line.received_quantity ===
+                                    line.ordered_quantity
+                                    ? "전체 입고 완료"
+                                    : line.received_quantity >
+                                        line.ordered_quantity
+                                      ? `${line.received_quantity - line.ordered_quantity}개 추가 입고`
+                                      : `${line.ordered_quantity - line.received_quantity}개 미입고`
+                                  : order.status === "closed" &&
+                                      line.received_quantity <
+                                        line.ordered_quantity
+                                    ? `${line.ordered_quantity - line.received_quantity}개 미입고`
+                                    : "처리 종료"}
+                              </span>
+                            ) : line.quantity_checked_at ? (
+                              <span
+                                className={`rounded-full px-2 py-1 text-xs font-bold ${arrivalDifference < 0 ? "bg-amber-100 text-amber-700" : arrivalDifference > 0 ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700"}`}
+                              >
+                                {quantityCheckLabel}
+                              </span>
+                            ) : open ? (
+                              <Button
+                                size="xs"
+                                onClick={() =>
+                                  void run(
+                                    () => checkPurchaseArrivalQuantity(line.id),
+                                    "수량 체크를 완료했습니다.",
+                                  )
+                                }
+                                disabled={pending}
+                              >
+                                {quantityCheckLabel}
                               </Button>
-                              <strong className="text-gray-900">
-                                {line.pending_quantity}개
-                              </strong>
-                            </div>
-                          ) : (
-                            <strong className="block text-right text-gray-900">
-                              {line.received_quantity}개
-                            </strong>
-                          )}
-                        </td>
-                        <td className="border border-gray-200 px-3 py-3 text-gray-500">
-                          {line.note || line.quantity_check_note ? (
-                            <div className="space-y-1">
-                              {line.note && (
-                                <p>{cleanQuantityMemo(line.note)}</p>
-                              )}
-                              {line.quantity_check_note && (
-                                <p className="font-semibold text-brand-700">
-                                  {line.quantity_check_note}
-                                </p>
-                              )}
-                            </div>
-                          ) : (
-                            "-"
-                          )}
-                        </td>
-                        <td className="border border-gray-200 px-3 py-3">
-                          {!open ? (
-                            <span
-                              className={`rounded-full px-2 py-1 text-xs font-bold ${order.status === "completed" && line.received_quantity === line.ordered_quantity ? "bg-emerald-100 text-emerald-700" : order.status === "completed" && line.received_quantity > line.ordered_quantity ? "bg-blue-100 text-blue-700" : (order.status === "completed" || order.status === "closed") && line.received_quantity < line.ordered_quantity ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-600"}`}
-                            >
-                              {order.status === "completed"
-                                ? line.received_quantity ===
-                                  line.ordered_quantity
-                                  ? "전체 입고 완료"
-                                  : line.received_quantity >
-                                      line.ordered_quantity
-                                    ? `${line.received_quantity - line.ordered_quantity}개 추가 입고`
-                                    : `${line.ordered_quantity - line.received_quantity}개 미입고`
-                                : order.status === "closed" &&
-                                    line.received_quantity <
-                                      line.ordered_quantity
-                                  ? `${line.ordered_quantity - line.received_quantity}개 미입고`
-                                  : "처리 종료"}
-                            </span>
-                          ) : line.quantity_checked_at ? (
-                            <span
-                              className={`rounded-full px-2 py-1 text-xs font-bold ${arrivalDifference < 0 ? "bg-amber-100 text-amber-700" : arrivalDifference > 0 ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700"}`}
-                            >
-                              {quantityCheckLabel}
-                            </span>
-                          ) : open ? (
-                            <Button
-                              size="xs"
-                              onClick={() =>
-                                void run(
-                                  () => checkPurchaseArrivalQuantity(line.id),
-                                  "수량 체크를 완료했습니다.",
-                                )
-                              }
-                              disabled={pending}
-                            >
-                              {quantityCheckLabel}
-                            </Button>
-                          ) : (
-                            <span className="text-gray-400">대기</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                            ) : (
+                              <span className="text-gray-400">대기</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
             {!open &&
               listTab !== "closed" &&
               order.inventory_purchase_receipts.length > 0 && (
-              <div className="overflow-auto bg-gray-50 px-4 pb-4 sm:px-5 sm:pb-5">
-                <div className="min-w-[1080px] overflow-hidden rounded-xl border border-brand-200 bg-white">
-                <table className="purchase-order-table purchase-order-table--clean-edges w-full table-fixed border-collapse bg-white text-sm">
-                  <colgroup>
-                    <col className="w-[190px]" />
-                    <col className="w-[220px]" />
-                    <col className="w-[90px]" />
-                    {showCompletedCumulativeDetails && (
-                      <col className="w-[120px]" />
-                    )}
-                    {showCompletedCumulativeDetails && (
-                      <col className="w-[100px]" />
-                    )}
-                    <col className="w-[100px]" />
-                    <col className="w-[140px]" />
-                    <col className="w-[260px]" />
-                  </colgroup>
-                  <thead className="bg-brand-50 text-brand-700">
-                    <tr>
-                      {[
-                        "도착일",
-                        "품목명",
-                        "주문 수량",
-                        "이전 입고 수량",
-                        "남은 수량",
-                        "입고 수량",
-                        "입고 차이",
-                        "개별 메모",
-                      ]
-                        .filter(
-                          (label) =>
-                            showCompletedCumulativeDetails ||
-                            (label !== "이전 입고 수량" &&
-                              label !== "남은 수량"),
-                        )
-                        .map((label) => (
-                        <th
-                          key={label}
-                          className="whitespace-nowrap border border-brand-200 px-3 py-3 text-left"
-                        >
-                          {label}
-                        </th>
-                        ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedReceipts.flatMap((receipt, receiptIndex) =>
-                      receipt.inventory_purchase_receipt_lines.map(
-                        (receiptLine) => {
-                          const orderLine =
-                            order.inventory_purchase_order_lines.find(
-                              (line) => line.id === receiptLine.order_line_id,
-                            );
-                          const previousReceived = sortedReceipts
-                            .slice(0, receiptIndex)
-                            .filter((previous) => !previous.reversed_at)
-                            .flatMap(
-                              (previous) =>
-                                previous.inventory_purchase_receipt_lines,
-                            )
+                <div className="overflow-auto bg-gray-50 px-4 pb-4 sm:px-5 sm:pb-5">
+                  <div className="min-w-[1080px] overflow-hidden rounded-xl border border-brand-200 bg-white">
+                    <table className="purchase-order-table purchase-order-table--clean-edges w-full table-fixed border-collapse bg-white text-sm">
+                      <colgroup>
+                        <col className="w-[190px]" />
+                        <col className="w-[220px]" />
+                        <col className="w-[90px]" />
+                        {showCompletedCumulativeDetails && (
+                          <col className="w-[120px]" />
+                        )}
+                        {showCompletedCumulativeDetails && (
+                          <col className="w-[100px]" />
+                        )}
+                        <col className="w-[100px]" />
+                        <col className="w-[140px]" />
+                        <col className="w-[260px]" />
+                      </colgroup>
+                      <thead className="bg-brand-50 text-brand-700">
+                        <tr>
+                          {[
+                            "도착일",
+                            "품목명",
+                            "주문 수량",
+                            "이전 입고 수량",
+                            "남은 수량",
+                            "입고 수량",
+                            "입고 차이",
+                            "개별 메모",
+                          ]
                             .filter(
-                              (previousLine) =>
-                                previousLine.order_line_id ===
-                                receiptLine.order_line_id,
+                              (label) =>
+                                showCompletedCumulativeDetails ||
+                                (label !== "이전 입고 수량" &&
+                                  label !== "남은 수량"),
                             )
-                            .reduce(
-                              (sum, previousLine) =>
-                                sum + previousLine.quantity,
-                              0,
-                            );
-                          const orderedQuantity =
-                            orderLine?.ordered_quantity ?? 0;
-                          const remainingBefore = Math.max(
-                            0,
-                            orderedQuantity - previousReceived,
-                          );
-                          const difference =
-                            receiptLine.quantity - remainingBefore;
-                          return (
-                            <tr
-                              key={receiptLine.id}
-                              className={
-                                receipt.reversed_at
-                                  ? "bg-gray-50 opacity-60"
-                                  : ""
-                              }
-                            >
-                              <td className="border border-gray-200 px-3 py-3">
-                                {formatKoreanDate(receipt.arrived_on)}
-                                {receipt.note && (
-                                  <p className="mt-1 text-xs text-gray-500">
-                                    입고 메모: {receipt.note}
-                                  </p>
-                                )}
-                                {receipt.reversed_at && (
-                                  <span className="ml-2 text-xs font-bold text-rose-600">
-                                    취소됨
-                                  </span>
-                                )}
-                              </td>
-                              <td className="border border-gray-200 px-3 py-3 font-semibold">
-                                {receiptLine.item_name}
-                              </td>
-                              <td className="border border-gray-200 px-3 py-3 text-right">
-                                {orderedQuantity}개
-                              </td>
-                              {showCompletedCumulativeDetails && (
-                                <td className="border border-gray-200 px-3 py-3 text-right">
-                                  {previousReceived}개
-                                </td>
-                              )}
-                              {showCompletedCumulativeDetails && (
-                                <td className="border border-gray-200 px-3 py-3 text-right font-bold">
-                                  {remainingBefore}개
-                                </td>
-                              )}
-                              <td className="border border-gray-200 px-3 py-3 text-right font-bold">
-                                {receiptLine.quantity}개
-                              </td>
-                              <td className="border border-gray-200 px-3 py-3 text-right">
-                                <span
-                                  className={`inline-flex rounded-full px-2 py-1 text-xs font-bold ${difference === 0 ? "bg-emerald-50 text-emerald-700" : difference > 0 ? "bg-blue-50 text-blue-700" : "bg-amber-50 text-amber-700"}`}
+                            .map((label) => (
+                              <th
+                                key={label}
+                                className="whitespace-nowrap border border-brand-200 px-3 py-3 text-left"
+                              >
+                                {label}
+                              </th>
+                            ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sortedReceipts.flatMap((receipt, receiptIndex) =>
+                          receipt.inventory_purchase_receipt_lines.map(
+                            (receiptLine) => {
+                              const orderLine =
+                                order.inventory_purchase_order_lines.find(
+                                  (line) =>
+                                    line.id === receiptLine.order_line_id,
+                                );
+                              const previousReceived = sortedReceipts
+                                .slice(0, receiptIndex)
+                                .filter((previous) => !previous.reversed_at)
+                                .flatMap(
+                                  (previous) =>
+                                    previous.inventory_purchase_receipt_lines,
+                                )
+                                .filter(
+                                  (previousLine) =>
+                                    previousLine.order_line_id ===
+                                    receiptLine.order_line_id,
+                                )
+                                .reduce(
+                                  (sum, previousLine) =>
+                                    sum + previousLine.quantity,
+                                  0,
+                                );
+                              const orderedQuantity =
+                                orderLine?.ordered_quantity ?? 0;
+                              const remainingBefore = Math.max(
+                                0,
+                                orderedQuantity - previousReceived,
+                              );
+                              const difference =
+                                receiptLine.quantity - remainingBefore;
+                              return (
+                                <tr
+                                  key={receiptLine.id}
+                                  className={
+                                    receipt.reversed_at
+                                      ? "bg-gray-50 opacity-60"
+                                      : ""
+                                  }
                                 >
-                                  {difference === 0
-                                    ? "수량 일치"
-                                    : difference > 0
-                                      ? `${difference}개 추가 입고`
-                                      : `${Math.abs(difference)}개 미입고`}
-                                </span>
-                              </td>
-                              <td className="border border-gray-200 px-3 py-3 text-gray-600">
-                                {receiptLine.note ||
-                                receiptLine.quantity_check_note ||
-                                orderLine?.note ? (
-                                  <div className="space-y-1">
-                                    {(receiptLine.note || orderLine?.note) && (
-                                      <p>
-                                        {cleanQuantityMemo(
-                                          receiptLine.note || orderLine?.note,
+                                  <td className="border border-gray-200 px-3 py-3">
+                                    {formatKoreanDate(receipt.arrived_on)}
+                                    {receipt.note && (
+                                      <p className="mt-1 text-xs text-gray-500">
+                                        입고 메모: {receipt.note}
+                                      </p>
+                                    )}
+                                    {receipt.reversed_at && (
+                                      <span className="ml-2 text-xs font-bold text-rose-600">
+                                        취소됨
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="border border-gray-200 px-3 py-3 font-semibold">
+                                    {receiptLine.item_name}
+                                  </td>
+                                  <td className="border border-gray-200 px-3 py-3 text-right">
+                                    {orderedQuantity}개
+                                  </td>
+                                  {showCompletedCumulativeDetails && (
+                                    <td className="border border-gray-200 px-3 py-3 text-right">
+                                      {previousReceived}개
+                                    </td>
+                                  )}
+                                  {showCompletedCumulativeDetails && (
+                                    <td className="border border-gray-200 px-3 py-3 text-right font-bold">
+                                      {remainingBefore}개
+                                    </td>
+                                  )}
+                                  <td className="border border-gray-200 px-3 py-3 text-right font-bold">
+                                    {receiptLine.quantity}개
+                                  </td>
+                                  <td className="border border-gray-200 px-3 py-3 text-right">
+                                    <span
+                                      className={`inline-flex rounded-full px-2 py-1 text-xs font-bold ${difference === 0 ? "bg-emerald-50 text-emerald-700" : difference > 0 ? "bg-blue-50 text-blue-700" : "bg-amber-50 text-amber-700"}`}
+                                    >
+                                      {difference === 0
+                                        ? "수량 일치"
+                                        : difference > 0
+                                          ? `${difference}개 추가 입고`
+                                          : `${Math.abs(difference)}개 미입고`}
+                                    </span>
+                                  </td>
+                                  <td className="border border-gray-200 px-3 py-3 text-gray-600">
+                                    {receiptLine.note ||
+                                    receiptLine.quantity_check_note ||
+                                    orderLine?.note ? (
+                                      <div className="space-y-1">
+                                        {(receiptLine.note ||
+                                          orderLine?.note) && (
+                                          <p>
+                                            {cleanQuantityMemo(
+                                              receiptLine.note ||
+                                                orderLine?.note,
+                                            )}
+                                          </p>
                                         )}
-                                      </p>
+                                        {receiptLine.quantity_check_note && (
+                                          <p className="font-semibold text-brand-700">
+                                            {receiptLine.quantity_check_note}
+                                          </p>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      "-"
                                     )}
-                                    {receiptLine.quantity_check_note && (
-                                      <p className="font-semibold text-brand-700">
-                                        {receiptLine.quantity_check_note}
-                                      </p>
-                                    )}
-                                  </div>
-                                ) : (
-                                  "-"
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        },
-                      ),
-                    )}
-                  </tbody>
-                </table>
+                                  </td>
+                                </tr>
+                              );
+                            },
+                          ),
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
             {!open && order.status === "closed" && (
               <div className="bg-gray-50 px-4 pb-4 sm:px-5 sm:pb-5">
                 <div className="mb-3 flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
@@ -3825,62 +3801,62 @@ function PurchaseOrderList({
                 </div>
                 <div className="overflow-auto">
                   <div className="min-w-[760px] overflow-hidden rounded-xl border border-amber-200 bg-white">
-                <table className="purchase-order-table purchase-order-table--clean-edges w-full table-fixed border-collapse bg-white text-sm">
-                  <thead className="bg-amber-50 text-amber-800">
-                    <tr>
-                      <th className="border border-amber-200 px-3 py-3 text-left">
-                        품목명
-                      </th>
-                      <th className="w-28 border border-amber-200 px-3 py-3 text-right">
-                        주문 수량
-                      </th>
-                      <th className="w-28 border border-amber-200 px-3 py-3 text-right">
-                        입고 수량
-                      </th>
-                      <th className="w-28 border border-amber-200 px-3 py-3 text-right">
-                        미입고 수량
-                      </th>
-                      <th className="w-72 border border-amber-200 px-3 py-3 text-left">
-                        종료 내용
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visibleClosedLines.map((line) => {
-                      const missingQuantity = Math.max(
-                        0,
-                        line.ordered_quantity - line.received_quantity,
-                      );
-                      return (
-                      <tr key={`closed-${line.id}`}>
-                        <td className="border border-gray-200 px-3 py-3 break-words font-semibold">
-                          {line.item_name}
-                        </td>
-                        <td className="border border-gray-200 px-3 py-3 text-right">
-                          {line.ordered_quantity}개
-                        </td>
-                        <td className="border border-gray-200 px-3 py-3 text-right">
-                          {line.received_quantity}개
-                        </td>
-                        <td
-                          className={`border border-gray-200 px-3 py-3 text-right font-bold ${missingQuantity > 0 ? "text-amber-700" : "text-emerald-700"}`}
-                        >
-                          {missingQuantity}개
-                        </td>
-                        <td className="border border-gray-200 px-3 py-3 break-words text-gray-600">
-                          {missingQuantity > 0 ? (
-                            order.closed_reason || "미입고 종료"
-                          ) : (
-                            <span className="font-semibold text-emerald-700">
-                              입고 완료
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                    <table className="purchase-order-table purchase-order-table--clean-edges w-full table-fixed border-collapse bg-white text-sm">
+                      <thead className="bg-amber-50 text-amber-800">
+                        <tr>
+                          <th className="border border-amber-200 px-3 py-3 text-left">
+                            품목명
+                          </th>
+                          <th className="w-28 border border-amber-200 px-3 py-3 text-right">
+                            주문 수량
+                          </th>
+                          <th className="w-28 border border-amber-200 px-3 py-3 text-right">
+                            입고 수량
+                          </th>
+                          <th className="w-28 border border-amber-200 px-3 py-3 text-right">
+                            미입고 수량
+                          </th>
+                          <th className="w-72 border border-amber-200 px-3 py-3 text-left">
+                            종료 내용
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {visibleClosedLines.map((line) => {
+                          const missingQuantity = Math.max(
+                            0,
+                            line.ordered_quantity - line.received_quantity,
+                          );
+                          return (
+                            <tr key={`closed-${line.id}`}>
+                              <td className="border border-gray-200 px-3 py-3 break-words font-semibold">
+                                {line.item_name}
+                              </td>
+                              <td className="border border-gray-200 px-3 py-3 text-right">
+                                {line.ordered_quantity}개
+                              </td>
+                              <td className="border border-gray-200 px-3 py-3 text-right">
+                                {line.received_quantity}개
+                              </td>
+                              <td
+                                className={`border border-gray-200 px-3 py-3 text-right font-bold ${missingQuantity > 0 ? "text-amber-700" : "text-emerald-700"}`}
+                              >
+                                {missingQuantity}개
+                              </td>
+                              <td className="border border-gray-200 px-3 py-3 break-words text-gray-600">
+                                {missingQuantity > 0 ? (
+                                  order.closed_reason || "미입고 종료"
+                                ) : (
+                                  <span className="font-semibold text-emerald-700">
+                                    입고 완료
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>
@@ -4108,8 +4084,7 @@ function PurchaseOrderEditOverlay({
         (line) =>
           !line.itemName.trim() ||
           !Number.isInteger(Number(line.orderedQuantity)) ||
-          Number(line.orderedQuantity) <
-            Math.max(1, line.receivedQuantity),
+          Number(line.orderedQuantity) < Math.max(1, line.receivedQuantity),
       )
     ) {
       toast.error("품목명과 주문수량을 확인해 주세요.");
@@ -4128,10 +4103,7 @@ function PurchaseOrderEditOverlay({
         orderId: order.id,
         supplierId,
         orderedOn,
-        note: mergePurchaseOrderNote(
-          parsedNote.taxInvoiceStatus,
-          overallNote,
-        ),
+        note: mergePurchaseOrderNote(parsedNote.taxInvoiceStatus, overallNote),
         lines: lines.map((line) => ({
           id: line.id,
           item_name: line.itemName.trim(),
@@ -4139,9 +4111,9 @@ function PurchaseOrderEditOverlay({
           unit_price:
             isAdmin && line.unitPrice !== ""
               ? Math.max(0, Math.floor(Number(line.unitPrice)))
-              : order.inventory_purchase_order_lines.find(
-                    (item) => item.id === line.id,
-                  )?.unit_price ?? null,
+              : (order.inventory_purchase_order_lines.find(
+                  (item) => item.id === line.id,
+                )?.unit_price ?? null),
           note: line.note.trim(),
         })),
         receipts: receipts.map((receipt) => ({
@@ -4174,7 +4146,8 @@ function PurchaseOrderEditOverlay({
         <div className="border-b border-gray-200 px-5 py-4">
           <h2 className="text-lg font-bold text-gray-900">입고 내용 수정</h2>
           <p className="mt-1 text-xs text-gray-500">
-            입고 상태와 관계없이 원본 정보를 수정할 수 있습니다. 실제 입고수량은 재고 이력과 연결되어 수정 대상에서 제외됩니다.
+            입고 상태와 관계없이 원본 정보를 수정할 수 있습니다. 실제 입고수량은
+            재고 이력과 연결되어 수정 대상에서 제외됩니다.
           </p>
         </div>
         <div className="space-y-5 p-5">
@@ -4639,9 +4612,7 @@ function PurchaseAdjustmentOverlay({
                     className="w-full"
                     onClick={() => addRow(kind)}
                   >
-                    {kind === "discount"
-                      ? "할인 항목 추가"
-                      : "지불 항목 추가"}
+                    {kind === "discount" ? "할인 항목 추가" : "지불 항목 추가"}
                   </Button>
                 </div>
               </section>
@@ -4747,7 +4718,9 @@ function PurchaseAdjustmentCategoryOverlay({
                         variant="danger"
                         disabled={pending}
                         onClick={() => {
-                          if (window.confirm(`‘${item.name}’ 항목을 삭제할까요?`))
+                          if (
+                            window.confirm(`‘${item.name}’ 항목을 삭제할까요?`)
+                          )
                             void run(
                               () =>
                                 deactivatePurchaseAdjustmentCategory(item.id),
@@ -4841,10 +4814,7 @@ function SupplierManageOverlay({
   const mergeSupplierNote = (homepageUrl: string, note: string) => {
     const cleanUrl = homepageUrl.trim();
     const cleanNote = note.trim();
-    return [
-      cleanUrl ? `[[homepage_url:${cleanUrl}]]` : "",
-      cleanNote,
-    ]
+    return [cleanUrl ? `[[homepage_url:${cleanUrl}]]` : "", cleanNote]
       .filter(Boolean)
       .join("\n");
   };
@@ -4980,24 +4950,24 @@ function SupplierManageOverlay({
         }`}
       >
         {!embedded && (
-        <header className="flex items-center justify-between border-b border-gray-100 px-5 py-4 sm:px-7">
-          <div>
-            <h2 className="text-xl font-bold text-gray-950">거래처 관리</h2>
-            <p className="mt-1 text-sm text-gray-500">
-              입고 주문에 사용할 거래처 정보와 주문 마감 시간을 관리합니다.
-            </p>
-          </div>
-          {!embedded && (
-            <button
-              type="button"
-              aria-label="닫기"
-              onClick={onClose}
-              className="flex h-10 w-10 items-center justify-center rounded-full text-2xl text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-            >
-              ×
-            </button>
-          )}
-        </header>
+          <header className="flex items-center justify-between border-b border-gray-100 px-5 py-4 sm:px-7">
+            <div>
+              <h2 className="text-xl font-bold text-gray-950">거래처 관리</h2>
+              <p className="mt-1 text-sm text-gray-500">
+                입고 주문에 사용할 거래처 정보와 주문 마감 시간을 관리합니다.
+              </p>
+            </div>
+            {!embedded && (
+              <button
+                type="button"
+                aria-label="닫기"
+                onClick={onClose}
+                className="flex h-10 w-10 items-center justify-center rounded-full text-2xl text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+              >
+                ×
+              </button>
+            )}
+          </header>
         )}
 
         <div className="grid min-h-0 flex-1 overflow-y-auto lg:grid-cols-[340px_1fr] lg:overflow-hidden">
@@ -5287,10 +5257,7 @@ function SupplierManageOverlay({
                   <Button className="hidden" variant="gray" onClick={startNew}>
                     입력 초기화
                   </Button>
-                  <Button
-                    onClick={save}
-                    disabled={saving || !form.name.trim()}
-                  >
+                  <Button onClick={save} disabled={saving || !form.name.trim()}>
                     {saving
                       ? "저장 중..."
                       : selectedId
@@ -5470,17 +5437,44 @@ function MovementHistory({
   ) => {
     if (!movement.counterparty_name) return movement.note || "-";
 
-    if (movement.movement_type === "sale_out") {
-      return `${movement.counterparty_name} 구매`;
-    }
     if (movement.movement_type === "outbound_edit") {
       return `${movement.counterparty_name} 수정`;
     }
     if (movement.movement_type === "outbound_cancel") {
       return `${movement.counterparty_name} 취소`;
     }
-    if (movement.movement_type === "exchange_in") {
-      return `${movement.counterparty_name} 교환`;
+    if (
+      movement.inventory_action === "adjustment_out" ||
+      (movement.counterparty_name.trim() === "재고조정" &&
+        movement.movement_type === "sale_out")
+    ) {
+      return "재고조정 출고";
+    }
+    if (
+      movement.inventory_action === "adjustment_in" ||
+      (movement.counterparty_name.trim() === "재고조정" &&
+        movement.movement_type === "exchange_in")
+    ) {
+      return "재고조정 입고";
+    }
+    if (
+      movement.counterparty_name.trim() === "시연용" ||
+      movement.item_remark?.trim().startsWith("시연용")
+    ) {
+      return "시연용 처리";
+    }
+    if (movement.inventory_action === "exchange_out") {
+      return `${movement.counterparty_name} 교환출고`;
+    }
+    if (
+      movement.inventory_action === "exchange_in" ||
+      movement.movement_type === "exchange_in"
+    ) {
+      return `${movement.counterparty_name} 교환입고`;
+    }
+
+    if (movement.movement_type === "sale_out") {
+      return `${movement.counterparty_name} 구매`;
     }
     if (movement.movement_type === "purchase_in") {
       return `${movement.counterparty_name} 입고`;
@@ -5493,6 +5487,45 @@ function MovementHistory({
     }
     return movement.note || "-";
   };
+  const getMovementTypeLabel = (
+    movement: Awaited<ReturnType<typeof getInventoryMovements>>[number],
+  ) => {
+    if (
+      movement.movement_type === "outbound_edit" ||
+      movement.movement_type === "outbound_cancel" ||
+      movement.movement_type === "reversal"
+    ) {
+      return movementLabels[movement.movement_type];
+    }
+    if (
+      movement.inventory_action === "adjustment_out" ||
+      (movement.counterparty_name?.trim() === "재고조정" &&
+        movement.movement_type === "sale_out")
+    ) {
+      return "출고/조정";
+    }
+    if (
+      movement.inventory_action === "adjustment_in" ||
+      (movement.counterparty_name?.trim() === "재고조정" &&
+        movement.movement_type === "exchange_in")
+    ) {
+      return "입고/조정";
+    }
+    if (
+      movement.counterparty_name?.trim() === "시연용" ||
+      movement.item_remark?.trim().startsWith("시연용")
+    ) {
+      return "출고/시연용";
+    }
+    if (movement.inventory_action === "exchange_out") return "출고/교환";
+    if (
+      movement.inventory_action === "exchange_in" ||
+      movement.movement_type === "exchange_in"
+    ) {
+      return "입고/교환";
+    }
+    return movementLabels[movement.movement_type] ?? movement.movement_type;
+  };
   const automaticNotes = new Set([
     "출고 처리",
     "출고 수정",
@@ -5503,14 +5536,10 @@ function MovementHistory({
     note && !automaticNotes.has(note.trim()) ? note : "-";
   const dateFilteredMovements = movements.filter((movement) => {
     const date = localDate(movement.created_at);
-    return (
-      dateMode === "today"
-        ? date === today
-        : Boolean(startDate) &&
-          (endDate
-            ? date >= startDate && date <= endDate
-            : date === startDate)
-    );
+    return dateMode === "today"
+      ? date === today
+      : Boolean(startDate) &&
+          (endDate ? date >= startDate && date <= endDate : date === startDate);
   });
   const filtered = dateFilteredMovements.filter((movement) => {
     const keyword = search.trim().toLocaleLowerCase("ko-KR");
@@ -5649,123 +5678,124 @@ function MovementHistory({
         </span>
       </div>
       <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
-      {loading ? (
-        <Loading size="sm" text="이력을 불러오는 중..." />
-      ) : (
-        <div className="mt-3 overflow-auto rounded-xl border border-gray-200">
-          <table className="w-full min-w-[850px] border-collapse text-sm">
-            <thead className="bg-brand-50 text-brand-700">
-              <tr>
-                {[
-                  "처리일",
-                  "구분",
-                  "품목명",
-                  "변동",
-                  "처리 후",
-                  "단가",
-                  "이동 경로",
-                  "메모",
-                  "관리",
-                ].map((label) => (
-                  <th
-                    key={label}
-                    className="border border-brand-200 px-3 py-3 text-left"
-                  >
-                    {label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {visibleMovements.length ? (
-                visibleMovements.map((movement) => (
-                  <tr key={movement.id}>
-                    <td className="whitespace-nowrap border border-gray-200 px-3 py-3">
-                      {new Date(movement.created_at).toLocaleString("ko-KR")}
-                    </td>
-                    <td className="border border-gray-200 px-3 py-3">
-                      {movementLabels[movement.movement_type] ??
-                        movement.movement_type}
-                    </td>
-                    <td className="border border-gray-200 px-3 py-3 font-semibold">
-                      {movement.item_name}
-                    </td>
-                    <td
-                      className={`border border-gray-200 px-3 py-3 text-right font-bold ${movement.quantity_delta > 0 ? "text-blue-600" : "text-rose-600"}`}
+        {loading ? (
+          <Loading size="sm" text="이력을 불러오는 중..." />
+        ) : (
+          <div className="mt-3 overflow-auto rounded-xl border border-gray-200">
+            <table className="w-full min-w-[850px] border-collapse text-sm">
+              <thead className="bg-brand-50 text-brand-700">
+                <tr>
+                  {[
+                    "처리일",
+                    "구분",
+                    "품목명",
+                    "변동",
+                    "처리 후",
+                    "단가",
+                    "이동 경로",
+                    "메모",
+                    "관리",
+                  ].map((label) => (
+                    <th
+                      key={label}
+                      className="border border-brand-200 px-3 py-3 text-left"
                     >
-                      {movement.quantity_delta > 0 ? "+" : ""}
-                      {movement.quantity_delta}
-                    </td>
-                    <td className="border border-gray-200 px-3 py-3 text-right">
-                      {movement.quantity_after}
-                    </td>
-                    <td className="border border-gray-200 px-3 py-3 text-right">
-                      {movement.unit_price != null
-                        ? `${movement.unit_price.toLocaleString()}원`
-                        : "-"}
-                    </td>
-                    <td className="whitespace-nowrap border border-gray-200 px-3 py-3 font-medium">
-                      {movement.counterparty_id ? (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            router.push(`/customers/${movement.counterparty_id}`)
-                          }
-                          className="font-semibold text-brand-700 underline decoration-brand-200 underline-offset-4 hover:text-brand-800 hover:decoration-brand-500"
-                        >
-                          {getMovementRoute(movement)}
-                        </button>
-                      ) : movement.purchase_order_id ? (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            onOpenPurchaseOrder(movement.purchase_order_id!)
-                          }
-                          className="font-semibold text-brand-700 underline decoration-brand-200 underline-offset-4 hover:text-brand-800 hover:decoration-brand-500"
-                        >
-                          {getMovementRoute(movement)}
-                        </button>
-                      ) : (
-                        <span className="text-gray-700">
-                          {getMovementRoute(movement)}
-                        </span>
-                      )}
-                    </td>
-                    <td className="border border-gray-200 px-3 py-3 text-gray-500">
-                      {getDetailMemo(movement.note)}
-                    </td>
-                    <td className="border border-gray-200 px-3 py-3">
-                      {isAdmin &&
-                        movement.movement_type === "purchase_in" &&
-                        movement.reference_type === "purchase_receipt" &&
-                        movement.reference_id &&
-                        !reversedIds.has(movement.id) && (
-                          <Button
-                            size="xs"
-                            variant="danger"
-                            onClick={() => setMovementToReverse(movement)}
-                            disabled={reverseMutation.isPending}
+                      {label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {visibleMovements.length ? (
+                  visibleMovements.map((movement) => (
+                    <tr key={movement.id}>
+                      <td className="whitespace-nowrap border border-gray-200 px-3 py-3">
+                        {new Date(movement.created_at).toLocaleString("ko-KR")}
+                      </td>
+                      <td className="border border-gray-200 px-3 py-3">
+                        {getMovementTypeLabel(movement)}
+                      </td>
+                      <td className="border border-gray-200 px-3 py-3 font-semibold">
+                        {movement.item_name}
+                      </td>
+                      <td
+                        className={`border border-gray-200 px-3 py-3 text-right font-bold ${movement.quantity_delta > 0 ? "text-blue-600" : "text-rose-600"}`}
+                      >
+                        {movement.quantity_delta > 0 ? "+" : ""}
+                        {movement.quantity_delta}
+                      </td>
+                      <td className="border border-gray-200 px-3 py-3 text-right">
+                        {movement.quantity_after}
+                      </td>
+                      <td className="border border-gray-200 px-3 py-3 text-right">
+                        {movement.unit_price != null
+                          ? `${movement.unit_price.toLocaleString()}원`
+                          : "-"}
+                      </td>
+                      <td className="whitespace-nowrap border border-gray-200 px-3 py-3 font-medium">
+                        {movement.counterparty_id ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              router.push(
+                                `/customers/${movement.counterparty_id}`,
+                              )
+                            }
+                            className="font-semibold text-brand-700 underline decoration-brand-200 underline-offset-4 hover:text-brand-800 hover:decoration-brand-500"
                           >
-                            입고 취소
-                          </Button>
+                            {getMovementRoute(movement)}
+                          </button>
+                        ) : movement.purchase_order_id ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onOpenPurchaseOrder(movement.purchase_order_id!)
+                            }
+                            className="font-semibold text-brand-700 underline decoration-brand-200 underline-offset-4 hover:text-brand-800 hover:decoration-brand-500"
+                          >
+                            {getMovementRoute(movement)}
+                          </button>
+                        ) : (
+                          <span className="text-gray-700">
+                            {getMovementRoute(movement)}
+                          </span>
                         )}
+                      </td>
+                      <td className="border border-gray-200 px-3 py-3 text-gray-500">
+                        {getDetailMemo(movement.note)}
+                      </td>
+                      <td className="border border-gray-200 px-3 py-3">
+                        {isAdmin &&
+                          movement.movement_type === "purchase_in" &&
+                          movement.reference_type === "purchase_receipt" &&
+                          movement.reference_id &&
+                          !reversedIds.has(movement.id) && (
+                            <Button
+                              size="xs"
+                              variant="danger"
+                              onClick={() => setMovementToReverse(movement)}
+                              disabled={reverseMutation.isPending}
+                            >
+                              입고 취소
+                            </Button>
+                          )}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td
+                      colSpan={9}
+                      className="px-4 py-12 text-center text-gray-400"
+                    >
+                      조건에 맞는 재고 변동이 없습니다.
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td
-                    colSpan={9}
-                    className="px-4 py-12 text-center text-gray-400"
-                  >
-                    조건에 맞는 재고 변동이 없습니다.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
         {visibleCount < filtered.length && (
           <div className="mt-4 flex justify-center">
             <button
@@ -5970,77 +6000,6 @@ function TrackingSettingsOverlay({
           </Button>
         </footer>
       </section>
-    </div>
-  );
-}
-
-function AdjustmentOverlay({
-  item,
-  onClose,
-  onSaved,
-}: {
-  item: InventoryItem;
-  onClose: () => void;
-  onSaved: () => Promise<void>;
-}) {
-  const [quantity, setQuantity] = useState(String(item.quantity));
-  const [note, setNote] = useState("");
-  const mutation = useMutation({
-    mutationFn: () => adjustInventory(item.item_name, Number(quantity), note),
-    onSuccess: async () => {
-      toast.success("재고를 조정했습니다.");
-      await onSaved();
-    },
-    onError: (error) =>
-      toast.error(error.message || "재고 조정에 실패했습니다."),
-  });
-  return (
-    <div
-      className="fixed inset-0 z-[90] flex items-center justify-center bg-gray-950/50 p-4"
-      onPointerDown={(event) =>
-        event.target === event.currentTarget && onClose()
-      }
-    >
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-        <h2 className="text-lg font-semibold">재고 조정</h2>
-        <p className="mt-1 text-sm text-gray-500">
-          {item.item_name} · 현재 {item.quantity}개
-        </p>
-        <label className="mt-5 block text-sm font-medium">
-          실제 재고 수량
-          <input
-            type="number"
-            inputMode="numeric"
-            value={quantity}
-            onChange={(event) => setQuantity(event.target.value)}
-            className="mt-2 min-h-12 w-full rounded-lg border border-gray-200 px-4 text-right text-lg font-bold"
-          />
-        </label>
-        <label className="mt-4 block text-sm font-medium">
-          조정 사유
-          <textarea
-            value={note}
-            onChange={(event) => setNote(event.target.value)}
-            className="mt-2 h-24 w-full resize-none rounded-lg border border-gray-200 p-3 text-sm"
-            placeholder="재고 실사, 파손 확인 등"
-          />
-        </label>
-        <div className="mt-5 flex justify-end gap-2">
-          <Button variant="gray" onClick={onClose}>
-            취소
-          </Button>
-          <Button
-            onClick={() => mutation.mutate()}
-            disabled={
-              !note.trim() ||
-              !Number.isInteger(Number(quantity)) ||
-              mutation.isPending
-            }
-          >
-            조정 저장
-          </Button>
-        </div>
-      </div>
     </div>
   );
 }

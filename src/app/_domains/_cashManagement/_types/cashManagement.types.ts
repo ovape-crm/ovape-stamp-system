@@ -1,4 +1,6 @@
-export const CASH_DENOMINATIONS = [50000, 10000, 5000, 1000, 500, 100, 50, 10] as const;
+export const CASH_DENOMINATIONS = [
+  50000, 10000, 5000, 1000, 500, 100, 50, 10,
+] as const;
 
 export type CashCounts = Record<string, number>;
 
@@ -59,8 +61,13 @@ export type DailyPaymentSales = {
     label: string;
     quantity: number;
   }[];
+  inboundSummary: {
+    type: "purchase" | "adjustment_in" | "exchange_in";
+    label: string;
+    quantity: number;
+  }[];
   deliverySummary: {
-    method: 'store_visit' | 'parcel' | 'delivery';
+    method: "store_visit" | "parcel" | "delivery";
     label: string;
     orderCount: number;
     quantity: number;

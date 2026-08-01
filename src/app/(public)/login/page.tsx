@@ -81,13 +81,13 @@ export default function LoginPage() {
           <div className="absolute bottom-20 right-20 w-96 h-96 bg-brand-300 rounded-full blur-3xl" />
         </div>
         <div className="relative z-10 text-center">
-          <div className="inline-flex items-center justify-center w-28 h-28 bg-white/15 backdrop-blur-sm rounded-3xl mb-8 ring-1 ring-white/20">
+          <div className="relative mb-8 inline-flex h-28 w-28 items-center justify-center rounded-3xl bg-white/15 ring-1 ring-white/20 backdrop-blur-sm">
             <Image
               src="/logo.PNG"
               alt="OSS Logo"
-              width={80}
-              height={80}
-              className="object-contain"
+              fill
+              sizes="112px"
+              className="object-contain p-4"
             />
           </div>
           <h1 className="text-3xl font-bold text-white mb-3">
@@ -105,13 +105,13 @@ export default function LoginPage() {
         <div className="w-full max-w-sm">
           {/* 모바일 로고 */}
           <div className="flex justify-center mb-8 lg:hidden">
-            <div className="w-24 h-24 bg-gradient-to-br from-brand-500 to-brand-600 rounded-2xl flex items-center justify-center shadow-lg shadow-brand-500/25">
+            <div className="relative flex h-24 w-24 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-600 shadow-lg shadow-brand-500/25">
               <Image
                 src="/logo.PNG"
                 alt="OSS Logo"
-                width={68}
-                height={68}
-                className="object-contain"
+                fill
+                sizes="96px"
+                className="object-contain p-3.5"
               />
             </div>
           </div>

@@ -39,6 +39,14 @@ export type InventoryMovement = {
   counterparty_name?: string | null;
   counterparty_id?: string | null;
   purchase_order_id?: string | null;
+  inventory_action?:
+    | "out"
+    | "exchange_in"
+    | "exchange_out"
+    | "adjustment_in"
+    | "adjustment_out"
+    | null;
+  item_remark?: string | null;
   users?: { name: string | null } | null;
 };
 

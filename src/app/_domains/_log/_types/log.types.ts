@@ -1,8 +1,9 @@
-import { LogCategoryEnumType } from '@/app/_enums/enums';
+import { LogCategoryEnumType } from "@/app/_enums/enums";
 
 export type LogActorUserInfo = {
   name: string;
   email: string;
+  oss_role?: "staff" | "admin";
 };
 
 export type LogBaseType = {
@@ -13,7 +14,7 @@ export type LogBaseType = {
   note: string;
   created_at: string;
   updated_at: string;
-  category: LogCategoryEnumType['value'];
+  category: LogCategoryEnumType["value"];
   users?: LogActorUserInfo;
   jsonb: Record<string, unknown>;
 };
@@ -37,7 +38,7 @@ export type LogCustomerInfo = {
   phone: string;
   address?: string | null;
   note?: string | null;
-  gender?: 'male' | 'female' | null;
+  gender?: "male" | "female" | null;
 };
 
 // 고객 상세 페이지의 로그

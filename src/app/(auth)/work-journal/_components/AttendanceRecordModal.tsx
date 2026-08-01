@@ -31,6 +31,14 @@ const getCurrentTimeInKorea = () =>
     hour12: false,
   }).format(new Date());
 
+const formatKoreanTime = (time: string) => {
+  const [hourText, minute = "00"] = time.split(":");
+  const hour = Number(hourText);
+  if (!Number.isFinite(hour)) return time;
+  const period = hour < 12 ? "오전" : "오후";
+  return `${period} ${hour % 12 || 12}:${minute}`;
+};
+
 const getCreatedTimeInKorea = (createdAt?: string) => {
   if (!createdAt) return getCurrentTimeInKorea();
   const date = new Date(createdAt);
@@ -70,16 +78,13 @@ export default function AttendanceRecordModal({
     editingJournal && editingJournal.work_date < today,
   );
   const initialMode =
-    editingJournal &&
-    (editingJournal.status !== "working" || isPastJournal)
+    editingJournal && (editingJournal.status !== "working" || isPastJournal)
       ? "end"
       : editingJournal
         ? "start"
         : "";
   const [step, setStep] = useState<1 | 2>(editingJournal ? 2 : 1);
-  const [workDate, setWorkDate] = useState(
-    editingJournal?.work_date ?? today,
-  );
+  const [workDate, setWorkDate] = useState(editingJournal?.work_date ?? today);
   const [workerName, setWorkerName] = useState(
     editingJournal?.worker_name ?? "",
   );
@@ -87,7 +92,7 @@ export default function AttendanceRecordModal({
   const [verified, setVerified] = useState(Boolean(editingJournal));
   const [mode, setMode] = useState<"start" | "end" | "">(initialMode);
   const [startTime, setStartTime] = useState(
-    editingJournal?.start_time.slice(0, 5) ?? getCurrentTimeInKorea(),
+    editingJournal?.start_time.slice(0, 5) ?? "11:00",
   );
   const [actualStartTime, setActualStartTime] = useState(() =>
     getCreatedTimeInKorea(editingJournal?.created_at),
@@ -101,7 +106,10 @@ export default function AttendanceRecordModal({
     editingJournal?.end_time.slice(0, 5) ?? getCurrentTimeInKorea(),
   );
   const [workType, setWorkType] = useState<"solo" | "shift">(
-    editingJournal?.work_type ?? "solo",
+    editingJournal?.work_type ?? "shift",
+  );
+  const [startType, setStartType] = useState<"solo" | "first" | "handover">(
+    editingJournal?.work_type === "shift" ? "first" : "solo",
   );
   const [note, setNote] = useState(editingJournal?.note ?? "");
   const initialInputWorkHours = Number(editingJournal?.input_work_hours ?? 0);
@@ -116,20 +124,17 @@ export default function AttendanceRecordModal({
   });
   const selectedJournal = useMemo(
     () =>
-      journalsQuery.data?.find(
-        (journal) => journal.worker_name === workerName,
-      ),
+      journalsQuery.data?.find((journal) => journal.worker_name === workerName),
     [journalsQuery.data, workerName],
   );
-  const previousJournal = useMemo(
-    () =>
-      [...(journalsQuery.data ?? [])]
-        .filter((journal) => journal.worker_name !== workerName)
-        .sort((a, b) => b.start_time.localeCompare(a.start_time))[0],
-    [journalsQuery.data, workerName],
+  const isHandoverWorker = Boolean(
+    journalsQuery.data?.some(
+      (journal) =>
+        journal.worker_name !== workerName &&
+        (journal.status === "handover_pending" ||
+          (Boolean(editingJournal) && journal.start_time < startTime)),
+    ),
   );
-  const isShiftRequired =
-    !editingJournal && previousJournal?.work_type === "shift";
   const openJournal =
     selectedJournal && selectedJournal.status === "working"
       ? selectedJournal
@@ -190,7 +195,7 @@ export default function AttendanceRecordModal({
         endTime: expectedEndTime,
         workHours: calculateHours(startTime, expectedEndTime),
         note,
-        workType,
+        workType: startType === "first" ? "shift" : "solo",
         pin,
       }),
     onSuccess: async () => {
@@ -219,6 +224,7 @@ export default function AttendanceRecordModal({
         workerName,
         pin,
         actualEndTime: confirmedEndTime,
+        inputEndTime: expectedEndTime,
         workHours: calculateHours(
           openJournal.start_time.slice(0, 5),
           confirmedEndTime,
@@ -228,11 +234,13 @@ export default function AttendanceRecordModal({
         workType: openJournal.work_type ?? "solo",
       });
     },
-    onSuccess: async () => {
+    onSuccess: async (status) => {
       toast.success(
-        openJournal?.work_type === "shift"
-          ? "퇴근 기록을 저장하고 인수인계 대기로 전환했습니다."
-          : "퇴근 기록을 확정했습니다.",
+        status === "shift_completed"
+          ? "후속 근무자를 확인하여 교대 완료 처리했습니다."
+          : status === "handover_pending"
+            ? "퇴근 기록을 저장하고 인수인계 대기로 전환했습니다."
+            : "퇴근 기록을 확정했습니다.",
       );
       await onSaved();
       onClose();
@@ -266,10 +274,14 @@ export default function AttendanceRecordModal({
           status !== "working"
             ? checkoutHours
             : calculateHours(startTime, expectedEndTime),
-        inputWorkHours:
-          status !== "working" ? Number(inputWorkHours) : null,
+        inputWorkHours: status !== "working" ? Number(inputWorkHours) : null,
         note,
-        workType,
+        workType:
+          mode === "start"
+            ? startType === "first"
+              ? "shift"
+              : "solo"
+            : workType,
         status,
         actualStartTime: isAdmin ? actualStartTime : undefined,
       });
@@ -296,10 +308,7 @@ export default function AttendanceRecordModal({
     if (nextMode === "end" && openJournal) {
       setStartTime(openJournal.start_time.slice(0, 5));
       setActualStartTime(getCreatedTimeInKorea(openJournal.created_at));
-      setExpectedEndTime(
-        openJournal.expected_end_time?.slice(0, 5) ||
-          openJournal.end_time.slice(0, 5),
-      );
+      setExpectedEndTime("22:00");
       setWorkType(openJournal.work_type ?? "solo");
       setNote(openJournal.note ?? "");
       const currentTime = getCurrentTimeInKorea();
@@ -309,20 +318,27 @@ export default function AttendanceRecordModal({
   };
 
   const canContinue = verified && Boolean(mode);
-  const canConfirmStart = Boolean(startTime && expectedEndTime);
+  const canConfirmStart = Boolean(startTime);
   const canConfirmEnd = Boolean(
     actualEndTime &&
-      checkoutHours > 0 &&
-      Number.isFinite(Number(inputWorkHours)) &&
-      Number(inputWorkHours) > 0 &&
-      Number(inputWorkHours) <= 24,
+    checkoutHours > 0 &&
+    Number.isFinite(Number(inputWorkHours)) &&
+    Number(inputWorkHours) > 0 &&
+    Number(inputWorkHours) <= 24,
   );
 
+  const handleStartTypeChange = (nextType: "solo" | "first" | "handover") => {
+    setStartType(nextType);
+    setStartTime(nextType === "handover" ? "17:00" : "11:00");
+  };
+
   useEffect(() => {
-    if (mode === "start" && isShiftRequired) {
-      setWorkType("shift");
+    if (mode === "start" && !editingJournal && journalsQuery.isSuccess) {
+      const nextType = isHandoverWorker ? "handover" : "solo";
+      setStartType(nextType);
+      setStartTime(nextType === "handover" ? "17:00" : "11:00");
     }
-  }, [isShiftRequired, mode]);
+  }, [editingJournal, isHandoverWorker, journalsQuery.isSuccess, mode]);
 
   return (
     <div className="fixed inset-0 z-[140] flex items-center justify-center bg-gray-950/50 p-3 sm:p-6">
@@ -439,9 +455,7 @@ export default function AttendanceRecordModal({
                     maxLength={4}
                     value={pin}
                     onChange={(event) => {
-                      setPin(
-                        event.target.value.replace(/\D/g, "").slice(0, 4),
-                      );
+                      setPin(event.target.value.replace(/\D/g, "").slice(0, 4));
                       resetVerification();
                     }}
                     placeholder="4자리"
@@ -495,47 +509,41 @@ export default function AttendanceRecordModal({
           ) : mode === "start" ? (
             <div className="space-y-4">
               <div className="grid gap-3 sm:grid-cols-2">
-                {isAdmin && isEditing ? (
+                {isAdmin && isEditing && (
                   <TimeField
-                    label="실제 출근시간"
+                    label="출근 처리"
                     value={actualStartTime}
                     onChange={setActualStartTime}
                   />
-                ) : (
-                  <ReadOnlyField
-                    label="실제 출근시간"
-                    value={actualStartTime}
-                  />
                 )}
                 <TimeField
-                  label="입력 출근시간"
+                  label="출근시간 입력"
                   value={startTime}
                   onChange={setStartTime}
                 />
-                <TimeField
-                  label="예상 퇴근시간"
-                  value={expectedEndTime}
-                  onChange={setExpectedEndTime}
-                />
               </div>
               <label className="block text-sm font-semibold text-gray-700">
-                근무 유형
+                출근 유형
                 <select
-                  value={workType}
-                  disabled={isShiftRequired}
+                  value={startType}
                   onChange={(event) =>
-                    setWorkType(event.target.value as "solo" | "shift")
+                    handleStartTypeChange(
+                      event.target.value as "solo" | "first" | "handover",
+                    )
                   }
-                  className="mt-1 h-11 w-full cursor-pointer rounded-lg border border-gray-300 bg-white px-3 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-700"
+                  className="mt-1 h-11 w-full cursor-pointer rounded-lg border border-gray-300 bg-white px-3 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                 >
                   <option value="solo">혼자 근무</option>
-                  <option value="shift">교대 근무</option>
+                  <option value="first">교대 근무자 (첫 근무)</option>
+                  <option value="handover">교대 근무자 (마지막 근무)</option>
                 </select>
-                {isShiftRequired && (
-                  <span className="mt-1.5 block text-xs font-medium text-brand-600">
-                    이전 근무자가 교대 근무로 등록하여 자동으로 고정됩니다.
-                  </span>
-                )}
+                <span className="mt-1.5 block text-xs font-medium text-gray-600">
+                  {startType === "first"
+                    ? "퇴근하면 다음 근무자의 출근을 기다립니다."
+                    : startType === "handover"
+                      ? "이전 근무자의 인수인계를 받고, 퇴근하면 바로 종료됩니다."
+                      : "교대 없이 근무하며, 퇴근하면 바로 종료됩니다."}
+                </span>
               </label>
               <NoteField value={note} onChange={setNote} />
             </div>
@@ -543,47 +551,40 @@ export default function AttendanceRecordModal({
             <div className="space-y-4">
               {isAdmin && isEditing && (
                 <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
-                  관리자 보정 모드입니다. 실제 출근·퇴근시간과 입력
-                  근무시간을 수정하면 실제 근무시간이 자동 계산됩니다.
+                  관리자 보정 모드입니다. 출근·퇴근 처리시각과 입력 근무시간을
+                  수정하면 실제 근무시간이 자동 계산됩니다.
                 </p>
               )}
               <div className="grid gap-3 sm:grid-cols-2">
-                {isAdmin && isEditing ? (
+                {isAdmin && isEditing && (
                   <TimeField
-                    label="실제 출근시간"
+                    label="출근 처리"
                     value={actualStartTime}
                     onChange={setActualStartTime}
-                  />
-                ) : (
-                  <ReadOnlyField
-                    label="실제 출근시간"
-                    value={actualStartTime}
                   />
                 )}
                 <ReadOnlyField
                   label="입력 출근시간"
-                  value={startTime}
+                  value={formatKoreanTime(startTime)}
                 />
-                <ReadOnlyField
-                  label="예상 퇴근시간"
+                <TimeField
+                  label="퇴근시간 입력"
                   value={expectedEndTime}
+                  onChange={setExpectedEndTime}
                 />
-                {isAdmin && isEditing ? (
+                {isAdmin && isEditing && (
                   <TimeField
-                    label="실제 퇴근시간"
+                    label="퇴근 처리"
                     value={actualEndTime}
                     onChange={setActualEndTime}
                   />
-                ) : (
+                )}
+                {isAdmin && isEditing && (
                   <ReadOnlyField
-                    label="실제 퇴근시간"
-                    value={actualEndTime}
+                    label="실제 근무시간"
+                    value={`${checkoutHours}시간`}
                   />
                 )}
-                <ReadOnlyField
-                  label="실제 근무시간"
-                  value={`${checkoutHours}시간`}
-                />
                 <label className="block text-sm font-semibold text-gray-700 sm:col-span-2">
                   입력 근무시간
                   <div className="relative mt-1">
@@ -593,6 +594,7 @@ export default function AttendanceRecordModal({
                       max="24"
                       step="0.01"
                       value={inputWorkHours}
+                      placeholder="1시간 단위로 입력해주세요."
                       onChange={(event) =>
                         setInputWorkHours(event.target.value)
                       }
@@ -607,7 +609,8 @@ export default function AttendanceRecordModal({
               <NoteField value={note} onChange={setNote} />
               {workType === "shift" && (
                 <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
-                  교대 근무 퇴근 전에는 시재 확인과 인수인계 내용을 확인해 주세요.
+                  교대 근무 퇴근 전에는 시재 확인과 인수인계 내용을 확인해
+                  주세요.
                 </p>
               )}
             </div>
@@ -625,10 +628,7 @@ export default function AttendanceRecordModal({
             </Button>
           )}
           {step === 1 ? (
-            <Button
-              onClick={() => setStep(2)}
-              disabled={!canContinue}
-            >
+            <Button onClick={() => setStep(2)} disabled={!canContinue}>
               다음
             </Button>
           ) : isEditing ? (

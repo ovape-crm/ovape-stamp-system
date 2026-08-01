@@ -29,8 +29,11 @@ const formatAmount = (value: number) => value.toLocaleString('ko-KR');
 const getShipmentTypeLabel = (
   item: NonNullable<StampLogMeta['items']>[number],
 ) => {
+  if (item.inventoryAction === 'adjustment_in') return '재고조정-입고';
+  if (item.inventoryAction === 'adjustment_out') return '재고조정-출고';
   if (item.inventoryAction === 'exchange_in') return '교환입고';
   if (item.inventoryAction === 'exchange_out') return '교환출고';
+  if (item.remark?.startsWith('시연용')) return '시연용';
   if (typeof item.adjustedUnitPrice === 'number') return '가격조정';
   if (item.remark?.startsWith('서비스')) return '서비스';
   return '일반판매';

@@ -4,13 +4,13 @@ import Image from 'next/image';
 const Logo = () => {
   return (
     <Link href="/" className="flex items-center gap-2">
-      <div className="w-15 h-15 rounded-lg flex items-center justify-center overflow-hidden">
+      <div className="relative flex h-15 w-15 items-center justify-center overflow-hidden rounded-lg">
         <Image
           src="/logo.PNG"
           alt="OSS Logo"
-          width={50}
-          height={50}
-          className="object-contain"
+          fill
+          sizes="60px"
+          className="object-contain p-[5px]"
         />
       </div>
     </Link>
