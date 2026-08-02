@@ -1,72 +1,72 @@
-'use client';
+"use client";
 
-import { useEffect, useMemo, useState } from 'react';
-import Button from '@/app/_components/Button';
+import { useEffect, useMemo, useState } from "react";
+import Button from "@/app/_components/Button";
 import {
   PaymentTypeEnumType,
   StoreTypeEnum,
   StoreTypeEnumType,
-} from '@/app/_enums/enums';
+} from "@/app/_enums/enums";
 import StampLogForm, {
   StampLogValue,
-} from '@/app/(auth)/customers/_components/StampLogForm';
-import TargetCustomerCard from '@/app/(auth)/customers/_components/TargetCustomerCard';
-import type { StampLogMeta } from '@/app/_domains/_stamp/_services/stampService';
-import { useModal } from '@/app/_contexts/ModalContext';
-import { getCustomerMode } from '@/app/_domains/_customer/_utils/specialCustomer';
+} from "@/app/(auth)/customers/_components/StampLogForm";
+import TargetCustomerCard from "@/app/(auth)/customers/_components/TargetCustomerCard";
+import type { StampLogMeta } from "@/app/_domains/_stamp/_services/stampService";
+import { useModal } from "@/app/_contexts/ModalContext";
+import { getCustomerMode } from "@/app/_domains/_customer/_utils/specialCustomer";
 
 const getStampAmountFromAction = (action: string) => {
-  if (action === 'no-stamp') return 0;
-  if (action.startsWith('add-')) {
-    const amount = Number(action.replace('add-', ''));
+  if (action === "no-stamp") return 0;
+  if (action.startsWith("add-")) {
+    const amount = Number(action.replace("add-", ""));
     return Number.isFinite(amount) ? amount : 0;
   }
   return 0;
 };
 
-const formatAmount = (value: number) => value.toLocaleString('ko-KR');
+const formatAmount = (value: number) => value.toLocaleString("ko-KR");
 
 const getShipmentTypeLabel = (
-  item: NonNullable<StampLogMeta['items']>[number],
+  item: NonNullable<StampLogMeta["items"]>[number],
 ) => {
-  if (item.inventoryAction === 'adjustment_in') return '재고조정-입고';
-  if (item.inventoryAction === 'adjustment_out') return '재고조정-출고';
-  if (item.inventoryAction === 'exchange_in') return '교환입고';
-  if (item.inventoryAction === 'exchange_out') return '교환출고';
-  if (item.remark?.startsWith('시연용')) return '시연용';
-  if (typeof item.adjustedUnitPrice === 'number') return '가격조정';
-  if (item.remark?.startsWith('서비스')) return '서비스';
-  return '일반판매';
+  if (item.inventoryAction === "adjustment_in") return "재고조정-입고";
+  if (item.inventoryAction === "adjustment_out") return "재고조정-출고";
+  if (item.inventoryAction === "exchange_in") return "교환입고";
+  if (item.inventoryAction === "exchange_out") return "교환출고";
+  if (item.remark?.startsWith("시연용")) return "시연용";
+  if (typeof item.adjustedUnitPrice === "number") return "가격조정";
+  if (item.remark?.startsWith("서비스")) return "서비스";
+  return "일반판매";
 };
 
 const getShipmentTypeClassName = (
-  item: NonNullable<StampLogMeta['items']>[number],
+  item: NonNullable<StampLogMeta["items"]>[number],
 ) => {
   const type = getShipmentTypeLabel(item);
-  if (type === '서비스') return 'bg-sky-50 text-sky-700';
-  if (type === '교환입고') return 'bg-emerald-50 text-emerald-700';
-  if (type === '교환출고') return 'bg-amber-50 text-amber-700';
-  if (type === '가격조정') return 'bg-violet-50 text-violet-700';
-  return 'bg-gray-100 text-gray-600';
+  if (type === "서비스") return "bg-sky-50 text-sky-700";
+  if (type === "교환입고") return "bg-emerald-50 text-emerald-700";
+  if (type === "교환출고") return "bg-amber-50 text-amber-700";
+  if (type === "가격조정") return "bg-violet-50 text-violet-700";
+  return "bg-gray-100 text-gray-600";
 };
 
 const getItemDisplayMemo = (
-  item: NonNullable<StampLogMeta['items']>[number],
+  item: NonNullable<StampLogMeta["items"]>[number],
 ) => {
   const remark = item.remark?.trim();
-  if (!remark) return '';
+  if (!remark) return "";
   const wrappedMemo = remark.match(
     /^(?:서비스|교환입고|교환출고)\((.*)\)$/,
   )?.[1];
   if (wrappedMemo) return wrappedMemo.trim();
   if (
-    remark === '서비스' ||
-    remark === '교환입고' ||
-    remark === '교환출고' ||
-    remark === '가격 조정' ||
-    remark === '가격조정'
+    remark === "서비스" ||
+    remark === "교환입고" ||
+    remark === "교환출고" ||
+    remark === "가격 조정" ||
+    remark === "가격조정"
   ) {
-    return '';
+    return "";
   }
   return remark;
 };
@@ -79,15 +79,15 @@ interface StampLogEditModalProps {
     note?: string | null;
   };
   initialAction: string;
-  initialPaymentType?: PaymentTypeEnumType['value'];
-  initialStoreName?: StoreTypeEnumType['value'];
+  initialPaymentType?: PaymentTypeEnumType["value"];
+  initialStoreName?: StoreTypeEnumType["value"];
   initialLogMeta?: StampLogMeta | null;
   isStampAmountEditable?: boolean;
   title?: string;
   onSubmit: (values: {
     note: string;
-    paymentType?: PaymentTypeEnumType['value'];
-    storeName: StoreTypeEnumType['value'];
+    paymentType?: PaymentTypeEnumType["value"];
+    storeName: StoreTypeEnumType["value"];
     logMeta: StampLogMeta;
     amount: number;
   }) => Promise<void>;
@@ -101,7 +101,7 @@ const StampLogEditModal = ({
   initialStoreName,
   initialLogMeta,
   isStampAmountEditable = false,
-  title = '출고 이력 수정',
+  title = "출고 이력 수정",
   onSubmit,
   onCancel,
 }: StampLogEditModalProps) => {
@@ -135,7 +135,7 @@ const StampLogEditModal = ({
       ) === stampLog.finalAmount);
 
   useEffect(() => {
-    setSize(step >= 2 ? 'max-w-6xl' : 'max-w-2xl');
+    setSize(step >= 2 ? "max-w-6xl" : "max-w-2xl");
   }, [setSize, step]);
 
   const handleSubmit = async () => {
@@ -172,7 +172,7 @@ const StampLogEditModal = ({
       </h2>
 
       <div className="mb-5 flex shrink-0 items-start justify-center">
-        {(['기본 정보', '품목 · 금액', '최종 확인'] as const).map(
+        {(["기본 정보", "품목 · 금액", "최종 확인"] as const).map(
           (label, index) => {
             const stepNumber = (index + 1) as 1 | 2 | 3;
             const isActive = step === stepNumber;
@@ -184,19 +184,17 @@ const StampLogEditModal = ({
                   <div
                     className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold transition-colors ${
                       isDone
-                        ? 'bg-gradient-to-r from-brand-500 to-brand-600 text-white shadow-sm'
+                        ? "bg-gradient-to-r from-brand-500 to-brand-600 text-white shadow-sm"
                         : isActive
-                          ? 'bg-brand-100 text-brand-600 ring-2 ring-brand-400'
-                          : 'bg-gray-100 text-gray-400'
+                          ? "bg-brand-100 text-brand-600 ring-2 ring-brand-400"
+                          : "bg-gray-100 text-gray-400"
                     }`}
                   >
-                    {isDone ? '✓' : stepNumber}
+                    {isDone ? "✓" : stepNumber}
                   </div>
                   <span
                     className={`whitespace-nowrap text-[11px] font-medium ${
-                      isActive || isDone
-                        ? 'text-brand-700'
-                        : 'text-gray-400'
+                      isActive || isDone ? "text-brand-700" : "text-gray-400"
                     }`}
                   >
                     {label}
@@ -205,7 +203,7 @@ const StampLogEditModal = ({
                 {index < 2 && (
                   <div
                     className={`mt-4 h-0.5 w-8 rounded-full transition-colors sm:w-12 ${
-                      isDone ? 'bg-brand-500' : 'bg-gray-200'
+                      isDone ? "bg-brand-500" : "bg-gray-200"
                     }`}
                   />
                 )}
@@ -226,9 +224,7 @@ const StampLogEditModal = ({
       <div className="min-h-0 flex-1 overflow-y-auto pr-1">
         <StampLogForm
           initialValue={initialValue}
-          isStampAmountEditable={
-            customerMode !== 'x' && isStampAmountEditable
-          }
+          isStampAmountEditable={customerMode !== "x" && isStampAmountEditable}
           layout="split"
           step={step}
           customerMode={customerMode}
@@ -241,43 +237,47 @@ const StampLogEditModal = ({
           <div className="space-y-4">
             <div
               className={`grid grid-cols-2 gap-2 ${
-                customerMode === 'x' ? 'md:grid-cols-4' : 'md:grid-cols-5'
+                customerMode === "x" ? "md:grid-cols-4" : "md:grid-cols-5"
               }`}
             >
               {[
                 {
-                  label: '출고 방식',
+                  label: "출고 방식",
                   value: stampLog.logMeta.reservationDate
                     ? `${stampLog.logMeta.reservationDate} 예약 출고`
-                    : '즉시 출고',
+                    : "즉시 출고",
                 },
-                { label: '출고 매장', value: stampLog.storeLabel },
+                { label: "출고 매장", value: stampLog.storeLabel },
                 {
-                  label: '수령 방식',
+                  label: "수령 방식",
                   value:
-                    stampLog.logMeta.deliveryMethod === 'parcel'
-                      ? '택배'
-                      : stampLog.logMeta.deliveryMethod === 'delivery'
-                        ? '배달'
-                        : '매장방문',
+                    stampLog.logMeta.deliveryMethod === "parcel"
+                      ? "택배"
+                      : stampLog.logMeta.deliveryMethod === "delivery"
+                        ? stampLog.logMeta.deliveryType === "self"
+                          ? "자체배달"
+                          : stampLog.logMeta.deliveryType === "customer_quick"
+                            ? "손님퀵"
+                            : "배달대행"
+                        : "매장방문",
                 },
-                ...(customerMode === 'x'
+                ...(customerMode === "x"
                   ? []
                   : [
                       {
-                        label: '스탬프 적립',
+                        label: "스탬프 적립",
                         value:
                           stampLog.amount === 0
-                            ? '미적립'
+                            ? "미적립"
                             : `${stampLog.amount}개`,
                       },
                     ]),
                 {
-                  label: '결제 정보',
+                  label: "결제 정보",
                   value: stampLog.logMeta.payments?.length
                     ? stampLog.logMeta.payments
                         .map((payment) => payment.paymentTypeName)
-                        .join(' · ')
+                        .join(" · ")
                     : stampLog.paymentTypeName,
                 },
               ].map((summary) => (
@@ -296,19 +296,21 @@ const StampLogEditModal = ({
             </div>
 
             <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
-              {stampLog.logMeta.deliveryMethod !== 'store_visit' && (
+              {(stampLog.logMeta.deliveryMethod === "parcel" ||
+                (stampLog.logMeta.deliveryMethod === "delivery" &&
+                  stampLog.logMeta.deliveryType === "agency")) && (
                 <div className="rounded-lg border border-gray-200 bg-white px-3 py-2.5">
                   <p className="text-xs font-medium text-gray-500">
-                    {stampLog.logMeta.deliveryMethod === 'delivery'
-                      ? '배달비'
-                      : '택배비'}
+                    {stampLog.logMeta.deliveryMethod === "delivery"
+                      ? "배달대행비"
+                      : "택배비"}
                   </p>
                   <p className="mt-1 text-sm font-semibold text-gray-900">
                     {formatAmount(stampLog.logMeta.deliveryFee ?? 0)}원
                   </p>
                 </div>
               )}
-              {stampLog.logMeta.deliveryMethod !== 'store_visit' && (
+              {stampLog.logMeta.deliveryMethod !== "store_visit" && (
                 <div className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 md:col-span-2">
                   <p className="text-xs font-medium text-gray-500">배송 주소</p>
                   <p className="mt-1 break-words text-sm text-gray-800">
@@ -318,14 +320,14 @@ const StampLogEditModal = ({
               )}
               <div
                 className={`rounded-lg border border-gray-200 bg-white px-3 py-2.5 ${
-                  stampLog.logMeta.deliveryMethod === 'store_visit'
-                    ? 'md:col-span-4'
-                    : ''
+                  stampLog.logMeta.deliveryMethod === "store_visit"
+                    ? "md:col-span-4"
+                    : ""
                 }`}
               >
                 <p className="text-xs font-medium text-gray-500">출고 메모</p>
                 <p className="mt-1 whitespace-pre-wrap break-words text-sm text-gray-800">
-                  {stampLog.logMeta.extraNote || '없음'}
+                  {stampLog.logMeta.extraNote || "없음"}
                 </p>
               </div>
             </div>
@@ -341,7 +343,7 @@ const StampLogEditModal = ({
                       stampLog.logMeta.items?.map((item) => item.itemId) ?? [],
                     ).size
                   }
-                  종 · 총{' '}
+                  종 · 총{" "}
                   {stampLog.logMeta.items?.reduce(
                     (sum, item) => sum + item.quantity,
                     0,
@@ -355,8 +357,12 @@ const StampLogEditModal = ({
                     <tr className="border-b border-gray-200">
                       <th className="w-[6%] px-2 py-2 text-center">번호</th>
                       <th className="w-[33%] px-2 py-2 text-left">품목명</th>
-                      <th className="w-[13%] px-2 py-2 text-center">품목종류</th>
-                      <th className="w-[13%] px-2 py-2 text-center">출고 유형</th>
+                      <th className="w-[13%] px-2 py-2 text-center">
+                        품목종류
+                      </th>
+                      <th className="w-[13%] px-2 py-2 text-center">
+                        출고 유형
+                      </th>
                       <th className="w-[8%] px-2 py-2 text-center">수량</th>
                       <th className="w-[13%] px-2 py-2 text-right">단가</th>
                       <th className="w-[14%] px-3 py-2 text-right">소계</th>
@@ -377,7 +383,9 @@ const StampLogEditModal = ({
                           </td>
                           <td className="px-2 py-2 font-medium text-gray-900">
                             <div className="flex flex-wrap items-center gap-x-1.5">
-                              <span className="break-words">{item.itemName}</span>
+                              <span className="break-words">
+                                {item.itemName}
+                              </span>
                               {memo && (
                                 <span className="break-words text-xs font-normal text-gray-500">
                                   ({memo})
@@ -386,7 +394,7 @@ const StampLogEditModal = ({
                             </div>
                           </td>
                           <td className="px-2 py-2 text-center text-xs font-medium text-gray-600">
-                            {item.itemCategoryName ?? '미분류'}
+                            {item.itemCategoryName ?? "미분류"}
                           </td>
                           <td className="px-2 py-2 text-center">
                             <span
@@ -400,7 +408,7 @@ const StampLogEditModal = ({
                           </td>
                           <td className="px-2 py-2 text-right text-gray-700">
                             {formatAmount(
-                              typeof item.adjustedUnitPrice === 'number'
+                              typeof item.adjustedUnitPrice === "number"
                                 ? item.adjustedUnitPrice
                                 : item.unitPrice,
                             )}
@@ -426,13 +434,13 @@ const StampLogEditModal = ({
             <div>
               <p className="text-xs text-gray-500">품목 수량</p>
               <p className="mt-0.5 text-sm font-semibold text-gray-900">
-                총{' '}
+                총{" "}
                 {
                   new Set(
                     stampLog.logMeta.items?.map((item) => item.itemId) ?? [],
                   ).size
                 }
-                종 ·{' '}
+                종 ·{" "}
                 {stampLog.logMeta.items?.reduce(
                   (sum, item) => sum + item.quantity,
                   0,
@@ -446,7 +454,7 @@ const StampLogEditModal = ({
                 {stampLog.logMeta.payments?.length
                   ? stampLog.logMeta.payments
                       .map((payment) => payment.paymentTypeName)
-                      .join(' · ')
+                      .join(" · ")
                   : stampLog.paymentTypeName}
               </p>
               {stampLog.logMeta.payments?.length ? (
@@ -456,7 +464,7 @@ const StampLogEditModal = ({
                       (payment) =>
                         `${payment.paymentTypeName} ${formatAmount(payment.amount)}원`,
                     )
-                    .join(' · ')}
+                    .join(" · ")}
                 </p>
               ) : null}
             </div>
@@ -477,7 +485,7 @@ const StampLogEditModal = ({
               <p className="mt-0.5 text-base font-semibold text-gray-900">
                 {stampLog.logMeta.discount
                   ? `${stampLog.logMeta.discount.name} ${formatAmount(stampLog.logMeta.discount.amount)}원`
-                  : '0원'}
+                  : "0원"}
               </p>
             </div>
             <div className="border-l border-gray-200 pl-5">
@@ -503,15 +511,13 @@ const StampLogEditModal = ({
             }}
             disabled={isSubmitting}
           >
-            {step === 1 ? '취소' : '이전'}
+            {step === 1 ? "취소" : "이전"}
           </Button>
           {step < 3 ? (
             step === 1 && !formValidity.hasCompletedBasicSequence ? null : (
               <Button
                 size="sm"
-                onClick={() =>
-                  setStep((current) => (current === 1 ? 2 : 3))
-                }
+                onClick={() => setStep((current) => (current === 1 ? 2 : 3))}
                 disabled={
                   step === 1
                     ? !formValidity.hasCompletedBasicSequence
@@ -527,7 +533,7 @@ const StampLogEditModal = ({
               onClick={handleSubmit}
               disabled={isSubmitting || !stampLog}
             >
-              {isSubmitting ? '저장 중...' : '수정'}
+              {isSubmitting ? "저장 중..." : "수정"}
             </Button>
           )}
         </div>

@@ -46,10 +46,9 @@ export default function ReportSnapshotView({
     queryFn: () => getDailyPaymentSales(snapshot!.businessDate),
     enabled: Boolean(
       snapshot?.businessDate &&
-        snapshot.inboundSummary?.some(
-          (item) =>
-            item.type === "purchase" && item.aggregationUnit !== "count",
-        ),
+      snapshot.inboundSummary?.some(
+        (item) => item.type === "purchase" && item.aggregationUnit !== "count",
+      ),
     ),
   });
   useEffect(() => {
@@ -424,8 +423,8 @@ export default function ReportSnapshotView({
                           ? item.aggregationUnit === "count"
                             ? `${item.quantity}건`
                             : receiptCount == null
-                            ? ""
-                            : `${receiptCount}건`
+                              ? ""
+                              : `${receiptCount}건`
                           : `${item.quantity}개`,
                     };
                   })}

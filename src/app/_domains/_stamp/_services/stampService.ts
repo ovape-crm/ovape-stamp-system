@@ -1,14 +1,14 @@
-import supabase from '@/libs/supabaseClient';
+import supabase from "@/libs/supabaseClient";
 import {
   createLog,
   withCreatedWorker,
-} from '@/app/_domains/_log/_services/logService';
+} from "@/app/_domains/_log/_services/logService";
 import {
   LogCategoryEnum,
   PaymentTypeEnumType,
   StoreTypeEnumType,
-} from '@/app/_enums/enums';
-import { confirmOutboundInventory } from '@/app/_domains/_inventory/_services/outboundInventoryService';
+} from "@/app/_enums/enums";
+import { confirmOutboundInventory } from "@/app/_domains/_inventory/_services/outboundInventoryService";
 
 export interface Stamp {
   id: string;
@@ -28,21 +28,24 @@ export type StampLogItem = {
   remark: string;
   lineText: string;
   inventoryAction?:
-    'out' | 'exchange_in' | 'exchange_out' | 'adjustment_in' | 'adjustment_out';
+    "out" | "exchange_in" | "exchange_out" | "adjustment_in" | "adjustment_out";
 };
 
 export type StampLogMeta = {
-  storeName?: StoreTypeEnumType['value'];
+  storeName?: StoreTypeEnumType["value"];
   totalAmount?: number;
   extraNote?: string;
   reservationDate?: string;
-  deliveryMethod?: 'store_visit' | 'parcel' | 'delivery';
-  deliveryAddressSource?: 'registered' | 'new';
+  deliveryMethod?: "store_visit" | "parcel" | "delivery";
+  deliveryType?: "agency" | "self" | "customer_quick";
+  parcelCarrier?: string;
+  deliveryAddressSource?: "registered" | "new";
   deliveryAddress?: string;
   deliveryMemo?: string;
+  deliveryBaseFee?: number;
   deliveryFee?: number;
   payments?: Array<{
-    paymentType: PaymentTypeEnumType['value'];
+    paymentType: PaymentTypeEnumType["value"];
     paymentTypeName: string;
     amount: number;
   }>;
@@ -61,17 +64,17 @@ export type StampLogMeta = {
 export const addStamp = async (
   customerId: string,
   amount: number = 1,
-  note: string = '',
-  paymentType?: PaymentTypeEnumType['value'],
+  note: string = "",
+  paymentType?: PaymentTypeEnumType["value"],
   logMeta?: StampLogMeta,
 ) => {
   if (!(await confirmOutboundInventory(logMeta?.items ?? []))) {
-    throw new Error('출고 처리를 취소했습니다.');
+    throw new Error("출고 처리를 취소했습니다.");
   }
-  const { error } = await supabase.rpc('apply_stamp_log_operation', {
+  const { error } = await supabase.rpc("apply_stamp_log_operation", {
     p_customer_id: customerId,
     p_stamp_delta: amount,
-    p_action: amount === 0 ? 'no-stamp' : `add-${amount}`,
+    p_action: amount === 0 ? "no-stamp" : `add-${amount}`,
     p_note: note,
     p_jsonb: await withCreatedWorker({ paymentType, ...logMeta }),
   });
@@ -84,14 +87,14 @@ export const addStamp = async (
 export const addReservationStamp = async (
   customerId: string,
   amount: number = 0,
-  note: string = '',
-  paymentType?: PaymentTypeEnumType['value'],
+  note: string = "",
+  paymentType?: PaymentTypeEnumType["value"],
   logMeta?: StampLogMeta,
 ) => {
   return createLog(
     LogCategoryEnum.RESERVATION.value,
     customerId,
-    amount === 0 ? 'no-stamp' : `add-${amount}`,
+    amount === 0 ? "no-stamp" : `add-${amount}`,
     note,
     { paymentType, ...logMeta },
   );
@@ -102,23 +105,23 @@ export const addReservationStamp = async (
  */
 export const confirmReservationStamp = async (logId: string) => {
   const { data: log, error } = await supabase
-    .from('logs')
-    .select('*')
-    .eq('id', logId)
+    .from("logs")
+    .select("*")
+    .eq("id", logId)
     .single();
 
   if (error) throw error;
-  if (!log) throw new Error('예약 이력을 찾을 수 없습니다');
+  if (!log) throw new Error("예약 이력을 찾을 수 없습니다");
 
   const reservationItems = Array.isArray(log.jsonb?.items)
     ? (log.jsonb.items as StampLogItem[])
     : [];
   if (!(await confirmOutboundInventory(reservationItems, logId))) {
-    throw new Error('출고 확정을 취소했습니다.');
+    throw new Error("출고 확정을 취소했습니다.");
   }
 
   const { error: updateError } = await supabase.rpc(
-    'confirm_reservation_stamp_operation',
+    "confirm_reservation_stamp_operation",
     { p_log_id: String(logId) },
   );
   if (updateError) throw updateError;
@@ -128,12 +131,12 @@ export const confirmReservationStamp = async (logId: string) => {
  * 스탬프 제거 (count 감소)
  */
 export const removeStamp = async (
-  mode: 'remove' | 'coupon',
+  mode: "remove" | "coupon",
   customerId: string,
   amount: number = 1,
-  note: string = '',
+  note: string = "",
 ) => {
-  const { error } = await supabase.rpc('apply_stamp_log_operation', {
+  const { error } = await supabase.rpc("apply_stamp_log_operation", {
     p_customer_id: customerId,
     p_stamp_delta: -amount,
     p_action: `${mode}-${amount}`,
@@ -148,10 +151,10 @@ export const removeStamp = async (
  */
 export const getStampsByCustomer = async (customerId: string) => {
   const { data, error } = await supabase
-    .from('stamps')
-    .select('*')
-    .eq('customer_id', customerId)
-    .order('created_at', { ascending: false });
+    .from("stamps")
+    .select("*")
+    .eq("customer_id", customerId)
+    .order("created_at", { ascending: false });
 
   if (error) throw error;
 
@@ -162,7 +165,7 @@ export const getStampsByCustomer = async (customerId: string) => {
  * 특정 스탬프 삭제
  */
 export const deleteStamp = async (stampId: string) => {
-  const { error } = await supabase.from('stamps').delete().eq('id', stampId);
+  const { error } = await supabase.from("stamps").delete().eq("id", stampId);
 
   if (error) throw error;
 };

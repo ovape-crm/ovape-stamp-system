@@ -1,4 +1,4 @@
-import { formatPhoneNumber } from '@/app/_utils/utils';
+import { formatPhoneNumber } from "@/app/_utils/utils";
 
 const CustomerInfo = ({
   name,
@@ -15,7 +15,7 @@ const CustomerInfo = ({
       onClick={onClick}
     >
       <p className="text-base font-semibold text-gray-900">
-        {name || '이름 없음'}
+        {name || "이름 없음"}
       </p>
       <p className="text-sm text-gray-600">{formatPhoneNumber(phone)}</p>
     </div>

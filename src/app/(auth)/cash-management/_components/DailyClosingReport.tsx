@@ -213,35 +213,48 @@ export default function DailyClosingReport({
         const parsed = JSON.parse(savedDraft) as {
           openingChecks?: Record<string, boolean>;
           closingChecks?: Record<string, boolean>;
+          cleaningNote?: string;
+          specialNote?: string;
         };
         setOpeningChecks(parsed.openingChecks ?? {});
         setClosingChecks(parsed.closingChecks ?? {});
+        setCleaningNote(parsed.cleaningNote ?? "");
+        setSpecialNote(parsed.specialNote ?? "");
       } catch {
         window.sessionStorage.removeItem(getChecklistDraftKey(businessDate));
         setOpeningChecks({});
         setClosingChecks({});
+        setCleaningNote("");
+        setSpecialNote("");
       }
     } else {
       setOpeningChecks({});
       setClosingChecks({});
+      setCleaningNote("");
+      setSpecialNote("");
     }
     setChecksDraftDate(businessDate);
-    setCleaningNote("");
-    setSpecialNote("");
   }, [businessDate]);
 
   useEffect(() => {
     if (checksDraftDate !== businessDate || reportQuery.data) return;
     window.sessionStorage.setItem(
       getChecklistDraftKey(businessDate),
-      JSON.stringify({ openingChecks, closingChecks }),
+      JSON.stringify({
+        openingChecks,
+        closingChecks,
+        cleaningNote,
+        specialNote,
+      }),
     );
   }, [
     businessDate,
     checksDraftDate,
+    cleaningNote,
     closingChecks,
     openingChecks,
     reportQuery.data,
+    specialNote,
   ]);
 
   useEffect(() => {
@@ -463,6 +476,29 @@ export default function DailyClosingReport({
   });
   const canCancelClosing =
     isClosed && (isAdmin || businessDate === getTodayInKorea());
+  const handleCompleteClosing = () => {
+    open({
+      content: (
+        <ConfirmModal
+          title="마감 전 확인"
+          description="매출 금액과 체크리스트를 모두 확인했나요?"
+          confirmLabel="마감 처리"
+          cancelLabel="다시 확인"
+          confirmingLabel="마감 처리 중..."
+          onCancel={close}
+          onConfirm={async () => {
+            try {
+              await closeMutation.mutateAsync();
+              close();
+            } catch {
+              // 오류 안내는 closeMutation에서 처리합니다.
+            }
+          }}
+        />
+      ),
+      options: { dismissOnBackdrop: false },
+    });
+  };
   const handleCancelClosing = () => {
     open({
       content: (
@@ -830,7 +866,7 @@ export default function DailyClosingReport({
           )}
         </div>
         <Button
-          onClick={() => closeMutation.mutate()}
+          onClick={handleCompleteClosing}
           disabled={
             isClosed ||
             closeMutation.isPending ||
