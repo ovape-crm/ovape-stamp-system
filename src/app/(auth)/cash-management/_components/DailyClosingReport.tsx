@@ -334,8 +334,7 @@ export default function DailyClosingReport({
           })),
           inboundSummary: paymentSales.inboundSummary.map((item) => ({
             ...item,
-            aggregationUnit:
-              item.type === "purchase" ? "count" : "quantity",
+            aggregationUnit: item.type === "purchase" ? "count" : "quantity",
           })),
           deliverySummary: paymentSales.deliverySummary.map((item) => ({
             ...item,
@@ -557,7 +556,7 @@ export default function DailyClosingReport({
 
       <div ref={captureRef} className="space-y-4 bg-white">
         <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
-          <div className="flex flex-col gap-4 lg:w-[500px] lg:flex-row lg:items-start">
+          <div className="flex flex-col gap-4 lg:w-[620px] lg:flex-row lg:items-start">
             <div className="shrink-0">
               <p className="text-xs font-semibold text-gray-500">마감 날짜</p>
               <h2 className="mt-1 text-lg font-bold text-gray-900">
@@ -572,12 +571,12 @@ export default function DailyClosingReport({
                   workJournals.map((journal) => (
                     <div
                       key={journal.id}
-                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm"
+                      className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm"
                     >
-                      <strong className="text-gray-900">
+                      <strong className="min-w-0 truncate text-gray-900">
                         {journal.worker_name}
                       </strong>
-                      <span className="text-gray-600">
+                      <span className="whitespace-nowrap text-gray-600">
                         {journal.start_time.slice(0, 5)} ~{" "}
                         {journal.status === "working"
                           ? "근무 중"
@@ -878,35 +877,57 @@ function Checklist({
     <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
       <h2 className="font-bold text-gray-900">{title}</h2>
       <div className="mt-3 space-y-2">
-        {tasks.map((item) => (
-          <label
-            key={item.id}
-            className="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 px-3 py-2.5 hover:bg-gray-50"
-          >
-            <input
-              type="checkbox"
-              checked={Boolean(values[item.id])}
-              onChange={() => onToggle(item.id)}
-              disabled={disabled}
-              className="h-5 w-5 cursor-pointer accent-brand-500"
-            />
-            <span className="text-sm font-medium text-gray-700">
-              {item.label}
-            </span>
-            {item.is_required && (
-              <span className="ml-auto shrink-0 rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-bold text-rose-600">
-                필수
-              </span>
-            )}
-            {item.is_opening_gate && (
+        {tasks.map((item) => {
+          const checked = Boolean(values[item.id]);
+
+          return (
+            <label
+              key={item.id}
+              className={`flex items-center gap-3 rounded-xl border border-gray-200 px-3 py-2.5 hover:bg-gray-50 ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}
+            >
+              <input
+                type="checkbox"
+                checked={checked}
+                onChange={() => onToggle(item.id)}
+                disabled={disabled}
+                className="sr-only"
+              />
               <span
-                className={`${item.is_required ? "" : "ml-auto"} shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700`}
+                aria-hidden="true"
+                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors ${
+                  checked
+                    ? "border-brand-500 bg-brand-500 text-white"
+                    : "border-gray-300 bg-white text-transparent"
+                }`}
               >
-                오픈
+                <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none">
+                  <path
+                    d="m5 10 3 3 7-7"
+                    stroke="currentColor"
+                    strokeWidth="2.25"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
               </span>
-            )}
-          </label>
-        ))}
+              <span className="text-sm font-medium text-gray-700">
+                {item.label}
+              </span>
+              {item.is_required && (
+                <span className="ml-auto shrink-0 rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-bold text-rose-600">
+                  필수
+                </span>
+              )}
+              {item.is_opening_gate && (
+                <span
+                  className={`${item.is_required ? "" : "ml-auto"} shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700`}
+                >
+                  오픈
+                </span>
+              )}
+            </label>
+          );
+        })}
       </div>
     </section>
   );
