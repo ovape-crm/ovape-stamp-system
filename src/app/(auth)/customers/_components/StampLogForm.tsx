@@ -8,7 +8,12 @@ import {
   StoreTypeEnumType,
 } from "@/app/_enums/enums";
 import { useItems } from "@/app/_domains/_item/_hooks/useItems";
+import { useOutboundMemoRules } from "@/app/_domains/_item/_hooks/useOutboundMemoRules";
 import type { ItemType } from "@/app/_domains/_item/_types/item.types";
+import type {
+  OutboundMemoRule,
+  OutboundMemoRuleOutboundType,
+} from "@/app/_domains/_item/_types/outboundMemoRule.types";
 import toast from "react-hot-toast";
 import type {
   StampLogItem,
@@ -94,6 +99,18 @@ const parseSignedAmount = (value: string) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const getOutboundRuleType = (
+  remarkType: RemarkOptionValue,
+): OutboundMemoRuleOutboundType => {
+  if (remarkType === "exchange_in" || remarkType === "exchange_out") {
+    return remarkType;
+  }
+  if (remarkType === "service" || remarkType === "price_adjust") {
+    return remarkType;
+  }
+  return "standard";
+};
+
 export default function StampLogForm({
   onChange,
   initialValue,
@@ -145,9 +162,7 @@ export default function StampLogForm({
   const [amount, setAmount] = useState<number>(
     customerMode === "x" ? 0 : (initialValue?.amount ?? 0),
   );
-  const [paymentMode, setPaymentMode] = useState<
-    "single" | "split" | "remark"
-  >(
+  const [paymentMode, setPaymentMode] = useState<"single" | "split" | "remark">(
     initialValue?.logMeta?.payments?.length
       ? "split"
       : initialValue?.paymentType === PaymentTypeEnum.SHIPMENT_REMARK.value
@@ -173,9 +188,7 @@ export default function StampLogForm({
   );
   const [deliveryAddressSource, setDeliveryAddressSource] = useState<
     "registered" | "new"
-  >(
-    initialValue?.logMeta?.deliveryAddressSource ?? "new",
-  );
+  >(initialValue?.logMeta?.deliveryAddressSource ?? "new");
   const [deliveryAddress, setDeliveryAddress] = useState(
     initialValue?.logMeta?.deliveryAddress ?? "",
   );
@@ -184,8 +197,7 @@ export default function StampLogForm({
       ? ""
       : String(initialValue.logMeta.deliveryFee),
   );
-  const deliveryFee =
-    deliveryFeeInput === "" ? 0 : Number(deliveryFeeInput);
+  const deliveryFee = deliveryFeeInput === "" ? 0 : Number(deliveryFeeInput);
   const [itemSearch, setItemSearch] = useState("");
   const [selectedItem, setSelectedItem] = useState<ItemType | null>(null);
   const [showItemResults, setShowItemResults] = useState(false);
@@ -234,6 +246,8 @@ export default function StampLogForm({
     [itemSearch],
   );
   const { items, isLoading: isItemsLoading } = useItems(itemFilters);
+  const { rules: outboundMemoRules, isError: isOutboundMemoRulesError } =
+    useOutboundMemoRules();
 
   const paymentTypeOptions = paymentTypesByStore[storeName];
   const isNonSalesSpecialCustomer =
@@ -249,15 +263,76 @@ export default function StampLogForm({
       : customerMode === "demo"
         ? ([{ value: "demo", name: "시연용" }] as const)
         : remarkOptions;
-  const isDeviceSelected =
+  const getMemoRulesForItem = (
+    item: ItemType | null,
+    outboundType: OutboundMemoRuleOutboundType,
+  ): OutboundMemoRule[] => {
+    if (!item || !usesStandardSalesFlow) return [];
+
+    const itemRules = outboundMemoRules.filter(
+      (rule) =>
+        rule.is_active &&
+        (rule.applicable_outbound_types?.length
+          ? rule.applicable_outbound_types
+          : [
+              "standard",
+              "service",
+              "exchange_in",
+              "exchange_out",
+              "price_adjust",
+            ]
+        ).includes(outboundType) &&
+        rule.target_type === "item" &&
+        String(rule.item_id) === String(item.id),
+    );
+    if (itemRules.length) return itemRules;
+
+    return outboundMemoRules.filter(
+      (rule) =>
+        rule.is_active &&
+        (rule.applicable_outbound_types?.length
+          ? rule.applicable_outbound_types
+          : [
+              "standard",
+              "service",
+              "exchange_in",
+              "exchange_out",
+              "price_adjust",
+            ]
+        ).includes(outboundType) &&
+        rule.target_type === "category" &&
+        (String(rule.category_id) === String(item.category_id) ||
+          (Boolean(rule.item_categories?.name) &&
+            rule.item_categories?.name === item.item_categories?.name)),
+    );
+  };
+  const selectedOutboundRuleType = getOutboundRuleType(remarkType);
+  const selectedMemoRules = getMemoRulesForItem(
+    selectedItem,
+    selectedOutboundRuleType,
+  );
+  const usesLegacyDeviceMemoRule =
+    isOutboundMemoRulesError &&
     selectedItem?.item_categories?.name.trim() === "기기";
+  const selectedMemoMessages = usesLegacyDeviceMemoRule
+    ? ["박스 매장 보관 유무를 적어주세요."]
+    : selectedMemoRules.map((rule) => rule.message);
+  const isSelectedMemoRequired = selectedMemoRules.some(
+    (rule) => rule.is_required,
+  );
+  const selectedRuleMemo =
+    selectedOutboundRuleType === "exchange_in" ||
+    selectedOutboundRuleType === "exchange_out"
+      ? exchangeMemo
+      : selectedOutboundRuleType === "price_adjust"
+        ? priceAdjustMemo
+        : customRemark;
   const totalAmount = draftLines.reduce((sum, line) => sum + line.amount, 0);
   const discountLabel = discountOptions.find(
     (option) => option.value === discountType,
   )?.name;
   const activeDiscountAmount = discountLabel ? discountAmount : 0;
-  const activeDeliveryFee =
-    deliveryMethod === "store_visit" ? 0 : deliveryFee;
+  const activeDeliveryFee = deliveryMethod === "store_visit" ? 0 : deliveryFee;
   const discountTag =
     discountLabel && activeDiscountAmount > 0
       ? `${discountLabel}할인${activeDiscountAmount}`
@@ -277,9 +352,7 @@ export default function StampLogForm({
   const transactionNote =
     transactionTags.length > 0 ? `${transactionTags.join(",")})` : "";
   const itemNote = draftLines.map((line) => line.lineText).join(", ");
-  const generatedNote = [transactionNote, itemNote]
-    .filter(Boolean)
-    .join(" ");
+  const generatedNote = [transactionNote, itemNote].filter(Boolean).join(" ");
   const finalAmount = totalAmount - activeDiscountAmount;
   const splitPaymentTotal = splitPayments.reduce(
     (sum, payment) => sum + payment.amount,
@@ -296,9 +369,7 @@ export default function StampLogForm({
     .join(" + ");
   const finalAmountExpression = [
     amountExpression || "0",
-    activeDiscountAmount > 0
-      ? `- ${formatAmount(activeDiscountAmount)}`
-      : "",
+    activeDiscountAmount > 0 ? `- ${formatAmount(activeDiscountAmount)}` : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -495,12 +566,40 @@ export default function StampLogForm({
     setSelectedItem(item);
     setItemSearch("");
     setShowItemResults(false);
+    const matchedRules = getMemoRulesForItem(
+      item,
+      getOutboundRuleType(remarkType),
+    );
+    const useLegacyRule =
+      isOutboundMemoRulesError && item.item_categories?.name.trim() === "기기";
+    const messages = useLegacyRule
+      ? ["박스 매장 보관 유무를 적어주세요."]
+      : matchedRules.map((rule) => rule.message);
     if (
-      usesStandardSalesFlow &&
-      item.item_categories?.name.trim() === "기기"
+      useLegacyRule ||
+      matchedRules.some((rule) => rule.auto_select_memo || rule.is_required)
     ) {
       setRemarkType("custom");
-      toast("메모입력에 박스보관유무를 적어주세요.", {
+    }
+    if (messages.length) {
+      toast(messages.join("\n"), {
+        icon: "📦",
+      });
+    }
+  };
+
+  const handleRemarkTypeChange = (nextType: RemarkOptionValue) => {
+    const matchedRules = getMemoRulesForItem(
+      selectedItem,
+      getOutboundRuleType(nextType),
+    );
+    setRemarkType(
+      nextType === "" && matchedRules.some((rule) => rule.is_required)
+        ? "custom"
+        : nextType,
+    );
+    if (matchedRules.length) {
+      toast(matchedRules.map((rule) => rule.message).join("\n"), {
         icon: "📦",
       });
     }
@@ -514,6 +613,10 @@ export default function StampLogForm({
 
   const handleAddLine = () => {
     if (!selectedItem || quantity < 1) return;
+    if (isSelectedMemoRequired && !selectedRuleMemo.trim()) {
+      toast.error("안내된 메모를 입력해 주세요.");
+      return;
+    }
     if (
       customerMode === "adjustment" &&
       remarkType !== "adjustment_in" &&
@@ -565,29 +668,29 @@ export default function StampLogForm({
     }`;
 
     const nextLine: DraftStampLogLine = {
-        id: editingLineId ?? `${selectedItem.id}-${Date.now()}`,
-        itemId: selectedItem.id,
-        itemName: selectedItem.item_name,
-        itemCategoryName: selectedItem.item_categories?.name ?? null,
-        quantity,
-        unitPrice: price,
-        adjustedUnitPrice: remarkType === "price_adjust" ? adjustedPrice : null,
-        amount: lineAmount,
-        remark,
-        lineText,
-        inventoryAction:
-          customerMode === "demo"
-            ? "out"
-            : remarkType === "exchange_in"
-              ? "exchange_in"
-              : remarkType === "exchange_out"
-                ? "exchange_out"
-                : remarkType === "adjustment_in"
-                  ? "adjustment_in"
-                  : remarkType === "adjustment_out"
-                    ? "adjustment_out"
-                    : "out",
-      };
+      id: editingLineId ?? `${selectedItem.id}-${Date.now()}`,
+      itemId: selectedItem.id,
+      itemName: selectedItem.item_name,
+      itemCategoryName: selectedItem.item_categories?.name ?? null,
+      quantity,
+      unitPrice: price,
+      adjustedUnitPrice: remarkType === "price_adjust" ? adjustedPrice : null,
+      amount: lineAmount,
+      remark,
+      lineText,
+      inventoryAction:
+        customerMode === "demo"
+          ? "out"
+          : remarkType === "exchange_in"
+            ? "exchange_in"
+            : remarkType === "exchange_out"
+              ? "exchange_out"
+              : remarkType === "adjustment_in"
+                ? "adjustment_in"
+                : remarkType === "adjustment_out"
+                  ? "adjustment_out"
+                  : "out",
+    };
 
     setDraftLines((prev) =>
       editingLineId
@@ -645,7 +748,9 @@ export default function StampLogForm({
       setExchangeMemo(line.remark?.match(/^교환출고\((.*)\)$/)?.[1] ?? "");
     } else if (typeof line.adjustedUnitPrice === "number") {
       setRemarkType("price_adjust");
-      setPriceAdjustMemo(line.remark === "가격 조정" ? "" : (line.remark ?? ""));
+      setPriceAdjustMemo(
+        line.remark === "가격 조정" ? "" : (line.remark ?? ""),
+      );
     } else if (line.remark?.startsWith("서비스")) {
       setRemarkType("service");
       setCustomRemark(line.remark.match(/^서비스\((.*)\)$/)?.[1] ?? "");
@@ -863,7 +968,9 @@ export default function StampLogForm({
         amount === 0 && (
           <p className="mt-1.5 whitespace-nowrap text-[10px] text-gray-400">
             0개 입력시{" "}
-            <span className="font-medium text-gray-500">미적립 처리됩니다.</span>
+            <span className="font-medium text-gray-500">
+              미적립 처리됩니다.
+            </span>
           </p>
         )
       )}
@@ -935,9 +1042,7 @@ export default function StampLogForm({
                   setSplitPayments([]);
                 } else if (option.value === "single") {
                   setSplitPayments([]);
-                  if (
-                    paymentType === PaymentTypeEnum.SHIPMENT_REMARK.value
-                  )
+                  if (paymentType === PaymentTypeEnum.SHIPMENT_REMARK.value)
                     setPaymentType("");
                 } else {
                   setPaymentType("");
@@ -976,8 +1081,7 @@ export default function StampLogForm({
                           (payment) => payment.paymentType === option.value,
                         )
                           ? current.filter(
-                              (payment) =>
-                                payment.paymentType !== option.value,
+                              (payment) => payment.paymentType !== option.value,
                             )
                           : [
                               ...current,
@@ -1023,8 +1127,7 @@ export default function StampLogForm({
               type="button"
               size="sm"
               variant={
-                hasConfirmedDeliveryMethod &&
-                deliveryMethod === option.value
+                hasConfirmedDeliveryMethod && deliveryMethod === option.value
                   ? "primary"
                   : "gray"
               }
@@ -1307,6 +1410,7 @@ export default function StampLogForm({
               disabled={
                 !selectedItem ||
                 quantity < 1 ||
+                (isSelectedMemoRequired && !selectedRuleMemo.trim()) ||
                 (customerMode === "adjustment" &&
                   remarkType !== "adjustment_in" &&
                   remarkType !== "adjustment_out")
@@ -1330,29 +1434,39 @@ export default function StampLogForm({
               type="button"
               size="xs"
               variant={remarkType === option.value ? "primary" : "gray"}
-              onClick={() => setRemarkType(option.value)}
+              onClick={() => handleRemarkTypeChange(option.value)}
             >
               {option.name}
             </Button>
           ))}
         </div>
 
+        {selectedMemoMessages.length > 0 && (
+          <div className="space-y-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+            {selectedMemoMessages.map((message) => (
+              <p key={message}>
+                {message}
+                {isSelectedMemoRequired && (
+                  <span className="ml-1 font-bold text-rose-600">필수</span>
+                )}
+              </p>
+            ))}
+          </div>
+        )}
+
         {(remarkType === "custom" || remarkType === "service") && (
           <div>
-            {remarkType === "custom" && isDeviceSelected && (
-              <p className="mb-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
-                메모입력에 박스보관유무를 적어주세요.
-              </p>
-            )}
             <input
               type="text"
               value={customRemark}
               onChange={(e) => setCustomRemark(e.target.value)}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-500"
               placeholder={
-                remarkType === "service"
-                  ? "특이사항을 입력하세요. (선택)"
-                  : "ex) 박스매장보관 여부, 다른 특이사항"
+                selectedMemoMessages[0]
+                  ? selectedMemoMessages[0]
+                  : remarkType === "service"
+                    ? "특이사항을 입력하세요. (선택)"
+                    : "특이사항을 입력하세요."
               }
             />
           </div>
@@ -1384,7 +1498,9 @@ export default function StampLogForm({
             value={exchangeMemo}
             onChange={(event) => setExchangeMemo(event.target.value)}
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-500"
-            placeholder="특이사항을 입력하세요. (선택)"
+            placeholder={
+              selectedMemoMessages[0] ?? "특이사항을 입력하세요. (선택)"
+            }
           />
         )}
 
@@ -1414,7 +1530,7 @@ export default function StampLogForm({
               value={priceAdjustMemo}
               onChange={(e) => setPriceAdjustMemo(e.target.value)}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-500"
-              placeholder="미입력 시 가격 조정"
+              placeholder={selectedMemoMessages[0] ?? "미입력 시 가격 조정"}
             />
           </div>
         )}
@@ -1638,7 +1754,7 @@ export default function StampLogForm({
             >
               <div className="flex h-11 min-w-0 items-center rounded-lg border border-gray-200 bg-white px-3">
                 <span className="truncate text-sm font-semibold text-gray-700">
-                {payment.paymentTypeName}
+                  {payment.paymentTypeName}
                 </span>
               </div>
               <label className="flex h-11 min-w-0 items-center gap-1 rounded-lg border border-gray-200 bg-white px-2">
@@ -1746,30 +1862,30 @@ export default function StampLogForm({
           <div className={step === 1 ? "space-y-5" : "hidden"}>
             <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
               {stepOneStoreField}
-            {isNonSalesSpecialCustomer ? (
-              <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
-                <span className="text-sm font-medium text-gray-600">
-                  결제 유형
-                </span>
-                <p className="mt-1 font-semibold text-gray-900">
-                  특이사항 · 0원 처리
-                </p>
-              </div>
-            ) : (
-              <>
-                {hasConfirmedStore && stepOneDeliveryField}
-                {hasConfirmedStore &&
-                  hasConfirmedDeliveryMethod &&
-                  hasValidDeliveryInfo &&
-                  stepOnePaymentField}
-                {hasConfirmedStore &&
-                  hasConfirmedDeliveryMethod &&
-                  hasValidDeliveryInfo &&
-                  hasValidPayment &&
-                  customerMode !== "x" &&
-                  stepOneStampField}
-              </>
-            )}
+              {isNonSalesSpecialCustomer ? (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+                  <span className="text-sm font-medium text-gray-600">
+                    결제 유형
+                  </span>
+                  <p className="mt-1 font-semibold text-gray-900">
+                    특이사항 · 0원 처리
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {hasConfirmedStore && stepOneDeliveryField}
+                  {hasConfirmedStore &&
+                    hasConfirmedDeliveryMethod &&
+                    hasValidDeliveryInfo &&
+                    stepOnePaymentField}
+                  {hasConfirmedStore &&
+                    hasConfirmedDeliveryMethod &&
+                    hasValidDeliveryInfo &&
+                    hasValidPayment &&
+                    customerMode !== "x" &&
+                    stepOneStampField}
+                </>
+              )}
             </div>
           </div>
           <div className={step === 2 ? "space-y-5" : "hidden"}>

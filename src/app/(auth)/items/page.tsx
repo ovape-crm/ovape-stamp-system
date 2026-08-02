@@ -1,27 +1,32 @@
-'use client';
+"use client";
 
-import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Button from '@/app/_components/Button';
-import { useModal } from '@/app/_contexts/ModalContext';
-import { useItemCategories } from '@/app/_domains/_item/_hooks/useItemCategories';
-import { createItem, updateItem, deleteItem } from '@/app/_domains/_item/_services/itemService';
-import { getAllItemsForBulk } from '@/app/_domains/_item/_services/itemBulkService';
+import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import Button from "@/app/_components/Button";
+import { useModal } from "@/app/_contexts/ModalContext";
+import { useItemCategories } from "@/app/_domains/_item/_hooks/useItemCategories";
+import {
+  createItem,
+  updateItem,
+  deleteItem,
+} from "@/app/_domains/_item/_services/itemService";
+import { getAllItemsForBulk } from "@/app/_domains/_item/_services/itemBulkService";
 import {
   itemKeys,
   ItemFilters,
-} from '@/app/_domains/_item/_queryKeys/itemKeys';
-import { ItemType } from '@/app/_domains/_item/_types/item.types';
-import ItemSearchBox from './_components/ItemSearchBox';
-import ItemList from './_components/ItemList';
-import ItemCreateModal from './_components/ItemCreateModal';
-import type { FormValues } from './_components/ItemCreateModal';
-import DeleteConfirmModal from '@/app/(auth)/_components/DeleteConfirmModal';
-import toast from 'react-hot-toast';
-import { useUser } from '@/app/_contexts/UserContext';
-import Loading from '@/app/_components/Loading';
-import ItemBulkReplaceModal from './_components/ItemBulkReplaceModal';
+} from "@/app/_domains/_item/_queryKeys/itemKeys";
+import { ItemType } from "@/app/_domains/_item/_types/item.types";
+import ItemSearchBox from "./_components/ItemSearchBox";
+import ItemList from "./_components/ItemList";
+import ItemCreateModal from "./_components/ItemCreateModal";
+import type { FormValues } from "./_components/ItemCreateModal";
+import DeleteConfirmModal from "@/app/(auth)/_components/DeleteConfirmModal";
+import toast from "react-hot-toast";
+import { useUser } from "@/app/_contexts/UserContext";
+import Loading from "@/app/_components/Loading";
+import ItemBulkReplaceModal from "./_components/ItemBulkReplaceModal";
+import OutboundMemoRuleManageModal from "./_components/OutboundMemoRuleManageModal";
 
 const ItemsPage = () => {
   const queryClient = useQueryClient();
@@ -32,7 +37,7 @@ const ItemsPage = () => {
   const [filters, setFilters] = useState<ItemFilters>({});
 
   useEffect(() => {
-    if (!isLoading && !isAdmin) router.replace('/product-search');
+    if (!isLoading && !isAdmin) router.replace("/product-search");
   }, [isAdmin, isLoading, router]);
 
   const handleSearch = (newFilters: ItemFilters) => {
@@ -40,10 +45,7 @@ const ItemsPage = () => {
   };
 
   const effectiveFilters = useMemo<ItemFilters>(
-    () =>
-      isAdmin
-        ? filters
-        : { ...filters, excludePurchasePrice: true },
+    () => (isAdmin ? filters : { ...filters, excludePurchasePrice: true }),
     [isAdmin, filters],
   );
 
@@ -54,11 +56,11 @@ const ItemsPage = () => {
       itemName: values.itemName,
       purchasePrice: values.purchasePrice ?? null,
       sellingPrice: values.sellingPrice ?? null,
-      liquidType: values.liquidType ?? '',
-      liquidFlavor: values.liquidFlavor ?? '',
-      note: values.note ?? '',
+      liquidType: values.liquidType ?? "",
+      liquidFlavor: values.liquidFlavor ?? "",
+      note: values.note ?? "",
     });
-    toast.success('품목이 추가되었습니다.');
+    toast.success("품목이 추가되었습니다.");
     close();
     queryClient.invalidateQueries({ queryKey: itemKeys.lists() });
   };
@@ -76,12 +78,12 @@ const ItemsPage = () => {
               itemName: values.itemName,
               purchasePrice: values.purchasePrice ?? null,
               sellingPrice: values.sellingPrice ?? null,
-              liquidType: values.liquidType ?? '',
-              liquidFlavor: values.liquidFlavor ?? '',
-              note: values.note ?? '',
+              liquidType: values.liquidType ?? "",
+              liquidFlavor: values.liquidFlavor ?? "",
+              note: values.note ?? "",
               isUse: values.isUse ?? true,
             });
-            toast.success('품목이 수정되었습니다.');
+            toast.success("품목이 수정되었습니다.");
             close();
             queryClient.invalidateQueries({ queryKey: itemKeys.lists() });
           }}
@@ -100,7 +102,7 @@ const ItemsPage = () => {
           description={`"${item.item_name}" 품목을 삭제하시겠습니까?`}
           onConfirm={async () => {
             await deleteItem(item.id);
-            toast.success('품목이 삭제되었습니다.');
+            toast.success("품목이 삭제되었습니다.");
             close();
             queryClient.invalidateQueries({ queryKey: itemKeys.lists() });
           }}
@@ -111,27 +113,56 @@ const ItemsPage = () => {
     });
   };
 
-
   const handleOpenBulkReplace = async () => {
     try {
       const items = await getAllItemsForBulk();
       open({
-        content: <ItemBulkReplaceModal items={items} categories={categories} onClose={close} onSaved={async () => { await queryClient.invalidateQueries({ queryKey: itemKeys.lists() }); }} />,
-        options: { dismissOnBackdrop: false, dismissOnEsc: false, size: 'max-w-4xl' },
+        content: (
+          <ItemBulkReplaceModal
+            items={items}
+            categories={categories}
+            onClose={close}
+            onSaved={async () => {
+              await queryClient.invalidateQueries({
+                queryKey: itemKeys.lists(),
+              });
+            }}
+          />
+        ),
+        options: {
+          dismissOnBackdrop: false,
+          dismissOnEsc: false,
+          size: "max-w-4xl",
+        },
       });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : '품목 목록을 불러오지 못했습니다.');
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "품목 목록을 불러오지 못했습니다.",
+      );
     }
   };
 
-  if (isLoading || !isAdmin) return <Loading size="lg" text="권한을 확인하는 중..." />;
+  const handleOpenOutboundMemoRules = () => {
+    open({
+      content: <OutboundMemoRuleManageModal onClose={close} />,
+      options: {
+        dismissOnBackdrop: false,
+        dismissOnEsc: true,
+        size: "max-w-3xl",
+      },
+    });
+  };
+
+  if (isLoading || !isAdmin)
+    return <Loading size="lg" text="권한을 확인하는 중..." />;
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
       <div className="rounded-lg border border-brand-100 bg-white p-4 shadow-sm sm:p-6">
         <div className="space-y-3 pb-4">
-        <ItemSearchBox categories={categories} onSearch={handleSearch} />
-
+          <ItemSearchBox categories={categories} onSearch={handleSearch} />
         </div>
 
         <div>
@@ -143,6 +174,13 @@ const ItemsPage = () => {
             actions={
               isAdmin ? (
                 <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={handleOpenOutboundMemoRules}
+                  >
+                    메모 알림 관리
+                  </Button>
                   <Button
                     size="sm"
                     variant="secondary"
