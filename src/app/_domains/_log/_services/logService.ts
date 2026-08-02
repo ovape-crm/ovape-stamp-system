@@ -334,6 +334,16 @@ export const updateLogNote = async (
       delete nextJsonb.extraNote;
     }
     nextJsonb.deliveryMethod = logMeta.deliveryMethod ?? "store_visit";
+    if (logMeta.deliveryType) {
+      nextJsonb.deliveryType = logMeta.deliveryType;
+    } else {
+      delete nextJsonb.deliveryType;
+    }
+    if (logMeta.parcelCarrier) {
+      nextJsonb.parcelCarrier = logMeta.parcelCarrier;
+    } else {
+      delete nextJsonb.parcelCarrier;
+    }
     if (logMeta.deliveryAddressSource) {
       nextJsonb.deliveryAddressSource = logMeta.deliveryAddressSource;
     } else {
@@ -348,6 +358,11 @@ export const updateLogNote = async (
       nextJsonb.deliveryFee = logMeta.deliveryFee;
     } else {
       delete nextJsonb.deliveryFee;
+    }
+    if (logMeta.deliveryBaseFee !== undefined) {
+      nextJsonb.deliveryBaseFee = logMeta.deliveryBaseFee;
+    } else {
+      delete nextJsonb.deliveryBaseFee;
     }
     if (logMeta.payments?.length) {
       nextJsonb.payments = logMeta.payments;

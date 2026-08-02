@@ -66,6 +66,7 @@ const discountOptions = [
 
 type DiscountOptionValue = (typeof discountOptions)[number]["value"];
 type DeliveryMethod = "store_visit" | "parcel" | "delivery";
+type DeliveryType = "agency" | "self" | "customer_quick";
 
 type DraftStampLogLine = StampLogItem & {
   id: string;
@@ -182,6 +183,13 @@ export default function StampLogForm({
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>(
     initialValue?.logMeta?.deliveryMethod ?? "store_visit",
   );
+  const [deliveryType, setDeliveryType] = useState<DeliveryType | "">(
+    initialValue?.logMeta?.deliveryType ??
+      (initialValue?.logMeta?.deliveryMethod === "delivery" ? "agency" : ""),
+  );
+  const [parcelCarrier, setParcelCarrier] = useState(
+    initialValue?.logMeta?.parcelCarrier ?? "",
+  );
   const [hasConfirmedStore, setHasConfirmedStore] = useState(true);
   const [hasConfirmedDeliveryMethod, setHasConfirmedDeliveryMethod] = useState(
     Boolean(initialValue),
@@ -192,12 +200,40 @@ export default function StampLogForm({
   const [deliveryAddress, setDeliveryAddress] = useState(
     initialValue?.logMeta?.deliveryAddress ?? "",
   );
-  const [deliveryFeeInput, setDeliveryFeeInput] = useState(
-    initialValue?.logMeta?.deliveryFee === undefined
-      ? ""
-      : String(initialValue.logMeta.deliveryFee),
+  const [parcelFeeInput, setParcelFeeInput] = useState(
+    initialValue?.logMeta?.deliveryMethod === "parcel" &&
+      initialValue.logMeta.deliveryFee !== undefined
+      ? String(initialValue.logMeta.deliveryFee)
+      : "",
   );
+  const [agencyFeeInput, setAgencyFeeInput] = useState(
+    initialValue?.logMeta?.deliveryMethod === "delivery" &&
+      (initialValue.logMeta.deliveryBaseFee !== undefined ||
+        initialValue.logMeta.deliveryFee !== undefined)
+      ? String(
+          initialValue.logMeta.deliveryBaseFee ??
+            initialValue.logMeta.deliveryFee,
+        )
+      : "",
+  );
+  const deliveryFeeInput =
+    deliveryMethod === "parcel"
+      ? parcelFeeInput
+      : deliveryMethod === "delivery"
+        ? agencyFeeInput
+        : "";
+  const setDeliveryFeeInput = (value: string) => {
+    if (deliveryMethod === "parcel") {
+      setParcelFeeInput(value);
+    } else if (deliveryMethod === "delivery") {
+      setAgencyFeeInput(value);
+    }
+  };
   const deliveryFee = deliveryFeeInput === "" ? 0 : Number(deliveryFeeInput);
+  const usesLegacyDeliveryFee =
+    initialValue?.logMeta?.deliveryMethod === "delivery" &&
+    initialValue.logMeta.deliveryBaseFee === undefined &&
+    initialValue.logMeta.deliveryFee !== undefined;
   const [itemSearch, setItemSearch] = useState("");
   const [selectedItem, setSelectedItem] = useState<ItemType | null>(null);
   const [showItemResults, setShowItemResults] = useState(false);
@@ -332,7 +368,17 @@ export default function StampLogForm({
     (option) => option.value === discountType,
   )?.name;
   const activeDiscountAmount = discountLabel ? discountAmount : 0;
-  const activeDeliveryFee = deliveryMethod === "store_visit" ? 0 : deliveryFee;
+  const activeDeliveryFee =
+    deliveryMethod === "store_visit"
+      ? 0
+      : deliveryMethod === "delivery" &&
+          deliveryType === "agency" &&
+          deliveryFee > 0 &&
+          !usesLegacyDeliveryFee
+        ? deliveryFee + Math.round(deliveryFee * 0.1) + 200
+        : deliveryMethod === "delivery" && deliveryType !== "agency"
+          ? 0
+          : deliveryFee;
   const discountTag =
     discountLabel && activeDiscountAmount > 0
       ? `${discountLabel}할인${activeDiscountAmount}`
@@ -340,20 +386,36 @@ export default function StampLogForm({
   const discountLine = discountTag ? `${discountTag})` : "";
   const deliveryFeeLabel =
     deliveryMethod === "parcel"
-      ? "택배비"
+      ? "택배"
       : deliveryMethod === "delivery"
-        ? "배달비"
+        ? deliveryType === "agency"
+          ? "배달대행비"
+          : ""
         : "";
   const deliveryFeeTag =
     deliveryFeeLabel && activeDeliveryFee > 0
-      ? `${deliveryFeeLabel}${activeDeliveryFee}`
+      ? `${
+          deliveryMethod === "parcel" && parcelCarrier.trim()
+            ? parcelCarrier.trim()
+            : ""
+        }${deliveryFeeLabel}${activeDeliveryFee}`
       : "";
-  const transactionTags = [discountTag, deliveryFeeTag].filter(Boolean);
+  const deliveryTypeTag =
+    deliveryMethod !== "delivery"
+      ? ""
+      : deliveryType === "self"
+        ? "자체배달"
+        : deliveryType === "customer_quick"
+          ? "손님이 퀵부르심"
+          : "";
+  const transactionTags = [discountTag, deliveryFeeTag, deliveryTypeTag].filter(
+    Boolean,
+  );
   const transactionNote =
     transactionTags.length > 0 ? `${transactionTags.join(",")})` : "";
   const itemNote = draftLines.map((line) => line.lineText).join(", ");
   const generatedNote = [transactionNote, itemNote].filter(Boolean).join(" ");
-  const finalAmount = totalAmount - activeDiscountAmount;
+  const finalAmount = totalAmount + activeDeliveryFee - activeDiscountAmount;
   const splitPaymentTotal = splitPayments.reduce(
     (sum, payment) => sum + payment.amount,
     0,
@@ -369,6 +431,7 @@ export default function StampLogForm({
     .join(" + ");
   const finalAmountExpression = [
     amountExpression || "0",
+    activeDeliveryFee > 0 ? `+ ${formatAmount(activeDeliveryFee)}` : "",
     activeDiscountAmount > 0 ? `- ${formatAmount(activeDiscountAmount)}` : "",
   ]
     .filter(Boolean)
@@ -382,7 +445,11 @@ export default function StampLogForm({
         : paymentType !== "";
   const hasValidDeliveryInfo =
     deliveryMethod === "store_visit" ||
-    (deliveryAddress.trim().length > 0 && deliveryFeeInput !== "");
+    (deliveryAddress.trim().length > 0 &&
+      (deliveryMethod === "parcel"
+        ? deliveryFeeInput !== "" && parcelCarrier.trim().length > 0
+        : deliveryType !== "" &&
+          (deliveryType !== "agency" || deliveryFeeInput !== "")));
 
   useEffect(() => {
     if (!isNonSalesSpecialCustomer) return;
@@ -453,6 +520,12 @@ export default function StampLogForm({
       totalAmount: finalAmount,
       extraNote: extraNote.trim() || undefined,
       deliveryMethod,
+      deliveryType:
+        deliveryMethod === "delivery" ? deliveryType || undefined : undefined,
+      parcelCarrier:
+        deliveryMethod === "parcel"
+          ? parcelCarrier.trim() || undefined
+          : undefined,
       deliveryAddressSource:
         deliveryMethod === "store_visit" ? undefined : deliveryAddressSource,
       deliveryAddress:
@@ -460,7 +533,16 @@ export default function StampLogForm({
           ? undefined
           : deliveryAddress.trim() || undefined,
       deliveryFee:
-        deliveryMethod === "store_visit" ? undefined : activeDeliveryFee,
+        deliveryMethod === "parcel" ||
+        (deliveryMethod === "delivery" && deliveryType === "agency")
+          ? activeDeliveryFee
+          : undefined,
+      deliveryBaseFee:
+        deliveryMethod === "delivery" &&
+        deliveryType === "agency" &&
+        !usesLegacyDeliveryFee
+          ? deliveryFee
+          : undefined,
       payments:
         paymentMode === "split" && hasSelectedSplitPayments
           ? splitPayments
@@ -518,6 +600,8 @@ export default function StampLogForm({
     draftLines,
     storeName,
     deliveryMethod,
+    deliveryType,
+    parcelCarrier,
     deliveryAddressSource,
     deliveryAddress,
     deliveryFee,
@@ -1137,6 +1221,8 @@ export default function StampLogForm({
                 setPaymentType("");
                 setSplitPayments([]);
                 if (option.value === "store_visit") {
+                  setDeliveryType("");
+                  setParcelCarrier("");
                   setDeliveryAddress("");
                   setDeliveryFeeInput("");
                 }
@@ -1146,115 +1232,206 @@ export default function StampLogForm({
             </Button>
           ))}
         </div>
-        {deliveryMethod !== "store_visit" && (
-          <div className="mt-3 grid grid-cols-[72px_minmax(0,1fr)_88px] items-start gap-2 pt-2">
-            <div>
-              <label className="mb-1 block h-4 text-xs font-semibold leading-4 text-gray-600">
-                {deliveryMethod === "parcel" ? "택배비" : "배달비"}
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={5}
-                  value={deliveryFeeInput}
-                  onChange={(event) => {
-                    const value = event.target.value;
-                    if (
-                      value === "" ||
-                      (/^[0-9]+$/.test(value) && value.length <= 5)
-                    ) {
-                      setDeliveryFeeInput(value);
+        {deliveryMethod === "delivery" && (
+          <div className="mt-3 border-t border-gray-200 pt-3">
+            <div className="grid grid-cols-3 gap-2">
+              {(
+                [
+                  { value: "agency", label: "배달대행" },
+                  { value: "self", label: "자체배달" },
+                  { value: "customer_quick", label: "손님퀵" },
+                ] as const
+              ).map((option) => (
+                <Button
+                  key={option.value}
+                  type="button"
+                  size="sm"
+                  variant={deliveryType === option.value ? "primary" : "gray"}
+                  onClick={() => {
+                    setDeliveryType(option.value);
+                    if (option.value !== "agency") {
+                      setDeliveryFeeInput("");
                     }
                   }}
-                  placeholder="금액"
-                  className="h-20 w-full rounded-lg border border-gray-300 bg-white pl-1.5 pr-6 text-right text-sm outline-none transition placeholder:text-gray-400 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-                />
-                <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-500">
-                  원
-                </span>
-              </div>
-            </div>
-            <div className="min-w-0">
-              <label className="mb-1 block h-4 text-xs font-semibold leading-4 text-gray-600">
-                배송 주소
-              </label>
-              <textarea
-                value={deliveryAddress}
-                onChange={(event) => setDeliveryAddress(event.target.value)}
-                placeholder={
-                  customerAddress?.trim()
-                    ? "배송 주소를 확인하세요."
-                    : "배송 주소를 입력하세요."
-                }
-                rows={3}
-                className="h-20 w-full resize-none rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm leading-5 outline-none transition placeholder:text-gray-400 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-              />
-            </div>
-            <div>
-              <div aria-hidden="true" className="mb-1 h-4" />
-              <div className="grid h-20 grid-rows-2 gap-2">
-                <Button
-                  type="button"
-                  size="xs"
-                  variant={
-                    deliveryAddressSource === "registered" ? "primary" : "gray"
-                  }
-                  disabled={!customerAddress?.trim()}
-                  onClick={() => {
-                    setDeliveryAddressSource("registered");
-                    setDeliveryAddress(customerAddress?.trim() ?? "");
-                  }}
-                  className="h-9 w-full"
+                  className="w-full"
                 >
-                  불러오기
+                  {option.label}
                 </Button>
-                <Button
-                  type="button"
-                  size="xs"
-                  variant={deliveryAddressSource === "new" ? "primary" : "gray"}
-                  onClick={() => {
-                    setDeliveryAddressSource("new");
-                    setDeliveryAddress("");
-                  }}
-                  className="h-9 w-full"
-                >
-                  새로작성
-                </Button>
-              </div>
+              ))}
             </div>
           </div>
         )}
+        {deliveryMethod !== "store_visit" &&
+          (deliveryMethod !== "delivery" || deliveryType !== "") && (
+            <div
+              className={`mt-3 grid items-start gap-2 pt-2 ${
+                deliveryMethod === "parcel"
+                  ? "grid-cols-1 sm:grid-cols-[150px_minmax(0,1fr)_88px]"
+                  : deliveryType === "agency"
+                    ? "grid-cols-1 sm:grid-cols-[150px_minmax(0,1fr)_88px]"
+                    : "grid-cols-1 sm:grid-cols-[minmax(0,1fr)_88px]"
+              }`}
+            >
+              {deliveryMethod === "parcel" && (
+                <div>
+                  <label className="mb-1 block h-4 text-xs font-semibold leading-4 text-gray-600">
+                    택배사 이름
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={30}
+                    value={parcelCarrier}
+                    onChange={(event) => setParcelCarrier(event.target.value)}
+                    placeholder="ex) 우체국,GS편의점"
+                    className="h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none transition placeholder:text-gray-400 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                  />
+                  <div className="relative mt-2">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={5}
+                      value={deliveryFeeInput}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        if (
+                          value === "" ||
+                          (/^[0-9]+$/.test(value) && value.length <= 5)
+                        ) {
+                          setDeliveryFeeInput(value);
+                        }
+                      }}
+                      placeholder="택배비"
+                      aria-label="택배비"
+                      className="h-9 w-full rounded-lg border border-gray-300 bg-white pl-3 pr-7 text-right text-sm outline-none transition placeholder:text-left placeholder:text-gray-400 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                    />
+                    <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-500">
+                      원
+                    </span>
+                  </div>
+                </div>
+              )}
+              {deliveryMethod === "delivery" && deliveryType === "agency" && (
+                <div>
+                  <label className="mb-1 block h-4 text-xs font-semibold leading-4 text-gray-600">
+                    배달대행비
+                  </label>
+                  <div className="relative">
+                    <textarea
+                      inputMode="numeric"
+                      maxLength={5}
+                      rows={3}
+                      value={deliveryFeeInput}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        if (
+                          value === "" ||
+                          (/^[0-9]+$/.test(value) && value.length <= 5)
+                        ) {
+                          setDeliveryFeeInput(value);
+                        }
+                      }}
+                      placeholder={"대행료 입력시\n자동계산 됩니다."}
+                      className={`h-20 w-full resize-none overflow-hidden rounded-lg border border-gray-300 bg-white px-2 pr-7 text-[13px] leading-5 outline-none transition placeholder:text-center placeholder:text-gray-400 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 ${
+                        deliveryFeeInput
+                          ? "py-[18px] text-right"
+                          : "py-[18px] text-center"
+                      }`}
+                    />
+                    <span className="pointer-events-none absolute right-2 top-[28px] -translate-y-1/2 text-xs text-gray-500">
+                      원
+                    </span>
+                    {deliveryFeeInput && (
+                      <span className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-brand-50 px-2.5 py-0.5 text-center text-[11px] font-semibold text-brand-600">
+                        최종 {formatAmount(activeDeliveryFee)}원
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+              <div className="min-w-0">
+                <label className="mb-1 block h-4 text-xs font-semibold leading-4 text-gray-600">
+                  배송 주소
+                </label>
+                <textarea
+                  value={deliveryAddress}
+                  onChange={(event) => setDeliveryAddress(event.target.value)}
+                  placeholder={
+                    customerAddress?.trim()
+                      ? "배송 주소를 확인하세요."
+                      : "배송 주소를 입력하세요."
+                  }
+                  rows={3}
+                  className="h-20 w-full resize-none rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm leading-5 outline-none transition placeholder:text-gray-400 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                />
+              </div>
+              <div>
+                <div aria-hidden="true" className="mb-1 h-4" />
+                <div className="grid h-20 grid-rows-2 gap-2">
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant={
+                      deliveryAddressSource === "registered"
+                        ? "primary"
+                        : "gray"
+                    }
+                    disabled={!customerAddress?.trim()}
+                    onClick={() => {
+                      setDeliveryAddressSource("registered");
+                      setDeliveryAddress(customerAddress?.trim() ?? "");
+                    }}
+                    className="h-9 w-full"
+                  >
+                    불러오기
+                  </Button>
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant={
+                      deliveryAddressSource === "new" ? "primary" : "gray"
+                    }
+                    onClick={() => {
+                      setDeliveryAddressSource("new");
+                      setDeliveryAddress("");
+                    }}
+                    className="h-9 w-full"
+                  >
+                    새로작성
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
       </div>
     </div>
   );
 
   const stepOneStampField = (
     <div className="grid grid-cols-[140px_minmax(0,1fr)]">
-      <div className="flex items-start border-r border-gray-200 px-4 py-5 text-sm font-bold text-gray-800">
+      <div className="flex items-center border-r border-gray-200 px-4 py-2 text-sm font-bold text-gray-800">
         <span className="mr-2 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-500 text-[11px] font-bold leading-none text-white">
           4
         </span>
         스탬프 적립
       </div>
-      <div className="min-w-0 p-4">
+      <div className="min-w-0 p-1">
         <div className="grid grid-cols-3 items-stretch gap-2">
-          <div className="min-w-0 rounded-lg border border-gray-200 bg-gray-50 p-2">
+          <div className="min-w-0 rounded-lg border border-gray-200 bg-gray-50 p-1">
             {stampCountField}
           </div>
-          <div className="flex min-w-0 flex-col items-center justify-center rounded-lg border border-gray-200 bg-gray-50 px-2 py-3 text-center">
+          <div className="flex min-w-0 flex-col items-center justify-center rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-center">
             <p className="whitespace-nowrap text-[10px] text-gray-500">
               현재 스탬프 잔여량
             </p>
-            <strong className="text-lg text-gray-900">
+            <strong className="text-base text-gray-900">
               {currentStampCount}개
             </strong>
           </div>
-          <div className="flex min-w-0 flex-col items-center justify-center rounded-lg border border-gray-200 bg-gray-50 px-2 py-3 text-center">
+          <div className="flex min-w-0 flex-col items-center justify-center rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-center">
             <p className="whitespace-nowrap text-[10px] text-gray-500">
               적립 후 잔여량
             </p>
-            <strong className="text-lg text-brand-600">
+            <strong className="text-base text-brand-600">
               {currentStampCount + amount}개
             </strong>
           </div>

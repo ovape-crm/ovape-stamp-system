@@ -16,7 +16,9 @@ import { getCustomerMode } from "@/app/_domains/_customer/_utils/specialCustomer
 
 const formatAmount = (value: number) => value.toLocaleString("ko-KR");
 
-const getShipmentTypeLabel = (item: NonNullable<StampLogMeta["items"]>[number]) => {
+const getShipmentTypeLabel = (
+  item: NonNullable<StampLogMeta["items"]>[number],
+) => {
   if (item.inventoryAction === "adjustment_in") return "재고조정-입고";
   if (item.inventoryAction === "adjustment_out") return "재고조정-출고";
   if (item.inventoryAction === "exchange_in") return "교환입고";
@@ -161,9 +163,16 @@ export default function StampConfirmModal({
   const labelTitle = "특이 사항";
   const labelText = " (조정 사유 입력)";
 
-  const isConfirmDisabled = mode === "use10" && breathType === "";
+  const hasRequiredAdjustmentNote = mode !== "adjust" || note.trim().length > 0;
+  const isConfirmDisabled =
+    (mode === "use10" && breathType === "") || !hasRequiredAdjustmentNote;
 
   const handleConfirm = async () => {
+    if (!hasRequiredAdjustmentNote) {
+      toast.error("특이사항을 입력해 주세요.");
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       if (mode === "add") {
@@ -182,12 +191,25 @@ export default function StampConfirmModal({
         const deliveryFeeTag =
           (stampLog.logMeta.deliveryFee ?? 0) > 0
             ? `${
-                stampLog.logMeta.deliveryMethod === "delivery"
-                  ? "배달비"
-                  : "택배비"
+                stampLog.logMeta.deliveryMethod === "parcel" &&
+                stampLog.logMeta.parcelCarrier?.trim()
+                  ? `${stampLog.logMeta.parcelCarrier.trim()}택배`
+                  : stampLog.logMeta.deliveryMethod === "delivery"
+                    ? "배달대행비"
+                    : "택배비"
               }${stampLog.logMeta.deliveryFee}`
             : "";
-        const hasSavedTransactionTags = Boolean(discountTag || deliveryFeeTag);
+        const deliveryTypeTag =
+          stampLog.logMeta.deliveryMethod !== "delivery"
+            ? ""
+            : stampLog.logMeta.deliveryType === "self"
+              ? "자체배달"
+              : stampLog.logMeta.deliveryType === "customer_quick"
+                ? "손님이 퀵부르심"
+                : "";
+        const hasSavedTransactionTags = Boolean(
+          discountTag || deliveryFeeTag || deliveryTypeTag,
+        );
         const transactionCloseIndex = hasSavedTransactionTags
           ? stampLog.note.indexOf(")")
           : -1;
@@ -199,6 +221,7 @@ export default function StampConfirmModal({
           discountTag,
           reservationTag,
           deliveryFeeTag,
+          deliveryTypeTag,
         ].filter(Boolean);
         const nextNote =
           transactionTags.length > 0
@@ -303,11 +326,7 @@ export default function StampConfirmModal({
                       : "bg-gray-100 text-gray-400"
                 }`}
               >
-                {isDone
-                  ? "✓"
-                  : usesStandardSalesFlow
-                    ? stepNumber
-                    : idx + 1}
+                {isDone ? "✓" : usesStandardSalesFlow ? stepNumber : idx + 1}
               </div>
               <span
                 className={`text-[11px] font-medium whitespace-nowrap ${
@@ -378,9 +397,7 @@ export default function StampConfirmModal({
               <>
                 <div
                   className={`grid grid-cols-2 gap-2 ${
-                    customerMode === "x"
-                      ? "md:grid-cols-4"
-                      : "md:grid-cols-5"
+                    customerMode === "x" ? "md:grid-cols-4" : "md:grid-cols-5"
                   }`}
                 >
                   {[
@@ -397,7 +414,12 @@ export default function StampConfirmModal({
                         stampLog.logMeta.deliveryMethod === "parcel"
                           ? "택배"
                           : stampLog.logMeta.deliveryMethod === "delivery"
-                            ? "배달"
+                            ? stampLog.logMeta.deliveryType === "self"
+                              ? "자체배달"
+                              : stampLog.logMeta.deliveryType ===
+                                  "customer_quick"
+                                ? "손님퀵"
+                                : "배달대행"
                             : "매장방문",
                     },
                     ...(customerMode === "x"
@@ -435,11 +457,13 @@ export default function StampConfirmModal({
                 </div>
 
                 <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
-                  {stampLog.logMeta.deliveryMethod !== "store_visit" && (
+                  {(stampLog.logMeta.deliveryMethod === "parcel" ||
+                    (stampLog.logMeta.deliveryMethod === "delivery" &&
+                      stampLog.logMeta.deliveryType === "agency")) && (
                     <div className="rounded-lg border border-gray-200 bg-white px-3 py-2.5">
                       <p className="text-xs font-medium text-gray-500">
                         {stampLog.logMeta.deliveryMethod === "delivery"
-                          ? "배달비"
+                          ? "배달대행비"
                           : "택배비"}
                       </p>
                       <p className="mt-1 text-sm font-semibold text-gray-900">
@@ -567,7 +591,6 @@ export default function StampConfirmModal({
                 </table>
               </div>
             </div>
-
           </div>
         )}
       </div>
@@ -1021,6 +1044,7 @@ export default function StampConfirmModal({
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 {labelTitle}
+                <span className="ml-1 text-rose-600">*</span>
                 <span className="text-xs text-gray-500 whitespace-pre-line">
                   {labelText}
                 </span>
