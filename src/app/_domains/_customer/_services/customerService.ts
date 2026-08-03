@@ -1,29 +1,27 @@
-import { CustomerType } from '@/app/_domains/_customer/_types/customer.types';
-import supabase from '@/libs/supabaseClient';
-import { createLog } from '@/app/_domains/_log/_services/logService';
-import { LogCategoryEnum } from '@/app/_enums/enums';
-import { getUpdateLogNote } from '@/app/_utils/utils';
+import { CustomerType } from "@/app/_domains/_customer/_types/customer.types";
+import supabase from "@/libs/supabaseClient";
+import { createLog } from "@/app/_domains/_log/_services/logService";
+import { LogCategoryEnum } from "@/app/_enums/enums";
+import { getUpdateLogNote } from "@/app/_utils/utils";
 
 export interface SearchParams {
-  target?: 'all' | 'name' | 'phone';
+  target?: "all" | "name" | "phone";
   keyword?: string;
-  sortBy?: 'name' | 'stamp' | 'created_at';
-  sortOrder?: 'asc' | 'desc';
+  sortBy?: "name" | "stamp" | "created_at";
+  sortOrder?: "asc" | "desc";
 }
 
 export type CustomerQuickLink = Pick<
   CustomerType,
-  'id' | 'name' | 'phone' | 'gender'
+  "id" | "name" | "phone" | "gender"
 >;
 
 export const getCustomerQuickLinks = async (): Promise<CustomerQuickLink[]> => {
   const { data, error } = await supabase
-    .from('customers')
-    .select('id, name, phone, gender, created_at')
-    .or(
-      'and(name.eq.X,phone.eq.X),name.eq.시연용,name.eq.재고조정',
-    )
-    .order('created_at', { ascending: true });
+    .from("customers")
+    .select("id, name, phone, gender, created_at")
+    .or("and(name.eq.X,phone.eq.X),name.eq.시연용,name.eq.재고조정")
+    .order("created_at", { ascending: true });
 
   if (error) throw error;
   return (data ?? []).map(({ id, name, phone, gender }) => ({
@@ -38,10 +36,10 @@ export const getCustomerQuickLinks = async (): Promise<CustomerQuickLink[]> => {
  * 전체 고객 수 조회
  */
 export const getCustomersCount = async (
-  params?: SearchParams
+  params?: SearchParams,
 ): Promise<number> => {
-  let query = supabase.from('customers').select('*', {
-    count: 'exact',
+  let query = supabase.from("customers").select("*", {
+    count: "exact",
     head: true,
   });
 
@@ -49,11 +47,11 @@ export const getCustomersCount = async (
   if (params?.keyword) {
     const { target, keyword } = params;
 
-    if (target === 'name') {
-      query = query.ilike('name', `%${keyword}%`);
-    } else if (target === 'phone') {
-      query = query.ilike('phone', `%${keyword}%`);
-    } else if (target === 'all') {
+    if (target === "name") {
+      query = query.ilike("name", `%${keyword}%`);
+    } else if (target === "phone") {
+      query = query.ilike("phone", `%${keyword}%`);
+    } else if (target === "all") {
       query = query.or(`name.ilike.%${keyword}%,phone.ilike.%${keyword}%`);
     }
   }
@@ -71,12 +69,12 @@ export const getCustomersCount = async (
 export const getCustomers = async (
   limit = 10,
   offset = 0,
-  params?: SearchParams
+  params?: SearchParams,
 ): Promise<CustomerType[]> => {
   const from = offset;
   const to = offset + limit - 1;
-  
-  let query = supabase.from('customers').select(`
+
+  let query = supabase.from("customers").select(`
     *,
     stamps(count)
   `);
@@ -85,20 +83,20 @@ export const getCustomers = async (
   if (params?.keyword) {
     const { target, keyword } = params;
 
-    if (target === 'name') {
-      query = query.ilike('name', `%${keyword}%`);
-    } else if (target === 'phone') {
-      query = query.ilike('phone', `%${keyword}%`);
-    } else if (target === 'all') {
+    if (target === "name") {
+      query = query.ilike("name", `%${keyword}%`);
+    } else if (target === "phone") {
+      query = query.ilike("phone", `%${keyword}%`);
+    } else if (target === "all") {
       query = query.or(`name.ilike.%${keyword}%,phone.ilike.%${keyword}%`);
     }
   }
 
   // 정렬 처리
-  const sortBy = params?.sortBy || 'name';
-  const sortOrder = params?.sortOrder || (sortBy === 'name' ? 'asc' : 'desc');
+  const sortBy = params?.sortBy || "name";
+  const sortOrder = params?.sortOrder || (sortBy === "name" ? "asc" : "desc");
 
-  if (sortBy === 'stamp') {
+  if (sortBy === "stamp") {
     // 스탬프 많은 순/적은 순은 클라이언트에서 정렬해야 함 (관계형 데이터이므로)
     // 페이지네이션 없이 모든 데이터 가져오기
     const { data: allData, error } = await query;
@@ -109,16 +107,16 @@ export const getCustomers = async (
     const sortedData = [...allData].sort((a, b) => {
       const aCount = a.stamps?.[0]?.count || 0;
       const bCount = b.stamps?.[0]?.count || 0;
-      return sortOrder === 'desc' ? bCount - aCount : aCount - bCount;
+      return sortOrder === "desc" ? bCount - aCount : aCount - bCount;
     });
 
     // 정렬 후 페이지네이션 적용
     return sortedData.slice(from, to + 1);
-  } else if (sortBy === 'created_at') {
-    query = query.order('created_at', { ascending: sortOrder === 'asc' });
+  } else if (sortBy === "created_at") {
+    query = query.order("created_at", { ascending: sortOrder === "asc" });
   } else {
     // 기본: 이름 가나다 순
-    query = query.order('name', { ascending: sortOrder === 'asc' });
+    query = query.order("name", { ascending: sortOrder === "asc" });
   }
 
   // 페이지네이션 적용
@@ -136,14 +134,14 @@ export const getCustomers = async (
  */
 export const getCustomerById = async (id: string): Promise<CustomerType> => {
   const { data, error } = await supabase
-    .from('customers')
+    .from("customers")
     .select(
       `
       *,
       stamps(count)
-    `
+    `,
     )
-    .eq('id', id)
+    .eq("id", id)
     .single();
 
   if (error) throw error;
@@ -157,21 +155,22 @@ export const getCustomerById = async (id: string): Promise<CustomerType> => {
 export const createCustomer = async (customer: {
   name: string;
   phone: string;
-  gender: 'male' | 'female';
+  gender: "male" | "female";
+  is_stamp_eligible?: boolean;
   address?: string;
   note?: string;
 }) => {
   // X는 중복 체크 제외
-  if (customer.phone !== 'X') {
+  if (customer.phone !== "X") {
     const { data: existing, error: existingError } = await supabase
-      .from('customers')
-      .select('id')
-      .eq('phone', customer.phone)
+      .from("customers")
+      .select("id")
+      .eq("phone", customer.phone)
       .maybeSingle();
 
     if (existingError) throw existingError;
     if (existing) {
-      throw new Error('DUPLICATE_CUSTOMER');
+      throw new Error("DUPLICATE_CUSTOMER");
     }
   }
 
@@ -179,12 +178,13 @@ export const createCustomer = async (customer: {
     name: customer.name,
     phone: customer.phone,
     gender: customer.gender,
+    is_stamp_eligible: customer.is_stamp_eligible ?? true,
     note: customer.note,
     ...(customer.address?.trim() ? { address: customer.address.trim() } : {}),
   };
 
   const { data, error } = await supabase
-    .from('customers')
+    .from("customers")
     .insert(insertPayload)
     .select()
     .single();
@@ -194,9 +194,9 @@ export const createCustomer = async (customer: {
   await createLog(
     LogCategoryEnum.CUSTOMER.value,
     data.id,
-    'create-customer',
-    '',
-    null
+    "create-customer",
+    "",
+    null,
   );
 
   return data;
@@ -210,23 +210,24 @@ export const updateCustomer = async (
   updates: {
     name?: string;
     phone?: string;
-    gender?: 'male' | 'female';
+    gender?: "male" | "female";
+    is_stamp_eligible?: boolean;
     address?: string;
     note?: string;
-  }
+  },
 ) => {
   // 중복 체크 (X는 제외)
-  if (updates.phone && updates.phone !== 'X') {
+  if (updates.phone && updates.phone !== "X") {
     const { data: existing, error: existingError } = await supabase
-      .from('customers')
-      .select('id')
-      .eq('phone', updates.phone)
-      .neq('id', id)
+      .from("customers")
+      .select("id")
+      .eq("phone", updates.phone)
+      .neq("id", id)
       .maybeSingle();
 
     if (existingError) throw existingError;
     if (existing) {
-      throw new Error('DUPLICATE_CUSTOMER');
+      throw new Error("DUPLICATE_CUSTOMER");
     }
   }
 
@@ -237,36 +238,39 @@ export const updateCustomer = async (
       name: prevCustomer.name,
       phone: prevCustomer.phone,
       gender: prevCustomer.gender,
-      address: prevCustomer?.address ?? '',
-      note: prevCustomer?.note ?? '',
+      is_stamp_eligible: prevCustomer.is_stamp_eligible ?? true,
+      address: prevCustomer?.address ?? "",
+      note: prevCustomer?.note ?? "",
     },
     {
       name: updates.name ?? prevCustomer.name,
       phone: updates.phone ?? prevCustomer.phone,
       gender: updates.gender ?? prevCustomer.gender,
-      address: updates.address ?? prevCustomer?.address ?? '',
-      note: updates.note ?? prevCustomer?.note ?? '',
-    }
+      is_stamp_eligible:
+        updates.is_stamp_eligible ?? prevCustomer.is_stamp_eligible ?? true,
+      address: updates.address ?? prevCustomer?.address ?? "",
+      note: updates.note ?? prevCustomer?.note ?? "",
+    },
   );
 
   await createLog(
     LogCategoryEnum.CUSTOMER.value,
     id,
-    'update-customer-info',
-    '',
-    changeObj
+    "update-customer-info",
+    "",
+    changeObj,
   );
 
   // 고객 업데이트 (결과 없을 수 있음)
   const { data, error } = await supabase
-    .from('customers')
+    .from("customers")
     .update(updates)
-    .eq('id', id)
+    .eq("id", id)
     .select()
     .maybeSingle();
 
   if (error) throw error;
-  if (!data) throw new Error('NOT_FOUND_CUSTOMER');
+  if (!data) throw new Error("NOT_FOUND_CUSTOMER");
 
   return data;
 };
@@ -275,7 +279,7 @@ export const updateCustomer = async (
  * 고객 삭제
  */
 export const deleteCustomer = async (id: string) => {
-  const { error } = await supabase.from('customers').delete().eq('id', id);
+  const { error } = await supabase.from("customers").delete().eq("id", id);
 
   if (error) throw error;
 };

@@ -26,6 +26,7 @@ interface StampSectionProps {
     phone: string;
     address?: string | null;
     gender?: "male" | "female" | null;
+    is_stamp_eligible?: boolean;
     note?: string | null;
   };
   onUpdate: () => void;
@@ -65,8 +66,16 @@ const StampSection = ({
   const openOutboundModalRef = useRef<() => void>(() => undefined);
   const { open, close } = useModal();
   const queryClient = useQueryClient();
-  const customerMode = getCustomerMode(target.name, target.phone);
+  const customerMode = getCustomerMode(
+    target.name,
+    target.phone,
+    target.is_stamp_eligible ?? true,
+  );
   const isSpecialCustomer = customerMode !== "normal";
+  const isRegularNonAccrualCustomer =
+    customerMode === "x" &&
+    target.is_stamp_eligible === false &&
+    !(target.name.trim() === "X" && target.phone.trim() === "X");
   const specialAccountLabel =
     customerMode === "demo"
       ? "시연용 처리"
@@ -83,6 +92,7 @@ const StampSection = ({
             phone: target.phone,
             address: target.address,
             note: target.note,
+            is_stamp_eligible: target.is_stamp_eligible,
           }}
           stampCount={stampCount}
           mode="add"
@@ -235,10 +245,18 @@ const StampSection = ({
 
           <div className="w-full border-t border-brand-200 pt-5">
             <p className="mb-5 text-center text-base leading-7 text-gray-600 sm:text-lg">
-              <strong className="font-semibold text-brand-700">
-                {specialAccountLabel}
-              </strong>
-              을 위한 특수 계정입니다.
+              {isRegularNonAccrualCustomer ? (
+                <strong className="font-semibold text-brand-700">
+                  {specialAccountLabel}입니다.
+                </strong>
+              ) : (
+                <>
+                  <strong className="font-semibold text-brand-700">
+                    {specialAccountLabel}
+                  </strong>
+                  을 위한 특수 계정입니다.
+                </>
+              )}
             </p>
           </div>
 
@@ -284,6 +302,7 @@ const StampSection = ({
                           phone: target.phone,
                           address: target.address,
                           note: target.note,
+                          is_stamp_eligible: target.is_stamp_eligible,
                         }}
                         mode="use10"
                         onCancel={close}
@@ -313,6 +332,7 @@ const StampSection = ({
                           phone: target.phone,
                           address: target.address,
                           note: target.note,
+                          is_stamp_eligible: target.is_stamp_eligible,
                         }}
                         mode="adjust"
                         onCancel={close}

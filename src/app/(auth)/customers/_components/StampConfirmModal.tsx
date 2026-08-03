@@ -80,6 +80,7 @@ export default function StampConfirmModal({
     phone: string;
     address?: string | null;
     note?: string | null;
+    is_stamp_eligible?: boolean;
   };
   mode: "add" | "adjust" | "use10";
   amount?: number;
@@ -120,7 +121,11 @@ export default function StampConfirmModal({
         (sum, payment) => sum + payment.amount,
         0,
       ) === stampLog.finalAmount);
-  const customerMode = getCustomerMode(target.name, target.phone);
+  const customerMode = getCustomerMode(
+    target.name,
+    target.phone,
+    target.is_stamp_eligible ?? true,
+  );
   const usesStandardSalesFlow =
     customerMode === "normal" || customerMode === "x";
 

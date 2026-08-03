@@ -77,6 +77,7 @@ interface StampLogEditModalProps {
     phone: string;
     address?: string | null;
     note?: string | null;
+    is_stamp_eligible?: boolean;
   };
   initialAction: string;
   initialPaymentType?: PaymentTypeEnumType["value"];
@@ -106,7 +107,11 @@ const StampLogEditModal = ({
   onCancel,
 }: StampLogEditModalProps) => {
   const { setSize } = useModal();
-  const customerMode = getCustomerMode(target.name, target.phone);
+  const customerMode = getCustomerMode(
+    target.name,
+    target.phone,
+    target.is_stamp_eligible ?? true,
+  );
   const [stampLog, setStampLog] = useState<StampLogValue | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [step, setStep] = useState<1 | 2 | 3>(2);

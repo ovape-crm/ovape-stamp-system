@@ -3,29 +3,29 @@ import {
   LogActorInfo,
   PaymentTypeLabel,
   StoreLabel,
-} from '@/app/(auth)/_components/HistoriesComponents';
-import Button from '@/app/_components/Button';
-import Loading from '@/app/_components/Loading';
-import useCopy from '@/app/_domains/_log/_hooks/useCopy';
-import { CustomersLogsResType } from '@/app/_domains/_log/_types/log.types';
+} from "@/app/(auth)/_components/HistoriesComponents";
+import Button from "@/app/_components/Button";
+import Loading from "@/app/_components/Loading";
+import useCopy from "@/app/_domains/_log/_hooks/useCopy";
+import { CustomersLogsResType } from "@/app/_domains/_log/_types/log.types";
 import {
   updateLogNote,
   deleteLog,
-} from '@/app/_domains/_log/_services/logService';
-import { useCallback } from 'react';
+} from "@/app/_domains/_log/_services/logService";
+import { useCallback } from "react";
 import {
   PaymentTypeEnum,
   PaymentTypeEnumType,
   StoreTypeEnumType,
-} from '@/app/_enums/enums';
-import { groupLogsByDate, formatDateKey } from '@/app/_utils/utils';
-import { toast } from 'react-hot-toast';
-import { useModal } from '@/app/_contexts/ModalContext';
-import DeleteConfirmModal from '@/app/(auth)/_components/DeleteConfirmModal';
-import ConfirmModal from '@/app/(auth)/_components/ConfirmModal';
-import StampLogEditModal from '@/app/(auth)/_components/StampLogEditModal';
-import RemarkLogCreateModal from '../RemarkLogCreateModal';
-import type { StampLogMeta } from '@/app/_domains/_stamp/_services/stampService';
+} from "@/app/_enums/enums";
+import { groupLogsByDate, formatDateKey } from "@/app/_utils/utils";
+import { toast } from "react-hot-toast";
+import { useModal } from "@/app/_contexts/ModalContext";
+import DeleteConfirmModal from "@/app/(auth)/_components/DeleteConfirmModal";
+import ConfirmModal from "@/app/(auth)/_components/ConfirmModal";
+import StampLogEditModal from "@/app/(auth)/_components/StampLogEditModal";
+import RemarkLogCreateModal from "../RemarkLogCreateModal";
+import type { StampLogMeta } from "@/app/_domains/_stamp/_services/stampService";
 
 const CustomersDetailStampsHistories = ({
   targetUser,
@@ -41,9 +41,10 @@ const CustomersDetailStampsHistories = ({
   targetUser: {
     phone: string;
     name: string;
-    gender?: 'male' | 'female' | null;
+    gender?: "male" | "female" | null;
     address?: string | null;
     note?: string | null;
+    is_stamp_eligible?: boolean;
   };
   isLoading: boolean;
   error: string;
@@ -70,10 +71,10 @@ const CustomersDetailStampsHistories = ({
           await onConfirmReservation(log.id);
           onDeleteLog(log.id);
           close();
-          toast.success('출고 이력으로 확정되었습니다.');
+          toast.success("출고 이력으로 확정되었습니다.");
         } catch (e) {
           console.error(e);
-          toast.error('출고 확정에 실패했습니다. 다시 시도해 주세요.');
+          toast.error("출고 확정에 실패했습니다. 다시 시도해 주세요.");
           close();
         }
       };
@@ -82,7 +83,7 @@ const CustomersDetailStampsHistories = ({
           <ConfirmModal
             title="출고 확정"
             description={
-              '이 예약을 출고 이력으로 확정하시겠습니까?\n확정 시 스탬프가 적립되고 출고 이력으로 이동합니다.'
+              "이 예약을 출고 이력으로 확정하시겠습니까?\n확정 시 스탬프가 적립되고 출고 이력으로 이동합니다."
             }
             confirmLabel="출고 확정"
             confirmingLabel="확정 중..."
@@ -103,10 +104,10 @@ const CustomersDetailStampsHistories = ({
           await deleteLog(log.id);
           onDeleteLog(log.id);
           close();
-          toast.success('로그를 삭제했습니다.');
+          toast.success("로그를 삭제했습니다.");
         } catch (e) {
           console.error(e);
-          toast.error('로그 삭제에 실패했습니다. 다시 시도해 주세요.');
+          toast.error("로그 삭제에 실패했습니다. 다시 시도해 주세요.");
           close();
         }
       };
@@ -140,22 +141,22 @@ const CustomersDetailStampsHistories = ({
             }));
             close();
             toast.success(
-              isRemarkLog ? '특이사항을 저장했습니다.' : '메모를 저장했습니다.',
+              isRemarkLog ? "특이사항을 저장했습니다." : "메모를 저장했습니다.",
             );
           } catch (e) {
             console.error(e);
-            toast.error('저장에 실패했습니다. 다시 시도해 주세요.');
+            toast.error("저장에 실패했습니다. 다시 시도해 주세요.");
           }
         };
 
         open({
           content: (
             <RemarkLogCreateModal
-              initialNote={log.note ?? ''}
+              initialNote={log.note ?? ""}
               mode="edit"
-              title={isRemarkLog ? undefined : '메모 수정'}
-              label={isRemarkLog ? undefined : '메모'}
-              placeholder={isRemarkLog ? undefined : '메모를 입력하세요'}
+              title={isRemarkLog ? undefined : "메모 수정"}
+              label={isRemarkLog ? undefined : "메모"}
+              placeholder={isRemarkLog ? undefined : "메모를 입력하세요"}
               onSubmit={handleRemarkSubmit}
               onCancel={close}
             />
@@ -167,8 +168,8 @@ const CustomersDetailStampsHistories = ({
 
       const handleSubmit = async (values: {
         note: string;
-        paymentType?: PaymentTypeEnumType['value'];
-        storeName: StoreTypeEnumType['value'];
+        paymentType?: PaymentTypeEnumType["value"];
+        storeName: StoreTypeEnumType["value"];
         logMeta: StampLogMeta;
         amount: number;
       }) => {
@@ -176,7 +177,7 @@ const CustomersDetailStampsHistories = ({
           // 예약 이력은 아직 스탬프가 적립되지 않았으므로 개수 수정 허용
           const nextAction = isReservation
             ? values.amount === 0
-              ? 'no-stamp'
+              ? "no-stamp"
               : `add-${values.amount}`
             : undefined;
           const updated = await updateLogNote(
@@ -195,10 +196,10 @@ const CustomersDetailStampsHistories = ({
             updated_at: updated.updated_at,
           }));
           close();
-          toast.success('이력을 저장했습니다.');
+          toast.success("이력을 저장했습니다.");
         } catch (e) {
           console.error(e);
-          toast.error('저장에 실패했습니다. 다시 시도해 주세요.');
+          toast.error("저장에 실패했습니다. 다시 시도해 주세요.");
         }
       };
 
@@ -210,17 +211,18 @@ const CustomersDetailStampsHistories = ({
               phone: targetUser.phone,
               address: targetUser.address,
               note: targetUser.note,
+              is_stamp_eligible: targetUser.is_stamp_eligible,
             }}
             initialAction={log.action}
             initialPaymentType={
-              log.jsonb?.paymentType as PaymentTypeEnumType['value'] | undefined
+              log.jsonb?.paymentType as PaymentTypeEnumType["value"] | undefined
             }
             initialStoreName={
-              log.jsonb?.storeName as StoreTypeEnumType['value'] | undefined
+              log.jsonb?.storeName as StoreTypeEnumType["value"] | undefined
             }
             initialLogMeta={log.jsonb as StampLogMeta}
             isStampAmountEditable={isReservation}
-            title={isReservation ? '출고 예약 수정' : '출고 이력 수정'}
+            title={isReservation ? "출고 예약 수정" : "출고 이력 수정"}
             onSubmit={handleSubmit}
             onCancel={close}
           />
@@ -237,6 +239,7 @@ const CustomersDetailStampsHistories = ({
       targetUser.address,
       targetUser.note,
       targetUser.phone,
+      targetUser.is_stamp_eligible,
     ],
   );
 
@@ -284,8 +287,8 @@ const CustomersDetailStampsHistories = ({
                 >
                   <div className="flex items-center gap-4 sm:gap-6">
                     {!(
-                      targetUser.name.trim() === 'X' &&
-                      targetUser.phone.trim() === 'X'
+                      targetUser.name.trim() === "X" &&
+                      targetUser.phone.trim() === "X"
                     ) && <ActionInfoLabel action={log.action} />}
 
                     {log.users && (
@@ -300,16 +303,16 @@ const CustomersDetailStampsHistories = ({
                     )}
                   </div>
                   <div className="flex flex-col items-start gap-1 ml-4">
-                    {log.jsonb && 'storeName' in log.jsonb && (
+                    {log.jsonb && "storeName" in log.jsonb && (
                       <StoreLabel jsonb={log.jsonb} />
                     )}
-                    {log.jsonb && 'paymentType' in log.jsonb && (
+                    {log.jsonb && "paymentType" in log.jsonb && (
                       <PaymentTypeLabel jsonb={log.jsonb} />
                     )}
-                    {typeof log.jsonb?.totalAmount === 'number' &&
+                    {typeof log.jsonb?.totalAmount === "number" &&
                       log.jsonb.totalAmount > 0 && (
                         <span className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold px-2 py-1">
-                          {log.jsonb.totalAmount.toLocaleString('ko-KR')}원
+                          {log.jsonb.totalAmount.toLocaleString("ko-KR")}원
                         </span>
                       )}
                   </div>
@@ -328,16 +331,16 @@ const CustomersDetailStampsHistories = ({
                             <span className="text-gray-400"> - </span>
                           )}
                         </p>
-                        {typeof log.jsonb?.extraNote === 'string' &&
+                        {typeof log.jsonb?.extraNote === "string" &&
                           log.jsonb.extraNote.trim() && (
                             <p className="mt-1 italic text-gray-400">
                               출고 특이사항: &quot;{log.jsonb.extraNote.trim()}
                               &quot;
                             </p>
                           )}
-                        {(log.jsonb?.deliveryMethod === 'parcel' ||
-                          log.jsonb?.deliveryMethod === 'delivery') &&
-                          typeof log.jsonb?.deliveryAddress === 'string' &&
+                        {(log.jsonb?.deliveryMethod === "parcel" ||
+                          log.jsonb?.deliveryMethod === "delivery") &&
+                          typeof log.jsonb?.deliveryAddress === "string" &&
                           log.jsonb.deliveryAddress.trim() && (
                             <p className="mt-1 break-words italic text-gray-400">
                               주소: {log.jsonb.deliveryAddress.trim()}

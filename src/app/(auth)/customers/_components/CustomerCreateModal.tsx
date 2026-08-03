@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 import { useState, useRef } from "react";
 import Button from "@/app/_components/Button";
@@ -26,6 +26,7 @@ const schema = z.object({
     })
     .transform((v) => (v.toUpperCase() === "X" ? "X" : v)),
   gender: z.enum(["male", "female"]),
+  is_stamp_eligible: z.boolean(),
   address: z
     .string()
     .trim()
@@ -71,6 +72,7 @@ export default function CustomerCreateModal({
   // ========================================================================
   const {
     register,
+    control,
     handleSubmit,
     formState: { errors, isValid },
   } = useForm<FormValues>({
@@ -80,6 +82,7 @@ export default function CustomerCreateModal({
       name: "",
       phone: "",
       gender: "male",
+      is_stamp_eligible: true,
       address: "",
       note: "",
     },
@@ -156,6 +159,14 @@ export default function CustomerCreateModal({
                 <span className="text-sm font-medium text-gray-600">성별:</span>
                 <p className="text-base font-semibold text-gray-900">
                   {formData.gender === "male" ? "남자" : "여자"}
+                </p>
+              </div>
+              <div>
+                <span className="text-sm font-medium text-gray-600">
+                  적립 대상:
+                </span>
+                <p className="text-base font-semibold text-gray-900">
+                  {formData.is_stamp_eligible ? "적립" : "미적립"}
                 </p>
               </div>
               {formData.note && (
@@ -285,6 +296,34 @@ export default function CustomerCreateModal({
           </div>
 
           <div>
+            <span className="block text-sm font-medium mb-1">적립 대상</span>
+            <Controller
+              name="is_stamp_eligible"
+              control={control}
+              render={({ field }) => (
+                <div className="flex items-center gap-4">
+                  <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      checked={field.value}
+                      onChange={() => field.onChange(true)}
+                    />
+                    적립
+                  </label>
+                  <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      checked={!field.value}
+                      onChange={() => field.onChange(false)}
+                    />
+                    미적립
+                  </label>
+                </div>
+              )}
+            />
+          </div>
+
+          <div>
             <label className="block text-sm font-medium mb-1">특이사항</label>
             <textarea
               className="w-full min-h-24 rounded border border-brand-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
@@ -304,7 +343,9 @@ export default function CustomerCreateModal({
             <textarea
               rows={3}
               className="w-full min-h-20 resize-y rounded border border-brand-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
-              placeholder={"주소지를 입력하세요. (선택)\nex) OO구 도로명주소 OO건물 OO동 OO호 (공동현관 : 비밀번호 or X)"}
+              placeholder={
+                "주소지를 입력하세요. (선택)\nex) OO구 도로명주소 OO건물 OO동 OO호 (공동현관 : 비밀번호 or X)"
+              }
               aria-invalid={!!errors.address || undefined}
               {...register("address")}
             />
@@ -314,7 +355,6 @@ export default function CustomerCreateModal({
               </p>
             )}
           </div>
-
         </div>
 
         <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 mt-6 shrink-0">

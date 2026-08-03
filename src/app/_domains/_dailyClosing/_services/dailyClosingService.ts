@@ -6,6 +6,7 @@ import {
   DailyClosingReportSnapshot,
   DailyClosingReportRevision,
   DailyClosingReportType,
+  OpeningCompletionNotice,
 } from '../_types/dailyClosing.types';
 
 export const getDailyClosingReport = async (
@@ -170,6 +171,71 @@ export const saveDailyOpeningChecklistProgress = async (
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'business_date' },
+    );
+
+  if (error) throw error;
+};
+
+export const getOpeningCompletionNotice = async (): Promise<OpeningCompletionNotice | null> => {
+  const { data, error } = await supabase
+    .from('opening_completion_notice')
+    .select('id, title, content, is_active, version, updated_at')
+    .eq('id', 1)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data as OpeningCompletionNotice | null;
+};
+
+export const saveOpeningCompletionNotice = async (values: {
+  title: string;
+  content: string;
+  isActive: boolean;
+}): Promise<void> => {
+  const { error } = await supabase.rpc('save_opening_completion_notice', {
+    p_title: values.title.trim(),
+    p_content: values.content.trim(),
+    p_is_active: values.isActive,
+  });
+
+  if (error) throw error;
+};
+
+export const hasAcknowledgedOpeningNotice = async (
+  businessDate: string,
+  noticeVersion: number,
+): Promise<boolean> => {
+  const { data, error } = await supabase
+    .from('opening_completion_notice_reads')
+    .select('notice_version')
+    .eq('business_date', businessDate)
+    .eq('notice_version', noticeVersion)
+    .maybeSingle();
+
+  if (error) throw error;
+  return Boolean(data);
+};
+
+export const acknowledgeOpeningNotice = async (
+  businessDate: string,
+  noticeVersion: number,
+): Promise<void> => {
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+  if (sessionError || !session) throw new Error('세션을 찾을 수 없습니다.');
+
+  const { error } = await supabase
+    .from('opening_completion_notice_reads')
+    .upsert(
+      {
+        business_date: businessDate,
+        user_id: session.user.id,
+        notice_version: noticeVersion,
+        acknowledged_at: new Date().toISOString(),
+      },
+      { onConflict: 'business_date,user_id,notice_version' },
     );
 
   if (error) throw error;

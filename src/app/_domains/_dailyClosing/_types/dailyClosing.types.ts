@@ -11,6 +11,15 @@ export type DailyClosingChecklistItem = {
   is_opening_gate: boolean;
 };
 
+export type OpeningCompletionNotice = {
+  id: number;
+  title: string;
+  content: string;
+  is_active: boolean;
+  version: number;
+  updated_at: string;
+};
+
 export type DailyClosingReportSnapshot = {
   version: 1;
   businessDate: string;

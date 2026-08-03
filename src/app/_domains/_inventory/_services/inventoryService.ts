@@ -221,10 +221,13 @@ export const getInventoryMovements = async (
         const direction = ["exchange_in", "adjustment_in"].includes(action)
           ? "in"
           : "out";
-        outboundItemDetails.set(`${row.id}\u0000${itemName}\u0000${direction}`, {
-          inventoryAction,
-          remark: String(item.remark ?? ""),
-        });
+        outboundItemDetails.set(
+          `${row.id}\u0000${itemName}\u0000${direction}`,
+          {
+            inventoryAction,
+            remark: String(item.remark ?? ""),
+          },
+        );
       }
     }
   }
@@ -329,7 +332,7 @@ export const getInventorySuppliers = async (
 ): Promise<InventorySupplier[]> => {
   const { data, error } = await supabase
     .from("inventory_suppliers")
-    .select(isAdmin ? "*" : "id, name, is_use")
+    .select(isAdmin ? "*" : "id, name, note, is_use")
     .order("name");
   if (error) throw error;
   return (data ?? []) as unknown as InventorySupplier[];
