@@ -1,15 +1,16 @@
-'use client';
+"use client";
 
-import { Resolver, useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { useState } from 'react';
-import Button from '@/app/_components/Button';
-import { formatPhoneNumber } from '@/app/_utils/utils';
+import { Controller, Resolver, useForm } from "react-hook-form";
+import { z } from "zod";
+import { useState } from "react";
+import Button from "@/app/_components/Button";
+import { formatPhoneNumber } from "@/app/_utils/utils";
 
 type FormValues = {
   name: string;
   phone: string;
-  gender: 'male' | 'female';
+  gender: "male" | "female";
+  is_stamp_eligible: boolean;
   address?: string;
   note?: string;
 };
@@ -18,26 +19,27 @@ const schema = z.object({
   name: z.coerce
     .string()
     .trim()
-    .min(1, { message: '이름을 입력하세요.' })
-    .transform((v) => (v.toUpperCase() === 'X' ? 'X' : v)),
+    .min(1, { message: "이름을 입력하세요." })
+    .transform((v) => (v.toUpperCase() === "X" ? "X" : v)),
   phone: z.coerce
     .string()
     .trim()
-    .min(1, { message: '전화번호를 입력하세요.' })
-    .refine((v) => v.toUpperCase() === 'X' || /^[0-9]{10,11}$/.test(v), {
-      message: '10-11자리 숫자만 입력하세요. (정보 없을 경우 X 입력)',
+    .min(1, { message: "전화번호를 입력하세요." })
+    .refine((v) => v.toUpperCase() === "X" || /^[0-9]{10,11}$/.test(v), {
+      message: "10-11자리 숫자만 입력하세요. (정보 없을 경우 X 입력)",
     })
-    .transform((v) => (v.toUpperCase() === 'X' ? 'X' : v)),
-  gender: z.enum(['male', 'female']),
+    .transform((v) => (v.toUpperCase() === "X" ? "X" : v)),
+  gender: z.enum(["male", "female"]),
+  is_stamp_eligible: z.boolean(),
   address: z.coerce
     .string()
     .trim()
-    .max(200, { message: '주소지는 200자 이하로 입력해주세요.' })
+    .max(200, { message: "주소지는 200자 이하로 입력해주세요." })
     .optional(),
   note: z.coerce
     .string()
     .trim()
-    .max(500, { message: '특이사항은 500자 이하로 입력해주세요.' })
+    .max(500, { message: "특이사항은 500자 이하로 입력해주세요." })
     .optional(),
 });
 
@@ -52,9 +54,9 @@ const safeResolver = (schema: z.ZodTypeAny) => async (data: unknown) => {
     const errors: Record<string, { type: string; message: string }> = {};
 
     Object.keys(formattedErrors).forEach((key) => {
-      if (key !== '_errors' && formattedErrors[key]?._errors?.length > 0) {
+      if (key !== "_errors" && formattedErrors[key]?._errors?.length > 0) {
         errors[key] = {
-          type: 'validation',
+          type: "validation",
           message: formattedErrors[key]._errors[0],
         };
       }
@@ -62,7 +64,7 @@ const safeResolver = (schema: z.ZodTypeAny) => async (data: unknown) => {
 
     return { values: {}, errors };
   } catch (err) {
-    console.error('[safeResolver Error]', err);
+    console.error("[safeResolver Error]", err);
     return { values: {}, errors: {} };
   }
 };
@@ -78,7 +80,8 @@ export default function CustomerEditModal({
   customer: {
     name: string;
     phone: string;
-    gender?: 'male' | 'female';
+    gender?: "male" | "female";
+    is_stamp_eligible?: boolean;
     address?: string | null;
     note?: string | null;
   };
@@ -93,17 +96,19 @@ export default function CustomerEditModal({
 
   const {
     register,
+    control,
     handleSubmit,
     formState: { errors, isSubmitting, isValid },
   } = useForm<FormValues>({
-    mode: 'onChange',
+    mode: "onChange",
     resolver: safeResolver(schema) as Resolver<FormValues, unknown>,
     defaultValues: {
       name: customer.name,
       phone: customer.phone,
-      gender: customer.gender || 'male',
-      address: customer.address || '',
-      note: customer.note || '',
+      gender: customer.gender || "male",
+      is_stamp_eligible: customer.is_stamp_eligible ?? true,
+      address: customer.address || "",
+      note: customer.note || "",
     },
   });
 
@@ -182,7 +187,7 @@ export default function CustomerEditModal({
               }
             }}
           >
-            {isDeleting ? '삭제 중...' : '삭제'}
+            {isDeleting ? "삭제 중..." : "삭제"}
           </Button>
         </div>
       </div>
@@ -207,13 +212,23 @@ export default function CustomerEditModal({
                 전화번호:
               </span>
               <p className="text-base font-semibold text-gray-900">
-                {formData.phone === 'X' ? 'X' : formatPhoneNumber(formData.phone)}
+                {formData.phone === "X"
+                  ? "X"
+                  : formatPhoneNumber(formData.phone)}
               </p>
             </div>
             <div>
               <span className="text-sm font-medium text-gray-600">성별:</span>
               <p className="text-base font-semibold text-gray-900">
-                {formData.gender === 'male' ? '남자' : '여자'}
+                {formData.gender === "male" ? "남자" : "여자"}
+              </p>
+            </div>
+            <div>
+              <span className="text-sm font-medium text-gray-600">
+                적립 대상:
+              </span>
+              <p className="text-base font-semibold text-gray-900">
+                {formData.is_stamp_eligible ? "적립" : "미적립"}
               </p>
             </div>
             {formData.note && (
@@ -256,7 +271,7 @@ export default function CustomerEditModal({
             onClick={handleConfirm}
             size="sm"
           >
-            {isSubmitting ? '수정 중...' : '수정'}
+            {isSubmitting ? "수정 중..." : "수정"}
           </Button>
         </div>
       </div>
@@ -280,7 +295,7 @@ export default function CustomerEditModal({
             className="w-full rounded border border-brand-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
             placeholder="홍길동"
             aria-invalid={!!errors.name || undefined}
-            {...register('name')}
+            {...register("name")}
           />
           {errors.name && (
             <p className="mt-1 text-xs text-rose-600">{errors.name.message}</p>
@@ -296,7 +311,7 @@ export default function CustomerEditModal({
             className="w-full rounded border border-brand-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
             placeholder="'-' 없이 숫자만 (ex: 01012345678) / 정보 없을 경우 X"
             aria-invalid={!!errors.phone || undefined}
-            {...register('phone')}
+            {...register("phone")}
           />
           {errors.phone && (
             <p className="mt-1 text-xs text-rose-600">{errors.phone.message}</p>
@@ -309,11 +324,11 @@ export default function CustomerEditModal({
           </span>
           <div className="flex items-center gap-4">
             <label className="inline-flex items-center gap-2 text-sm">
-              <input type="radio" value="male" {...register('gender')} />
+              <input type="radio" value="male" {...register("gender")} />
               남자
             </label>
             <label className="inline-flex items-center gap-2 text-sm">
-              <input type="radio" value="female" {...register('gender')} />
+              <input type="radio" value="female" {...register("gender")} />
               여자
             </label>
           </div>
@@ -325,12 +340,40 @@ export default function CustomerEditModal({
         </div>
 
         <div>
+          <span className="block text-sm font-medium mb-1">적립 대상</span>
+          <Controller
+            name="is_stamp_eligible"
+            control={control}
+            render={({ field }) => (
+              <div className="flex items-center gap-4">
+                <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    checked={field.value}
+                    onChange={() => field.onChange(true)}
+                  />
+                  적립
+                </label>
+                <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    checked={!field.value}
+                    onChange={() => field.onChange(false)}
+                  />
+                  미적립
+                </label>
+              </div>
+            )}
+          />
+        </div>
+
+        <div>
           <label className="block text-sm font-medium mb-1">특이사항</label>
           <textarea
             className="w-full min-h-24 rounded border border-brand-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
             placeholder="고객,결제 관련 특이사항을 입력하세요. (선택)"
             aria-invalid={!!errors.note || undefined}
-            {...register('note')}
+            {...register("note")}
           />
           {errors.note && (
             <p className="mt-1 text-xs text-rose-600">{errors.note.message}</p>
@@ -342,9 +385,11 @@ export default function CustomerEditModal({
           <textarea
             rows={3}
             className="w-full min-h-20 resize-y rounded border border-brand-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
-            placeholder={"주소지를 입력하세요. (선택)\nex) OO구 도로명주소 OO건물 OO동 OO호 (공동현관 : 비밀번호 or X)"}
+            placeholder={
+              "주소지를 입력하세요. (선택)\nex) OO구 도로명주소 OO건물 OO동 OO호 (공동현관 : 비밀번호 or X)"
+            }
             aria-invalid={!!errors.address || undefined}
-            {...register('address')}
+            {...register("address")}
           />
           {errors.address && (
             <p className="mt-1 text-xs text-rose-600">
@@ -356,7 +401,7 @@ export default function CustomerEditModal({
 
       <div
         className={`pt-4 border-t border-gray-200 flex justify-between mt-4 ${
-          isAdmin ? 'justify-between' : 'justify-end'
+          isAdmin ? "justify-between" : "justify-end"
         }`}
       >
         {isAdmin && (
@@ -376,7 +421,7 @@ export default function CustomerEditModal({
             취소
           </Button>
           <Button type="submit" disabled={isSubmitting} size="sm">
-            {isSubmitting ? '수정 중...' : '수정'}
+            {isSubmitting ? "수정 중..." : "수정"}
           </Button>
         </div>
       </div>

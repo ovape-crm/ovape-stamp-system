@@ -1,10 +1,11 @@
-export type GenderType = 'male' | 'female';
+export type GenderType = "male" | "female";
 
 export type CustomerType = {
   id: string;
   name: string;
   phone: string;
   gender: GenderType;
+  is_stamp_eligible?: boolean;
   address?: string | null;
   note?: string | null;
   created_at: string;

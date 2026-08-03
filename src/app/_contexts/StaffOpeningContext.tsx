@@ -10,8 +10,15 @@ import {
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Loading from "@/app/_components/Loading";
+import Button from "@/app/_components/Button";
 import { useUser } from "@/app/_contexts/UserContext";
 import { getCurrentWorker } from "@/app/_domains/_workJournal/_utils/currentWorker";
+import {
+  acknowledgeOpeningNotice,
+  getOpeningCompletionNotice,
+  hasAcknowledgedOpeningNotice,
+} from "@/app/_domains/_dailyClosing/_services/dailyClosingService";
+import type { OpeningCompletionNotice } from "@/app/_domains/_dailyClosing/_types/dailyClosing.types";
 import supabase from "@/libs/supabaseClient";
 
 type StaffOpeningStep = "unlocked" | "attendance" | "cash" | "checklist";
@@ -55,12 +62,16 @@ export const StaffOpeningProvider = ({
   const [step, setStep] = useState<StaffOpeningStep>("unlocked");
   const [previousCash, setPreviousCash] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [openingNotice, setOpeningNotice] = useState<OpeningCompletionNotice | null>(null);
+  const [noticeBusinessDate, setNoticeBusinessDate] = useState("");
+  const [acknowledgingNotice, setAcknowledgingNotice] = useState(false);
 
   const refresh = useCallback(async () => {
     if (isUserLoading) return;
     if (!user || isAdmin) {
       setStep("unlocked");
       setPreviousCash(null);
+      setOpeningNotice(null);
       setIsLoading(false);
       return;
     }
@@ -135,11 +146,30 @@ export const StaffOpeningProvider = ({
         if (progressError) throw progressError;
 
         const checks = (progress?.checks ?? {}) as Record<string, boolean>;
-        setStep(
-          gateItems.every((item) => checks[item.id])
-            ? "unlocked"
-            : "checklist",
-        );
+        const isOpeningComplete = gateItems.every((item) => checks[item.id]);
+        setStep(isOpeningComplete ? "unlocked" : "checklist");
+
+        if (isOpeningComplete) {
+          try {
+            const notice = await getOpeningCompletionNotice();
+            if (notice?.is_active) {
+              const acknowledged = await hasAcknowledgedOpeningNotice(
+                today,
+                notice.version,
+              );
+              if (!acknowledged) {
+                setNoticeBusinessDate(today);
+                setOpeningNotice(notice);
+              }
+            } else {
+              setOpeningNotice(null);
+            }
+          } catch (noticeError) {
+            console.error("Opening completion notice check failed:", noticeError);
+          }
+        } else {
+          setOpeningNotice(null);
+        }
         return;
       }
 
@@ -204,6 +234,19 @@ export const StaffOpeningProvider = ({
     [isLoading, previousCash, refresh, step],
   );
 
+  const confirmOpeningNotice = async () => {
+    if (!openingNotice || !noticeBusinessDate) return;
+    setAcknowledgingNotice(true);
+    try {
+      await acknowledgeOpeningNotice(noticeBusinessDate, openingNotice.version);
+      setOpeningNotice(null);
+    } catch (error) {
+      console.error("Opening completion notice acknowledgement failed:", error);
+    } finally {
+      setAcknowledgingNotice(false);
+    }
+  };
+
   if (isUserLoading || isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -235,6 +278,38 @@ export const StaffOpeningProvider = ({
   return (
     <StaffOpeningContext.Provider value={value}>
       {children}
+      {openingNotice && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-gray-950/45 p-4 backdrop-blur-[1px]"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="opening-completion-notice-title"
+        >
+          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl">
+            <div className="border-b border-gray-100 px-5 py-4 sm:px-6">
+              <span className="text-xs font-bold text-emerald-600">오픈 완료</span>
+              <h2
+                id="opening-completion-notice-title"
+                className="mt-1 text-lg font-bold text-gray-900"
+              >
+                {openingNotice.title}
+              </h2>
+            </div>
+            <div className="px-5 py-5 sm:px-6">
+              <p className="whitespace-pre-wrap text-sm leading-6 text-gray-700">
+                {openingNotice.content || "오픈 처리가 완료되었습니다."}
+              </p>
+              <Button
+                className="mt-6 w-full"
+                onClick={confirmOpeningNotice}
+                disabled={acknowledgingNotice}
+              >
+                {acknowledgingNotice ? "확인 중..." : "확인"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </StaffOpeningContext.Provider>
   );
 };

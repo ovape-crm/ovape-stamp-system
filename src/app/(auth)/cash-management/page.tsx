@@ -560,19 +560,16 @@ export default function CashManagementPage() {
             <div className="flex h-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
               <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-5 py-4">
                 <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="font-semibold text-gray-900">
-                      실제 현금 입력
-                    </h2>
-                    <Button
-                      size="xs"
-                      variant="gray"
+                  <h2 className="font-semibold text-gray-900">
+                    <button
+                      type="button"
                       onClick={loadPreviousCashCounts}
-                      className="border-gray-200 bg-white/80 text-[11px] text-gray-600 shadow-xs hover:border-brand-200 hover:text-brand-700"
+                      aria-label="전날 시재 불러오기"
+                      className="cursor-pointer appearance-none bg-transparent p-0 text-left font-inherit text-inherit outline-none focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-brand-200"
                     >
-                      전날 시재 불러오기
-                    </Button>
-                  </div>
+                      실제 현금 입력
+                    </button>
+                  </h2>
                   <p className="mt-1 text-xs text-gray-500">
                     지폐와 동전의 개수를 입력하세요.
                   </p>

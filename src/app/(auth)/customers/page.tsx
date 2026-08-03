@@ -121,6 +121,7 @@ export default function CustomersPage() {
         name: values.name,
         phone: values.phone,
         gender: values.gender,
+        is_stamp_eligible: values.is_stamp_eligible,
         address: values.address,
         note: values.note,
       });

@@ -1,43 +1,43 @@
-'use client';
+"use client";
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback } from "react";
 import {
   LogCategoryEnum,
   LogCategoryEnumType,
   PaymentTypeEnum,
   PaymentTypeEnumType,
   StoreTypeEnumType,
-} from '@/app/_enums/enums';
+} from "@/app/_enums/enums";
 import {
   updateLogNote,
   deleteLog,
-} from '@/app/_domains/_log/_services/logService';
-import { confirmReservationStamp } from '@/app/_domains/_stamp/_services/stampService';
-import { useQueryClient } from '@tanstack/react-query';
-import { logKeys } from '@/app/_domains/_log/_queryKeys/logKeys';
-import { customerKeys } from '@/app/_domains/_customer/_queryKeys/customerKeys';
-import Loading from '@/app/_components/Loading';
-import Button from '@/app/_components/Button';
-import { Dropdown, DropdownOption } from '@/app/_components/Dropdown';
-import DateRangePicker from '@/app/_components/DateRangePicker';
-import toast from 'react-hot-toast';
-import { useRouter } from 'next/navigation';
-import { LogsResType } from '@/app/_domains/_log/_types/log.types';
-import useLogs from '@/app/_domains/_log/_hooks/useLogs';
-import { groupLogsByDate, formatDateKey } from '@/app/_utils/utils';
-import StampHistoryItem from './StampHistoryItem';
-import { useUser } from '@/app/_contexts/UserContext';
-import { useModal } from '@/app/_contexts/ModalContext';
-import DeleteConfirmModal from '@/app/(auth)/_components/DeleteConfirmModal';
-import StampLogEditModal from '@/app/(auth)/_components/StampLogEditModal';
-import ConfirmModal from '@/app/(auth)/_components/ConfirmModal';
-import RemarkLogCreateModal from '@/app/(auth)/customers/[id]/_components/RemarkLogCreateModal';
-import type { StampLogMeta } from '@/app/_domains/_stamp/_services/stampService';
+} from "@/app/_domains/_log/_services/logService";
+import { confirmReservationStamp } from "@/app/_domains/_stamp/_services/stampService";
+import { useQueryClient } from "@tanstack/react-query";
+import { logKeys } from "@/app/_domains/_log/_queryKeys/logKeys";
+import { customerKeys } from "@/app/_domains/_customer/_queryKeys/customerKeys";
+import Loading from "@/app/_components/Loading";
+import Button from "@/app/_components/Button";
+import { Dropdown, DropdownOption } from "@/app/_components/Dropdown";
+import DateRangePicker from "@/app/_components/DateRangePicker";
+import toast from "react-hot-toast";
+import { useRouter } from "next/navigation";
+import { LogsResType } from "@/app/_domains/_log/_types/log.types";
+import useLogs from "@/app/_domains/_log/_hooks/useLogs";
+import { groupLogsByDate, formatDateKey } from "@/app/_utils/utils";
+import StampHistoryItem from "./StampHistoryItem";
+import { useUser } from "@/app/_contexts/UserContext";
+import { useModal } from "@/app/_contexts/ModalContext";
+import DeleteConfirmModal from "@/app/(auth)/_components/DeleteConfirmModal";
+import StampLogEditModal from "@/app/(auth)/_components/StampLogEditModal";
+import ConfirmModal from "@/app/(auth)/_components/ConfirmModal";
+import RemarkLogCreateModal from "@/app/(auth)/customers/[id]/_components/RemarkLogCreateModal";
+import type { StampLogMeta } from "@/app/_domains/_stamp/_services/stampService";
 
 const PAGE_SIZE = 10;
 
 const paymentMethodOptions = [
-  { label: '전체', value: '' },
+  { label: "전체", value: "" },
   ...Object.values(PaymentTypeEnum).map((p) => ({
     label: p.name,
     value: p.value,
@@ -45,7 +45,7 @@ const paymentMethodOptions = [
 ];
 
 interface StampHistoriesProps {
-  category?: LogCategoryEnumType['value'];
+  category?: LogCategoryEnumType["value"];
   isReservation?: boolean;
 }
 
@@ -60,9 +60,9 @@ const StampHistories = ({
 
   const [startDate, setStartDate] = useState<string | null>(null);
   const [endDate, setEndDate] = useState<string | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState('');
-  const [searchInput, setSearchInput] = useState('');
-  const [searchKeyword, setSearchKeyword] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const [searchKeyword, setSearchKeyword] = useState("");
 
   const dateRange =
     startDate && endDate ? { start: startDate, end: endDate } : null;
@@ -82,7 +82,7 @@ const StampHistories = ({
 
   const handleSearchKeyDown = (e: React.KeyboardEvent) => {
     if (e.nativeEvent.isComposing) return;
-    if (e.key === 'Enter') handleSearch();
+    if (e.key === "Enter") handleSearch();
   };
 
   const startEdit = useCallback(
@@ -104,21 +104,23 @@ const StampHistories = ({
               updated_at: updated.updated_at,
             }));
             close();
-            toast.success(isRemarkLog ? '특이사항을 저장했습니다.' : '메모를 저장했습니다.');
+            toast.success(
+              isRemarkLog ? "특이사항을 저장했습니다." : "메모를 저장했습니다.",
+            );
           } catch (e) {
-            console.error('Failed to save note:', e);
-            toast.error('저장에 실패했습니다. 다시 시도해 주세요.');
+            console.error("Failed to save note:", e);
+            toast.error("저장에 실패했습니다. 다시 시도해 주세요.");
           }
         };
 
         open({
           content: (
             <RemarkLogCreateModal
-              initialNote={log.note ?? ''}
+              initialNote={log.note ?? ""}
               mode="edit"
-              title={isRemarkLog ? undefined : '메모 수정'}
-              label={isRemarkLog ? undefined : '메모'}
-              placeholder={isRemarkLog ? undefined : '메모를 입력하세요'}
+              title={isRemarkLog ? undefined : "메모 수정"}
+              label={isRemarkLog ? undefined : "메모"}
+              placeholder={isRemarkLog ? undefined : "메모를 입력하세요"}
               onSubmit={handleRemarkSubmit}
               onCancel={close}
             />
@@ -130,8 +132,8 @@ const StampHistories = ({
 
       const handleSubmit = async (values: {
         note: string;
-        paymentType?: PaymentTypeEnumType['value'];
-        storeName: StoreTypeEnumType['value'];
+        paymentType?: PaymentTypeEnumType["value"];
+        storeName: StoreTypeEnumType["value"];
         logMeta: StampLogMeta;
         amount: number;
       }) => {
@@ -139,7 +141,7 @@ const StampHistories = ({
           // 예약 이력은 아직 스탬프가 적립되지 않았으므로 개수 수정 허용
           const nextAction = isReservation
             ? values.amount === 0
-              ? 'no-stamp'
+              ? "no-stamp"
               : `add-${values.amount}`
             : undefined;
           const updated = await updateLogNote(
@@ -158,10 +160,10 @@ const StampHistories = ({
             updated_at: updated.updated_at,
           }));
           close();
-          toast.success('이력을 저장했습니다.');
+          toast.success("이력을 저장했습니다.");
         } catch (e) {
-          console.error('Failed to save note:', e);
-          toast.error('저장에 실패했습니다. 다시 시도해 주세요.');
+          console.error("Failed to save note:", e);
+          toast.error("저장에 실패했습니다. 다시 시도해 주세요.");
         }
       };
 
@@ -173,19 +175,18 @@ const StampHistories = ({
               phone: log.customers.phone,
               address: log.customers.address,
               note: log.customers.note,
+              is_stamp_eligible: log.customers.is_stamp_eligible,
             }}
             initialAction={log.action}
             initialPaymentType={
-              log.jsonb?.paymentType as
-                | PaymentTypeEnumType['value']
-                | undefined
+              log.jsonb?.paymentType as PaymentTypeEnumType["value"] | undefined
             }
             initialStoreName={
-              log.jsonb?.storeName as StoreTypeEnumType['value'] | undefined
+              log.jsonb?.storeName as StoreTypeEnumType["value"] | undefined
             }
             initialLogMeta={log.jsonb as StampLogMeta}
             isStampAmountEditable={isReservation}
-            title={isReservation ? '출고 예약 수정' : '출고 이력 수정'}
+            title={isReservation ? "출고 예약 수정" : "출고 이력 수정"}
             onSubmit={handleSubmit}
             onCancel={close}
           />
@@ -203,10 +204,10 @@ const StampHistories = ({
           await deleteLog(log.id);
           removeItem(log.id);
           close();
-          toast.success('로그를 삭제했습니다.');
+          toast.success("로그를 삭제했습니다.");
         } catch (e) {
-          console.error('Failed to delete log:', e);
-          toast.error('로그 삭제에 실패했습니다. 다시 시도해 주세요.');
+          console.error("Failed to delete log:", e);
+          toast.error("로그 삭제에 실패했습니다. 다시 시도해 주세요.");
           close();
         }
       };
@@ -238,10 +239,10 @@ const StampHistories = ({
             });
           }
           close();
-          toast.success('출고 이력으로 확정되었습니다.');
+          toast.success("출고 이력으로 확정되었습니다.");
         } catch (e) {
-          console.error('Failed to confirm reservation:', e);
-          toast.error('출고 확정에 실패했습니다. 다시 시도해 주세요.');
+          console.error("Failed to confirm reservation:", e);
+          toast.error("출고 확정에 실패했습니다. 다시 시도해 주세요.");
           close();
         }
       };
@@ -251,7 +252,7 @@ const StampHistories = ({
           <ConfirmModal
             title="출고 확정"
             description={
-              '이 예약을 출고 이력으로 확정하시겠습니까?\n확정 시 스탬프가 적립되고 출고 이력으로 이동합니다.'
+              "이 예약을 출고 이력으로 확정하시겠습니까?\n확정 시 스탬프가 적립되고 출고 이력으로 이동합니다."
             }
             confirmLabel="출고 확정"
             confirmingLabel="확정 중..."
@@ -291,7 +292,7 @@ const StampHistories = ({
               <Dropdown controlledValue={paymentMethod}>
                 <Dropdown.Trigger>
                   {paymentMethodOptions.find((o) => o.value === paymentMethod)
-                    ?.label ?? '전체'}
+                    ?.label ?? "전체"}
                 </Dropdown.Trigger>
                 <Dropdown.Content>
                   {paymentMethodOptions.map((option, i) => (

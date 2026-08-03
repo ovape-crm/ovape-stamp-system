@@ -39,6 +39,7 @@ export type LogCustomerInfo = {
   address?: string | null;
   note?: string | null;
   gender?: "male" | "female" | null;
+  is_stamp_eligible?: boolean;
 };
 
 // 고객 상세 페이지의 로그

@@ -298,43 +298,43 @@ export function InventoryPageContent({
             {receiveTabOrder
               .filter((item) => isAdmin || item === "receive")
               .map((item, index) => (
-              <div key={item} className="flex items-center">
-                {editingReceiveTabOrder && (
+                <div key={item} className="flex items-center">
+                  {editingReceiveTabOrder && (
+                    <button
+                      type="button"
+                      onClick={() => moveReceiveTab(index, -1)}
+                      disabled={index === 0}
+                      className="h-7 w-6 text-xs text-gray-400 hover:text-brand-600 disabled:opacity-20"
+                      aria-label={`${item === "receive" ? "입고" : "거래처 관리"} 왼쪽으로 이동`}
+                    >
+                      ‹
+                    </button>
+                  )}
                   <button
                     type="button"
-                    onClick={() => moveReceiveTab(index, -1)}
-                    disabled={index === 0}
-                    className="h-7 w-6 text-xs text-gray-400 hover:text-brand-600 disabled:opacity-20"
-                    aria-label={`${item === "receive" ? "입고" : "거래처 관리"} 왼쪽으로 이동`}
+                    role="tab"
+                    aria-selected={receiveView === item}
+                    onClick={() => setReceiveView(item)}
+                    className={`border-b-2 px-5 py-3 text-sm font-semibold transition-colors ${
+                      receiveView === item
+                        ? "border-brand-500 text-brand-700"
+                        : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
+                    }`}
                   >
-                    ‹
+                    {item === "receive" ? "입고" : "거래처 관리"}
                   </button>
-                )}
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={receiveView === item}
-                  onClick={() => setReceiveView(item)}
-                  className={`border-b-2 px-5 py-3 text-sm font-semibold transition-colors ${
-                    receiveView === item
-                      ? "border-brand-500 text-brand-700"
-                      : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-                  }`}
-                >
-                  {item === "receive" ? "입고" : "거래처 관리"}
-                </button>
-                {editingReceiveTabOrder && (
-                  <button
-                    type="button"
-                    onClick={() => moveReceiveTab(index, 1)}
-                    disabled={index === receiveTabOrder.length - 1}
-                    className="h-7 w-6 text-xs text-gray-400 hover:text-brand-600 disabled:opacity-20"
-                    aria-label={`${item === "receive" ? "입고" : "거래처 관리"} 오른쪽으로 이동`}
-                  >
-                    ›
-                  </button>
-                )}
-              </div>
+                  {editingReceiveTabOrder && (
+                    <button
+                      type="button"
+                      onClick={() => moveReceiveTab(index, 1)}
+                      disabled={index === receiveTabOrder.length - 1}
+                      className="h-7 w-6 text-xs text-gray-400 hover:text-brand-600 disabled:opacity-20"
+                      aria-label={`${item === "receive" ? "입고" : "거래처 관리"} 오른쪽으로 이동`}
+                    >
+                      ›
+                    </button>
+                  )}
+                </div>
               ))}
           </div>
           {isAdmin && (
@@ -1472,6 +1472,24 @@ type TaxInvoiceStatus =
   | "이구베이프 현금영수증"
   | "X";
 
+const TAX_INVOICE_OPTIONS = [
+  "오베이프 세금계산서",
+  "이구베이프 세금계산서",
+  "오베이프 현금영수증",
+  "이구베이프 현금영수증",
+  "X",
+] as const satisfies readonly Exclude<TaxInvoiceStatus, "">[];
+
+const getSupplierDefaultTaxInvoiceStatus = (
+  note: string | null | undefined,
+): TaxInvoiceStatus => {
+  const match = (note ?? "").match(/\[\[default_tax_invoice:(.*?)\]\]/);
+  const value = match?.[1] as TaxInvoiceStatus | undefined;
+  return value && TAX_INVOICE_OPTIONS.some((option) => option === value)
+    ? value
+    : "";
+};
+
 const splitPurchaseOrderNote = (value: string | null | undefined) => {
   const note = value ?? "";
   const match = note.match(/^\[\[tax_invoice:(.*?)\]\]\r?\n?/);
@@ -1671,18 +1689,36 @@ function ReceiptManager({
         .toLocaleLowerCase("ko-KR")
         .includes(supplierSearch.trim().toLocaleLowerCase("ko-KR")),
     );
-  const taxInvoiceOptions = [
-    "오베이프 세금계산서",
-    "이구베이프 세금계산서",
-    "오베이프 현금영수증",
-    "이구베이프 현금영수증",
-    "X",
-  ] as const;
-  const taxInvoiceSuggestions = taxInvoiceOptions.filter((option) =>
+  const taxInvoiceSuggestions = TAX_INVOICE_OPTIONS.filter((option) =>
     option
       .toLocaleLowerCase("ko-KR")
       .includes(taxInvoiceSearch.trim().toLocaleLowerCase("ko-KR")),
   );
+
+  const selectSupplier = (supplier: InventorySupplier) => {
+    setSupplierId(supplier.id);
+    setSupplierSearch(supplier.name);
+    setSupplierPickerOpen(false);
+
+    const savedTaxInvoiceStatus = getSupplierDefaultTaxInvoiceStatus(
+      supplier.note,
+    );
+    if (!savedTaxInvoiceStatus) return;
+
+    const shouldLoad = window.confirm(
+      `저장된 발행 종류(${savedTaxInvoiceStatus})를 불러오시겠습니까?\n\nA/S 입고나 스티커 처리 시 아니오를 클릭하고 발행 종류를 X로 선택해 주세요.`,
+    );
+    if (shouldLoad) {
+      setTaxInvoiceStatus(savedTaxInvoiceStatus);
+      setTaxInvoiceSearch(savedTaxInvoiceStatus);
+      setTaxInvoicePickerOpen(false);
+      return;
+    }
+
+    setTaxInvoiceStatus("");
+    setTaxInvoiceSearch("");
+    setTaxInvoicePickerOpen(true);
+  };
 
   const commitDraftRow = () => {
     setRows((current) => [
@@ -1848,11 +1884,7 @@ function ReceiptManager({
                                 <button
                                   type="button"
                                   key={supplier.id}
-                                  onClick={() => {
-                                    setSupplierId(supplier.id);
-                                    setSupplierSearch(supplier.name);
-                                    setSupplierPickerOpen(false);
-                                  }}
+                                  onClick={() => selectSupplier(supplier)}
                                   className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-3 text-left text-sm hover:bg-brand-50"
                                 >
                                   <span className="font-semibold text-gray-900">
@@ -2616,12 +2648,6 @@ function PurchaseOrderList({
   onCreate?: () => void;
 }) {
   const [quantities, setQuantities] = useState<Record<string, string>>({});
-  const [orderedQuantities, setOrderedQuantities] = useState<
-    Record<string, string>
-  >({});
-  const [editingOrderedQuantities, setEditingOrderedQuantities] = useState<
-    Record<string, boolean>
-  >({});
   const [arrivalDates, setArrivalDates] = useState<Record<string, string>>({});
   const [arrivalNotes, setArrivalNotes] = useState<Record<string, string>>({});
   const [pending, setPending] = useState(false);
@@ -2640,9 +2666,7 @@ function PurchaseOrderList({
   >("waiting");
   useEffect(() => {
     setQuantities({});
-    setOrderedQuantities({});
     setEditingQuantities({});
-    setEditingOrderedQuantities({});
     setSavedQuantities({});
     setArrivalDates({});
     setArrivalNotes({});
@@ -2736,9 +2760,7 @@ function PurchaseOrderList({
   }, [listTab, orders]);
   const clearDraftState = () => {
     setQuantities({});
-    setOrderedQuantities({});
     setEditingQuantities({});
-    setEditingOrderedQuantities({});
     setSavedQuantities({});
     setArrivalDates({});
     setArrivalNotes({});
@@ -2836,6 +2858,50 @@ function PurchaseOrderList({
     }).format(new Date(`${value}T00:00:00+09:00`));
   const cleanQuantityMemo = (value: string | null | undefined) =>
     value?.replace(/\[자동 수량 확인\]\s*/g, "").trim() ?? "";
+  const copyOrderForExcel = async (order: PurchaseOrder) => {
+    const orderNote = splitPurchaseOrderNote(order.note);
+    const supplierName = order.inventory_suppliers?.name ?? "";
+    const commonColumns = [supplierName, formatKoreanDate(order.ordered_on)];
+    const itemRows = order.inventory_purchase_order_lines.map((line) =>
+      [
+        ...commonColumns,
+        line.item_name,
+        line.ordered_quantity,
+        "",
+        "=[@수량]*[@매입가]",
+        cleanQuantityMemo(line.note),
+        orderNote.note,
+        orderNote.taxInvoiceStatus,
+        "",
+      ].join("\t"),
+    );
+    const adjustmentRows = (
+      order.inventory_purchase_order_adjustments ?? []
+    ).map((adjustment) => {
+      const signedAmount =
+        adjustment.kind === "discount"
+          ? -Math.abs(Number(adjustment.amount))
+          : Math.abs(Number(adjustment.amount));
+      return [
+        ...commonColumns,
+        adjustment.category_name,
+        1,
+        signedAmount,
+        "=[@수량]*[@매입가]",
+        adjustment.note ?? "",
+        orderNote.note,
+        orderNote.taxInvoiceStatus,
+        "",
+      ].join("\t");
+    });
+    const text = [...itemRows, ...adjustmentRows].join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("엑셀 붙여넣기 형식으로 복사했습니다.");
+    } catch {
+      toast.error("복사하지 못했습니다. 다시 시도해 주세요.");
+    }
+  };
   if (loading)
     return <Loading size="sm" text="입고 예정 목록을 불러오는 중..." />;
   return (
@@ -3083,133 +3149,153 @@ function PurchaseOrderList({
             key={order.id}
             className="overflow-visible rounded-2xl border border-gray-200 bg-gray-50 shadow-sm"
           >
-            <header className="flex flex-wrap items-center gap-3 rounded-t-[15px] bg-gray-50 px-4 py-3">
-              <span
-                className={`rounded-full px-2.5 py-1 text-xs font-bold ${order.status === "completed" ? "bg-emerald-100 text-emerald-700" : order.status === "partial" ? "bg-blue-100 text-blue-700" : order.status === "closed" || order.status === "cancelled" ? "bg-gray-200 text-gray-600" : "bg-amber-100 text-amber-700"}`}
-              >
-                {order.status === "closed"
-                  ? isEntirelyUnreceived
-                    ? "전체 미입고 종료"
-                    : "일부 미입고 종료"
-                  : statusLabels[order.status]}
-              </span>
-              <strong>
-                {order.inventory_suppliers?.name ?? "거래처 정보 없음"}
-              </strong>
-              <div className="flex h-9 items-center gap-2 rounded-lg border border-gray-200 bg-white px-2.5 text-sm">
-                <span className="leading-none text-xs font-bold text-brand-600">
-                  주문일
-                </span>
-                <span className="leading-none font-medium text-gray-700">
-                  {formatKoreanDate(order.ordered_on)}
-                </span>
+            <header className="flex flex-col rounded-t-[15px] bg-gray-50 sm:min-h-[112px] sm:flex-row sm:items-stretch">
+              <div className="flex w-full shrink-0 flex-col justify-center gap-2 border-b border-gray-200 px-3 py-3 sm:w-[180px] sm:border-b-0 sm:border-r">
+                <div className="flex min-h-9 items-center justify-center">
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-xs font-bold ${order.status === "completed" ? "bg-emerald-100 text-emerald-700" : order.status === "partial" ? "bg-blue-100 text-blue-700" : order.status === "closed" || order.status === "cancelled" ? "bg-gray-200 text-gray-600" : "bg-amber-100 text-amber-700"}`}
+                  >
+                    {order.status === "closed"
+                      ? isEntirelyUnreceived
+                        ? "전체 미입고 종료"
+                        : "일부 미입고 종료"
+                      : statusLabels[order.status]}
+                  </span>
+                </div>
+                <div className="flex min-h-7 items-center justify-center">
+                  <strong className="text-center">
+                    {order.inventory_suppliers?.name ?? "거래처 정보 없음"}
+                  </strong>
+                </div>
               </div>
-              {order.inventory_purchase_receipts.map((receipt) => (
-                <div
-                  key={receipt.id}
-                  className="flex h-9 items-center gap-2 rounded-lg border border-gray-200 bg-white px-2.5 text-sm"
-                >
-                  <span className="leading-none text-xs font-bold text-emerald-700">
-                    도착일
-                  </span>
-                  <span className="leading-none font-medium text-gray-700">
-                    {formatKoreanDate(receipt.arrived_on)}
-                  </span>
-                  {receipt.reversed_at ? (
-                    <span className="text-xs font-semibold text-rose-600">
-                      취소됨
+              <div className="grid min-w-0 flex-1 grid-cols-1 gap-x-3 gap-y-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                <div className="flex w-full flex-wrap items-center gap-3">
+                  <div className="flex h-9 items-center gap-2 rounded-lg border border-gray-200 bg-white px-2.5 text-sm">
+                    <span className="leading-none text-xs font-bold text-brand-600">
+                      주문일
                     </span>
-                  ) : (
-                    isAdmin && (
-                      <Button
-                        size="xs"
-                        variant="danger"
-                        onClick={() => {
-                          const reason =
-                            window.prompt("입고 취소 사유를 입력하세요.");
-                          if (reason?.trim())
-                            void run(
-                              () => reversePurchaseReceipt(receipt.id, reason),
-                              "입고를 취소하고 재고를 복구했습니다.",
-                            );
-                        }}
-                        disabled={pending}
-                      >
-                        입고 취소
-                      </Button>
-                    )
+                    <span className="leading-none font-medium text-gray-700">
+                      {formatKoreanDate(order.ordered_on)}
+                    </span>
+                  </div>
+                  {order.inventory_purchase_receipts.map((receipt) => (
+                    <div
+                      key={receipt.id}
+                      className="flex h-9 items-center gap-2 rounded-lg border border-gray-200 bg-white px-2.5 text-sm"
+                    >
+                      <span className="leading-none text-xs font-bold text-emerald-700">
+                        도착일
+                      </span>
+                      <span className="leading-none font-medium text-gray-700">
+                        {formatKoreanDate(receipt.arrived_on)}
+                      </span>
+                      {receipt.reversed_at ? (
+                        <span className="text-xs font-semibold text-rose-600">
+                          취소됨
+                        </span>
+                      ) : (
+                        isAdmin && (
+                          <Button
+                            size="xs"
+                            variant="danger"
+                            onClick={() => {
+                              const reason =
+                                window.prompt("입고 취소 사유를 입력하세요.");
+                              if (reason?.trim())
+                                void run(
+                                  () =>
+                                    reversePurchaseReceipt(receipt.id, reason),
+                                  "입고를 취소하고 재고를 복구했습니다.",
+                                );
+                            }}
+                            disabled={pending}
+                          >
+                            입고 취소
+                          </Button>
+                        )
+                      )}
+                    </div>
+                  ))}
+                  {orderNote.note && (
+                    <span className="text-sm text-gray-500">
+                      전체 메모: {orderNote.note}
+                    </span>
+                  )}
+                  {order.status === "closed" && order.closed_reason && (
+                    <span className="rounded-lg bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-700">
+                      미입고 종료 사유: {order.closed_reason}
+                    </span>
                   )}
                 </div>
-              ))}
-              {orderNote.taxInvoiceStatus && (
-                <span className="rounded-lg bg-brand-50 px-3 py-1.5 text-sm font-semibold text-brand-700">
-                  발행 종류: {orderNote.taxInvoiceStatus}
-                </span>
-              )}
-              {orderNote.note && (
-                <span className="text-sm text-gray-500">
-                  전체 메모: {orderNote.note}
-                </span>
-              )}
-              {order.status === "closed" && order.closed_reason && (
-                <span className="rounded-lg bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-700">
-                  미입고 종료 사유: {order.closed_reason}
-                </span>
-              )}
-              {isAdmin && (
-                <>
-                  {adjustments.map((adjustment) => (
-                    <span
-                      key={adjustment.id}
-                      className={`rounded-full px-2.5 py-1 text-xs font-bold ${
-                        adjustment.kind === "discount"
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-orange-100 text-orange-700"
-                      }`}
-                    >
-                      {adjustment.category_name}{" "}
-                      {adjustment.kind === "discount" ? "-" : "+"}
-                      {Number(adjustment.amount).toLocaleString("ko-KR")}원
+                <div className="flex min-h-7 w-full flex-wrap items-center gap-1.5">
+                  {orderNote.taxInvoiceStatus && (
+                    <span className="rounded-lg bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700">
+                      발행 종류: {orderNote.taxInvoiceStatus}
                     </span>
-                  ))}
-                  <Button
-                    size="xs"
-                    variant="gray"
-                    onClick={() => setEditingOrder(order)}
-                    className="ml-auto"
-                  >
-                    입고 내용 수정
-                  </Button>
-                  <Button
-                    size="xs"
-                    variant="gray"
-                    onClick={() => setAdjustmentOrder(order)}
-                  >
-                    거래 조정
-                  </Button>
-                </>
-              )}
-              {!open && isAdmin && (
-                <Button
-                  size="xs"
-                  variant="danger"
-                  onClick={() => {
-                    if (
-                      window.confirm(
-                        "이 입고 이력을 삭제할까요? 반영된 입고 재고와 관련 변동 이력도 함께 되돌아갑니다.",
-                      )
-                    )
-                      void run(
-                        () => deletePurchaseOrderHistory(order.id),
-                        "입고 이력을 삭제했습니다.",
-                      );
-                  }}
-                  disabled={pending}
-                  className="ml-auto"
-                >
-                  이력 삭제
-                </Button>
-              )}
+                  )}
+                  {isAdmin &&
+                    adjustments.map((adjustment) => (
+                      <span
+                        key={adjustment.id}
+                        className={`rounded-full px-2.5 py-1 text-xs font-bold ${adjustment.kind === "discount" ? "bg-blue-100 text-blue-700" : "bg-orange-100 text-orange-700"}`}
+                      >
+                        {adjustment.category_name}{" "}
+                        {adjustment.kind === "discount" ? "-" : "+"}
+                        {Number(adjustment.amount).toLocaleString("ko-KR")}원
+                      </span>
+                    ))}
+                </div>
+                <div className="flex flex-wrap items-center gap-2 sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:self-center">
+                  {(order.status === "pending" ||
+                    order.status === "completed") && (
+                    <Button
+                      size="xs"
+                      variant="secondary"
+                      onClick={() => void copyOrderForExcel(order)}
+                    >
+                      엑셀 복사
+                    </Button>
+                  )}
+                  {isAdmin && (
+                    <>
+                      <Button
+                        size="xs"
+                        variant="gray"
+                        onClick={() => setEditingOrder(order)}
+                      >
+                        입고 수정
+                      </Button>
+                      <Button
+                        size="xs"
+                        variant="gray"
+                        onClick={() => setAdjustmentOrder(order)}
+                      >
+                        거래 조정
+                      </Button>
+                    </>
+                  )}
+                  {!open && isAdmin && (
+                    <Button
+                      size="xs"
+                      variant="danger"
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            "이 입고 이력을 삭제할까요? 반영된 입고 재고와 관련 변동 이력도 함께 되돌아갑니다.",
+                          )
+                        )
+                          void run(
+                            () => deletePurchaseOrderHistory(order.id),
+                            "입고 이력을 삭제했습니다.",
+                          );
+                      }}
+                      disabled={pending}
+                    >
+                      이력 삭제
+                    </Button>
+                  )}
+                </div>
+              </div>
             </header>
             <div
               className={`${open ? "block" : "hidden"} overflow-auto bg-gray-50 px-4 sm:px-5`}
@@ -3324,95 +3410,9 @@ function PurchaseOrderList({
                             {line.item_name}
                           </td>
                           <td className="border border-gray-200 px-3 py-3 text-right">
-                            {order.status === "pending" &&
-                            editingOrderedQuantities[line.id] ? (
-                              <QuantityEditControl
-                                min={1}
-                                disabled={pending}
-                                value={
-                                  orderedQuantities[line.id] ??
-                                  String(line.ordered_quantity)
-                                }
-                                onChange={(nextValue) =>
-                                  setOrderedQuantities((current) => ({
-                                    ...current,
-                                    [line.id]: nextValue,
-                                  }))
-                                }
-                                onSave={() => {
-                                  const nextQuantity = Number(
-                                    orderedQuantities[line.id] ??
-                                      line.ordered_quantity,
-                                  );
-                                  if (
-                                    !Number.isInteger(nextQuantity) ||
-                                    nextQuantity < 1
-                                  ) {
-                                    toast.error(
-                                      "주문 수량은 1개 이상 입력해 주세요.",
-                                    );
-                                    return;
-                                  }
-                                  void (async () => {
-                                    const saved = await run(
-                                      () =>
-                                        updatePurchaseOrderQuantity(
-                                          line.id,
-                                          nextQuantity,
-                                        ),
-                                      "주문 수량을 변경했습니다.",
-                                    );
-                                    if (saved) {
-                                      setEditingOrderedQuantities(
-                                        (current) => ({
-                                          ...current,
-                                          [line.id]: false,
-                                        }),
-                                      );
-                                    }
-                                  })();
-                                }}
-                                onCancel={() => {
-                                  setOrderedQuantities((current) => ({
-                                    ...current,
-                                    [line.id]: String(line.ordered_quantity),
-                                  }));
-                                  setEditingOrderedQuantities((current) => ({
-                                    ...current,
-                                    [line.id]: false,
-                                  }));
-                                }}
-                              />
-                            ) : (
-                              <div className="flex w-full items-center justify-start gap-1">
-                                {order.status === "pending" && isAdmin && (
-                                  <Button
-                                    size="icon-xs"
-                                    variant="secondary"
-                                    aria-label="주문 수량 수정"
-                                    onClick={() => {
-                                      setOrderedQuantities((current) => ({
-                                        ...current,
-                                        [line.id]: String(
-                                          line.ordered_quantity,
-                                        ),
-                                      }));
-                                      setEditingOrderedQuantities(
-                                        (current) => ({
-                                          ...current,
-                                          [line.id]: true,
-                                        }),
-                                      );
-                                    }}
-                                  >
-                                    ✏️
-                                  </Button>
-                                )}
-                                <strong className="text-gray-900">
-                                  {line.ordered_quantity}개
-                                </strong>
-                              </div>
-                            )}
+                            <strong className="text-gray-900">
+                              {line.ordered_quantity}개
+                            </strong>
                           </td>
                           {showPartialDetails && (
                             <td className="border border-gray-200 px-3 py-3 text-right">
@@ -3532,20 +3532,22 @@ function PurchaseOrderList({
                             )}
                           </td>
                           <td className="border border-gray-200 px-3 py-3 text-gray-500">
-                            {line.note || line.quantity_check_note ? (
-                              <div className="space-y-1">
-                                {line.note && (
-                                  <p>{cleanQuantityMemo(line.note)}</p>
-                                )}
-                                {line.quantity_check_note && (
-                                  <p className="font-semibold text-brand-700">
-                                    {line.quantity_check_note}
-                                  </p>
-                                )}
-                              </div>
-                            ) : (
-                              "-"
-                            )}
+                            <div className="flex items-start gap-2">
+                              {line.note || line.quantity_check_note ? (
+                                <div className="min-w-0 space-y-1">
+                                  {line.note && (
+                                    <p>{cleanQuantityMemo(line.note)}</p>
+                                  )}
+                                  {line.quantity_check_note && (
+                                    <p className="font-semibold text-brand-700">
+                                      {line.quantity_check_note}
+                                    </p>
+                                  )}
+                                </div>
+                              ) : (
+                                <span>-</span>
+                              )}
+                            </div>
                           </td>
                           <td className="border border-gray-200 px-3 py-3">
                             {!open ? (
@@ -4052,6 +4054,9 @@ function PurchaseOrderEditOverlay({
   const parsedNote = splitPurchaseOrderNote(order.note);
   const [supplierId, setSupplierId] = useState(order.supplier_id);
   const [orderedOn, setOrderedOn] = useState(order.ordered_on);
+  const [taxInvoiceStatus, setTaxInvoiceStatus] = useState<TaxInvoiceStatus>(
+    parsedNote.taxInvoiceStatus,
+  );
   const [overallNote, setOverallNote] = useState(parsedNote.note);
   const [lines, setLines] = useState(() =>
     order.inventory_purchase_order_lines.map((line) => ({
@@ -4103,7 +4108,7 @@ function PurchaseOrderEditOverlay({
         orderId: order.id,
         supplierId,
         orderedOn,
-        note: mergePurchaseOrderNote(parsedNote.taxInvoiceStatus, overallNote),
+        note: mergePurchaseOrderNote(taxInvoiceStatus, overallNote),
         lines: lines.map((line) => ({
           id: line.id,
           item_name: line.itemName.trim(),
@@ -4190,6 +4195,29 @@ function PurchaseOrderEditOverlay({
                 className="mt-1.5 h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
               />
             </label>
+            <div className="text-xs font-semibold text-gray-600">
+              발행 종류
+              <div className="mt-1.5">
+                <Dropdown controlledValue={taxInvoiceStatus}>
+                  <Dropdown.Trigger>
+                    {taxInvoiceStatus || "발행 종류 선택"}
+                  </Dropdown.Trigger>
+                  <Dropdown.Content>
+                    {TAX_INVOICE_OPTIONS.map((option) => (
+                      <Dropdown.Item
+                        key={option}
+                        option={{ value: option, label: option }}
+                        onSelect={(selected: DropdownOption) =>
+                          setTaxInvoiceStatus(
+                            selected.value as TaxInvoiceStatus,
+                          )
+                        }
+                      />
+                    ))}
+                  </Dropdown.Content>
+                </Dropdown>
+              </div>
+            </div>
             <label className="text-xs font-semibold text-gray-600 md:col-span-2">
               전체 메모
               <textarea
@@ -4802,19 +4830,34 @@ function SupplierManageOverlay({
   onSaved: () => Promise<void>;
   embedded?: boolean;
 }) {
-  const homepageNotePattern = /^\[\[homepage_url:(.*?)\]\]\r?\n?/;
+  const homepageNotePattern = /\[\[homepage_url:(.*?)\]\]/;
+  const defaultTaxInvoicePattern = /\[\[default_tax_invoice:(.*?)\]\]/;
   const splitSupplierNote = (note: string | null | undefined) => {
     const value = note ?? "";
-    const match = value.match(homepageNotePattern);
+    const homepageMatch = value.match(homepageNotePattern);
     return {
-      homepage_url: match?.[1] ?? "",
-      note: value.replace(homepageNotePattern, ""),
+      homepage_url: homepageMatch?.[1] ?? "",
+      default_tax_invoice_status: getSupplierDefaultTaxInvoiceStatus(value),
+      note: value
+        .replace(homepageNotePattern, "")
+        .replace(defaultTaxInvoicePattern, "")
+        .trim(),
     };
   };
-  const mergeSupplierNote = (homepageUrl: string, note: string) => {
+  const mergeSupplierNote = (
+    homepageUrl: string,
+    defaultTaxInvoiceStatus: TaxInvoiceStatus,
+    note: string,
+  ) => {
     const cleanUrl = homepageUrl.trim();
     const cleanNote = note.trim();
-    return [cleanUrl ? `[[homepage_url:${cleanUrl}]]` : "", cleanNote]
+    return [
+      cleanUrl ? `[[homepage_url:${cleanUrl}]]` : "",
+      defaultTaxInvoiceStatus
+        ? `[[default_tax_invoice:${defaultTaxInvoiceStatus}]]`
+        : "",
+      cleanNote,
+    ]
       .filter(Boolean)
       .join("\n");
   };
@@ -4830,6 +4873,7 @@ function SupplierManageOverlay({
     courier_company: "",
     order_cutoff_time: "",
     homepage_url: "",
+    default_tax_invoice_status: "" as TaxInvoiceStatus,
     note: "",
     is_use: true,
   };
@@ -4837,15 +4881,38 @@ function SupplierManageOverlay({
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
   const [supplierSearch, setSupplierSearch] = useState("");
+  const [defaultTaxInvoiceSearch, setDefaultTaxInvoiceSearch] = useState("");
+  const [defaultTaxInvoicePickerOpen, setDefaultTaxInvoicePickerOpen] =
+    useState(false);
+  const defaultTaxInvoicePickerRef = useRef<HTMLDivElement>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [supplierEditing, setSupplierEditing] = useState(false);
   const [returnSupplierId, setReturnSupplierId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!defaultTaxInvoicePickerOpen) return;
+    const closePicker = (event: PointerEvent) => {
+      if (!defaultTaxInvoicePickerRef.current?.contains(event.target as Node)) {
+        setDefaultTaxInvoicePickerOpen(false);
+      }
+    };
+    const closePickerWithEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setDefaultTaxInvoicePickerOpen(false);
+    };
+    document.addEventListener("pointerdown", closePicker);
+    document.addEventListener("keydown", closePickerWithEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closePicker);
+      document.removeEventListener("keydown", closePickerWithEscape);
+    };
+  }, [defaultTaxInvoicePickerOpen]);
   const edit = (supplier: InventorySupplier) => {
     const supplierNote = splitSupplierNote(supplier.note);
     setEditorOpen(true);
     setSupplierEditing(false);
     setReturnSupplierId(null);
     setSelectedId(supplier.id);
+    setDefaultTaxInvoiceSearch(supplierNote.default_tax_invoice_status);
+    setDefaultTaxInvoicePickerOpen(false);
     setForm({
       name: supplier.name,
       customer_service_phone: supplier.customer_service_phone ?? "",
@@ -4853,6 +4920,7 @@ function SupplierManageOverlay({
       courier_company: supplier.courier_company ?? "",
       order_cutoff_time: (supplier.order_cutoff_time ?? "").slice(0, 5),
       homepage_url: supplierNote.homepage_url,
+      default_tax_invoice_status: supplierNote.default_tax_invoice_status,
       note: supplierNote.note,
       is_use: supplier.is_use,
     });
@@ -4860,10 +4928,15 @@ function SupplierManageOverlay({
   const save = async () => {
     setSaving(true);
     try {
-      const { homepage_url, ...supplierData } = form;
+      const { homepage_url, default_tax_invoice_status, ...supplierData } =
+        form;
       const savedId = await saveInventorySupplier(selectedId, {
         ...supplierData,
-        note: mergeSupplierNote(homepage_url, supplierData.note),
+        note: mergeSupplierNote(
+          homepage_url,
+          default_tax_invoice_status,
+          supplierData.note,
+        ),
       });
       toast.success("거래처를 저장했습니다.");
       await onSaved();
@@ -4881,6 +4954,8 @@ function SupplierManageOverlay({
     if (selectedId) setReturnSupplierId(selectedId);
     setSelectedId(null);
     setForm(empty);
+    setDefaultTaxInvoiceSearch("");
+    setDefaultTaxInvoicePickerOpen(false);
     setEditorOpen(true);
     setSupplierEditing(true);
   };
@@ -4900,6 +4975,8 @@ function SupplierManageOverlay({
     if (previousSupplier) {
       const supplierNote = splitSupplierNote(previousSupplier.note);
       setSelectedId(previousSupplier.id);
+      setDefaultTaxInvoiceSearch(supplierNote.default_tax_invoice_status);
+      setDefaultTaxInvoicePickerOpen(false);
       setForm({
         name: previousSupplier.name,
         customer_service_phone: previousSupplier.customer_service_phone ?? "",
@@ -4910,6 +4987,7 @@ function SupplierManageOverlay({
           5,
         ),
         homepage_url: supplierNote.homepage_url,
+        default_tax_invoice_status: supplierNote.default_tax_invoice_status,
         note: supplierNote.note,
         is_use: previousSupplier.is_use,
       });
@@ -4926,6 +5004,11 @@ function SupplierManageOverlay({
     supplier.name
       .toLocaleLowerCase("ko-KR")
       .includes(supplierSearch.trim().toLocaleLowerCase("ko-KR")),
+  );
+  const defaultTaxInvoiceSuggestions = TAX_INVOICE_OPTIONS.filter((option) =>
+    option
+      .toLocaleLowerCase("ko-KR")
+      .includes(defaultTaxInvoiceSearch.trim().toLocaleLowerCase("ko-KR")),
   );
   return (
     <div
@@ -5092,12 +5175,39 @@ function SupplierManageOverlay({
                       : "거래처 정보"
                     : "신규 거래처 등록"}
                 </p>
-                <h3 className="mt-1 text-lg font-bold text-gray-950">
-                  {selectedId
-                    ? form.name || "거래처 정보"
-                    : "새 거래처 정보를 입력해 주세요"}
-                </h3>
+                <div className="mt-1 flex items-center gap-2">
+                  <h3 className="text-lg font-bold text-gray-950">
+                    {selectedId
+                      ? form.name || "거래처 정보"
+                      : "새 거래처 정보를 입력해 주세요"}
+                  </h3>
+                  {!supplierEditing && (
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${form.is_use ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500"}`}
+                    >
+                      {form.is_use ? "사용" : "미사용"}
+                    </span>
+                  )}
+                </div>
               </div>
+              {supplierEditing && (
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-semibold text-gray-700">
+                    사용 상태
+                  </span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={form.is_use}
+                    onClick={() => setForm({ ...form, is_use: !form.is_use })}
+                    className={`relative h-7 w-12 cursor-pointer rounded-full transition ${form.is_use ? "bg-brand-500" : "bg-gray-300"}`}
+                  >
+                    <span
+                      className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${form.is_use ? "left-6" : "left-1"}`}
+                    />
+                  </button>
+                </div>
+              )}
             </div>
 
             <fieldset
@@ -5164,45 +5274,91 @@ function SupplierManageOverlay({
                   className="mt-2 min-h-11 w-full rounded-xl border border-gray-200 px-3 font-normal outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
                 />
               </label>
-              <label
-                className={`flex min-h-[70px] items-center justify-between rounded-xl border px-4 py-3 ${
-                  supplierEditing
-                    ? "cursor-pointer border-gray-200 bg-gray-50"
-                    : "cursor-default border-transparent bg-transparent px-0"
-                }`}
-              >
-                <div>
-                  <p className="text-sm font-semibold text-gray-800">
-                    사용 상태
-                  </p>
-                  <p className="mt-1 text-xs text-gray-500">
-                    입고 등록 거래처 목록에 표시합니다.
-                  </p>
-                </div>
+              <div className="text-sm font-semibold text-gray-700">
+                기본 발행 종류
                 {supplierEditing ? (
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={form.is_use}
-                    onClick={() => setForm({ ...form, is_use: !form.is_use })}
-                    className={`relative h-7 w-12 rounded-full transition ${form.is_use ? "bg-brand-500" : "bg-gray-300"}`}
+                  <div
+                    ref={defaultTaxInvoicePickerRef}
+                    className="relative mt-2 w-full"
                   >
-                    <span
-                      className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${form.is_use ? "left-6" : "left-1"}`}
+                    <svg
+                      className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-gray-500"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="m21 21-4.35-4.35m2.1-5.4a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"
+                      />
+                    </svg>
+                    <input
+                      value={defaultTaxInvoiceSearch}
+                      onFocus={() => setDefaultTaxInvoicePickerOpen(true)}
+                      onChange={(event) => {
+                        setDefaultTaxInvoiceSearch(event.target.value);
+                        setForm({ ...form, default_tax_invoice_status: "" });
+                        setDefaultTaxInvoicePickerOpen(true);
+                      }}
+                      placeholder="발행 종류를 검색하세요"
+                      className="min-h-11 w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-9 pr-10 font-normal outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
                     />
-                  </button>
+                    {defaultTaxInvoiceSearch && supplierEditing && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDefaultTaxInvoiceSearch("");
+                          setForm({ ...form, default_tax_invoice_status: "" });
+                          setDefaultTaxInvoicePickerOpen(true);
+                        }}
+                        aria-label="기본 발행 종류 선택 지우기"
+                        className="absolute right-2 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-gray-100 text-base font-medium text-gray-500 transition hover:bg-gray-200 hover:text-gray-700"
+                      >
+                        ×
+                      </button>
+                    )}
+                    {defaultTaxInvoicePickerOpen && supplierEditing && (
+                      <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-xl border border-gray-200 bg-white p-1 shadow-xl">
+                        {defaultTaxInvoiceSuggestions.length ? (
+                          defaultTaxInvoiceSuggestions.map((option) => (
+                            <button
+                              type="button"
+                              key={option}
+                              onClick={() => {
+                                setForm({
+                                  ...form,
+                                  default_tax_invoice_status: option,
+                                });
+                                setDefaultTaxInvoiceSearch(option);
+                                setDefaultTaxInvoicePickerOpen(false);
+                              }}
+                              className="flex min-h-11 w-full cursor-pointer items-center justify-between rounded-lg px-3 text-left text-sm font-semibold text-gray-900 hover:bg-brand-50"
+                            >
+                              {option}
+                              {form.default_tax_invoice_status === option && (
+                                <span className="text-brand-500">✓</span>
+                              )}
+                            </button>
+                          ))
+                        ) : (
+                          <p className="px-3 py-4 text-center text-sm font-normal text-gray-400">
+                            검색 결과가 없습니다.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 ) : (
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                      form.is_use
-                        ? "bg-emerald-50 text-emerald-700"
-                        : "bg-gray-100 text-gray-500"
-                    }`}
+                  <p
+                    className={`mt-2 text-sm font-medium ${form.default_tax_invoice_status ? "text-gray-900" : "text-gray-400"}`}
                   >
-                    {form.is_use ? "사용" : "미사용"}
-                  </span>
+                    {form.default_tax_invoice_status || "미지정 상태입니다."}
+                  </p>
                 )}
-              </label>
+              </div>
               <label className="text-sm font-semibold text-gray-700 sm:col-span-2">
                 홈페이지 링크
                 {supplierEditing ? (

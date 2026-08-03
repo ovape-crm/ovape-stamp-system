@@ -248,7 +248,7 @@ export const getLogs = async (
       `
       *,
       users!admin_id(name, email, oss_role),
-      customers(name, phone, address, note, gender)
+      customers(name, phone, address, note, gender, is_stamp_eligible)
     `,
     )
     .eq("category", category);

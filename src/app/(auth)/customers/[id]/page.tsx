@@ -91,6 +91,7 @@ export default function CustomerDetailPage() {
     name: string;
     phone: string;
     gender: "male" | "female";
+    is_stamp_eligible: boolean;
     address?: string;
     note?: string;
   }) => {
@@ -169,6 +170,7 @@ export default function CustomerDetailPage() {
   const isSpecialCustomer = checkSpecialCustomer(
     customer.name,
     customer.phone,
+    customer.is_stamp_eligible ?? true,
   );
 
   return (
@@ -219,6 +221,7 @@ export default function CustomerDetailPage() {
               phone: customer.phone,
               address: customer.address,
               gender: customer.gender,
+              is_stamp_eligible: customer.is_stamp_eligible,
               note: customer.note,
             }}
             onUpdate={handleUpdate}
@@ -296,6 +299,7 @@ export default function CustomerDetailPage() {
                   phone: customer.phone,
                   name: customer.name,
                   gender: customer.gender,
+                  is_stamp_eligible: customer.is_stamp_eligible,
                   address: customer.address,
                   note: customer.note,
                 }}
