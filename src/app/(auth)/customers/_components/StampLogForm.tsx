@@ -415,7 +415,7 @@ export default function StampLogForm({
     transactionTags.length > 0 ? `${transactionTags.join(",")})` : "";
   const itemNote = draftLines.map((line) => line.lineText).join(", ");
   const generatedNote = [transactionNote, itemNote].filter(Boolean).join(" ");
-  const finalAmount = totalAmount + activeDeliveryFee - activeDiscountAmount;
+  const finalAmount = totalAmount - activeDiscountAmount;
   const splitPaymentTotal = splitPayments.reduce(
     (sum, payment) => sum + payment.amount,
     0,
@@ -431,7 +431,6 @@ export default function StampLogForm({
     .join(" + ");
   const finalAmountExpression = [
     amountExpression || "0",
-    activeDeliveryFee > 0 ? `+ ${formatAmount(activeDeliveryFee)}` : "",
     activeDiscountAmount > 0 ? `- ${formatAmount(activeDiscountAmount)}` : "",
   ]
     .filter(Boolean)
