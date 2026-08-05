@@ -253,6 +253,10 @@ export default function StampLogForm({
     () =>
       initialValue?.logMeta?.items?.map((item, index) => ({
         ...item,
+        lineText: item.lineText.replace(
+          /\(서비스\((.*?)\)\)/g,
+          "(서비스,$1)",
+        ),
         id: `${item.itemId}-${index}`,
       })) ?? [],
   );
@@ -758,6 +762,8 @@ export default function StampLogForm({
     const remarkText =
       remarkType === "price_adjust"
         ? `${remark}, ${formatAmount(adjustedPrice)}원`
+        : remarkType === "service"
+          ? `서비스${customRemark.trim() ? `,${customRemark.trim()}` : ""}`
         : remark;
     const lineText = `${selectedItem.item_name} ${quantity}개${
       remarkText ? ` (${remarkText})` : ""
@@ -896,10 +902,11 @@ export default function StampLogForm({
     const remark = line.remark?.trim();
     if (!remark) return "";
 
-    const wrappedMemo = remark.match(
-      /^(?:서비스|교환입고|교환출고)\((.*)\)$/,
-    )?.[1];
-    if (wrappedMemo) return wrappedMemo.trim();
+    const typedMemo = remark.match(
+      /^(?:서비스|교환입고|교환출고)(?:,(.*)|\((.*)\))$/,
+    );
+    const displayMemo = typedMemo?.[1] ?? typedMemo?.[2];
+    if (displayMemo) return displayMemo.trim();
 
     if (
       remark === "서비스" ||

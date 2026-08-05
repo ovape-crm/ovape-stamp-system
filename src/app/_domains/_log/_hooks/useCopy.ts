@@ -24,6 +24,9 @@ const storeNameByValue = Object.values(StoreTypeEnum).reduce(
   {} as Record<StoreTypeEnumType['value'], string>,
 );
 
+const formatHistoryNote = (note: string) =>
+  note.replace(/\(서비스\((.*?)\)\)/g, '(서비스,$1)');
+
 const buildAmountFormula = (
   jsonb: Record<string, unknown> | null | undefined,
 ): string => {
@@ -198,14 +201,14 @@ const useCopy = () => {
         ? splitPayments
             .map((payment) =>
               buildClipboardRow(
-                `${hasTransactionTag ? '분할결제,' : '분할결제) '}${log.note}`,
+                `${hasTransactionTag ? '분할결제,' : '분할결제) '}${formatHistoryNote(log.note)}`,
                 String(payment.amount),
                 paymentTypeNameByValue[payment.paymentType] ?? '',
               ),
             )
             .join('\n')
         : buildClipboardRow(
-            log.note,
+            formatHistoryNote(log.note),
             amountFormula,
             paymentTypeName ?? '',
           );

@@ -27,6 +27,9 @@ import StampLogEditModal from "@/app/(auth)/_components/StampLogEditModal";
 import RemarkLogCreateModal from "../RemarkLogCreateModal";
 import type { StampLogMeta } from "@/app/_domains/_stamp/_services/stampService";
 
+const formatHistoryNote = (note: string) =>
+  note.replace(/\(서비스\((.*?)\)\)/g, "(서비스,$1)");
+
 const CustomersDetailStampsHistories = ({
   targetUser,
   logs,
@@ -327,7 +330,7 @@ const CustomersDetailStampsHistories = ({
                       </Button>
                       <div className="min-w-[240px] flex-1 break-words whitespace-normal text-xs text-gray-600 sm:text-sm">
                         <p className="whitespace-pre-line">
-                          {log.note || (
+                          {log.note ? formatHistoryNote(log.note) : (
                             <span className="text-gray-400"> - </span>
                           )}
                         </p>

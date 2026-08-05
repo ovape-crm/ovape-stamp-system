@@ -18,6 +18,7 @@ interface CustomerListProps {
   sortBy?: "name" | "stamp" | "created_at";
   sortOrder?: "asc" | "desc";
   onSortChange?: (sortBy: "name" | "stamp" | "created_at") => void;
+  headerActions?: React.ReactNode;
 }
 
 const CustomerList = ({
@@ -30,6 +31,7 @@ const CustomerList = ({
   totalCount,
   sortBy,
   onSortChange,
+  headerActions,
 }: CustomerListProps) => {
   const router = useRouter();
   if (isLoading) {
@@ -46,51 +48,58 @@ const CustomerList = ({
 
   return (
     <div className="mb-10">
-      <div className="flex justify-start items-center gap-3 mb-3">
-        <div className="text-xs sm:text-sm text-gray-600">
-          <span className="font-semibold text-brand-600">
-            {customers.length}
-          </span>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3 sm:flex-nowrap">
+        <div className="flex items-center justify-start gap-3">
+          <div className="text-xs text-gray-600 sm:text-sm">
+            <span className="font-semibold text-brand-600">
+              {customers.length}
+            </span>
 
-          {totalCount !== undefined && totalCount > 0 && (
-            <>
-              {" / "}
-              <span className="font-semibold text-gray-600">{totalCount}</span>
-            </>
+            {totalCount !== undefined && totalCount > 0 && (
+              <>
+                {" / "}
+                <span className="font-semibold text-gray-600">{totalCount}</span>
+              </>
+            )}
+          </div>
+          {onSortChange && (
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => onSortChange("name")}
+                className={`whitespace-nowrap px-2 py-1 text-xs rounded border transition-colors cursor-pointer ${
+                  sortBy === "name"
+                    ? "bg-brand-100 border-brand-300 text-brand-700 font-medium"
+                    : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                가나다순
+              </button>
+              <button
+                onClick={() => onSortChange("stamp")}
+                className={`whitespace-nowrap px-2 py-1 text-xs rounded border transition-colors cursor-pointer ${
+                  sortBy === "stamp"
+                    ? "bg-brand-100 border-brand-300 text-brand-700 font-medium"
+                    : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                스탬프 많은 순
+              </button>
+              <button
+                onClick={() => onSortChange("created_at")}
+                className={`whitespace-nowrap px-2 py-1 text-xs rounded border transition-colors cursor-pointer ${
+                  sortBy === "created_at"
+                    ? "bg-brand-100 border-brand-300 text-brand-700 font-medium"
+                    : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                등록일 순
+              </button>
+            </div>
           )}
         </div>
-        {onSortChange && (
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => onSortChange("name")}
-              className={`whitespace-nowrap px-2 py-1 text-xs rounded border transition-colors cursor-pointer ${
-                sortBy === "name"
-                  ? "bg-brand-100 border-brand-300 text-brand-700 font-medium"
-                  : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              가나다순
-            </button>
-            <button
-              onClick={() => onSortChange("stamp")}
-              className={`whitespace-nowrap px-2 py-1 text-xs rounded border transition-colors cursor-pointer ${
-                sortBy === "stamp"
-                  ? "bg-brand-100 border-brand-300 text-brand-700 font-medium"
-                  : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              스탬프 많은 순
-            </button>
-            <button
-              onClick={() => onSortChange("created_at")}
-              className={`whitespace-nowrap px-2 py-1 text-xs rounded border transition-colors cursor-pointer ${
-                sortBy === "created_at"
-                  ? "bg-brand-100 border-brand-300 text-brand-700 font-medium"
-                  : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              등록일 순
-            </button>
+        {headerActions && (
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+            {headerActions}
           </div>
         )}
       </div>
