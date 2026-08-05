@@ -55,10 +55,11 @@ const getItemDisplayMemo = (
 ) => {
   const remark = item.remark?.trim();
   if (!remark) return "";
-  const wrappedMemo = remark.match(
-    /^(?:서비스|교환입고|교환출고)\((.*)\)$/,
-  )?.[1];
-  if (wrappedMemo) return wrappedMemo.trim();
+  const typedMemo = remark.match(
+    /^(?:서비스|교환입고|교환출고)(?:,(.*)|\((.*)\))$/,
+  );
+  const displayMemo = typedMemo?.[1] ?? typedMemo?.[2];
+  if (displayMemo) return displayMemo.trim();
   if (
     remark === "서비스" ||
     remark === "교환입고" ||
@@ -119,6 +120,8 @@ const StampLogEditModal = ({
   const [xPhoneLastDigits, setXPhoneLastDigits] = useState(
     initialLogMeta?.xPhoneLastDigits ?? "",
   );
+  const isCustomerInfoDeclined =
+    xCustomerName === "X" && xPhoneLastDigits === "X";
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [step, setStep] = useState<1 | 2 | 3>(2);
   const [formValidity, setFormValidity] = useState({
@@ -168,16 +171,30 @@ const StampLogEditModal = ({
 
   const xCustomerInfoFields = (
     <div className="h-full rounded-lg border border-gray-200 bg-gray-50 p-3">
-      <p className="mb-2 text-sm font-semibold text-gray-800">고객 정보</p>
+      <div className="mb-2 flex items-center gap-2">
+        <p className="text-sm font-semibold text-gray-800">고객 정보</p>
+        <Button
+          type="button"
+          size="xs"
+          variant={isCustomerInfoDeclined ? "primary" : "gray"}
+          onClick={() => {
+            setXCustomerName(isCustomerInfoDeclined ? "" : "X");
+            setXPhoneLastDigits(isCustomerInfoDeclined ? "" : "X");
+          }}
+        >
+          정보 제공 안 함
+        </Button>
+      </div>
       <div className="grid grid-cols-2 gap-2">
         <label className="min-w-0">
           <input
             type="text"
             aria-label="이름"
             value={xCustomerName}
+            disabled={isCustomerInfoDeclined}
             onChange={(event) => setXCustomerName(event.target.value)}
             placeholder="이름 입력"
-            className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+            className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
           />
         </label>
         <label className="min-w-0">
@@ -187,11 +204,12 @@ const StampLogEditModal = ({
             inputMode="numeric"
             maxLength={4}
             value={xPhoneLastDigits}
+            disabled={isCustomerInfoDeclined}
             onChange={(event) =>
               setXPhoneLastDigits(event.target.value.replace(/\D/g, "").slice(0, 4))
             }
             placeholder="뒷번호 4자리"
-            className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+            className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
           />
         </label>
       </div>
@@ -578,6 +596,7 @@ const StampLogEditModal = ({
                     : !formValidity.hasItems ||
                       !hasValidSplitPaymentAmounts ||
                       (customerMode === "x" &&
+                        !isCustomerInfoDeclined &&
                         (!xCustomerName.trim() || xPhoneLastDigits.length !== 4))
                 }
               >
@@ -592,6 +611,7 @@ const StampLogEditModal = ({
                 isSubmitting ||
                 !stampLog ||
                 (customerMode === "x" &&
+                  !isCustomerInfoDeclined &&
                   (!xCustomerName.trim() || xPhoneLastDigits.length !== 4))
               }
             >

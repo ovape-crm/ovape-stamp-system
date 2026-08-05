@@ -125,7 +125,11 @@ export default function PendingStatusButton() {
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
-    const inProgressStatuses = getAfterServiceStatusGroups().inProgress;
+    const afterServiceStatusGroups = getAfterServiceStatusGroups();
+    const pendingAfterServiceStatuses = [
+      ...afterServiceStatusGroups.received,
+      ...afterServiceStatusGroups.inProgress,
+    ];
     const [reservationResult, afterServiceResult, purchaseOrderResult, memoResult] =
       await Promise.all([
         supabase
@@ -138,7 +142,7 @@ export default function PendingStatusButton() {
           .select(
             "id, item_name, status, customer_note, shop_note, customers(name, phone)",
           )
-          .in("status", inProgressStatuses)
+          .in("status", pendingAfterServiceStatuses)
           .order("created_at", { ascending: false }),
         supabase
           .from("inventory_purchase_orders")
@@ -397,9 +401,14 @@ export default function PendingStatusButton() {
                           {formatReservationItems(reservation.jsonb)}
                         </p>
                       </div>
-                      <span className="text-sm font-semibold text-brand-600">
-                        {formatReservationDate(reservation.jsonb)}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-brand-600">
+                          {formatReservationDate(reservation.jsonb)}
+                        </span>
+                        <span aria-hidden="true" className="text-lg text-gray-400">
+                          ›
+                        </span>
+                      </div>
                     </Link>
                   ))}
                   {!isLoading && reservations.length === 0 && (
@@ -410,12 +419,12 @@ export default function PendingStatusButton() {
                 <StatusCard
                   title="진행 중 A/S"
                   count={afterServices.length}
-                  href="/after-services?group=inProgress"
+                  href="/after-services?group=all"
                 >
                   {afterServices.slice(0, 5).map((afterService) => (
                     <Link
                       key={afterService.id}
-                      href={`/after-services?group=inProgress&id=${afterService.id}`}
+                      href={`/after-services?group=all&id=${afterService.id}`}
                       onClick={() => setIsOpen(false)}
                       className="grid gap-3 border-b border-gray-100 px-1 py-3 last:border-b-0 hover:bg-gray-50 sm:grid-cols-[minmax(100px,0.8fr)_minmax(100px,1fr)_minmax(110px,1fr)_auto] sm:items-center"
                     >
@@ -443,9 +452,14 @@ export default function PendingStatusButton() {
                           {afterService.shop_note || "없음"}
                         </p>
                       </div>
-                      <span className="rounded-md bg-amber-50 px-2 py-1 text-sm font-semibold text-amber-700">
-                        {getAfterServiceStatusName(afterService.status)}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-md bg-amber-50 px-2 py-1 text-sm font-semibold text-amber-700">
+                          {getAfterServiceStatusName(afterService.status)}
+                        </span>
+                        <span aria-hidden="true" className="text-lg text-gray-400">
+                          ›
+                        </span>
+                      </div>
                     </Link>
                   ))}
                   {!isLoading && afterServices.length === 0 && (
@@ -464,9 +478,14 @@ export default function PendingStatusButton() {
                       <span className="truncate text-base font-semibold text-gray-900">
                         {supplier.name}
                       </span>
-                      <span className="text-sm font-semibold text-brand-600">
-                        {supplier.pendingQuantity.toLocaleString()}개 미입고
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-brand-600">
+                          {supplier.pendingQuantity.toLocaleString()}개 미입고
+                        </span>
+                        <span aria-hidden="true" className="text-lg text-gray-400">
+                          ›
+                        </span>
+                      </div>
                     </Link>
                   ))}
                   {!isLoading && pendingSuppliers.length === 0 && (
@@ -753,7 +772,7 @@ const StatusCard = ({
       </div>
       {action ?? (href && (
         <Link href={href} className="text-sm font-semibold text-gray-500 hover:text-brand-600">
-          전체 보기
+          전체보기 ›
         </Link>
       ))}
     </div>

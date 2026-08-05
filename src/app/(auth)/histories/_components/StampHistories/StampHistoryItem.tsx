@@ -23,6 +23,9 @@ interface StampHistoryItemProps {
   showCopy?: boolean;
 }
 
+const formatHistoryNote = (note: string) =>
+  note.replace(/\(서비스\((.*?)\)\)/g, "(서비스,$1)");
+
 const StampHistoryItem = ({
   log,
   onEdit,
@@ -57,11 +60,11 @@ const StampHistoryItem = ({
     !Array.isArray(log.jsonb?.items) &&
     !log.jsonb?.paymentType;
   const customerBadge = isCustomerRemark ? (
-    <span className="inline-flex whitespace-nowrap rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-500">
+    <span className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-gray-100 px-2 py-1 text-center text-xs font-medium text-gray-500">
       고객 특이사항
     </span>
   ) : isCouponUse ? (
-    <span className="inline-flex whitespace-nowrap rounded-full bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-700">
+    <span className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-blue-100 px-2 py-1 text-center text-xs font-semibold text-blue-700">
       쿠폰 사용
     </span>
   ) : isStampAdjustment ? (
@@ -121,7 +124,7 @@ const StampHistoryItem = ({
                       ? "분할결제,"
                       : "분할결제) "
                     : ""
-                }${log.note}`
+                }${formatHistoryNote(log.note)}`
               ) : (
                 <span className="text-gray-400"> - </span>
               )}

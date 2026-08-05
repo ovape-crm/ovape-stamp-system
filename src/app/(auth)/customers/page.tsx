@@ -170,44 +170,6 @@ export default function CustomersPage() {
       {/* 검색 박스 */}
       <SearchBox onSearch={search} />
 
-      {/* 고객 추가 버튼 */}
-      <div className="flex flex-wrap justify-end gap-2">
-        {quickLinkDefinitions.map((definition) => {
-          const customer = findQuickLink(definition.key);
-          return (
-            <Button
-              key={definition.key}
-              size="sm"
-              variant="secondary"
-              disabled={isQuickLinksLoading || !customer}
-              onClick={() =>
-                customer && router.push(`/customers/${customer.id}`)
-              }
-            >
-              {isQuickLinksLoading ? "불러오는 중..." : definition.label}
-            </Button>
-          );
-        })}
-        <Button
-          size="sm"
-          onClick={() => {
-            setIsSubmitting(false);
-            open({
-              content: (
-                <CustomerCreateModal
-                  onCancel={close}
-                  isSubmitting={isSubmitting}
-                  onSubmit={handleCustomerSubmit}
-                />
-              ),
-              options: { dismissOnBackdrop: false, dismissOnEsc: true },
-            });
-          }}
-        >
-          고객 추가
-        </Button>
-      </div>
-
       {/* 고객 목록 */}
       <CustomerList
         customers={customers}
@@ -223,6 +185,44 @@ export default function CustomersPage() {
         sortBy={sortBy}
         sortOrder={sortOrder}
         onSortChange={setSort}
+        headerActions={
+          <>
+            {quickLinkDefinitions.map((definition) => {
+              const customer = findQuickLink(definition.key);
+              return (
+                <Button
+                  key={definition.key}
+                  size="sm"
+                  variant="secondary"
+                  disabled={isQuickLinksLoading || !customer}
+                  onClick={() =>
+                    customer && router.push(`/customers/${customer.id}`)
+                  }
+                >
+                  {isQuickLinksLoading ? "불러오는 중..." : definition.label}
+                </Button>
+              );
+            })}
+            <Button
+              size="sm"
+              onClick={() => {
+                setIsSubmitting(false);
+                open({
+                  content: (
+                    <CustomerCreateModal
+                      onCancel={close}
+                      isSubmitting={isSubmitting}
+                      onSubmit={handleCustomerSubmit}
+                    />
+                  ),
+                  options: { dismissOnBackdrop: false, dismissOnEsc: true },
+                });
+              }}
+            >
+              고객 추가
+            </Button>
+          </>
+        }
       />
     </div>
   );
