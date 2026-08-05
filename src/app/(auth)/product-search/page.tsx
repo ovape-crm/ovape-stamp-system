@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Dropdown, DropdownOption } from '@/app/_components/Dropdown';
 import Loading from '@/app/_components/Loading';
@@ -11,6 +11,12 @@ import {
   liquidCategorySettingKey,
 } from '@/app/_domains/_item/_services/productSearchCategoryService';
 import LiquidCategorySettingsModal from './_components/LiquidCategorySettingsModal';
+import {
+  getProductSearchColumnSettings,
+  productSearchColumnSettingKey,
+  saveProductSearchColumnSettings,
+} from '@/app/_domains/_item/_services/productSearchColumnSettingService';
+import toast from 'react-hot-toast';
 
 type SearchMode = 'liquid' | 'other';
 type UsageFilter = 'all' | 'used' | 'unused';
@@ -155,6 +161,8 @@ export default function ProductSearchPage() {
   });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [columnEditing, setColumnEditing] = useState(false);
+  const [isSavingColumnWidths, setIsSavingColumnWidths] = useState(false);
+  const hasAppliedSharedColumnWidths = useRef(false);
   const [columnWidthSnapshot, setColumnWidthSnapshot] = useState<Record<
     SearchMode,
     Record<ProductColumnKey, number>
@@ -181,6 +189,26 @@ export default function ProductSearchPage() {
     queryFn: getLiquidSearchCategoryIds,
     retry: false,
   });
+  const columnSettingQuery = useQuery({
+    queryKey: productSearchColumnSettingKey,
+    queryFn: getProductSearchColumnSettings,
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (!columnSettingQuery.data || hasAppliedSharedColumnWidths.current) return;
+    hasAppliedSharedColumnWidths.current = true;
+    setColumnWidthsByMode((current) => ({
+      liquid: {
+        ...current.liquid,
+        ...columnSettingQuery.data.liquid,
+      },
+      other: {
+        ...current.other,
+        ...columnSettingQuery.data.other,
+      },
+    }));
+  }, [columnSettingQuery.data]);
   const activeSearch = searchValues[mode];
   const liquidCategoryIds = useMemo(
     () => new Set(liquidCategoryQuery.data ?? []),
@@ -266,13 +294,29 @@ export default function ProductSearchPage() {
     });
     setColumnEditing(true);
   };
-  const saveColumnWidths = () => {
-    window.localStorage.setItem(
-      `product-search-column-widths-${mode}`,
-      JSON.stringify(columnWidths),
-    );
-    setColumnWidthSnapshot(null);
-    setColumnEditing(false);
+  const saveColumnWidths = async () => {
+    try {
+      setIsSavingColumnWidths(true);
+      await saveProductSearchColumnSettings(mode, columnWidths);
+      window.localStorage.setItem(
+        `product-search-column-widths-${mode}`,
+        JSON.stringify(columnWidths),
+      );
+      setColumnWidthSnapshot(null);
+      setColumnEditing(false);
+      toast.success('표 너비를 공통 설정으로 저장했습니다.');
+    } catch (error) {
+      console.error('Failed to save shared column widths:', error);
+      window.localStorage.setItem(
+        `product-search-column-widths-${mode}`,
+        JSON.stringify(columnWidths),
+      );
+      setColumnWidthSnapshot(null);
+      setColumnEditing(false);
+      toast.error('공통 DB 미적용으로 이 브라우저에만 임시 저장했습니다.');
+    } finally {
+      setIsSavingColumnWidths(false);
+    }
   };
   const cancelColumnEditing = () => {
     if (columnWidthSnapshot) setColumnWidthsByMode(columnWidthSnapshot);
@@ -570,10 +614,11 @@ export default function ProductSearchPage() {
               <>
                 <button
                   type="button"
-                  onClick={saveColumnWidths}
+                  onClick={() => void saveColumnWidths()}
+                  disabled={isSavingColumnWidths}
                   className="min-h-9 rounded-lg bg-brand-500 px-3 text-xs font-semibold text-white shadow-sm hover:bg-brand-600"
                 >
-                  변경 값 저장
+                  {isSavingColumnWidths ? '저장 중' : '변경 값 저장'}
                 </button>
                 <button
                   type="button"

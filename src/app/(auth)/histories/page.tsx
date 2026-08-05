@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import StampHistories from './_components/StampHistories';
 import { LogCategoryEnum, LogCategoryEnumType } from '@/app/_enums/enums';
 import Button from '@/app/_components/Button';
@@ -8,9 +9,18 @@ import CustomerHistories from './_components/CustomerHistories';
 // import RemarkHistories from './_components/RemarkHistories';
 
 export default function HistoriesPage() {
+  const searchParams = useSearchParams();
   const [logType, setLogType] = useState<LogCategoryEnumType['value']>(
-    LogCategoryEnum.STAMP.value,
+    searchParams.get('tab') === 'reservation'
+      ? LogCategoryEnum.RESERVATION.value
+      : LogCategoryEnum.STAMP.value,
   );
+
+  useEffect(() => {
+    if (searchParams.get('tab') === 'reservation') {
+      setLogType(LogCategoryEnum.RESERVATION.value);
+    }
+  }, [searchParams]);
 
   return (
     <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10 mb-10">

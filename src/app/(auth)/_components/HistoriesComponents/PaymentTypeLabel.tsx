@@ -1,3 +1,6 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
 import { PaymentTypeEnum, PaymentTypeEnumType } from '@/app/_enums/enums';
 
 const paymentTypeNameByValue = Object.values(PaymentTypeEnum).reduce(
@@ -9,6 +12,8 @@ const paymentTypeNameByValue = Object.values(PaymentTypeEnum).reduce(
 );
 
 const PaymentTypeLabel = ({ jsonb }: { jsonb: Record<string, unknown> }) => {
+  const [isSplitDetailOpen, setIsSplitDetailOpen] = useState(false);
+  const splitDetailRef = useRef<HTMLDivElement>(null);
   const splitPayments = Array.isArray(jsonb.payments)
     ? jsonb.payments.filter(
         (
@@ -24,21 +29,63 @@ const PaymentTypeLabel = ({ jsonb }: { jsonb: Record<string, unknown> }) => {
       )
     : [];
 
+  useEffect(() => {
+    if (!isSplitDetailOpen) return;
+
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (
+        splitDetailRef.current &&
+        !splitDetailRef.current.contains(event.target as Node)
+      ) {
+        setIsSplitDetailOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsSplitDetailOpen(false);
+    };
+
+    document.addEventListener('pointerdown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [isSplitDetailOpen]);
+
   if (splitPayments.length >= 2) {
     return (
-      <div className="flex flex-col items-start gap-1">
-        {splitPayments.map((payment, index) => (
-          <span
-            key={`${payment.paymentType}-${index}`}
-            className="inline-flex items-center rounded-full bg-gray-100 px-1.5 py-1 text-xs font-medium text-gray-500"
-          >
-            {paymentTypeNameByValue[payment.paymentType]?.replace(
-              '이구베이프',
-              '',
-            )}{' '}
-            {payment.amount.toLocaleString('ko-KR')}원
-          </span>
-        ))}
+      <div ref={splitDetailRef} className="relative w-full">
+        <button
+          type="button"
+          aria-expanded={isSplitDetailOpen}
+          onClick={() => setIsSplitDetailOpen((current) => !current)}
+          className="flex h-7 w-full cursor-pointer items-center justify-center whitespace-nowrap rounded-full bg-gray-200 px-2 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-300"
+        >
+          분할결제 {splitPayments.length}건
+        </button>
+        {isSplitDetailOpen && (
+          <div className="absolute left-0 top-full z-30 mt-1.5 min-w-44 rounded-xl border border-gray-200 bg-white p-2.5 shadow-lg">
+          <p className="mb-2 text-xs font-semibold text-gray-700">결제 상세</p>
+          <div className="space-y-1.5">
+            {splitPayments.map((payment, index) => (
+              <div
+                key={`${payment.paymentType}-${index}`}
+                className="flex items-center justify-between gap-4 whitespace-nowrap text-xs"
+              >
+                <span className="text-gray-500">
+                  {paymentTypeNameByValue[payment.paymentType]?.replace(
+                    '이구베이프',
+                    '',
+                  )}
+                </span>
+                <span className="font-semibold text-gray-800">
+                  {payment.amount.toLocaleString('ko-KR')}원
+                </span>
+              </div>
+            ))}
+          </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -52,7 +99,7 @@ const PaymentTypeLabel = ({ jsonb }: { jsonb: Record<string, unknown> }) => {
     : undefined;
 
   return (
-    <span className="inline-flex items-center rounded-full bg-gray-100 text-gray-500 text-xs font-medium px-1.5 py-1">
+    <span className="flex h-7 w-full items-center justify-center whitespace-nowrap rounded-full bg-gray-200 px-2 text-xs font-semibold text-gray-700">
       {paymentTypeName}
     </span>
   );
