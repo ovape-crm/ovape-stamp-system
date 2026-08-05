@@ -35,6 +35,8 @@ export type StampLogMeta = {
   storeName?: StoreTypeEnumType["value"];
   totalAmount?: number;
   extraNote?: string;
+  xCustomerName?: string;
+  xPhoneLastDigits?: string;
   reservationDate?: string;
   deliveryMethod?: "store_visit" | "parcel" | "delivery";
   deliveryType?: "agency" | "self" | "customer_quick";

@@ -16,6 +16,31 @@ export type CustomerQuickLink = Pick<
   "id" | "name" | "phone" | "gender"
 >;
 
+export type ExistingCustomerMatch = Pick<
+  CustomerType,
+  "id" | "name" | "phone" | "address" | "note" | "is_stamp_eligible"
+>;
+
+export const findCustomersByNameAndPhoneLastDigits = async (
+  name: string,
+  phoneLastDigits: string,
+): Promise<ExistingCustomerMatch[]> => {
+  const normalizedName = name.trim();
+  const normalizedDigits = phoneLastDigits.replace(/\D/g, "");
+  if (!normalizedName || normalizedDigits.length !== 4) return [];
+
+  const { data, error } = await supabase
+    .from("customers")
+    .select("id, name, phone, address, note, is_stamp_eligible")
+    .eq("name", normalizedName)
+    .like("phone", `%${normalizedDigits}`)
+    .neq("phone", "X")
+    .limit(5);
+
+  if (error) throw error;
+  return data ?? [];
+};
+
 export const getCustomerQuickLinks = async (): Promise<CustomerQuickLink[]> => {
   const { data, error } = await supabase
     .from("customers")

@@ -404,8 +404,8 @@ export default function AttendanceRecordModal({
           </div>
 
           {step === 1 ? (
-            <div className="space-y-4">
-              <section className="rounded-xl bg-gray-50 p-4">
+            <div className="space-y-5 rounded-xl border border-gray-200 bg-gray-50/70 p-4">
+              <section>
                 <p className="mb-2 text-xs font-bold text-brand-600">
                   근무 날짜
                 </p>
@@ -419,21 +419,21 @@ export default function AttendanceRecordModal({
                 />
               </section>
 
-              <div className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3 sm:flex-row sm:items-stretch">
-                <div className="flex w-full flex-col rounded-xl border border-gray-200 bg-gray-50/70 p-2.5 sm:min-w-0 sm:flex-1">
-                  <p className="mb-1 text-xs font-semibold text-gray-600">
+              <div className="grid gap-3 border-t border-gray-200 pt-4 sm:grid-cols-[minmax(0,1fr)_140px_auto] sm:items-end">
+                <div className="min-w-0">
+                  <p className="mb-1.5 text-xs font-semibold text-gray-600">
                     근무자 이름
                   </p>
                   <Dropdown controlledValue={workerName}>
-                    <Dropdown.Trigger compact>
+                    <Dropdown.Trigger neutral>
                       {workerName || "선택"}
                     </Dropdown.Trigger>
-                    <Dropdown.Content compact>
+                    <Dropdown.Content neutral>
                       {workerNames.map((name) => (
                         <Dropdown.Item
                           key={name}
                           option={{ value: name, label: name }}
-                          compact
+                          neutral
                           onSelect={(selected: DropdownOption) => {
                             setWorkerName(String(selected.value));
                             setPin("");
@@ -444,9 +444,8 @@ export default function AttendanceRecordModal({
                     </Dropdown.Content>
                   </Dropdown>
                 </div>
-                <div className="hidden w-px shrink-0 self-stretch bg-gray-300 sm:block" />
-                <label className="flex w-full flex-col rounded-xl border border-gray-200 bg-gray-50/70 p-2.5 sm:w-[150px] sm:shrink-0">
-                  <span className="mb-1 text-xs font-semibold text-gray-600">
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-semibold text-gray-600">
                     개인 PIN
                   </span>
                   <input
@@ -459,23 +458,22 @@ export default function AttendanceRecordModal({
                       resetVerification();
                     }}
                     placeholder="4자리"
-                    className="h-9 w-full rounded-lg border border-gray-300 bg-white px-2 text-center text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                    className="h-10 w-full rounded-lg border border-gray-300 bg-white px-2 text-center text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                   />
                 </label>
-                <div className="hidden w-px shrink-0 self-stretch bg-gray-300 sm:block" />
                 <Button
                   type="button"
                   size="sm"
                   onClick={handleVerify}
                   disabled={verifying}
-                  className="h-9 min-w-16 self-center px-3"
+                  className="h-10 w-full px-4 sm:w-auto"
                 >
                   {verifying ? "확인 중" : "조회"}
                 </Button>
               </div>
 
               <section className="border-t border-gray-200 pt-4">
-                <p className="mb-2 text-sm font-semibold text-gray-700">
+                <p className="mb-2 text-xs font-semibold text-gray-600">
                   출근/퇴근 선택
                 </p>
                 <div className="grid grid-cols-2 gap-2">
@@ -483,10 +481,10 @@ export default function AttendanceRecordModal({
                     type="button"
                     disabled={!verified}
                     onClick={() => selectMode("start")}
-                    className={`h-11 cursor-pointer rounded-lg border font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                    className={`h-12 cursor-pointer rounded-lg border text-sm font-semibold shadow-sm transition disabled:cursor-not-allowed disabled:opacity-40 ${
                       mode === "start"
                         ? "border-brand-500 bg-brand-500 text-white"
-                        : "border-gray-300 bg-white text-gray-600 hover:border-brand-300"
+                        : "border-gray-300 bg-white text-gray-700 hover:border-brand-300 hover:bg-brand-50/40"
                     }`}
                   >
                     출근
@@ -495,10 +493,10 @@ export default function AttendanceRecordModal({
                     type="button"
                     disabled={!verified}
                     onClick={() => selectMode("end")}
-                    className={`h-11 cursor-pointer rounded-lg border font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                    className={`h-12 cursor-pointer rounded-lg border text-sm font-semibold shadow-sm transition disabled:cursor-not-allowed disabled:opacity-40 ${
                       mode === "end"
                         ? "border-brand-500 bg-brand-500 text-white"
-                        : "border-gray-300 bg-white text-gray-600 hover:border-brand-300"
+                        : "border-gray-300 bg-white text-gray-700 hover:border-brand-300 hover:bg-brand-50/40"
                     }`}
                   >
                     퇴근

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import Button from '@/app/_components/Button';
@@ -27,7 +27,22 @@ const AfterServicesPage = () => {
     groupStatus?: 'received' | 'inProgress' | 'completed';
     searchTarget?: string;
     searchKeyword?: string;
-  }>({});
+  }>(() =>
+    searchParams.get('group') === 'inProgress'
+      ? { groupStatus: 'inProgress' }
+      : {},
+  );
+
+  useEffect(() => {
+    if (searchParams.get('group') === 'inProgress') {
+      setFilters((current) => ({
+        ...current,
+        groupStatus: 'inProgress',
+        status: undefined,
+      }));
+      setStatusValue('all');
+    }
+  }, [searchParams]);
 
   // 쿼리 파라미터에서 id 가져오기
   const selectedAfterServiceId = searchParams.get('id');

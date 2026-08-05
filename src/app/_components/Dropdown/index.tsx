@@ -202,9 +202,11 @@ export const useDropdown = () => {
 const DropdownTrigger = ({
   children,
   compact = false,
+  neutral = false,
 }: {
   children: React.ReactNode;
   compact?: boolean;
+  neutral?: boolean;
 }) => {
   const {
     toggleDropdown,
@@ -241,15 +243,19 @@ const DropdownTrigger = ({
       onClick={disabled ? undefined : toggleDropdown}
       onKeyDown={handleKeyDown}
       disabled={disabled}
-      className={`flex w-full items-center justify-between gap-2 rounded-lg border text-left shadow-sm outline-none transition-colors focus:border-brand-500 focus:ring-2 focus:ring-brand-500 ${
+      className={`flex w-full items-center justify-between gap-2 rounded-lg border text-left shadow-sm outline-none transition-colors focus:ring-2 ${
         compact
           ? 'h-11 border-gray-300 bg-white px-2.5 text-xs font-semibold text-gray-700'
+          : neutral
+            ? 'border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 focus:border-gray-400 focus:ring-gray-200 sm:px-6 sm:py-2 sm:text-base'
           : 'border-brand-200 bg-white/70 px-3 py-1.5 text-xs font-medium text-brand-700 focus:ring-offset-2 sm:px-6 sm:py-2 sm:text-base'
       } ${
         disabled
           ? 'opacity-50 cursor-not-allowed'
           : compact
             ? 'cursor-pointer hover:border-brand-300 hover:bg-gray-50'
+            : neutral
+              ? 'cursor-pointer hover:border-gray-400 hover:bg-gray-50'
             : 'cursor-pointer hover:bg-brand-50 hover:border-brand-300'
       }`}
       aria-expanded={isOpen}
@@ -283,9 +289,11 @@ const DropdownTrigger = ({
 const DropdownContent = ({
   children,
   compact = false,
+  neutral = false,
 }: {
   children: React.ReactNode;
   compact?: boolean;
+  neutral?: boolean;
 }) => {
   const { isOpen, setItemCount, triggerRef, contentRef } = useDropdown();
   const [position, setPosition] = useState<{
@@ -353,7 +361,7 @@ const DropdownContent = ({
     <div
       ref={contentRef}
       className={`fixed z-[3000] overflow-hidden rounded-lg border bg-white opacity-100 shadow-lg transition-all duration-200 translate-y-0 ${
-        compact ? "border-gray-300" : "border-brand-200"
+        compact || neutral ? "border-gray-300" : "border-brand-200"
       }`}
       style={{
         top: `${position.top}px`,
@@ -379,11 +387,13 @@ const DropdownItem = ({
   onSelect,
   index = -1,
   compact = false,
+  neutral = false,
 }: {
   option: DropdownOption;
   onSelect?: (option: DropdownOption) => void;
   index?: number;
   compact?: boolean;
+  neutral?: boolean;
 }) => {
   const {
     handleSelect,
@@ -431,19 +441,27 @@ const DropdownItem = ({
       className={`${
         compact
           ? "px-2.5 py-1.5 text-xs text-gray-700 focus:bg-gray-100"
+          : neutral
+            ? "px-4 py-1.5 text-sm text-gray-700 focus:bg-gray-100 focus:ring-2 focus:ring-gray-300 focus:ring-inset sm:px-6 sm:py-2 sm:text-base"
           : "px-4 py-1.5 text-sm text-brand-700 focus:bg-brand-100 focus:ring-2 focus:ring-brand-500 focus:ring-inset sm:px-6 sm:py-2 sm:text-base"
       } cursor-pointer outline-none transition-colors ${
         isSelected
           ? compact
             ? "bg-gray-100 font-semibold text-brand-700"
+            : neutral
+              ? "bg-gray-100 font-medium text-gray-900"
             : "bg-brand-50 font-medium text-brand-900"
           : compact
             ? "hover:bg-gray-50"
+            : neutral
+              ? "hover:bg-gray-50"
             : "hover:bg-brand-50"
       } ${
         isFocused && !isSelected
           ? compact
             ? "bg-gray-100"
+            : neutral
+              ? "bg-gray-100"
             : "bg-brand-100"
           : ""
       }`}
@@ -452,7 +470,7 @@ const DropdownItem = ({
         <span>{option.label}</span>
         {isSelected && (
           <svg
-            className={`${compact ? "h-3.5 w-3.5" : "h-5 w-5"} flex-shrink-0 text-brand-600`}
+            className={`${compact ? "h-3.5 w-3.5" : "h-5 w-5"} flex-shrink-0 ${neutral ? "text-gray-600" : "text-brand-600"}`}
             fill="currentColor"
             viewBox="0 0 20 20"
             aria-hidden="true"

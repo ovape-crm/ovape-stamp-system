@@ -104,11 +104,27 @@ const StampSection = ({
             logMeta?: StampLogMeta,
             _adjustDirection?: "add" | "remove",
             isReservation?: boolean,
+            targetCustomerId?: string,
+            shouldAddStampForSelectedCustomer?: boolean,
           ) => {
             if (isReservation) {
-              await handleReserve(modalNote, paymentType, amount, logMeta);
+              await handleReserve(
+                modalNote,
+                paymentType,
+                amount,
+                logMeta,
+                targetCustomerId,
+                shouldAddStampForSelectedCustomer,
+              );
             } else {
-              await handleAdd(modalNote, paymentType, amount, logMeta);
+              await handleAdd(
+                modalNote,
+                paymentType,
+                amount,
+                logMeta,
+                targetCustomerId,
+                shouldAddStampForSelectedCustomer,
+              );
             }
             close();
           }}
@@ -130,12 +146,20 @@ const StampSection = ({
     paymentType?: PaymentTypeEnumType["value"],
     amount: number = 0,
     logMeta?: StampLogMeta,
+    targetCustomerId?: string,
+    shouldAddStampForSelectedCustomer?: boolean,
   ) => {
     try {
       setIsLoading(true);
-      const effectiveAmount = customerMode === "x" ? 0 : amount;
+      const effectiveAmount = targetCustomerId
+        ? shouldAddStampForSelectedCustomer
+          ? amount
+          : 0
+        : customerMode === "x"
+          ? 0
+          : amount;
       await addStamp(
-        target.id,
+        targetCustomerId ?? target.id,
         effectiveAmount,
         memo ?? "",
         paymentType,
@@ -162,12 +186,20 @@ const StampSection = ({
     paymentType?: PaymentTypeEnumType["value"],
     amount: number = 0,
     logMeta?: StampLogMeta,
+    targetCustomerId?: string,
+    shouldAddStampForSelectedCustomer?: boolean,
   ) => {
     try {
       setIsLoading(true);
-      const effectiveAmount = customerMode === "x" ? 0 : amount;
+      const effectiveAmount = targetCustomerId
+        ? shouldAddStampForSelectedCustomer
+          ? amount
+          : 0
+        : customerMode === "x"
+          ? 0
+          : amount;
       await addReservationStamp(
-        target.id,
+        targetCustomerId ?? target.id,
         effectiveAmount,
         memo ?? "",
         paymentType,

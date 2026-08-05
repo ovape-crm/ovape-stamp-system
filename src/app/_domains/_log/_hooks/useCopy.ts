@@ -107,6 +107,15 @@ const useCopy = () => {
             typeof payment.amount === 'number',
         )
       : [];
+    const hasTransactionTag = Boolean(
+      log.jsonb?.discount ||
+        (typeof log.jsonb?.deliveryFee === 'number' &&
+          log.jsonb.deliveryFee > 0) ||
+        log.jsonb?.deliveryType === 'self' ||
+        log.jsonb?.deliveryType === 'customer_quick' ||
+        (typeof log.jsonb?.reservationDate === 'string' &&
+          log.jsonb.reservationDate.trim()),
+    );
 
     const isEguPayment =
       typeof paymentTypeValue === 'string' &&
@@ -124,8 +133,22 @@ const useCopy = () => {
 
     const amountFormula = buildAmountFormula(log.jsonb);
 
-    const name = targetUser.name || '이름 없음';
-    const phone = formatPhoneNumber(targetUser.phone);
+    const isXCustomer =
+      targetUser.name.trim() === 'X' && targetUser.phone.trim() === 'X';
+    const savedXCustomerName =
+      typeof log.jsonb?.xCustomerName === 'string'
+        ? log.jsonb.xCustomerName.trim()
+        : '';
+    const savedXPhoneLastDigits =
+      typeof log.jsonb?.xPhoneLastDigits === 'string'
+        ? log.jsonb.xPhoneLastDigits.trim()
+        : '';
+    const name =
+      (isXCustomer && savedXCustomerName) || targetUser.name || '이름 없음';
+    const phone =
+      isXCustomer && savedXPhoneLastDigits
+        ? savedXPhoneLastDigits
+        : formatPhoneNumber(targetUser.phone);
     const specialCustomerName =
       targetUser.name.trim() === '시연용'
         ? '시연용'
@@ -175,7 +198,7 @@ const useCopy = () => {
         ? splitPayments
             .map((payment) =>
               buildClipboardRow(
-                `분할결제) ${log.note}`,
+                `${hasTransactionTag ? '분할결제,' : '분할결제) '}${log.note}`,
                 String(payment.amount),
                 paymentTypeNameByValue[payment.paymentType] ?? '',
               ),

@@ -113,6 +113,12 @@ const StampLogEditModal = ({
     target.is_stamp_eligible ?? true,
   );
   const [stampLog, setStampLog] = useState<StampLogValue | null>(null);
+  const [xCustomerName, setXCustomerName] = useState(
+    initialLogMeta?.xCustomerName ?? "",
+  );
+  const [xPhoneLastDigits, setXPhoneLastDigits] = useState(
+    initialLogMeta?.xPhoneLastDigits ?? "",
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [step, setStep] = useState<1 | 2 | 3>(2);
   const [formValidity, setFormValidity] = useState({
@@ -159,6 +165,38 @@ const StampLogEditModal = ({
       setIsSubmitting(false);
     }
   };
+
+  const xCustomerInfoFields = (
+    <div className="h-full rounded-lg border border-gray-200 bg-gray-50 p-3">
+      <p className="mb-2 text-sm font-semibold text-gray-800">고객 정보</p>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="min-w-0">
+          <input
+            type="text"
+            aria-label="이름"
+            value={xCustomerName}
+            onChange={(event) => setXCustomerName(event.target.value)}
+            placeholder="이름 입력"
+            className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+          />
+        </label>
+        <label className="min-w-0">
+          <input
+            type="text"
+            aria-label="핸드폰 뒷번호"
+            inputMode="numeric"
+            maxLength={4}
+            value={xPhoneLastDigits}
+            onChange={(event) =>
+              setXPhoneLastDigits(event.target.value.replace(/\D/g, "").slice(0, 4))
+            }
+            placeholder="뒷번호 4자리"
+            className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+          />
+        </label>
+      </div>
+    </div>
+  );
 
   return (
     <div className="relative flex max-h-[calc(90vh-2rem)] min-h-0 w-full flex-col">
@@ -234,24 +272,35 @@ const StampLogEditModal = ({
           step={step}
           customerMode={customerMode}
           customerAddress={target.address}
+          reservationSlot={
+            customerMode === "x" ? xCustomerInfoFields : undefined
+          }
+          xCustomerName={xCustomerName}
+          xPhoneLastDigits={xPhoneLastDigits}
           onChange={setStampLog}
           onValidityChange={setFormValidity}
         />
 
         {step === 3 && stampLog && (
           <div className="space-y-4">
-            <div
-              className={`grid grid-cols-2 gap-2 ${
-                customerMode === "x" ? "md:grid-cols-4" : "md:grid-cols-5"
-              }`}
-            >
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
               {[
-                {
-                  label: "출고 방식",
-                  value: stampLog.logMeta.reservationDate
-                    ? `${stampLog.logMeta.reservationDate} 예약 출고`
-                    : "즉시 출고",
-                },
+                ...(customerMode === "x"
+                  ? [
+                      { label: "이름", value: xCustomerName.trim() },
+                      {
+                        label: "핸드폰 뒷번호",
+                        value: xPhoneLastDigits.trim(),
+                      },
+                    ]
+                  : [
+                      {
+                        label: "출고 방식",
+                        value: stampLog.logMeta.reservationDate
+                          ? `${stampLog.logMeta.reservationDate} 예약 출고`
+                          : "즉시 출고",
+                      },
+                    ]),
                 { label: "출고 매장", value: stampLog.storeLabel },
                 {
                   label: "수령 방식",
@@ -526,7 +575,10 @@ const StampLogEditModal = ({
                 disabled={
                   step === 1
                     ? !formValidity.hasCompletedBasicSequence
-                    : !formValidity.hasItems || !hasValidSplitPaymentAmounts
+                    : !formValidity.hasItems ||
+                      !hasValidSplitPaymentAmounts ||
+                      (customerMode === "x" &&
+                        (!xCustomerName.trim() || xPhoneLastDigits.length !== 4))
                 }
               >
                 다음
@@ -536,7 +588,12 @@ const StampLogEditModal = ({
             <Button
               size="sm"
               onClick={handleSubmit}
-              disabled={isSubmitting || !stampLog}
+              disabled={
+                isSubmitting ||
+                !stampLog ||
+                (customerMode === "x" &&
+                  (!xCustomerName.trim() || xPhoneLastDigits.length !== 4))
+              }
             >
               {isSubmitting ? "저장 중..." : "수정"}
             </Button>

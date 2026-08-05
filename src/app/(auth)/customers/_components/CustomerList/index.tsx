@@ -164,7 +164,9 @@ const CustomerList = ({
                     </td>
                     <td className="px-3 sm:px-6 py-2 sm:py-3 text-center whitespace-nowrap">
                       <span className="inline-flex items-center justify-center px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs sm:text-sm font-semibold bg-brand-100 text-brand-700">
-                        {stampCount}
+                        {customer.is_stamp_eligible === false
+                          ? "미적립"
+                          : stampCount}
                       </span>
                     </td>
                     <td className="px-3 sm:px-6 py-2 sm:py-3 whitespace-nowrap">

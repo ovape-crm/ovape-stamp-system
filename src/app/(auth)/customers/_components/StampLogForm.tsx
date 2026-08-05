@@ -122,6 +122,8 @@ export default function StampLogForm({
   step,
   onValidityChange,
   reservationSlot,
+  xCustomerName,
+  xPhoneLastDigits,
   customerMode = "normal",
   currentStampCount = 0,
   customerAddress,
@@ -153,6 +155,8 @@ export default function StampLogForm({
   }) => void;
   /** step 모드에서 2번 스텝의 출고 특이사항 입력 오른쪽에 함께 렌더링할 요소 (예: 출고 예약 토글) */
   reservationSlot?: React.ReactNode;
+  xCustomerName?: string;
+  xPhoneLastDigits?: string;
   customerMode?: CustomerMode;
   currentStampCount?: number;
   customerAddress?: string | null;
@@ -518,6 +522,12 @@ export default function StampLogForm({
       storeName,
       totalAmount: finalAmount,
       extraNote: extraNote.trim() || undefined,
+      xCustomerName:
+        customerMode === "x" ? xCustomerName?.trim() || undefined : undefined,
+      xPhoneLastDigits:
+        customerMode === "x"
+          ? xPhoneLastDigits?.trim() || undefined
+          : undefined,
       deliveryMethod,
       deliveryType:
         deliveryMethod === "delivery" ? deliveryType || undefined : undefined,
@@ -616,6 +626,9 @@ export default function StampLogForm({
     discountType,
     discountLine,
     extraNote,
+    xCustomerName,
+    xPhoneLastDigits,
+    customerMode,
     paymentMode,
     splitPayments,
     hasValidPayment,
@@ -727,7 +740,7 @@ export default function StampLogForm({
               ? `재고조정-출고${optionalOperationMemo ? `,${optionalOperationMemo}` : ""}`
               : ""
           : isExchange
-            ? `${exchangeLabel}${exchangeMemo.trim() ? `(${exchangeMemo.trim()})` : ""}`
+            ? `${exchangeLabel}${exchangeMemo.trim() ? `,${exchangeMemo.trim()}` : ""}`
             : remarkType === "service"
               ? `서비스${customRemark.trim() ? `(${customRemark.trim()})` : ""}`
               : remarkType === "custom"
@@ -822,13 +835,26 @@ export default function StampLogForm({
         : "0",
     );
     setPriceAdjustMemo("");
+    setOperationMemo("");
 
-    if (line.inventoryAction === "exchange_in") {
+    if (line.inventoryAction === "adjustment_in") {
+      setRemarkType("adjustment_in");
+      setOperationMemo(
+        line.remark?.replace(/^재고조정-입고,?/, "").trim() ?? "",
+      );
+    } else if (line.inventoryAction === "adjustment_out") {
+      setRemarkType("adjustment_out");
+      setOperationMemo(
+        line.remark?.replace(/^재고조정-출고,?/, "").trim() ?? "",
+      );
+    } else if (line.inventoryAction === "exchange_in") {
       setRemarkType("exchange_in");
-      setExchangeMemo(line.remark?.match(/^교환입고\((.*)\)$/)?.[1] ?? "");
+      const match = line.remark?.match(/^교환입고(?:,(.*)|\((.*)\))$/);
+      setExchangeMemo(match?.[1] ?? match?.[2] ?? "");
     } else if (line.inventoryAction === "exchange_out") {
       setRemarkType("exchange_out");
-      setExchangeMemo(line.remark?.match(/^교환출고\((.*)\)$/)?.[1] ?? "");
+      const match = line.remark?.match(/^교환출고(?:,(.*)|\((.*)\))$/);
+      setExchangeMemo(match?.[1] ?? match?.[2] ?? "");
     } else if (typeof line.adjustedUnitPrice === "number") {
       setRemarkType("price_adjust");
       setPriceAdjustMemo(
@@ -1443,9 +1469,16 @@ export default function StampLogForm({
     <div className="grid grid-cols-1 gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3 lg:grid-cols-2 lg:items-stretch">
       <div className="grid gap-2 sm:grid-cols-[minmax(0,2fr)_minmax(270px,1fr)]">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            품목 선택 <span className="text-rose-600">*</span>
-          </label>
+          <div className="mb-1 flex items-center gap-2">
+            <label className="block text-sm font-medium text-gray-700">
+              품목 선택 <span className="text-rose-600">*</span>
+            </label>
+            {editingLineId && (
+              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
+                선택 품목 수정 중
+              </span>
+            )}
+          </div>
           <div ref={itemSearchRef} className="relative">
             <div className="relative">
               <svg
@@ -1734,16 +1767,30 @@ export default function StampLogForm({
         <p className="text-sm text-gray-400">추가된 품목이 없습니다.</p>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-          <table className="w-full min-w-[820px] table-fixed text-sm">
+          <table
+            className={`w-full table-fixed text-sm ${
+              customerMode === "adjustment" || customerMode === "demo"
+                ? "min-w-[650px]"
+                : "min-w-[820px]"
+            }`}
+          >
             <thead className="bg-gray-50 text-xs font-semibold text-gray-600">
               <tr className="border-b border-gray-200">
                 <th className="w-[5%] px-2 py-2 text-center">번호</th>
-                <th className="w-[29%] px-2 py-2 text-left">품목명</th>
+                <th
+                  className={`${customerMode === "adjustment" ? "w-[39%]" : "w-[29%]"} px-2 py-2 text-left`}
+                >
+                  품목명
+                </th>
                 <th className="w-[11%] px-2 py-2 text-center">품목종류</th>
                 <th className="w-[10%] px-2 py-2 text-center">출고 유형</th>
                 <th className="w-[7%] px-2 py-2 text-center">수량</th>
-                <th className="w-[10%] px-2 py-2 text-right">단가</th>
-                <th className="w-[10%] px-2 py-2 text-right">소계</th>
+                {customerMode !== "adjustment" && customerMode !== "demo" && (
+                  <>
+                    <th className="w-[10%] px-2 py-2 text-right">단가</th>
+                    <th className="w-[10%] px-2 py-2 text-right">소계</th>
+                  </>
+                )}
                 <th className="w-[18%] px-3 py-2 text-center">작업</th>
               </tr>
             </thead>
@@ -1782,17 +1829,22 @@ export default function StampLogForm({
                   <td className="px-2 py-2 text-center font-medium text-gray-800">
                     {line.quantity}개
                   </td>
-                  <td className="px-2 py-2 text-right text-gray-700">
-                    {formatAmount(
-                      typeof line.adjustedUnitPrice === "number"
-                        ? line.adjustedUnitPrice
-                        : line.unitPrice,
-                    )}
-                    원
-                  </td>
-                  <td className="px-2 py-2 text-right font-medium text-gray-900">
-                    {formatAmount(line.amount)}원
-                  </td>
+                  {customerMode !== "adjustment" &&
+                    customerMode !== "demo" && (
+                    <>
+                      <td className="px-2 py-2 text-right text-gray-700">
+                        {formatAmount(
+                          typeof line.adjustedUnitPrice === "number"
+                            ? line.adjustedUnitPrice
+                            : line.unitPrice,
+                        )}
+                        원
+                      </td>
+                      <td className="px-2 py-2 text-right font-medium text-gray-900">
+                        {formatAmount(line.amount)}원
+                      </td>
+                    </>
+                  )}
                   <td className="px-3 py-2">
                     <div className="flex items-center justify-center gap-1">
                       <Button

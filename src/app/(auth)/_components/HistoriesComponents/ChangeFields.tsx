@@ -2,6 +2,7 @@ const fieldMap = {
   name: '이름',
   phone: '전화번호',
   gender: '성별',
+  is_stamp_eligible: '적립 대상',
   address: '주소지',
   note: '특이사항',
   customer_id: '고객 ID',
@@ -37,6 +38,10 @@ const ChangeFields = ({ jsonb }: { jsonb: Record<string, unknown> }) => {
     if (fieldName === 'gender') {
       if (value === 'male') return '남자';
       if (value === 'female') return '여자';
+    }
+
+    if (fieldName === 'is_stamp_eligible') {
+      return value === true ? '적립' : '미적립';
     }
 
     if (fieldName === 'item_type') {
