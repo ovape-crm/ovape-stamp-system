@@ -3745,20 +3745,9 @@ function PurchaseOrderList({
           </button>
         </div>
         {onCreate ? (
-          <div className="flex items-center gap-2">
-            {isAdmin && (
-              <Button
-                size="sm"
-                variant="gray"
-                onClick={() => setCategoryManagerOpen(true)}
-              >
-                거래 항목 관리
-              </Button>
-            )}
-            <Button size="sm" onClick={onCreate}>
-              입고 예정 등록
-            </Button>
-          </div>
+          <Button size="sm" onClick={onCreate}>
+            입고 예정 등록
+          </Button>
         ) : (
           <span className="px-3 text-sm text-gray-500">
             {visibleOrders.length.toLocaleString()}건
@@ -6500,6 +6489,13 @@ function MovementHistory({
   const getMovementTypeLabel = (
     movement: Awaited<ReturnType<typeof getInventoryMovements>>[number],
   ) => {
+    if (
+      movement.movement_type === "outbound_cancel" &&
+      (movement.counterparty_name?.trim() === "시연용" ||
+        movement.item_remark?.trim().startsWith("시연용"))
+    ) {
+      return "시연용 처리 취소";
+    }
     if (
       movement.movement_type === "outbound_edit" ||
       movement.movement_type === "outbound_cancel" ||
