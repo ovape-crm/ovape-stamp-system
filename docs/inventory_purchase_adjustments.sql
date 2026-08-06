@@ -30,6 +30,100 @@ create table if not exists public.inventory_purchase_order_adjustments (
 create index if not exists inventory_purchase_order_adjustments_order_idx
   on public.inventory_purchase_order_adjustments(order_id);
 
+alter table public.inventory_purchase_order_lines
+  add column if not exists handling_type text not null default 'none'
+    check (handling_type in ('none', 'demo', 'reservation', 'memo')),
+  add column if not exists handling_note text,
+  add column if not exists customer_id bigint references public.customers(id) on delete set null,
+  add column if not exists reservation_log_id text;
+
+drop function if exists public.create_inventory_purchase_order(uuid, date, text, jsonb);
+
+create or replace function public.create_inventory_purchase_order(
+  p_supplier_id uuid,
+  p_ordered_on date,
+  p_note text,
+  p_lines jsonb,
+  p_adjustments jsonb default '[]'::jsonb
+) returns uuid
+language plpgsql security definer set search_path=public as $$
+declare
+  v_order_id uuid;
+  v_entry jsonb;
+  v_clean_name text;
+  v_quantity integer;
+begin
+  if auth.uid() is null then raise exception '로그인이 필요합니다.'; end if;
+  if not exists (
+    select 1 from public.inventory_suppliers
+    where id = p_supplier_id and is_use = true
+  ) then raise exception '사용 가능한 거래처를 선택해 주세요.'; end if;
+  if jsonb_array_length(coalesce(p_lines, '[]'::jsonb)) = 0 then
+    raise exception '품목을 추가해 주세요.';
+  end if;
+  if jsonb_array_length(coalesce(p_adjustments, '[]'::jsonb)) > 0
+    and not exists (
+      select 1 from public.users
+      where id = auth.uid() and oss_role = 'admin'
+    ) then
+    raise exception 'ADMIN_REQUIRED';
+  end if;
+
+  insert into public.inventory_purchase_orders
+    (supplier_id, ordered_on, note, created_by)
+  values
+    (p_supplier_id, p_ordered_on, nullif(btrim(p_note), ''), auth.uid())
+  returning id into v_order_id;
+
+  for v_entry in select value from jsonb_array_elements(p_lines)
+  loop
+    v_clean_name := btrim(v_entry->>'item_name');
+    v_quantity := (v_entry->>'quantity')::integer;
+    if v_clean_name = '' or v_quantity <= 0 then
+      raise exception '품목과 주문 수량을 확인해 주세요.';
+    end if;
+    if coalesce(v_entry->>'handling_type', 'none') = 'reservation'
+      and (nullif(v_entry->>'customer_id', '') is null
+        or nullif(v_entry->>'reservation_log_id', '') is null) then
+      raise exception '예약 고객과 예약 이력을 선택해 주세요.';
+    end if;
+
+    insert into public.inventory_purchase_order_lines (
+      order_id, item_name, ordered_quantity, pending_quantity, unit_price, note,
+      handling_type, handling_note, customer_id, reservation_log_id
+    ) values (
+      v_order_id, v_clean_name, v_quantity, v_quantity,
+      nullif(v_entry->>'unit_price', '')::integer,
+      nullif(btrim(v_entry->>'note'), ''),
+      coalesce(nullif(v_entry->>'handling_type', ''), 'none'),
+      nullif(btrim(v_entry->>'handling_note'), ''),
+      nullif(v_entry->>'customer_id', '')::bigint,
+      nullif(v_entry->>'reservation_log_id', '')
+    );
+  end loop;
+
+  insert into public.inventory_purchase_order_adjustments (
+    order_id, category_id, category_name, kind, amount, note, created_by
+  )
+  select
+    v_order_id,
+    nullif(item->>'category_id', '')::uuid,
+    btrim(item->>'category_name'),
+    item->>'kind',
+    greatest(0, coalesce((item->>'amount')::integer, 0)),
+    nullif(btrim(item->>'note'), ''),
+    auth.uid()
+  from jsonb_array_elements(coalesce(p_adjustments, '[]'::jsonb)) item
+  where btrim(coalesce(item->>'category_name', '')) <> ''
+    and item->>'kind' in ('discount', 'payment');
+
+  return v_order_id;
+end;
+$$;
+
+revoke all on function public.create_inventory_purchase_order(uuid, date, text, jsonb, jsonb) from public;
+grant execute on function public.create_inventory_purchase_order(uuid, date, text, jsonb, jsonb) to authenticated;
+
 alter table public.inventory_purchase_adjustment_categories enable row level security;
 alter table public.inventory_purchase_order_adjustments enable row level security;
 
@@ -221,9 +315,50 @@ begin
       updated_at = now()
   where id = p_order_id;
 
+  if exists (
+    select 1 from public.inventory_purchase_order_lines existing_line
+    where existing_line.order_id = p_order_id
+      and existing_line.received_quantity > 0
+      and not exists (
+        select 1 from jsonb_array_elements(coalesce(p_lines, '[]'::jsonb)) item
+        where nullif(item->>'id', '')::uuid = existing_line.id
+      )
+  ) then raise exception 'RECEIVED_PURCHASE_ORDER_LINE_DELETE_FORBIDDEN'; end if;
+
+  delete from public.inventory_purchase_order_lines existing_line
+  where existing_line.order_id = p_order_id
+    and existing_line.received_quantity = 0
+    and not exists (
+      select 1 from public.inventory_purchase_receipt_lines receipt_line
+      where receipt_line.order_line_id = existing_line.id
+    )
+    and not exists (
+      select 1 from jsonb_array_elements(coalesce(p_lines, '[]'::jsonb)) item
+      where nullif(item->>'id', '')::uuid = existing_line.id
+    );
+
   for v_line in
     select value from jsonb_array_elements(coalesce(p_lines, '[]'::jsonb))
   loop
+    if nullif(v_line->>'id', '') is null then
+      insert into public.inventory_purchase_order_lines (
+        order_id, item_name, ordered_quantity, pending_quantity, unit_price,
+        note, handling_type, handling_note, customer_id, reservation_log_id
+      ) values (
+        p_order_id,
+        btrim(v_line->>'item_name'),
+        (v_line->>'ordered_quantity')::integer,
+        (v_line->>'ordered_quantity')::integer,
+        nullif(v_line->>'unit_price', '')::integer,
+        nullif(btrim(coalesce(v_line->>'note', '')), ''),
+        coalesce(nullif(v_line->>'handling_type', ''), 'none'),
+        nullif(btrim(coalesce(v_line->>'handling_note', '')), ''),
+        nullif(v_line->>'customer_id', '')::bigint,
+        nullif(v_line->>'reservation_log_id', '')
+      );
+      continue;
+    end if;
+
     select * into v_existing
     from public.inventory_purchase_order_lines
     where id = (v_line->>'id')::uuid
@@ -249,7 +384,11 @@ begin
           0
         ),
         unit_price = nullif(v_line->>'unit_price', '')::integer,
-        note = nullif(btrim(coalesce(v_line->>'note', '')), '')
+        note = nullif(btrim(coalesce(v_line->>'note', '')), ''),
+        handling_type = coalesce(nullif(v_line->>'handling_type', ''), v_existing.handling_type, 'none'),
+        handling_note = nullif(btrim(coalesce(v_line->>'handling_note', '')), ''),
+        customer_id = nullif(v_line->>'customer_id', '')::bigint,
+        reservation_log_id = nullif(v_line->>'reservation_log_id', '')
     where id = v_existing.id;
   end loop;
 

@@ -36,6 +36,8 @@ import {
   savePurchaseAdjustmentCategory,
   savePurchaseOrderAdjustments,
   updatePurchaseOrderDetails,
+  searchReservationCustomers,
+  getCustomerReservationHistories,
 } from "@/app/_domains/_inventory/_services/inventoryService";
 import type {
   InventoryItem,
@@ -62,12 +64,66 @@ const tabLabels: Record<Tab, string> = {
   initial: "기초 재고 입고",
 };
 type ReceiptRow = {
-  id: number;
+  id: number | string;
   itemName: string;
   quantity: string;
   unitPrice: string;
   note: string;
+  handlingType: "none" | "demo" | "reservation" | "memo";
+  handlingNote: string;
+  customerId: string;
+  customerName: string;
+  reservationLogId: string;
 };
+
+const createEmptyReceiptRow = (id: number, isAdmin: boolean): ReceiptRow => ({
+  id,
+  itemName: "",
+  quantity: "1",
+  unitPrice: isAdmin ? "0" : "",
+  note: "",
+  handlingType: "none",
+  handlingNote: "",
+  customerId: "",
+  customerName: "",
+  reservationLogId: "",
+});
+
+const PURCHASE_HANDLING_OPTIONS = [
+  { value: "none", label: "미입력" },
+  { value: "demo", label: "시연용 처리" },
+  { value: "reservation", label: "예약 연결" },
+  { value: "memo", label: "메모입력" },
+] as const;
+
+const isLegacyDemoMemo = (value: string | null | undefined) =>
+  /시연용\s*처리|시연용처리/.test(value?.trim() ?? "");
+
+const getLegacyDemoNote = (value: string | null | undefined) =>
+  (value ?? "")
+    .replace(/시연용\s*처리/g, "")
+    .replace(/^[\s,:·-]+|[\s,:·-]+$/g, "")
+    .trim();
+
+const clearLegacyDemoMemo = (value: string) =>
+  isLegacyDemoMemo(value) ? getLegacyDemoNote(value) : value;
+
+function CollapseChevron({ expanded }: { expanded: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-4 w-4"
+      aria-hidden="true"
+    >
+      <path d={expanded ? "m6 14 6-6 6 6" : "m6 10 6 6 6-6"} />
+    </svg>
+  );
+}
 
 const movementLabels: Record<string, string> = {
   initial: "기초재고",
@@ -1562,13 +1618,7 @@ function ReceiptManager({
   const items = allItems.filter((item) => item.is_tracked);
   const [nextId, setNextId] = useState(2);
   const [rows, setRows] = useState<ReceiptRow[]>([
-    {
-      id: 1,
-      itemName: "",
-      quantity: "1",
-      unitPrice: isAdmin ? "0" : "",
-      note: "",
-    },
+    createEmptyReceiptRow(1, isAdmin),
   ]);
   const [note, setNote] = useState("");
   const [supplierId, setSupplierId] = useState("");
@@ -1580,14 +1630,24 @@ function ReceiptManager({
   const [taxInvoiceSearch, setTaxInvoiceSearch] = useState("");
   const [taxInvoicePickerOpen, setTaxInvoicePickerOpen] = useState(false);
   const taxInvoicePickerRef = useRef<HTMLDivElement>(null);
-  const [activeItemRow, setActiveItemRow] = useState<number | null>(null);
+  const [activeItemRow, setActiveItemRow] = useState<ReceiptRow["id"] | null>(
+    null,
+  );
   const [orderedOn, setOrderedOn] = useState(() =>
     new Date().toISOString().slice(0, 10),
   );
   const [supplierOpen, setSupplierOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [editingPurchaseOrder, setEditingPurchaseOrder] =
+    useState<PurchaseOrder | null>(null);
   const [createStep, setCreateStep] = useState<1 | 2 | 3>(1);
   const [duplicateConfirmOpen, setDuplicateConfirmOpen] = useState(false);
+  const [editingReceiptRow, setEditingReceiptRow] = useState<{
+    row: ReceiptRow;
+  } | null>(null);
+  const [adjustments, setAdjustments] = useState<AdjustmentDraft[]>([]);
+  const [reservationCustomerSearch, setReservationCustomerSearch] =
+    useState("");
   useEffect(() => {
     if (!supplierPickerOpen) return;
     const closeSupplierPicker = (event: PointerEvent) => {
@@ -1630,39 +1690,95 @@ function ReceiptManager({
     queryKey: [...inventoryKeys.purchaseOrders, isAdmin],
     queryFn: () => getPurchaseOrders(isAdmin),
   });
+  const adjustmentCategoriesQuery = useQuery({
+    queryKey: inventoryKeys.purchaseAdjustmentCategories,
+    queryFn: () => getPurchaseAdjustmentCategories(false),
+    enabled: isAdmin,
+  });
   const receiveMutation = useMutation({
-    mutationFn: () =>
-      createPurchaseOrder(
+    mutationFn: async () => {
+      const normalizedLines = rows
+        .slice(0, -1)
+        .filter((row) => row.itemName && Number(row.quantity) > 0)
+        .map((row) => ({
+          id: row.id,
+          item_name: row.itemName,
+          quantity: Number(row.quantity),
+          unit_price: row.unitPrice ? Number(row.unitPrice) : null,
+          note: row.note,
+          handling_type: row.handlingType,
+          handling_note: row.handlingNote.trim() || null,
+          customer_id: row.customerId || null,
+          reservation_log_id: row.reservationLogId || null,
+        }));
+      const normalizedAdjustments = adjustments
+        .filter((row) => row.categoryName.trim() && Number(row.amount) >= 0)
+        .map((row) => ({
+          category_id: row.categoryId || null,
+          category_name: row.categoryName,
+          kind: row.kind,
+          amount: Math.floor(Number(row.amount)),
+          note: row.note.trim() || null,
+        }));
+
+      if (editingPurchaseOrder) {
+        await updatePurchaseOrderDetails({
+          orderId: editingPurchaseOrder.id,
+          supplierId,
+          orderedOn,
+          note: mergePurchaseOrderNote(taxInvoiceStatus, note),
+          lines: normalizedLines.map((line) => ({
+            id: typeof line.id === "string" ? line.id : null,
+            item_name: line.item_name,
+            ordered_quantity: line.quantity,
+            unit_price: line.unit_price,
+            note: line.note,
+            handling_type: line.handling_type,
+            handling_note: line.handling_note,
+            customer_id: line.customer_id,
+            reservation_log_id: line.reservation_log_id,
+          })),
+          receipts: editingPurchaseOrder.inventory_purchase_receipts.map(
+            (receipt) => ({
+              id: receipt.id,
+              arrived_on: receipt.arrived_on,
+              note: receipt.note ?? "",
+            }),
+          ),
+        });
+        if (isAdmin) {
+          await savePurchaseOrderAdjustments(
+            editingPurchaseOrder.id,
+            normalizedAdjustments,
+          );
+        }
+        return editingPurchaseOrder.id;
+      }
+
+      return createPurchaseOrder(
         supplierId,
         orderedOn,
         mergePurchaseOrderNote(taxInvoiceStatus, note),
-        rows
-          .slice(0, -1)
-          .filter((row) => row.itemName && Number(row.quantity) > 0)
-          .map((row) => ({
-            item_name: row.itemName,
-            quantity: Number(row.quantity),
-            unit_price: row.unitPrice ? Number(row.unitPrice) : null,
-            note: row.note,
-          })),
-      ),
+        normalizedLines,
+        normalizedAdjustments,
+      );
+    },
     onSuccess: async () => {
-      toast.success("입고 예정으로 등록했습니다.");
-      setRows([
-        {
-          id: nextId,
-          itemName: "",
-          quantity: "1",
-          unitPrice: isAdmin ? "0" : "",
-          note: "",
-        },
-      ]);
+      toast.success(
+        editingPurchaseOrder
+          ? "입고 예정 내용을 수정했습니다."
+          : "입고 예정으로 등록했습니다.",
+      );
+      setRows([createEmptyReceiptRow(nextId, isAdmin)]);
       setNextId((id) => id + 1);
       setNote("");
+      setAdjustments([]);
+      setReservationCustomerSearch("");
       setTaxInvoiceStatus("");
       setTaxInvoiceSearch("");
       setTaxInvoicePickerOpen(false);
       setCreateOpen(false);
+      setEditingPurchaseOrder(null);
       setCreateStep(1);
       await ordersQuery.refetch();
       await onSaved();
@@ -1671,6 +1787,23 @@ function ReceiptManager({
       toast.error(error.message || "입고 예정 등록에 실패했습니다."),
   });
   const draftRow = rows[rows.length - 1];
+  const reservationCustomersQuery = useQuery({
+    queryKey: ["inventory", "reservation-customers", reservationCustomerSearch],
+    queryFn: () => searchReservationCustomers(reservationCustomerSearch),
+    enabled:
+      createOpen &&
+      draftRow?.handlingType === "reservation" &&
+      !draftRow?.customerId &&
+      reservationCustomerSearch.trim().length > 0,
+  });
+  const reservationHistoriesQuery = useQuery({
+    queryKey: ["inventory", "customer-reservations", draftRow?.customerId],
+    queryFn: () => getCustomerReservationHistories(draftRow?.customerId ?? ""),
+    enabled:
+      createOpen &&
+      draftRow?.handlingType === "reservation" &&
+      Boolean(draftRow?.customerId),
+  });
   const committedRows = rows.slice(0, -1);
   const validRows = committedRows.filter(
     (row) =>
@@ -1679,6 +1812,12 @@ function ReceiptManager({
   );
   const hasDuplicateItems =
     new Set(validRows.map((row) => row.itemName)).size !== validRows.length;
+  const hasInvalidAdjustments = adjustments.some(
+    (row) =>
+      !row.categoryId ||
+      !Number.isInteger(Number(row.amount)) ||
+      Number(row.amount) < 0,
+  );
   const selectedSupplier = (suppliersQuery.data ?? []).find(
     (supplier) => supplier.id === supplierId,
   );
@@ -1721,17 +1860,23 @@ function ReceiptManager({
   };
 
   const commitDraftRow = () => {
-    setRows((current) => [
-      ...current,
-      {
-        id: nextId,
-        itemName: "",
-        quantity: "1",
-        unitPrice: isAdmin ? "0" : "",
-        note: "",
-      },
-    ]);
+    setRows((current) => {
+      if (!editingReceiptRow) {
+        return [...current, createEmptyReceiptRow(nextId, isAdmin)];
+      }
+      const draft = current[current.length - 1];
+      return [
+        ...current
+          .slice(0, -1)
+          .map((row) =>
+            row.id === editingReceiptRow.row.id ? { ...draft } : row,
+          ),
+        createEmptyReceiptRow(nextId, isAdmin),
+      ];
+    });
     setNextId((id) => id + 1);
+    setReservationCustomerSearch("");
+    setEditingReceiptRow(null);
   };
 
   const addRow = () => {
@@ -1743,34 +1888,163 @@ function ReceiptManager({
       toast.error("품목명과 수량을 확인해 주세요.");
       return;
     }
-    if (committedRows.some((row) => row.itemName === draftRow.itemName)) {
+    if (
+      committedRows.some(
+        (row) =>
+          row.itemName === draftRow.itemName &&
+          row.id !== editingReceiptRow?.row.id,
+      )
+    ) {
       setDuplicateConfirmOpen(true);
+      return;
+    }
+    if (
+      draftRow.handlingType === "reservation" &&
+      (!draftRow.customerId || !draftRow.reservationLogId)
+    ) {
+      toast.error("예약 고객과 예약 이력을 선택해 주세요.");
+      return;
+    }
+    if (draftRow.handlingType === "memo" && !draftRow.handlingNote.trim()) {
+      toast.error("품목 메모를 입력해 주세요.");
       return;
     }
     commitDraftRow();
   };
 
+  const addAdjustment = (kind: PurchaseAdjustmentKind) => {
+    const usedIds = new Set(adjustments.map((row) => row.categoryId));
+    const category = (adjustmentCategoriesQuery.data ?? []).find(
+      (item) => item.kind === kind && item.is_active && !usedIds.has(item.id),
+    );
+    if (!category) {
+      toast.error("추가할 수 있는 거래 항목이 없습니다.");
+      return;
+    }
+    setAdjustments((current) => [
+      ...current,
+      {
+        key: `create-${kind}-${Date.now()}`,
+        categoryId: category.id,
+        categoryName: category.name,
+        kind,
+        amount: "0",
+        note: "",
+      },
+    ]);
+  };
+
+  const updateAdjustment = (key: string, values: Partial<AdjustmentDraft>) =>
+    setAdjustments((current) =>
+      current.map((row) => (row.key === key ? { ...row, ...values } : row)),
+    );
+
+  const editReceiptRow = (target: ReceiptRow) => {
+    setEditingReceiptRow({ row: { ...target } });
+    setRows((current) => [...current.slice(0, -1), { ...target }]);
+    setReservationCustomerSearch(target.customerName || "");
+    setActiveItemRow(null);
+  };
+
+  const cancelReceiptRowEdit = () => {
+    if (!editingReceiptRow) return;
+    setRows((current) => {
+      const committed = current.slice(0, -1);
+      return [...committed, createEmptyReceiptRow(nextId, isAdmin)];
+    });
+    setNextId((id) => id + 1);
+    setEditingReceiptRow(null);
+    setReservationCustomerSearch("");
+    setActiveItemRow(null);
+  };
+
+  const moveReceiptRow = (index: number, direction: -1 | 1) => {
+    setRows((current) => {
+      const draft = current[current.length - 1];
+      const committed = current.slice(0, -1);
+      const nextIndex = index + direction;
+      if (nextIndex < 0 || nextIndex >= committed.length) return current;
+      const nextCommitted = [...committed];
+      [nextCommitted[index], nextCommitted[nextIndex]] = [
+        nextCommitted[nextIndex],
+        nextCommitted[index],
+      ];
+      return [...nextCommitted, draft];
+    });
+  };
+
   const openCreate = () => {
+    setEditingPurchaseOrder(null);
     setSupplierId("");
     setSupplierSearch("");
     setSupplierPickerOpen(false);
     setTaxInvoiceStatus("");
     setTaxInvoiceSearch("");
     setTaxInvoicePickerOpen(false);
-    setRows([
-      {
-        id: nextId,
-        itemName: "",
-        quantity: "1",
-        unitPrice: isAdmin ? "0" : "",
-        note: "",
-      },
-    ]);
+    setRows([createEmptyReceiptRow(nextId, isAdmin)]);
     setNextId((id) => id + 1);
     setNote("");
+    setAdjustments([]);
+    setReservationCustomerSearch("");
     setActiveItemRow(null);
     setDuplicateConfirmOpen(false);
+    setEditingReceiptRow(null);
     setCreateStep(1);
+    setCreateOpen(true);
+  };
+
+  const openEditPurchaseOrder = (order: PurchaseOrder) => {
+    const parsedNote = splitPurchaseOrderNote(order.note);
+    const supplier = (suppliersQuery.data ?? []).find(
+      (item) => item.id === order.supplier_id,
+    );
+    setEditingPurchaseOrder(order);
+    setSupplierId(order.supplier_id);
+    setSupplierSearch(supplier?.name ?? order.inventory_suppliers?.name ?? "");
+    setSupplierPickerOpen(false);
+    setOrderedOn(order.ordered_on);
+    setTaxInvoiceStatus(parsedNote.taxInvoiceStatus);
+    setTaxInvoiceSearch(parsedNote.taxInvoiceStatus);
+    setTaxInvoicePickerOpen(false);
+    setNote(parsedNote.note);
+    setRows([
+      ...order.inventory_purchase_order_lines.map((line) => {
+        const legacyDemoSource = isLegacyDemoMemo(line.note) ? line.note : null;
+        const isLegacyDemo =
+          line.handling_type === "none" && Boolean(legacyDemoSource);
+        return {
+          id: line.id,
+          itemName: line.item_name,
+          quantity: String(line.ordered_quantity),
+          unitPrice: line.unit_price == null ? "" : String(line.unit_price),
+          note: line.note ?? "",
+          handlingType: isLegacyDemo ? "demo" : (line.handling_type ?? "none"),
+          handlingNote:
+            line.handling_note ??
+            (isLegacyDemo ? getLegacyDemoNote(legacyDemoSource) : ""),
+          customerId: line.customer_id ?? "",
+          customerName: "",
+          reservationLogId: line.reservation_log_id ?? "",
+        };
+      }),
+      createEmptyReceiptRow(nextId, isAdmin),
+    ]);
+    setNextId((id) => id + 1);
+    setAdjustments(
+      (order.inventory_purchase_order_adjustments ?? []).map((item) => ({
+        key: item.id,
+        categoryId: item.category_id ?? "",
+        categoryName: item.category_name,
+        kind: item.kind,
+        amount: String(item.amount),
+        note: item.note ?? "",
+      })),
+    );
+    setReservationCustomerSearch("");
+    setActiveItemRow(null);
+    setDuplicateConfirmOpen(false);
+    setEditingReceiptRow(null);
+    setCreateStep(2);
     setCreateOpen(true);
   };
 
@@ -1783,7 +2057,7 @@ function ReceiptManager({
           >
             <header className="flex items-center justify-between border-b border-gray-100 px-5 py-4 sm:px-7">
               <h2 className="text-xl font-bold text-gray-950">
-                입고 예정 등록
+                {editingPurchaseOrder ? "입고 예정 수정" : "입고 예정 등록"}
               </h2>
               <button
                 type="button"
@@ -1884,7 +2158,19 @@ function ReceiptManager({
                                 <button
                                   type="button"
                                   key={supplier.id}
-                                  onClick={() => selectSupplier(supplier)}
+                                  onPointerDown={(event) => {
+                                    event.preventDefault();
+                                    selectSupplier(supplier);
+                                  }}
+                                  onKeyDown={(event) => {
+                                    if (
+                                      event.key === "Enter" ||
+                                      event.key === " "
+                                    ) {
+                                      event.preventDefault();
+                                      selectSupplier(supplier);
+                                    }
+                                  }}
                                   className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-3 text-left text-sm hover:bg-brand-50"
                                 >
                                   <span className="font-semibold text-gray-900">
@@ -2008,27 +2294,38 @@ function ReceiptManager({
               )}
 
               {createStep === 2 && (
-                <div>
-                  <div className="mb-4 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-700">
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-gray-200 bg-gray-50/70 px-4 py-3 text-sm text-gray-700">
                     <strong>{selectedSupplier?.name}</strong>
                     <span className="mx-2 text-gray-300">|</span>주문일{" "}
                     {orderedOn}
                   </div>
-                  <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(360px,0.8fr)]">
-                    <div className="rounded-2xl border border-gray-200 p-4 sm:p-5">
-                      <h3 className="mb-3 font-bold text-gray-900">
-                        품목 선택
-                      </h3>
-                      <div className="space-y-2">
-                        {rows.slice(-1).map((row) => (
-                          <div
-                            key={row.id}
-                            className="grid items-end gap-3 rounded-xl border border-gray-200 bg-white p-3 md:grid-cols-[minmax(200px,1fr)_80px_minmax(170px,210px)]"
-                          >
+                  <div className="overflow-visible">
+                    {rows.slice(-1).map((row) => (
+                      <div
+                        key={row.id}
+                        className="grid grid-cols-1 gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3 lg:grid-cols-2 lg:items-stretch"
+                      >
+                        <div className="grid gap-2 sm:grid-cols-[minmax(0,2fr)_minmax(270px,1fr)]">
+                          <div className="block min-w-0">
+                            <span className="mb-1 block text-sm font-medium text-gray-700">
+                              품목 선택 <span className="text-rose-600">*</span>
+                            </span>
                             <div className="relative">
-                              <span className="mb-1 block text-xs font-semibold text-gray-600">
-                                품목명
-                              </span>
+                              <svg
+                                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="m21 21-4.35-4.35m2.1-5.4a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"
+                                />
+                              </svg>
                               <input
                                 value={row.itemName}
                                 onFocus={() => setActiveItemRow(row.id)}
@@ -2046,7 +2343,7 @@ function ReceiptManager({
                                   setActiveItemRow(row.id);
                                 }}
                                 placeholder="품목명을 검색하세요"
-                                className="min-h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+                                className="h-10 w-full rounded-lg border border-gray-300 bg-white pl-9 pr-10 text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                               />
                               {activeItemRow === row.id &&
                                 row.itemName.trim() && (
@@ -2065,7 +2362,8 @@ function ReceiptManager({
                                         <button
                                           type="button"
                                           key={item.item_name}
-                                          onClick={() => {
+                                          onPointerDown={(event) => {
+                                            event.preventDefault();
                                             setRows((current) =>
                                               current.map((currentRow) =>
                                                 currentRow.id === row.id
@@ -2093,44 +2391,16 @@ function ReceiptManager({
                                   </div>
                                 )}
                             </div>
-                            <select
-                              value={row.itemName}
-                              onChange={(event) =>
-                                setRows((current) =>
-                                  current.map((item) =>
-                                    item.id === row.id
-                                      ? {
-                                          ...item,
-                                          itemName: event.target.value,
-                                        }
-                                      : item,
-                                  ),
-                                )
-                              }
-                              className="hidden"
-                            >
-                              <option value="">품목 선택</option>
-                              {items
-                                .filter((item) => item.item_code)
-                                .map((item) => (
-                                  <option
-                                    key={item.item_name}
-                                    value={item.item_name}
-                                  >
-                                    {item.item_name} (현재 {item.quantity}개)
-                                  </option>
-                                ))}
-                            </select>
-                            <label className="block min-w-0">
-                              <span className="mb-1 block text-xs font-semibold text-gray-600">
-                                수량
-                              </span>
+                          </div>
+                          <div>
+                            <span className="mb-1 block text-sm font-medium text-gray-700">
+                              수량
+                            </span>
+                            <div className="flex items-center gap-2">
                               <input
-                                type="number"
+                                type="text"
                                 inputMode="numeric"
                                 aria-label="주문 수량"
-                                min={1}
-                                max={999}
                                 value={row.quantity}
                                 onChange={(event) =>
                                   setRows((current) =>
@@ -2138,129 +2408,643 @@ function ReceiptManager({
                                       item.id === row.id
                                         ? {
                                             ...item,
-                                            quantity: event.target.value
-                                              .replace(/\D/g, "")
-                                              .slice(0, 3),
+                                            quantity:
+                                              event.target.value === ""
+                                                ? "1"
+                                                : event.target.value
+                                                    .replace(/\D/g, "")
+                                                    .slice(0, 3),
                                           }
                                         : item,
                                     ),
                                   )
                                 }
-                                className="min-h-11 w-full rounded-lg border border-brand-200 bg-brand-50/40 px-2 text-right text-base font-bold text-gray-900 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
-                                placeholder="수량"
+                                className="h-10 w-16 rounded-lg border border-gray-300 px-3 text-center text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-500"
                               />
-                            </label>
-                            {isAdmin && (
+                              <button
+                                type="button"
+                                aria-label="수량 감소"
+                                onClick={() =>
+                                  setRows((current) =>
+                                    current.map((item) =>
+                                      item.id === row.id
+                                        ? {
+                                            ...item,
+                                            quantity: String(
+                                              Math.max(
+                                                1,
+                                                Number(item.quantity || 1) - 1,
+                                              ),
+                                            ),
+                                          }
+                                        : item,
+                                    ),
+                                  )
+                                }
+                                className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-300 bg-white text-lg leading-none text-gray-600 transition-colors hover:bg-gray-50 active:bg-gray-100"
+                              >
+                                −
+                              </button>
+                              <button
+                                type="button"
+                                aria-label="수량 증가"
+                                onClick={() =>
+                                  setRows((current) =>
+                                    current.map((item) =>
+                                      item.id === row.id
+                                        ? {
+                                            ...item,
+                                            quantity: String(
+                                              Math.min(
+                                                999,
+                                                Number(item.quantity || 0) + 1,
+                                              ),
+                                            ),
+                                          }
+                                        : item,
+                                    ),
+                                  )
+                                }
+                                className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500 text-lg leading-none text-white transition-colors hover:bg-brand-600 active:bg-brand-700"
+                              >
+                                +
+                              </button>
+                              {editingReceiptRow && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="gray"
+                                  onClick={cancelReceiptRowEdit}
+                                  className="h-10"
+                                >
+                                  취소
+                                </Button>
+                              )}
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={addRow}
+                                className="h-10"
+                              >
+                                {editingReceiptRow ? "저장" : "추가"}
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div
+                          className={`relative space-y-3 lg:col-start-2 lg:flex lg:flex-col lg:justify-center lg:pl-3 lg:before:absolute lg:before:left-0 lg:before:top-1/4 lg:before:h-1/2 lg:before:w-px lg:before:bg-gray-200 ${
+                            row.handlingType === "none"
+                              ? "lg:justify-center"
+                              : "lg:justify-start"
+                          }`}
+                        >
+                          <select
+                            aria-label="처리 구분"
+                            value={row.handlingType}
+                            onChange={(event) => {
+                              const handlingType = event.target
+                                .value as ReceiptRow["handlingType"];
+                              setRows((current) =>
+                                current.map((item) =>
+                                  item.id === row.id
+                                    ? {
+                                        ...item,
+                                        handlingType,
+                                        handlingNote: "",
+                                        note:
+                                          handlingType === "none"
+                                            ? clearLegacyDemoMemo(item.note)
+                                            : item.note,
+                                        customerId: "",
+                                        customerName: "",
+                                        reservationLogId: "",
+                                      }
+                                    : item,
+                                ),
+                              );
+                              setReservationCustomerSearch("");
+                            }}
+                            className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm font-semibold sm:hidden"
+                          >
+                            {PURCHASE_HANDLING_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                          <div className="hidden grid-cols-6 gap-1.5 sm:grid">
+                            {PURCHASE_HANDLING_OPTIONS.map((option) => (
+                              <Button
+                                key={option.value}
+                                type="button"
+                                size="xs"
+                                variant={
+                                  row.handlingType === option.value
+                                    ? "primary"
+                                    : "gray"
+                                }
+                                onClick={() => {
+                                  setRows((current) =>
+                                    current.map((item) =>
+                                      item.id === row.id
+                                        ? {
+                                            ...item,
+                                            handlingType: option.value,
+                                            handlingNote: "",
+                                            note:
+                                              option.value === "none"
+                                                ? clearLegacyDemoMemo(item.note)
+                                                : item.note,
+                                            customerId: "",
+                                            customerName: "",
+                                            reservationLogId: "",
+                                          }
+                                        : item,
+                                    ),
+                                  );
+                                  setReservationCustomerSearch("");
+                                }}
+                                className="h-8 py-1"
+                              >
+                                {option.label}
+                              </Button>
+                            ))}
+                          </div>
+
+                          {(row.handlingType === "demo" ||
+                            row.handlingType === "memo") && (
+                            <div className="mt-3 max-w-xl">
                               <input
-                                type="number"
-                                inputMode="numeric"
-                                min={0}
-                                value={row.unitPrice}
+                                aria-label={
+                                  row.handlingType === "demo"
+                                    ? "시연용 처리 메모"
+                                    : "품목 메모"
+                                }
+                                value={row.handlingNote}
                                 onChange={(event) =>
                                   setRows((current) =>
                                     current.map((item) =>
                                       item.id === row.id
                                         ? {
                                             ...item,
-                                            unitPrice: event.target.value,
+                                            handlingNote: event.target.value,
                                           }
                                         : item,
                                     ),
                                   )
                                 }
-                                className="hidden"
-                                placeholder="매입 단가"
-                              />
-                            )}
-                            <label className="block min-w-0">
-                              <span className="mb-1 block text-xs font-semibold text-gray-600">
-                                품목별 메모
-                              </span>
-                              <input
-                                value={row.note}
-                                onChange={(event) =>
-                                  setRows((current) =>
-                                    current.map((item) =>
-                                      item.id === row.id
-                                        ? { ...item, note: event.target.value }
-                                        : item,
-                                    ),
-                                  )
+                                placeholder={
+                                  row.handlingType === "demo"
+                                    ? "시연용 처리 내용을 입력하세요. (선택)"
+                                    : "품목 메모를 입력하세요."
                                 }
-                                className="min-h-11 w-full min-w-0 rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
-                                aria-label="품목별 메모"
-                                placeholder="메모를 입력하세요. (선택)"
+                                className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                               />
-                            </label>
-                          </div>
-                        ))}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={addRow}
-                        className="mt-3 min-h-11 w-full rounded-xl border border-dashed border-brand-300 text-sm font-semibold text-brand-700 hover:bg-brand-50"
-                      >
-                        품목 추가
-                      </button>
-                      <textarea
-                        value={note}
-                        onChange={(event) => setNote(event.target.value)}
-                        placeholder="주문 전체 메모 (선택)"
-                        className="mt-3 h-20 w-full resize-none rounded-xl border border-gray-200 p-3 text-sm"
-                      />
-                    </div>
-                    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 sm:p-5">
-                      <h3 className="font-bold text-gray-900">
-                        품목 목록{" "}
-                        <span className="ml-1 text-sm font-normal text-gray-500">
-                          {validRows.length}개
-                        </span>
-                      </h3>
-                      {validRows.length ? (
-                        <div className="mt-3 space-y-2">
-                          {validRows.map((row) => (
-                            <div
-                              key={row.id}
-                              className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5"
-                            >
-                              <div className="flex items-center justify-between gap-3 text-sm">
-                                <span className="font-semibold text-gray-900">
-                                  {row.itemName}
-                                </span>
-                                <div className="flex shrink-0 items-center gap-1.5">
-                                  <span className="font-bold text-brand-600">
-                                    {Number(row.quantity).toLocaleString()}개
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
+                            </div>
+                          )}
+
+                          {row.handlingType === "reservation" && (
+                            <div className="mt-3 grid gap-3 rounded-xl border border-gray-200 bg-white p-3 lg:grid-cols-2">
+                              <div>
+                                <div>
+                                  <input
+                                    aria-label="고객 검색"
+                                    value={reservationCustomerSearch}
+                                    onChange={(event) => {
+                                      setReservationCustomerSearch(
+                                        event.target.value,
+                                      );
                                       setRows((current) =>
+                                        current.map((item) =>
+                                          item.id === row.id
+                                            ? {
+                                                ...item,
+                                                customerId: "",
+                                                customerName: "",
+                                                reservationLogId: "",
+                                              }
+                                            : item,
+                                        ),
+                                      );
+                                    }}
+                                    placeholder="고객명 또는 전화번호"
+                                    className="mt-1.5 h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                                  />
+                                </div>
+                                {reservationCustomerSearch.trim() &&
+                                  !row.customerId && (
+                                    <div className="mt-1 max-h-36 overflow-y-auto rounded-lg border border-gray-200 p-1">
+                                      {(
+                                        reservationCustomersQuery.data ?? []
+                                      ).map((customer) => (
+                                        <button
+                                          key={customer.id}
+                                          type="button"
+                                          onClick={() => {
+                                            setRows((current) =>
+                                              current.map((item) =>
+                                                item.id === row.id
+                                                  ? {
+                                                      ...item,
+                                                      customerId: customer.id,
+                                                      customerName:
+                                                        customer.name,
+                                                      reservationLogId: "",
+                                                    }
+                                                  : item,
+                                              ),
+                                            );
+                                            setReservationCustomerSearch(
+                                              `${customer.name} · ${customer.phone}`,
+                                            );
+                                          }}
+                                          className="flex min-h-10 w-full items-center justify-between rounded-md px-2 text-left text-xs hover:bg-brand-50"
+                                        >
+                                          <strong>{customer.name}</strong>
+                                          <span className="text-gray-500">
+                                            {customer.phone}
+                                          </span>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                              </div>
+                              <div>
+                                <div className="mt-1.5 max-h-44 overflow-y-auto rounded-lg border border-gray-200 p-1">
+                                  {row.customerId ? (
+                                    (reservationHistoriesQuery.data ?? [])
+                                      .length ? (
+                                      (
+                                        reservationHistoriesQuery.data ?? []
+                                      ).map((history) => (
+                                        <button
+                                          key={history.id}
+                                          type="button"
+                                          onClick={() =>
+                                            setRows((current) =>
+                                              current.map((item) =>
+                                                item.id === row.id
+                                                  ? {
+                                                      ...item,
+                                                      reservationLogId:
+                                                        history.id,
+                                                    }
+                                                  : item,
+                                              ),
+                                            )
+                                          }
+                                          className={`block min-h-11 w-full rounded-md px-2 py-1.5 text-left text-xs ${
+                                            row.reservationLogId === history.id
+                                              ? "bg-brand-50 text-brand-700 ring-1 ring-brand-300"
+                                              : "hover:bg-gray-50"
+                                          }`}
+                                        >
+                                          <strong>
+                                            {new Date(
+                                              history.created_at,
+                                            ).toLocaleDateString("ko-KR")}
+                                          </strong>
+                                          <span className="ml-2 text-gray-500">
+                                            {history.note || "예약 메모 없음"}
+                                          </span>
+                                        </button>
+                                      ))
+                                    ) : (
+                                      <p className="p-3 text-center text-xs text-gray-400">
+                                        연결할 예약 이력이 없습니다.
+                                      </p>
+                                    )
+                                  ) : (
+                                    <p className="p-3 text-center text-xs text-gray-400">
+                                      고객을 먼저 선택해 주세요.
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="lg:col-span-2">
+                                <input
+                                  aria-label="예약 연결 메모"
+                                  value={row.handlingNote}
+                                  onChange={(event) =>
+                                    setRows((current) =>
+                                      current.map((item) =>
+                                        item.id === row.id
+                                          ? {
+                                              ...item,
+                                              handlingNote: event.target.value,
+                                            }
+                                          : item,
+                                      ),
+                                    )
+                                  }
+                                  placeholder="예약 연결 관련 메모를 입력하세요. (선택)"
+                                  className="mt-1.5 h-10 w-full rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                      <div className="mb-2 flex items-center gap-3">
+                        <span className="text-sm font-medium text-gray-700">
+                          품목 목록 <span className="text-rose-600">*</span>
+                        </span>
+                        {validRows.length > 0 && (
+                          <span className="text-xs text-gray-500">
+                            {new Set(validRows.map((row) => row.itemName)).size}
+                            종 · 총{" "}
+                            {validRows.reduce(
+                              (sum, row) => sum + Number(row.quantity),
+                              0,
+                            )}
+                            개
+                          </span>
+                        )}
+                      </div>
+                      <div className="min-h-24">
+                        {validRows.length === 0 ? (
+                          <p className="text-sm text-gray-400">
+                            추가된 품목이 없습니다.
+                          </p>
+                        ) : (
+                          <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+                            <table className="w-full min-w-[650px] table-fixed text-sm">
+                              <thead className="bg-gray-50 text-xs font-semibold text-gray-600">
+                                <tr className="border-b border-gray-200">
+                                  <th className="w-[7%] px-2 py-2 text-center">
+                                    번호
+                                  </th>
+                                  <th className="w-[43%] px-2 py-2 text-left">
+                                    품목명
+                                  </th>
+                                  <th className="w-[13%] px-2 py-2 text-center">
+                                    품목종류
+                                  </th>
+                                  <th className="w-[12%] px-2 py-2 text-center">
+                                    처리 유형
+                                  </th>
+                                  <th className="w-[8%] px-2 py-2 text-center">
+                                    수량
+                                  </th>
+                                  <th className="w-[17%] px-3 py-2 text-center">
+                                    작업
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {validRows.map((row, index) => {
+                                  const handlingLabel =
+                                    PURCHASE_HANDLING_OPTIONS.find(
+                                      (option) =>
+                                        option.value === row.handlingType,
+                                    )?.label ?? "미입력";
+                                  const categoryName =
+                                    items.find(
+                                      (item) => item.item_name === row.itemName,
+                                    )?.category_name ?? "미분류";
+                                  return (
+                                    <tr
+                                      key={row.id}
+                                      className="border-b border-gray-200 last:border-b-0"
+                                    >
+                                      <td className="px-2 py-2">
+                                        <span className="mx-auto flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-xs font-semibold leading-none text-white">
+                                          {index + 1}
+                                        </span>
+                                      </td>
+                                      <td className="px-2 py-2 font-medium text-gray-900">
+                                        <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                                          <span className="break-words">
+                                            {row.itemName}
+                                          </span>
+                                          {(row.handlingNote ||
+                                            row.customerName) && (
+                                            <span className="break-words text-xs font-normal text-gray-500">
+                                              (
+                                              {[
+                                                row.customerName,
+                                                row.handlingNote,
+                                              ]
+                                                .filter(Boolean)
+                                                .join(", ")}
+                                              )
+                                            </span>
+                                          )}
+                                        </div>
+                                      </td>
+                                      <td className="px-2 py-2 text-center text-xs font-medium text-gray-600">
+                                        {categoryName}
+                                      </td>
+                                      <td className="px-2 py-2 text-center">
+                                        <span
+                                          className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold ${
+                                            row.handlingType === "demo"
+                                              ? "bg-brand-50 text-brand-700"
+                                              : row.handlingType ===
+                                                  "reservation"
+                                                ? "bg-sky-50 text-sky-700"
+                                                : "bg-gray-100 text-gray-600"
+                                          }`}
+                                        >
+                                          {handlingLabel}
+                                        </span>
+                                      </td>
+                                      <td className="px-2 py-2 text-center font-medium text-gray-800">
+                                        {Number(row.quantity).toLocaleString()}
+                                        개
+                                      </td>
+                                      <td className="px-3 py-2">
+                                        <div className="flex items-center justify-center gap-1">
+                                          <Button
+                                            type="button"
+                                            variant="secondary"
+                                            size="xs"
+                                            onClick={() => editReceiptRow(row)}
+                                          >
+                                            ✏️
+                                          </Button>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              moveReceiptRow(index, -1)
+                                            }
+                                            disabled={index === 0}
+                                            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-gray-200 bg-white text-xs font-semibold text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-35"
+                                            aria-label={`${row.itemName} 위로 이동`}
+                                          >
+                                            ↑
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              moveReceiptRow(index, 1)
+                                            }
+                                            disabled={
+                                              index === validRows.length - 1
+                                            }
+                                            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-gray-200 bg-white text-xs font-semibold text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-35"
+                                            aria-label={`${row.itemName} 아래로 이동`}
+                                          >
+                                            ↓
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setRows((current) =>
+                                                current.filter(
+                                                  (item) => item.id !== row.id,
+                                                ),
+                                              )
+                                            }
+                                            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-xs font-semibold text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                                            aria-label={`${row.itemName} 삭제`}
+                                          >
+                                            X
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-3">
+                    {(["discount", "payment"] as const).map((kind) => (
+                      <section
+                        key={kind}
+                        className="rounded-xl border border-gray-200 bg-gray-50/70 p-4"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="text-sm font-bold text-gray-900">
+                            {kind === "discount" ? "할인 항목" : "지불 항목"}
+                          </h3>
+                          <Button
+                            size="xs"
+                            variant="gray"
+                            disabled={!isAdmin}
+                            onClick={() => addAdjustment(kind)}
+                          >
+                            {kind === "discount"
+                              ? "할인 항목 추가"
+                              : "지불 항목 추가"}
+                          </Button>
+                        </div>
+                        <div className="mt-3 space-y-2">
+                          {adjustments
+                            .filter((row) => row.kind === kind)
+                            .map((adjustment) => (
+                              <div
+                                key={adjustment.key}
+                                className="space-y-2 rounded-lg border border-gray-200 bg-white p-2"
+                              >
+                                <Dropdown
+                                  controlledValue={adjustment.categoryId}
+                                >
+                                  <Dropdown.Trigger compact>
+                                    {adjustment.categoryName || "항목 선택"}
+                                  </Dropdown.Trigger>
+                                  <Dropdown.Content compact>
+                                    {(adjustmentCategoriesQuery.data ?? [])
+                                      .filter(
+                                        (category) =>
+                                          category.kind === kind &&
+                                          category.is_active &&
+                                          (category.id ===
+                                            adjustment.categoryId ||
+                                            !adjustments.some(
+                                              (row) =>
+                                                row.key !== adjustment.key &&
+                                                row.categoryId === category.id,
+                                            )),
+                                      )
+                                      .map((category) => (
+                                        <Dropdown.Item
+                                          key={category.id}
+                                          compact
+                                          option={{
+                                            value: category.id,
+                                            label: category.name,
+                                          }}
+                                          onSelect={() =>
+                                            updateAdjustment(adjustment.key, {
+                                              categoryId: category.id,
+                                              categoryName: category.name,
+                                            })
+                                          }
+                                        />
+                                      ))}
+                                  </Dropdown.Content>
+                                </Dropdown>
+                                <div className="flex gap-2">
+                                  <div className="relative min-w-0 flex-1">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={adjustment.amount}
+                                      onChange={(event) =>
+                                        updateAdjustment(adjustment.key, {
+                                          amount: event.target.value,
+                                        })
+                                      }
+                                      className="h-10 w-full rounded-lg border border-gray-300 px-3 pr-7 text-right text-sm font-semibold outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                                    />
+                                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                                      원
+                                    </span>
+                                  </div>
+                                  <Button
+                                    size="xs"
+                                    variant="danger"
+                                    onClick={() =>
+                                      setAdjustments((current) =>
                                         current.filter(
-                                          (item) => item.id !== row.id,
+                                          (row) => row.key !== adjustment.key,
                                         ),
                                       )
                                     }
-                                    className="flex h-4 w-4 items-center justify-center rounded-full bg-brand-500 text-[10px] font-bold leading-none text-white shadow-sm hover:bg-brand-600"
-                                    aria-label={`${row.itemName} 삭제`}
                                   >
-                                    ×
-                                  </button>
+                                    삭제
+                                  </Button>
                                 </div>
+                                <input
+                                  value={adjustment.note}
+                                  onChange={(event) =>
+                                    updateAdjustment(adjustment.key, {
+                                      note: event.target.value,
+                                    })
+                                  }
+                                  placeholder="항목 메모 (선택)"
+                                  className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                                />
                               </div>
-                              {row.note && (
-                                <p className="mt-1 text-xs text-gray-500">
-                                  {row.note}
-                                </p>
-                              )}
-                            </div>
-                          ))}
+                            ))}
+                          {!adjustments.some((row) => row.kind === kind) && (
+                            <p className="py-5 text-center text-xs text-gray-400">
+                              추가된 항목이 없습니다.
+                            </p>
+                          )}
                         </div>
-                      ) : (
-                        <p className="mt-3 text-sm text-gray-400">
-                          추가된 품목이 없습니다.
-                        </p>
-                      )}
-                    </div>
+                      </section>
+                    ))}
+                    <label className="block rounded-xl border border-gray-200 bg-gray-50/70 p-4">
+                      <span className="text-sm font-bold text-gray-900">
+                        전체 입고 메모
+                      </span>
+                      <textarea
+                        value={note}
+                        onChange={(event) => setNote(event.target.value)}
+                        placeholder="특이사항을 입력하세요. (선택)"
+                        className="mt-2 h-28 w-full resize-none rounded-lg border border-gray-300 bg-white p-3 text-sm shadow-sm outline-none placeholder:text-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                      />
+                    </label>
                   </div>
                 </div>
               )}
@@ -2296,6 +3080,17 @@ function ReceiptManager({
                               {row.note}
                             </p>
                           )}
+                          {row.handlingType !== "none" && (
+                            <p className="mt-1 text-xs text-brand-600">
+                              {
+                                PURCHASE_HANDLING_OPTIONS.find(
+                                  (option) => option.value === row.handlingType,
+                                )?.label
+                              }
+                              {row.customerName ? ` · ${row.customerName}` : ""}
+                              {row.handlingNote ? ` · ${row.handlingNote}` : ""}
+                            </p>
+                          )}
                         </div>
                         <span className="text-right font-bold">
                           {Number(row.quantity).toLocaleString()}개
@@ -2303,9 +3098,31 @@ function ReceiptManager({
                       </div>
                     ))}
                   </div>
+                  {adjustments.length > 0 && (
+                    <div className="grid gap-3 rounded-xl border border-gray-200 p-4 text-sm sm:grid-cols-2">
+                      {(["discount", "payment"] as const).map((kind) => (
+                        <div key={kind}>
+                          <strong>
+                            {kind === "discount" ? "할인 항목" : "지불 항목"}
+                          </strong>
+                          <div className="mt-2 space-y-1 text-gray-600">
+                            {adjustments
+                              .filter((row) => row.kind === kind)
+                              .map((row) => (
+                                <p key={row.key}>
+                                  {row.categoryName} ·{" "}
+                                  {Number(row.amount).toLocaleString("ko-KR")}원
+                                  {row.note ? ` · ${row.note}` : ""}
+                                </p>
+                              ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {note && (
                     <div className="rounded-xl border border-gray-200 p-4 text-sm text-gray-700">
-                      <strong>전체 메모</strong>
+                      <strong>전체 입고 메모</strong>
                       <p className="mt-1 whitespace-pre-wrap">{note}</p>
                     </div>
                   )}
@@ -2338,7 +3155,7 @@ function ReceiptManager({
                   disabled={
                     createStep === 1
                       ? !supplierId || !orderedOn || !taxInvoiceStatus
-                      : !validRows.length
+                      : !validRows.length || hasInvalidAdjustments
                   }
                 >
                   다음
@@ -2349,8 +3166,10 @@ function ReceiptManager({
                   disabled={receiveMutation.isPending}
                 >
                   {receiveMutation.isPending
-                    ? "등록 중..."
-                    : `${validRows.length}개 품목 입고 예정 등록`}
+                    ? "저장 중..."
+                    : editingPurchaseOrder
+                      ? "입고 예정 내용 저장"
+                      : `${validRows.length}개 품목 입고 예정 등록`}
                 </Button>
               )}
             </footer>
@@ -2399,6 +3218,7 @@ function ReceiptManager({
         isAdmin={isAdmin}
         focusOrderId={focusOrderId}
         onCreate={openCreate}
+        onEdit={openEditPurchaseOrder}
         onSaved={async () => {
           await Promise.all([ordersQuery.refetch(), onSaved()]);
         }}
@@ -2566,13 +3386,7 @@ function ReceiptManager({
           onClick={() => {
             setRows((current) => [
               ...current,
-              {
-                id: nextId,
-                itemName: "",
-                quantity: "1",
-                unitPrice: isAdmin ? "0" : "",
-                note: "",
-              },
+              createEmptyReceiptRow(nextId, isAdmin),
             ]);
             setNextId((id) => id + 1);
           }}
@@ -2638,6 +3452,7 @@ function PurchaseOrderList({
   onSaved,
   focusOrderId,
   onCreate,
+  onEdit,
 }: {
   orders: PurchaseOrder[];
   suppliers: InventorySupplier[];
@@ -2646,14 +3461,12 @@ function PurchaseOrderList({
   onSaved: () => Promise<void>;
   focusOrderId?: string | null;
   onCreate?: () => void;
+  onEdit?: (order: PurchaseOrder) => void;
 }) {
   const [quantities, setQuantities] = useState<Record<string, string>>({});
   const [arrivalDates, setArrivalDates] = useState<Record<string, string>>({});
   const [arrivalNotes, setArrivalNotes] = useState<Record<string, string>>({});
   const [pending, setPending] = useState(false);
-  const [adjustmentOrder, setAdjustmentOrder] = useState<PurchaseOrder | null>(
-    null,
-  );
   const [editingOrder, setEditingOrder] = useState<PurchaseOrder | null>(null);
   const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
   const adjustmentCategoriesQuery = useQuery({
@@ -2664,6 +3477,15 @@ function PurchaseOrderList({
   const [listTab, setListTab] = useState<
     "waiting" | "partial" | "completed" | "closed"
   >("waiting");
+  const [tabExpandedDefaults, setTabExpandedDefaults] = useState({
+    waiting: true,
+    partial: true,
+    completed: false,
+    closed: false,
+  });
+  const [expandedOrders, setExpandedOrders] = useState<Record<string, boolean>>(
+    {},
+  );
   useEffect(() => {
     setQuantities({});
     setEditingQuantities({});
@@ -2684,6 +3506,7 @@ function PurchaseOrderList({
             ? "closed"
             : "completed",
     );
+    setExpandedOrders((current) => ({ ...current, [focusOrderId]: true }));
     window.setTimeout(() => {
       document
         .getElementById(`purchase-order-${focusOrderId}`)
@@ -2712,6 +3535,30 @@ function PurchaseOrderList({
       Number(window.localStorage.getItem("purchase-note-column-width")) || 280
     );
   });
+  const toggleTabExpansion = (
+    tab: "waiting" | "partial" | "completed" | "closed",
+  ) => {
+    const nextExpanded = !tabExpandedDefaults[tab];
+    setTabExpandedDefaults((current) => ({
+      ...current,
+      [tab]: nextExpanded,
+    }));
+    const matchingOrders = orders.filter((order) =>
+      tab === "waiting"
+        ? order.status === "pending"
+        : tab === "partial"
+          ? order.status === "partial"
+          : tab === "completed"
+            ? order.status === "completed"
+            : order.status === "closed" || order.status === "cancelled",
+    );
+    setExpandedOrders((current) => ({
+      ...current,
+      ...Object.fromEntries(
+        matchingOrders.map((order) => [order.id, nextExpanded]),
+      ),
+    }));
+  };
   const statusLabels: Record<PurchaseOrder["status"], string> = {
     pending: "입고 대기",
     partial: "부분 입고",
@@ -2908,47 +3755,98 @@ function PurchaseOrderList({
     <section className="mt-4 space-y-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="grid grid-cols-2 gap-1 rounded-xl bg-gray-100 p-1 sm:w-[720px] sm:grid-cols-4">
-          <button
-            type="button"
-            onClick={() => void changeListTab("waiting")}
-            disabled={pending}
-            className={`min-h-11 rounded-lg px-4 text-sm font-bold transition ${listTab === "waiting" ? "bg-white text-brand-700 shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
-          >
-            입고 대기{" "}
-            <span className="ml-1 text-xs">{waitingOrders.length}건</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => void changeListTab("partial")}
-            disabled={pending}
-            className={`min-h-11 rounded-lg px-4 text-sm font-bold transition ${listTab === "partial" ? "bg-white text-brand-700 shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
-          >
-            부분 입고{" "}
-            <span className="ml-1 text-xs">{partialOrders.length}건</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => void changeListTab("completed")}
-            disabled={pending}
-            className={`min-h-11 rounded-lg px-4 text-sm font-bold transition ${listTab === "completed" ? "bg-white text-brand-700 shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
-          >
-            입고 완료{" "}
-            <span className="ml-1 text-xs">{completedOrders.length}건</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => void changeListTab("closed")}
-            disabled={pending}
-            className={`min-h-11 rounded-lg px-4 text-sm font-bold transition ${listTab === "closed" ? "bg-white text-brand-700 shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
-          >
-            미입고 종료{" "}
-            <span className="ml-1 text-xs">{closedOrders.length}건</span>
-          </button>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => void changeListTab("waiting")}
+              disabled={pending}
+              className={`min-h-11 w-full rounded-lg px-4 pr-10 text-sm font-bold transition ${listTab === "waiting" ? "bg-white text-brand-700 shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
+            >
+              입고 대기{" "}
+              <span className="ml-1 text-xs">{waitingOrders.length}건</span>
+            </button>
+            <button
+              type="button"
+              aria-label={`입고 대기 표 ${tabExpandedDefaults.waiting ? "접기" : "펼치기"}`}
+              onClick={() => toggleTabExpansion("waiting")}
+              className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-base text-gray-500 hover:bg-gray-200"
+            >
+              <CollapseChevron expanded={tabExpandedDefaults.waiting} />
+            </button>
+          </div>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => void changeListTab("partial")}
+              disabled={pending}
+              className={`min-h-11 w-full rounded-lg px-4 pr-10 text-sm font-bold transition ${listTab === "partial" ? "bg-white text-brand-700 shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
+            >
+              부분 입고{" "}
+              <span className="ml-1 text-xs">{partialOrders.length}건</span>
+            </button>
+            <button
+              type="button"
+              aria-label={`부분 입고 표 ${tabExpandedDefaults.partial ? "접기" : "펼치기"}`}
+              onClick={() => toggleTabExpansion("partial")}
+              className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-base text-gray-500 hover:bg-gray-200"
+            >
+              <CollapseChevron expanded={tabExpandedDefaults.partial} />
+            </button>
+          </div>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => void changeListTab("completed")}
+              disabled={pending}
+              className={`min-h-11 w-full rounded-lg px-4 pr-10 text-sm font-bold transition ${listTab === "completed" ? "bg-white text-brand-700 shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
+            >
+              입고 완료{" "}
+              <span className="ml-1 text-xs">{completedOrders.length}건</span>
+            </button>
+            <button
+              type="button"
+              aria-label={`입고 완료 표 ${tabExpandedDefaults.completed ? "접기" : "펼치기"}`}
+              onClick={() => toggleTabExpansion("completed")}
+              className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-base text-gray-500 hover:bg-gray-200"
+            >
+              <CollapseChevron expanded={tabExpandedDefaults.completed} />
+            </button>
+          </div>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => void changeListTab("closed")}
+              disabled={pending}
+              className={`min-h-11 w-full rounded-lg px-4 pr-10 text-sm font-bold transition ${listTab === "closed" ? "bg-white text-brand-700 shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
+            >
+              미입고 종료{" "}
+              <span className="ml-1 text-xs">{closedOrders.length}건</span>
+            </button>
+            <button
+              type="button"
+              aria-label={`미입고 종료 표 ${tabExpandedDefaults.closed ? "접기" : "펼치기"}`}
+              onClick={() => toggleTabExpansion("closed")}
+              className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-base text-gray-500 hover:bg-gray-200"
+            >
+              <CollapseChevron expanded={tabExpandedDefaults.closed} />
+            </button>
+          </div>
         </div>
         {onCreate ? (
-          <Button size="sm" onClick={onCreate}>
-            입고 예정 등록
-          </Button>
+          <div className="flex items-center gap-2">
+            {isAdmin && (
+              <Button
+                size="sm"
+                variant="gray"
+                onClick={() => setCategoryManagerOpen(true)}
+              >
+                거래 항목 관리
+              </Button>
+            )}
+            <Button size="sm" onClick={onCreate}>
+              입고 예정 등록
+            </Button>
+          </div>
         ) : (
           <span className="px-3 text-sm text-gray-500">
             {visibleOrders.length.toLocaleString()}건
@@ -3118,6 +4016,8 @@ function PurchaseOrderList({
       </div>
       {visibleOrders.map((order) => {
         const open = order.status === "pending" || order.status === "partial";
+        const isExpanded =
+          expandedOrders[order.id] ?? tabExpandedDefaults[listTab];
         const closedMissingLines = order.inventory_purchase_order_lines.filter(
           (line) => line.ordered_quantity > line.received_quantity,
         );
@@ -3147,7 +4047,7 @@ function PurchaseOrderList({
           <article
             id={`purchase-order-${order.id}`}
             key={order.id}
-            className="overflow-visible rounded-2xl border border-gray-200 bg-gray-50 shadow-sm"
+            className="relative overflow-visible rounded-2xl border border-gray-200 bg-gray-50 shadow-sm"
           >
             <header className="flex flex-col rounded-t-[15px] bg-gray-50 sm:min-h-[112px] sm:flex-row sm:items-stretch">
               <div className="flex w-full shrink-0 flex-col justify-center gap-2 border-b border-gray-200 px-3 py-3 sm:w-[180px] sm:border-b-0 sm:border-r">
@@ -3245,32 +4145,41 @@ function PurchaseOrderList({
                       </span>
                     ))}
                 </div>
-                <div className="flex flex-wrap items-center gap-2 sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:self-center">
-                  {(order.status === "pending" ||
-                    order.status === "completed") && (
-                    <Button
-                      size="xs"
-                      variant="secondary"
-                      onClick={() => void copyOrderForExcel(order)}
-                    >
-                      엑셀 복사
-                    </Button>
-                  )}
+                <div className="flex flex-wrap items-center gap-2 pt-7 sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:self-center">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setExpandedOrders((current) => ({
+                        ...current,
+                        [order.id]: !isExpanded,
+                      }))
+                    }
+                    aria-label={`${order.inventory_suppliers?.name ?? "입고 건"} 표 ${isExpanded ? "접기" : "펼치기"}`}
+                    className="absolute right-4 top-2 flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-base font-bold text-gray-500 shadow-sm hover:border-brand-300 hover:text-brand-600"
+                  >
+                    <CollapseChevron expanded={isExpanded} />
+                  </button>
+                  {isAdmin &&
+                    (order.status === "pending" ||
+                      order.status === "completed") && (
+                      <Button
+                        size="xs"
+                        variant="secondary"
+                        onClick={() => void copyOrderForExcel(order)}
+                      >
+                        엑셀 복사
+                      </Button>
+                    )}
                   {isAdmin && (
                     <>
                       <Button
                         size="xs"
                         variant="gray"
-                        onClick={() => setEditingOrder(order)}
+                        onClick={() =>
+                          onEdit ? onEdit(order) : setEditingOrder(order)
+                        }
                       >
                         입고 수정
-                      </Button>
-                      <Button
-                        size="xs"
-                        variant="gray"
-                        onClick={() => setAdjustmentOrder(order)}
-                      >
-                        거래 조정
                       </Button>
                     </>
                   )}
@@ -3298,7 +4207,7 @@ function PurchaseOrderList({
               </div>
             </header>
             <div
-              className={`${open ? "block" : "hidden"} overflow-auto bg-gray-50 px-4 sm:px-5`}
+              className={`${open && isExpanded ? "block" : "hidden"} overflow-auto bg-gray-50 px-4 sm:px-5`}
             >
               <div className="min-w-[820px] overflow-hidden rounded-xl border border-brand-200 bg-white">
                 <table className="purchase-order-table purchase-order-table--clean-edges w-full table-fixed border-collapse bg-white text-sm">
@@ -3407,7 +4316,33 @@ function PurchaseOrderList({
                       return (
                         <tr key={line.id}>
                           <td className="border border-gray-200 px-3 py-3 font-semibold">
-                            {line.item_name}
+                            <p>{line.item_name}</p>
+                            {line.handling_type &&
+                              line.handling_type !== "none" && (
+                                <div className="mt-1 flex flex-wrap items-center gap-1 text-xs font-medium">
+                                  <span className="rounded-full bg-brand-50 px-2 py-0.5 text-brand-700">
+                                    {
+                                      PURCHASE_HANDLING_OPTIONS.find(
+                                        (option) =>
+                                          option.value === line.handling_type,
+                                      )?.label
+                                    }
+                                  </span>
+                                  {line.customer_id && (
+                                    <a
+                                      href={`/customers/${line.customer_id}`}
+                                      className="rounded-full bg-sky-50 px-2 py-0.5 text-sky-700 hover:bg-sky-100"
+                                    >
+                                      예약 고객 보기
+                                    </a>
+                                  )}
+                                  {line.handling_note && (
+                                    <span className="font-normal text-gray-500">
+                                      {line.handling_note}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                           </td>
                           <td className="border border-gray-200 px-3 py-3 text-right">
                             <strong className="text-gray-900">
@@ -3598,7 +4533,8 @@ function PurchaseOrderList({
                 </table>
               </div>
             </div>
-            {!open &&
+            {isExpanded &&
+              !open &&
               listTab !== "closed" &&
               order.inventory_purchase_receipts.length > 0 && (
                 <div className="overflow-auto bg-gray-50 px-4 pb-4 sm:px-5 sm:pb-5">
@@ -3766,7 +4702,7 @@ function PurchaseOrderList({
                   </div>
                 </div>
               )}
-            {!open && order.status === "closed" && (
+            {isExpanded && !open && order.status === "closed" && (
               <div className="bg-gray-50 px-4 pb-4 sm:px-5 sm:pb-5">
                 <div className="mb-3 flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -3863,7 +4799,7 @@ function PurchaseOrderList({
                 </div>
               </div>
             )}
-            {open && (
+            {isExpanded && open && (
               <footer className="rounded-b-[15px] bg-gray-50 p-4 sm:p-5">
                 <div className="grid gap-3 lg:grid-cols-[280px_minmax(260px,1fr)_auto] lg:items-end">
                   <label className="block text-xs font-semibold text-gray-600">
@@ -3982,20 +4918,6 @@ function PurchaseOrderList({
         <div className="rounded-2xl border border-dashed border-gray-300 bg-white py-12 text-center text-gray-400">
           등록된 입고 예정이 없습니다.
         </div>
-      )}
-      {adjustmentOrder && (
-        <PurchaseAdjustmentOverlay
-          order={adjustmentOrder}
-          categories={adjustmentCategoriesQuery.data ?? []}
-          categoriesError={adjustmentCategoriesQuery.isError}
-          isAdmin={isAdmin}
-          onClose={() => setAdjustmentOrder(null)}
-          onManageCategories={() => setCategoryManagerOpen(true)}
-          onSaved={async () => {
-            setAdjustmentOrder(null);
-            await onSaved();
-          }}
-        />
       )}
       {editingOrder && (
         <PurchaseOrderEditOverlay
@@ -4120,6 +5042,22 @@ function PurchaseOrderEditOverlay({
                   (item) => item.id === line.id,
                 )?.unit_price ?? null),
           note: line.note.trim(),
+          handling_type:
+            order.inventory_purchase_order_lines.find(
+              (item) => item.id === line.id,
+            )?.handling_type ?? "none",
+          handling_note:
+            order.inventory_purchase_order_lines.find(
+              (item) => item.id === line.id,
+            )?.handling_note ?? null,
+          customer_id:
+            order.inventory_purchase_order_lines.find(
+              (item) => item.id === line.id,
+            )?.customer_id ?? null,
+          reservation_log_id:
+            order.inventory_purchase_order_lines.find(
+              (item) => item.id === line.id,
+            )?.reservation_log_id ?? null,
         })),
         receipts: receipts.map((receipt) => ({
           id: receipt.id,
@@ -4401,6 +5339,8 @@ function PurchaseOrderEditOverlay({
   );
 }
 
+// Kept for compatibility with older entry points that may restore per-order adjustments.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function PurchaseAdjustmentOverlay({
   order,
   categories,
@@ -5646,6 +6586,13 @@ function MovementHistory({
   const getMovementTypeLabel = (
     movement: Awaited<ReturnType<typeof getInventoryMovements>>[number],
   ) => {
+    if (
+      movement.movement_type === "outbound_cancel" &&
+      (movement.counterparty_name?.trim() === "시연용" ||
+        movement.item_remark?.trim().startsWith("시연용"))
+    ) {
+      return "시연용 처리 취소";
+    }
     if (
       movement.movement_type === "outbound_edit" ||
       movement.movement_type === "outbound_cancel" ||

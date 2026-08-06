@@ -253,10 +253,7 @@ export default function StampLogForm({
     () =>
       initialValue?.logMeta?.items?.map((item, index) => ({
         ...item,
-        lineText: item.lineText.replace(
-          /\(서비스\((.*?)\)\)/g,
-          "(서비스,$1)",
-        ),
+        lineText: item.lineText.replace(/\(서비스\((.*?)\)\)/g, "(서비스,$1)"),
         id: `${item.itemId}-${index}`,
       })) ?? [],
   );
@@ -764,7 +761,7 @@ export default function StampLogForm({
         ? `${remark}, ${formatAmount(adjustedPrice)}원`
         : remarkType === "service"
           ? `서비스${customRemark.trim() ? `,${customRemark.trim()}` : ""}`
-        : remark;
+          : remark;
     const lineText = `${selectedItem.item_name} ${quantity}개${
       remarkText ? ` (${remarkText})` : ""
     }`;
@@ -861,6 +858,9 @@ export default function StampLogForm({
       setRemarkType("exchange_out");
       const match = line.remark?.match(/^교환출고(?:,(.*)|\((.*)\))$/);
       setExchangeMemo(match?.[1] ?? match?.[2] ?? "");
+    } else if (customerMode === "demo" || line.remark?.startsWith("시연용")) {
+      setRemarkType("demo");
+      setOperationMemo(line.remark?.replace(/^시연용,?/, "").trim() ?? "");
     } else if (typeof line.adjustedUnitPrice === "number") {
       setRemarkType("price_adjust");
       setPriceAdjustMemo(
@@ -903,7 +903,7 @@ export default function StampLogForm({
     if (!remark) return "";
 
     const typedMemo = remark.match(
-      /^(?:서비스|교환입고|교환출고)(?:,(.*)|\((.*)\))$/,
+      /^(?:서비스|교환입고|교환출고|시연용)(?:,(.*)|\((.*)\))$/,
     );
     const displayMemo = typedMemo?.[1] ?? typedMemo?.[2];
     if (displayMemo) return displayMemo.trim();
@@ -912,6 +912,7 @@ export default function StampLogForm({
       remark === "서비스" ||
       remark === "교환입고" ||
       remark === "교환출고" ||
+      remark === "시연용" ||
       remark === "가격 조정" ||
       remark === "가격조정"
     ) {
@@ -1836,8 +1837,7 @@ export default function StampLogForm({
                   <td className="px-2 py-2 text-center font-medium text-gray-800">
                     {line.quantity}개
                   </td>
-                  {customerMode !== "adjustment" &&
-                    customerMode !== "demo" && (
+                  {customerMode !== "adjustment" && customerMode !== "demo" && (
                     <>
                       <td className="px-2 py-2 text-right text-gray-700">
                         {formatAmount(
@@ -2072,20 +2072,21 @@ export default function StampLogForm({
       </div>
     ) : null;
 
-  const extraNoteField = (
-    <div className="h-full rounded-lg border border-gray-200 bg-gray-50 p-3">
-      <label className="mb-2 block text-sm font-semibold text-gray-800">
-        출고 메모
-      </label>
-      <input
-        type="text"
-        value={extraNote}
-        onChange={(e) => setExtraNote(e.target.value)}
-        className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-500"
-        placeholder="특이사항을 입력하세요. (선택)"
-      />
-    </div>
-  );
+  const extraNoteField =
+    customerMode === "demo" ? null : (
+      <div className="h-full rounded-lg border border-gray-200 bg-gray-50 p-3">
+        <label className="mb-2 block text-sm font-semibold text-gray-800">
+          출고 메모
+        </label>
+        <input
+          type="text"
+          value={extraNote}
+          onChange={(e) => setExtraNote(e.target.value)}
+          className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-500"
+          placeholder="특이사항을 입력하세요. (선택)"
+        />
+      </div>
+    );
 
   if (layout === "split") {
     // 스텝 UI 모드: step 값이 있으면 2단 레이아웃 대신 스텝별 필드만 노출.
@@ -2126,15 +2127,17 @@ export default function StampLogForm({
           <div className={step === 2 ? "space-y-5" : "hidden"}>
             <div className="min-w-0">{itemSelectionField}</div>
             <div className="min-w-0">{itemListField}</div>
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-3 lg:items-stretch">
-              {!isNonSalesSpecialCustomer && (
-                <div className="min-w-0">{discountField}</div>
-              )}
-              {!isNonSalesSpecialCustomer && (
-                <div className="min-w-0">{reservationSlot}</div>
-              )}
-              <div className="min-w-0">{extraNoteField}</div>
-            </div>
+            {customerMode !== "demo" && (
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-3 lg:items-stretch">
+                {!isNonSalesSpecialCustomer && (
+                  <div className="min-w-0">{discountField}</div>
+                )}
+                {!isNonSalesSpecialCustomer && (
+                  <div className="min-w-0">{reservationSlot}</div>
+                )}
+                <div className="min-w-0">{extraNoteField}</div>
+              </div>
+            )}
             {splitPaymentAmountField}
           </div>
         </div>

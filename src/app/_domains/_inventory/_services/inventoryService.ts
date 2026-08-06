@@ -6,6 +6,7 @@ import type {
   InventoryTrackingSettings,
   InventorySupplier,
   PurchaseAdjustmentCategory,
+  PurchaseAdjustmentKind,
   PurchaseOrderAdjustment,
   PurchaseOrder,
 } from "../_types/inventory.types";
@@ -356,7 +357,7 @@ export const getPurchaseOrders = async (
 ): Promise<PurchaseOrder[]> => {
   const lineColumns = isAdmin
     ? "*"
-    : "id, item_name, ordered_quantity, received_quantity, pending_quantity, note, quantity_check_note, quantity_checked_at";
+    : "id, item_name, ordered_quantity, received_quantity, pending_quantity, note, quantity_check_note, quantity_checked_at, handling_type, handling_note, customer_id, reservation_log_id";
   const { data, error } = await supabase
     .from("inventory_purchase_orders")
     .select(
@@ -364,6 +365,40 @@ export const getPurchaseOrders = async (
     )
     .order("created_at", { ascending: false });
   if (!error) return (data ?? []) as unknown as PurchaseOrder[];
+
+  // Some environments can already have the handling columns while optional
+  // adjustment / receipt-note migrations are still pending. Keep the saved
+  // handling state instead of falling all the way back to `none`.
+  const compatibleLineColumns = isAdmin
+    ? "*"
+    : "id, item_name, ordered_quantity, received_quantity, pending_quantity, note, quantity_checked_at, handling_type, handling_note, customer_id, reservation_log_id";
+  const { data: compatibleData, error: compatibleError } = await supabase
+    .from("inventory_purchase_orders")
+    .select(
+      `*, inventory_suppliers(name), inventory_purchase_order_lines(${compatibleLineColumns}), inventory_purchase_receipts(id, arrived_on, note, created_at, reversed_at, inventory_purchase_receipt_lines(id, order_line_id, item_name, quantity, note))`,
+    )
+    .order("created_at", { ascending: false });
+  if (!compatibleError) {
+    return (compatibleData ?? []).map((order) => ({
+      ...order,
+      inventory_purchase_order_adjustments: [],
+      inventory_purchase_receipts: order.inventory_purchase_receipts.map(
+        (receipt: {
+          inventory_purchase_receipt_lines: Record<string, unknown>[];
+          [key: string]: unknown;
+        }) => ({
+          ...receipt,
+          inventory_purchase_receipt_lines:
+            receipt.inventory_purchase_receipt_lines.map(
+              (line: Record<string, unknown>) => ({
+                ...line,
+                quantity_check_note: null,
+              }),
+            ),
+        }),
+      ),
+    })) as unknown as PurchaseOrder[];
+  }
 
   // 신규 메모 열을 아직 적용하지 않은 DB에서도 입고 목록은 계속 표시한다.
   const legacyLineColumns = isAdmin
@@ -383,6 +418,10 @@ export const getPurchaseOrders = async (
       (line: Record<string, unknown>) => ({
         ...line,
         quantity_check_note: null,
+        handling_type: "none",
+        handling_note: null,
+        customer_id: null,
+        reservation_log_id: null,
       }),
     ),
     inventory_purchase_receipts: order.inventory_purchase_receipts.map(
@@ -470,11 +509,15 @@ export const updatePurchaseOrderDetails = async (values: {
   orderedOn: string;
   note: string;
   lines: Array<{
-    id: string;
+    id: string | null;
     item_name: string;
     ordered_quantity: number;
     unit_price: number | null;
     note: string;
+    handling_type: "none" | "demo" | "reservation" | "memo";
+    handling_note: string | null;
+    customer_id: string | null;
+    reservation_log_id: string | null;
   }>;
   receipts: Array<{
     id: string;
@@ -504,15 +547,76 @@ export const createPurchaseOrder = async (
     quantity: number;
     unit_price: number | null;
     note: string;
+    handling_type: "none" | "demo" | "reservation" | "memo";
+    handling_note: string | null;
+    customer_id: string | null;
+    reservation_log_id: string | null;
   }>,
+  adjustments: Array<{
+    category_id: string | null;
+    category_name: string;
+    kind: PurchaseAdjustmentKind;
+    amount: number;
+    note: string | null;
+  }> = [],
 ) => {
-  const { error } = await supabase.rpc("create_inventory_purchase_order", {
-    p_supplier_id: supplierId,
-    p_ordered_on: orderedOn,
-    p_note: note || null,
-    p_lines: lines,
-  });
+  const { data, error } = await supabase.rpc(
+    "create_inventory_purchase_order",
+    {
+      p_supplier_id: supplierId,
+      p_ordered_on: orderedOn,
+      p_note: note || null,
+      p_lines: lines,
+      p_adjustments: adjustments,
+    },
+  );
   if (error) throw error;
+  return data as string;
+};
+
+export type ReservationCustomer = {
+  id: string;
+  name: string;
+  phone: string;
+};
+
+export type ReservationHistory = {
+  id: string;
+  customer_id: string;
+  created_at: string;
+  note: string;
+  jsonb: Record<string, unknown>;
+};
+
+export const searchReservationCustomers = async (
+  keyword: string,
+): Promise<ReservationCustomer[]> => {
+  const normalized = keyword.trim();
+  if (!normalized) return [];
+  const safeKeyword = normalized.replace(/[,%()]/g, " ").trim();
+  if (!safeKeyword) return [];
+  const { data, error } = await supabase
+    .from("customers")
+    .select("id, name, phone")
+    .or(`name.ilike.%${safeKeyword}%,phone.ilike.%${safeKeyword}%`)
+    .limit(20);
+  if (error) throw error;
+  return (data ?? []) as ReservationCustomer[];
+};
+
+export const getCustomerReservationHistories = async (
+  customerId: string,
+): Promise<ReservationHistory[]> => {
+  if (!customerId) return [];
+  const { data, error } = await supabase
+    .from("logs")
+    .select("id, customer_id, created_at, note, jsonb")
+    .eq("customer_id", customerId)
+    .eq("category", "reservation")
+    .order("created_at", { ascending: false })
+    .limit(30);
+  if (error) throw error;
+  return (data ?? []) as ReservationHistory[];
 };
 export const setPurchaseArrivalQuantity = async (
   lineId: string,
