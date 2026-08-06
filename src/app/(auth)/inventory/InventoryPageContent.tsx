@@ -3450,9 +3450,6 @@ function PurchaseOrderList({
   const [arrivalDates, setArrivalDates] = useState<Record<string, string>>({});
   const [arrivalNotes, setArrivalNotes] = useState<Record<string, string>>({});
   const [pending, setPending] = useState(false);
-  const [adjustmentOrder, setAdjustmentOrder] = useState<PurchaseOrder | null>(
-    null,
-  );
   const [editingOrder, setEditingOrder] = useState<PurchaseOrder | null>(null);
   const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
   const adjustmentCategoriesQuery = useQuery({
@@ -3463,6 +3460,15 @@ function PurchaseOrderList({
   const [listTab, setListTab] = useState<
     "waiting" | "partial" | "completed" | "closed"
   >("waiting");
+  const [tabExpandedDefaults, setTabExpandedDefaults] = useState({
+    waiting: true,
+    partial: true,
+    completed: false,
+    closed: false,
+  });
+  const [expandedOrders, setExpandedOrders] = useState<Record<string, boolean>>(
+    {},
+  );
   useEffect(() => {
     setQuantities({});
     setEditingQuantities({});
@@ -3483,6 +3489,7 @@ function PurchaseOrderList({
             ? "closed"
             : "completed",
     );
+    setExpandedOrders((current) => ({ ...current, [focusOrderId]: true }));
     window.setTimeout(() => {
       document
         .getElementById(`purchase-order-${focusOrderId}`)
@@ -3511,6 +3518,30 @@ function PurchaseOrderList({
       Number(window.localStorage.getItem("purchase-note-column-width")) || 280
     );
   });
+  const toggleTabExpansion = (
+    tab: "waiting" | "partial" | "completed" | "closed",
+  ) => {
+    const nextExpanded = !tabExpandedDefaults[tab];
+    setTabExpandedDefaults((current) => ({
+      ...current,
+      [tab]: nextExpanded,
+    }));
+    const matchingOrders = orders.filter((order) =>
+      tab === "waiting"
+        ? order.status === "pending"
+        : tab === "partial"
+          ? order.status === "partial"
+          : tab === "completed"
+            ? order.status === "completed"
+            : order.status === "closed" || order.status === "cancelled",
+    );
+    setExpandedOrders((current) => ({
+      ...current,
+      ...Object.fromEntries(
+        matchingOrders.map((order) => [order.id, nextExpanded]),
+      ),
+    }));
+  };
   const statusLabels: Record<PurchaseOrder["status"], string> = {
     pending: "입고 대기",
     partial: "부분 입고",
@@ -3707,47 +3738,98 @@ function PurchaseOrderList({
     <section className="mt-4 space-y-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="grid grid-cols-2 gap-1 rounded-xl bg-gray-100 p-1 sm:w-[720px] sm:grid-cols-4">
-          <button
-            type="button"
-            onClick={() => void changeListTab("waiting")}
-            disabled={pending}
-            className={`min-h-11 rounded-lg px-4 text-sm font-bold transition ${listTab === "waiting" ? "bg-white text-brand-700 shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
-          >
-            입고 대기{" "}
-            <span className="ml-1 text-xs">{waitingOrders.length}건</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => void changeListTab("partial")}
-            disabled={pending}
-            className={`min-h-11 rounded-lg px-4 text-sm font-bold transition ${listTab === "partial" ? "bg-white text-brand-700 shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
-          >
-            부분 입고{" "}
-            <span className="ml-1 text-xs">{partialOrders.length}건</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => void changeListTab("completed")}
-            disabled={pending}
-            className={`min-h-11 rounded-lg px-4 text-sm font-bold transition ${listTab === "completed" ? "bg-white text-brand-700 shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
-          >
-            입고 완료{" "}
-            <span className="ml-1 text-xs">{completedOrders.length}건</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => void changeListTab("closed")}
-            disabled={pending}
-            className={`min-h-11 rounded-lg px-4 text-sm font-bold transition ${listTab === "closed" ? "bg-white text-brand-700 shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
-          >
-            미입고 종료{" "}
-            <span className="ml-1 text-xs">{closedOrders.length}건</span>
-          </button>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => void changeListTab("waiting")}
+              disabled={pending}
+              className={`min-h-11 w-full rounded-lg px-4 pr-10 text-sm font-bold transition ${listTab === "waiting" ? "bg-white text-brand-700 shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
+            >
+              입고 대기{" "}
+              <span className="ml-1 text-xs">{waitingOrders.length}건</span>
+            </button>
+            <button
+              type="button"
+              aria-label={`입고 대기 표 ${tabExpandedDefaults.waiting ? "접기" : "펼치기"}`}
+              onClick={() => toggleTabExpansion("waiting")}
+              className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-base text-gray-500 hover:bg-gray-200"
+            >
+              {tabExpandedDefaults.waiting ? "↑" : "↓"}
+            </button>
+          </div>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => void changeListTab("partial")}
+              disabled={pending}
+              className={`min-h-11 w-full rounded-lg px-4 pr-10 text-sm font-bold transition ${listTab === "partial" ? "bg-white text-brand-700 shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
+            >
+              부분 입고{" "}
+              <span className="ml-1 text-xs">{partialOrders.length}건</span>
+            </button>
+            <button
+              type="button"
+              aria-label={`부분 입고 표 ${tabExpandedDefaults.partial ? "접기" : "펼치기"}`}
+              onClick={() => toggleTabExpansion("partial")}
+              className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-base text-gray-500 hover:bg-gray-200"
+            >
+              {tabExpandedDefaults.partial ? "↑" : "↓"}
+            </button>
+          </div>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => void changeListTab("completed")}
+              disabled={pending}
+              className={`min-h-11 w-full rounded-lg px-4 pr-10 text-sm font-bold transition ${listTab === "completed" ? "bg-white text-brand-700 shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
+            >
+              입고 완료{" "}
+              <span className="ml-1 text-xs">{completedOrders.length}건</span>
+            </button>
+            <button
+              type="button"
+              aria-label={`입고 완료 표 ${tabExpandedDefaults.completed ? "접기" : "펼치기"}`}
+              onClick={() => toggleTabExpansion("completed")}
+              className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-base text-gray-500 hover:bg-gray-200"
+            >
+              {tabExpandedDefaults.completed ? "↑" : "↓"}
+            </button>
+          </div>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => void changeListTab("closed")}
+              disabled={pending}
+              className={`min-h-11 w-full rounded-lg px-4 pr-10 text-sm font-bold transition ${listTab === "closed" ? "bg-white text-brand-700 shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
+            >
+              미입고 종료{" "}
+              <span className="ml-1 text-xs">{closedOrders.length}건</span>
+            </button>
+            <button
+              type="button"
+              aria-label={`미입고 종료 표 ${tabExpandedDefaults.closed ? "접기" : "펼치기"}`}
+              onClick={() => toggleTabExpansion("closed")}
+              className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-base text-gray-500 hover:bg-gray-200"
+            >
+              {tabExpandedDefaults.closed ? "↑" : "↓"}
+            </button>
+          </div>
         </div>
         {onCreate ? (
-          <Button size="sm" onClick={onCreate}>
-            입고 예정 등록
-          </Button>
+          <div className="flex items-center gap-2">
+            {isAdmin && (
+              <Button
+                size="sm"
+                variant="gray"
+                onClick={() => setCategoryManagerOpen(true)}
+              >
+                거래 항목 관리
+              </Button>
+            )}
+            <Button size="sm" onClick={onCreate}>
+              입고 예정 등록
+            </Button>
+          </div>
         ) : (
           <span className="px-3 text-sm text-gray-500">
             {visibleOrders.length.toLocaleString()}건
@@ -3917,6 +3999,8 @@ function PurchaseOrderList({
       </div>
       {visibleOrders.map((order) => {
         const open = order.status === "pending" || order.status === "partial";
+        const isExpanded =
+          expandedOrders[order.id] ?? tabExpandedDefaults[listTab];
         const closedMissingLines = order.inventory_purchase_order_lines.filter(
           (line) => line.ordered_quantity > line.received_quantity,
         );
@@ -3946,7 +4030,7 @@ function PurchaseOrderList({
           <article
             id={`purchase-order-${order.id}`}
             key={order.id}
-            className="overflow-visible rounded-2xl border border-gray-200 bg-gray-50 shadow-sm"
+            className="relative overflow-visible rounded-2xl border border-gray-200 bg-gray-50 shadow-sm"
           >
             <header className="flex flex-col rounded-t-[15px] bg-gray-50 sm:min-h-[112px] sm:flex-row sm:items-stretch">
               <div className="flex w-full shrink-0 flex-col justify-center gap-2 border-b border-gray-200 px-3 py-3 sm:w-[180px] sm:border-b-0 sm:border-r">
@@ -4044,7 +4128,20 @@ function PurchaseOrderList({
                       </span>
                     ))}
                 </div>
-                <div className="flex flex-wrap items-center gap-2 sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:self-center">
+                <div className="flex flex-wrap items-center gap-2 pt-7 sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:self-center">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setExpandedOrders((current) => ({
+                        ...current,
+                        [order.id]: !isExpanded,
+                      }))
+                    }
+                    aria-label={`${order.inventory_suppliers?.name ?? "입고 건"} 표 ${isExpanded ? "접기" : "펼치기"}`}
+                    className="absolute right-4 top-2 flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-base font-bold text-gray-500 shadow-sm hover:border-brand-300 hover:text-brand-600"
+                  >
+                    {isExpanded ? "↑" : "↓"}
+                  </button>
                   {(order.status === "pending" ||
                     order.status === "completed") && (
                     <Button
@@ -4065,13 +4162,6 @@ function PurchaseOrderList({
                         }
                       >
                         입고 수정
-                      </Button>
-                      <Button
-                        size="xs"
-                        variant="gray"
-                        onClick={() => setAdjustmentOrder(order)}
-                      >
-                        거래 조정
                       </Button>
                     </>
                   )}
@@ -4099,7 +4189,7 @@ function PurchaseOrderList({
               </div>
             </header>
             <div
-              className={`${open ? "block" : "hidden"} overflow-auto bg-gray-50 px-4 sm:px-5`}
+              className={`${open && isExpanded ? "block" : "hidden"} overflow-auto bg-gray-50 px-4 sm:px-5`}
             >
               <div className="min-w-[820px] overflow-hidden rounded-xl border border-brand-200 bg-white">
                 <table className="purchase-order-table purchase-order-table--clean-edges w-full table-fixed border-collapse bg-white text-sm">
@@ -4425,7 +4515,8 @@ function PurchaseOrderList({
                 </table>
               </div>
             </div>
-            {!open &&
+            {isExpanded &&
+              !open &&
               listTab !== "closed" &&
               order.inventory_purchase_receipts.length > 0 && (
                 <div className="overflow-auto bg-gray-50 px-4 pb-4 sm:px-5 sm:pb-5">
@@ -4593,7 +4684,7 @@ function PurchaseOrderList({
                   </div>
                 </div>
               )}
-            {!open && order.status === "closed" && (
+            {isExpanded && !open && order.status === "closed" && (
               <div className="bg-gray-50 px-4 pb-4 sm:px-5 sm:pb-5">
                 <div className="mb-3 flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -4690,7 +4781,7 @@ function PurchaseOrderList({
                 </div>
               </div>
             )}
-            {open && (
+            {isExpanded && open && (
               <footer className="rounded-b-[15px] bg-gray-50 p-4 sm:p-5">
                 <div className="grid gap-3 lg:grid-cols-[280px_minmax(260px,1fr)_auto] lg:items-end">
                   <label className="block text-xs font-semibold text-gray-600">
@@ -4809,20 +4900,6 @@ function PurchaseOrderList({
         <div className="rounded-2xl border border-dashed border-gray-300 bg-white py-12 text-center text-gray-400">
           등록된 입고 예정이 없습니다.
         </div>
-      )}
-      {adjustmentOrder && (
-        <PurchaseAdjustmentOverlay
-          order={adjustmentOrder}
-          categories={adjustmentCategoriesQuery.data ?? []}
-          categoriesError={adjustmentCategoriesQuery.isError}
-          isAdmin={isAdmin}
-          onClose={() => setAdjustmentOrder(null)}
-          onManageCategories={() => setCategoryManagerOpen(true)}
-          onSaved={async () => {
-            setAdjustmentOrder(null);
-            await onSaved();
-          }}
-        />
       )}
       {editingOrder && (
         <PurchaseOrderEditOverlay
@@ -5244,6 +5321,8 @@ function PurchaseOrderEditOverlay({
   );
 }
 
+// Kept for compatibility with older entry points that may restore per-order adjustments.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function PurchaseAdjustmentOverlay({
   order,
   categories,
