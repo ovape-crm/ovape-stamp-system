@@ -108,6 +108,23 @@ const getLegacyDemoNote = (value: string | null | undefined) =>
 const clearLegacyDemoMemo = (value: string) =>
   isLegacyDemoMemo(value) ? getLegacyDemoNote(value) : value;
 
+function CollapseChevron({ expanded }: { expanded: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-4 w-4"
+      aria-hidden="true"
+    >
+      <path d={expanded ? "m6 14 6-6 6 6" : "m6 10 6 6 6-6"} />
+    </svg>
+  );
+}
+
 const movementLabels: Record<string, string> = {
   initial: "기초재고",
   purchase_in: "입고",
@@ -3754,7 +3771,7 @@ function PurchaseOrderList({
               onClick={() => toggleTabExpansion("waiting")}
               className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-base text-gray-500 hover:bg-gray-200"
             >
-              {tabExpandedDefaults.waiting ? "↑" : "↓"}
+              <CollapseChevron expanded={tabExpandedDefaults.waiting} />
             </button>
           </div>
           <div className="relative">
@@ -3773,7 +3790,7 @@ function PurchaseOrderList({
               onClick={() => toggleTabExpansion("partial")}
               className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-base text-gray-500 hover:bg-gray-200"
             >
-              {tabExpandedDefaults.partial ? "↑" : "↓"}
+              <CollapseChevron expanded={tabExpandedDefaults.partial} />
             </button>
           </div>
           <div className="relative">
@@ -3792,7 +3809,7 @@ function PurchaseOrderList({
               onClick={() => toggleTabExpansion("completed")}
               className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-base text-gray-500 hover:bg-gray-200"
             >
-              {tabExpandedDefaults.completed ? "↑" : "↓"}
+              <CollapseChevron expanded={tabExpandedDefaults.completed} />
             </button>
           </div>
           <div className="relative">
@@ -3811,7 +3828,7 @@ function PurchaseOrderList({
               onClick={() => toggleTabExpansion("closed")}
               className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-base text-gray-500 hover:bg-gray-200"
             >
-              {tabExpandedDefaults.closed ? "↑" : "↓"}
+              <CollapseChevron expanded={tabExpandedDefaults.closed} />
             </button>
           </div>
         </div>
@@ -4140,18 +4157,19 @@ function PurchaseOrderList({
                     aria-label={`${order.inventory_suppliers?.name ?? "입고 건"} 표 ${isExpanded ? "접기" : "펼치기"}`}
                     className="absolute right-4 top-2 flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-base font-bold text-gray-500 shadow-sm hover:border-brand-300 hover:text-brand-600"
                   >
-                    {isExpanded ? "↑" : "↓"}
+                    <CollapseChevron expanded={isExpanded} />
                   </button>
-                  {(order.status === "pending" ||
-                    order.status === "completed") && (
-                    <Button
-                      size="xs"
-                      variant="secondary"
-                      onClick={() => void copyOrderForExcel(order)}
-                    >
-                      엑셀 복사
-                    </Button>
-                  )}
+                  {isAdmin &&
+                    (order.status === "pending" ||
+                      order.status === "completed") && (
+                      <Button
+                        size="xs"
+                        variant="secondary"
+                        onClick={() => void copyOrderForExcel(order)}
+                      >
+                        엑셀 복사
+                      </Button>
+                    )}
                   {isAdmin && (
                     <>
                       <Button

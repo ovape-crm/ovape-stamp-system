@@ -24,6 +24,135 @@ create table if not exists public.inventory_purchase_order_adjustments (
   unique (order_id, category_id)
 );
 
+alter table public.inventory_purchase_adjustment_categories enable row level security;
+alter table public.inventory_purchase_order_adjustments enable row level security;
+
+drop policy if exists "authenticated read purchase adjustment categories"
+  on public.inventory_purchase_adjustment_categories;
+drop policy if exists "admins read purchase adjustment categories"
+  on public.inventory_purchase_adjustment_categories;
+create policy "admins read purchase adjustment categories"
+  on public.inventory_purchase_adjustment_categories for select
+  to authenticated using (
+    exists (
+      select 1 from public.users
+      where users.id = auth.uid() and users.oss_role = 'admin'
+    )
+  );
+
+drop policy if exists "authenticated read purchase order adjustments"
+  on public.inventory_purchase_order_adjustments;
+drop policy if exists "admins read purchase order adjustments"
+  on public.inventory_purchase_order_adjustments;
+create policy "admins read purchase order adjustments"
+  on public.inventory_purchase_order_adjustments for select
+  to authenticated using (
+    exists (
+      select 1 from public.users
+      where users.id = auth.uid() and users.oss_role = 'admin'
+    )
+  );
+
+create or replace function public.save_inventory_purchase_adjustment_category(
+  p_id uuid,
+  p_name text,
+  p_kind text
+) returns uuid
+language plpgsql security definer set search_path=public as $$
+declare
+  v_id uuid;
+begin
+  if not exists (
+    select 1 from public.users
+    where id = auth.uid() and oss_role = 'admin'
+  ) then raise exception 'ADMIN_REQUIRED'; end if;
+  if btrim(coalesce(p_name, '')) = '' then
+    raise exception 'CATEGORY_NAME_REQUIRED';
+  end if;
+  if p_kind not in ('discount', 'payment') then
+    raise exception 'INVALID_CATEGORY_KIND';
+  end if;
+
+  if p_id is null then
+    insert into public.inventory_purchase_adjustment_categories
+      (name, kind, sort_order, created_by)
+    values (
+      btrim(p_name),
+      p_kind,
+      coalesce((
+        select max(sort_order) + 1
+        from public.inventory_purchase_adjustment_categories
+        where kind = p_kind
+      ), 0),
+      auth.uid()
+    )
+    returning id into v_id;
+  else
+    update public.inventory_purchase_adjustment_categories
+    set name = btrim(p_name), kind = p_kind, is_active = true, updated_at = now()
+    where id = p_id
+    returning id into v_id;
+  end if;
+  return v_id;
+end;
+$$;
+
+create or replace function public.deactivate_inventory_purchase_adjustment_category(
+  p_id uuid
+) returns void
+language plpgsql security definer set search_path=public as $$
+begin
+  if not exists (
+    select 1 from public.users
+    where id = auth.uid() and oss_role = 'admin'
+  ) then raise exception 'ADMIN_REQUIRED'; end if;
+  update public.inventory_purchase_adjustment_categories
+  set is_active = false, updated_at = now()
+  where id = p_id;
+end;
+$$;
+
+create or replace function public.save_inventory_purchase_order_adjustments(
+  p_order_id uuid,
+  p_adjustments jsonb
+) returns void
+language plpgsql security definer set search_path=public as $$
+begin
+  if not exists (
+    select 1 from public.users
+    where id = auth.uid() and oss_role = 'admin'
+  ) then raise exception 'ADMIN_REQUIRED'; end if;
+  if not exists (
+    select 1 from public.inventory_purchase_orders where id = p_order_id
+  ) then raise exception 'PURCHASE_ORDER_NOT_FOUND'; end if;
+
+  delete from public.inventory_purchase_order_adjustments
+  where order_id = p_order_id;
+
+  insert into public.inventory_purchase_order_adjustments (
+    order_id, category_id, category_name, kind, amount, note, created_by
+  )
+  select
+    p_order_id,
+    nullif(item->>'category_id', '')::uuid,
+    btrim(item->>'category_name'),
+    item->>'kind',
+    greatest(0, coalesce((item->>'amount')::integer, 0)),
+    nullif(btrim(item->>'note'), ''),
+    auth.uid()
+  from jsonb_array_elements(coalesce(p_adjustments, '[]'::jsonb)) item
+  where btrim(coalesce(item->>'category_name', '')) <> ''
+    and item->>'kind' in ('discount', 'payment');
+end;
+$$;
+
+revoke all on function public.save_inventory_purchase_adjustment_category(uuid, text, text) from public;
+revoke all on function public.deactivate_inventory_purchase_adjustment_category(uuid) from public;
+revoke all on function public.save_inventory_purchase_order_adjustments(uuid, jsonb) from public;
+grant execute on function public.save_inventory_purchase_adjustment_category(uuid, text, text) to authenticated;
+grant execute on function public.deactivate_inventory_purchase_adjustment_category(uuid) to authenticated;
+grant execute on function public.save_inventory_purchase_order_adjustments(uuid, jsonb) to authenticated;
+
 alter table public.inventory_purchase_order_lines
   add column if not exists handling_type text not null default 'none'
     check (handling_type in ('none', 'demo', 'reservation', 'memo')),
