@@ -290,10 +290,12 @@ const DropdownContent = ({
   children,
   compact = false,
   neutral = false,
+  maxHeightClass = "max-h-[300px]",
 }: {
   children: React.ReactNode;
   compact?: boolean;
   neutral?: boolean;
+  maxHeightClass?: string;
 }) => {
   const { isOpen, setItemCount, triggerRef, contentRef } = useDropdown();
   const [position, setPosition] = useState<{
@@ -371,7 +373,7 @@ const DropdownContent = ({
       role="listbox"
     >
       <div
-        className={`${compact ? "py-0.5" : "py-1"} max-h-[300px] overflow-auto`}
+        className={`${compact ? "py-0.5" : "py-1"} ${maxHeightClass} overflow-y-auto overscroll-contain`}
       >
         {itemsWithIndex}
       </div>

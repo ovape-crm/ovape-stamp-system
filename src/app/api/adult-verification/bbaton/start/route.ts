@@ -10,19 +10,19 @@ export async function GET(request: NextRequest) {
     const clientId = process.env.BBATON_CLIENT_ID;
     const redirectUri = process.env.BBATON_REDIRECT_URI;
     if (!clientId || !redirectUri) {
-      return NextResponse.redirect(new URL(`/adult-verify/${token}?result=unavailable`, request.url));
+      return NextResponse.redirect(new URL(`/v/${token}?result=unavailable`, request.url));
     }
 
     const { request: verificationRequest, admin } = await getRequestByToken(token);
     if (!verificationRequest || verificationRequest.status !== "pending") {
-      return NextResponse.redirect(new URL(`/adult-verify/${token}?result=invalid`, request.url));
+      return NextResponse.redirect(new URL(`/v/${token}?result=invalid`, request.url));
     }
     if (isRequestExpired(verificationRequest.expires_at)) {
       await admin
         .from("adult_verification_requests")
         .update({ status: "expired", updated_at: new Date().toISOString() })
         .eq("id", verificationRequest.id);
-      return NextResponse.redirect(new URL(`/adult-verify/${token}?result=expired`, request.url));
+      return NextResponse.redirect(new URL(`/v/${token}?result=expired`, request.url));
     }
 
     const authorizeUrl = new URL("https://bauth.bbaton.com/oauth/authorize");

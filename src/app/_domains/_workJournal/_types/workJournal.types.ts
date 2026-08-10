@@ -25,6 +25,7 @@ export type WorkerDetailType = {
   id: string;
   name: string;
   is_active: boolean;
+  is_payroll_eligible: boolean;
   phone_number: string;
   bank_account: string;
   first_work_date: string;

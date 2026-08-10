@@ -337,6 +337,22 @@ export default function WorkJournalPage() {
     queryFn: () => getWorkJournals(paymentMonth, paymentWorkerFilter),
     enabled: isAdmin && activeTab === "payment",
   });
+  const payrollEligibleWorkerNames = useMemo(
+    () =>
+      new Set(
+        (workerDetailsQuery.data ?? [])
+          .filter((worker) => worker.is_payroll_eligible)
+          .map((worker) => worker.name),
+      ),
+    [workerDetailsQuery.data],
+  );
+  const payrollPaymentJournals = useMemo(
+    () =>
+      (paymentQuery.data ?? []).filter((journal) =>
+        payrollEligibleWorkerNames.has(journal.worker_name),
+      ),
+    [paymentQuery.data, payrollEligibleWorkerNames],
+  );
 
   const summary = useMemo(() => {
     const journals = journalsQuery.data ?? [];
@@ -352,7 +368,7 @@ export default function WorkJournalPage() {
 
   const paymentGroups = useMemo(() => {
     const groups = new Map<string, WorkJournalType[]>();
-    for (const journal of paymentQuery.data ?? []) {
+    for (const journal of payrollPaymentJournals) {
       const journals = groups.get(journal.worker_name) ?? [];
       journals.push(journal);
       groups.set(journal.worker_name, journals);
@@ -368,7 +384,7 @@ export default function WorkJournalPage() {
       ),
       salary: journals.filter((journal) => journal.payment_status === "salary"),
     })).sort((a, b) => a.workerName.localeCompare(b.workerName, "ko"));
-  }, [paymentQuery.data]);
+  }, [payrollPaymentJournals]);
 
   const resetWorkForm = () => {
     setWorkDate(today);
@@ -549,6 +565,9 @@ export default function WorkJournalPage() {
       workHours: hours,
       note,
       workType,
+      startType: (workType === "shift" ? "first" : "solo") as
+        | "first"
+        | "solo",
       pin: workerPin,
     };
 
@@ -1429,16 +1448,18 @@ export default function WorkJournalPage() {
               className="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400"
             >
               <option value="">전체 근무자</option>
-              {workersQuery.data?.map((name) => (
+              {workersQuery.data
+                ?.filter((name) => payrollEligibleWorkerNames.has(name))
+                .map((name) => (
                 <option key={name} value={name}>
                   {name}
                 </option>
-              ))}
+                ))}
             </select>
           </div>
 
           <section className="space-y-5 rounded-xl border border-brand-100 bg-white p-5 shadow-sm">
-            {paymentQuery.isPending ? (
+            {paymentQuery.isPending || workerDetailsQuery.isPending ? (
               <Loading size="sm" text="급여 지급 현황을 불러오는 중..." />
             ) : paymentGroups.length ? (
               <>
@@ -1555,7 +1576,7 @@ export default function WorkJournalPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {paymentQuery.data?.map((journal) => {
+                      {payrollPaymentJournals.map((journal) => {
                         const status = journal.payment_status ?? "unpaid";
                         return (
                           <tr key={journal.id} className="hover:bg-gray-50">

@@ -24,8 +24,8 @@ const ActionInfoLabel = ({
 
   return (
     <span
-      className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${actionInfo.color} ${
-        shouldBreakLine ? 'inline-flex flex-col items-center leading-tight' : ''
+      className={`inline-flex items-center justify-center rounded-full px-3 py-1 text-center text-xs font-semibold whitespace-nowrap ${actionInfo.color} ${
+        shouldBreakLine ? 'flex-col leading-tight' : ''
       }`}
     >
       <span>{statusName}</span>

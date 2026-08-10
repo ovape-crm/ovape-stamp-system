@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
 
     const origin = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || request.nextUrl.origin;
     return NextResponse.json({
-      url: `${origin}/adult-verify/${token}`,
+      url: `${origin}/v/${token}`,
       expiresAt,
     });
   } catch (error) {
@@ -87,5 +87,39 @@ export async function POST(request: NextRequest) {
       { message: "인증 링크를 만들지 못했습니다. 서버 설정을 확인해 주세요." },
       { status: 500 },
     );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const staff = await getAuthenticatedStaff(request.headers.get("authorization"));
+    if (!staff) {
+      return NextResponse.json({ message: "로그인이 필요합니다." }, { status: 401 });
+    }
+    if (staff.oss_role !== "admin") {
+      return NextResponse.json({ message: "관리자만 인증 요청을 삭제할 수 있습니다." }, { status: 403 });
+    }
+
+    const body = (await request.json()) as { id?: string };
+    if (!body.id || !/^[0-9a-f-]{36}$/i.test(body.id)) {
+      return NextResponse.json({ message: "삭제할 인증 요청이 올바르지 않습니다." }, { status: 400 });
+    }
+
+    const admin = createSupabaseAdmin();
+    const { data, error } = await admin
+      .from("adult_verification_requests")
+      .delete()
+      .eq("id", body.id)
+      .select("id")
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) {
+      return NextResponse.json({ message: "인증 요청을 찾을 수 없습니다." }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Failed to delete adult verification request", error);
+    return NextResponse.json({ message: "인증 요청을 삭제하지 못했습니다." }, { status: 500 });
   }
 }

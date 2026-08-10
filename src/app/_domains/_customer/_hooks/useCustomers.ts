@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import {
   getCustomers,
@@ -51,7 +51,15 @@ export const useCustomers = (initialParams?: SearchParams) => {
     initialPageParam: 0,
   });
 
-  const customers = data?.pages.flatMap((p) => p.items) ?? [];
+  const customers = useMemo(() => {
+    const uniqueCustomers = new Map<string, CustomerType>();
+    data?.pages.forEach((page) => {
+      page.items.forEach((customer) => {
+        uniqueCustomers.set(String(customer.id), customer);
+      });
+    });
+    return Array.from(uniqueCustomers.values());
+  }, [data?.pages]);
   const totalCount = data?.pages[0]?.totalCount ?? 0;
 
   const search = (target: string, keyword: string) => {

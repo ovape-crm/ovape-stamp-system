@@ -12,6 +12,7 @@ type WorkerFormValues = {
   note: string;
   pin: string;
   isActive: boolean;
+  isPayrollEligible: boolean;
 };
 
 interface WorkerCreateModalProps {
@@ -34,6 +35,7 @@ const EMPTY_FORM: WorkerFormValues = {
   note: '',
   pin: '',
   isActive: true,
+  isPayrollEligible: true,
 };
 
 const toForm = (worker: WorkerDetailType): WorkerFormValues => ({
@@ -44,6 +46,7 @@ const toForm = (worker: WorkerDetailType): WorkerFormValues => ({
   note: worker.note ?? '',
   pin: worker.pin_code ?? '',
   isActive: worker.is_active,
+  isPayrollEligible: worker.is_payroll_eligible,
 });
 
 const WorkerCreateModal = ({
@@ -145,6 +148,7 @@ const WorkerCreateModal = ({
           note: form.note,
           pin: form.pin,
           isActive: form.isActive,
+          isPayrollEligible: form.isPayrollEligible,
         });
         setVisibleWorkers((previous) =>
           previous.map((worker) =>
@@ -158,6 +162,7 @@ const WorkerCreateModal = ({
                   has_pin: Boolean(form.pin) || worker.has_pin,
                   pin_code: form.pin || worker.pin_code,
                   is_active: form.isActive,
+                  is_payroll_eligible: form.isPayrollEligible,
                 }
               : worker,
           ),
@@ -378,51 +383,66 @@ const WorkerCreateModal = ({
                       }
                     />
                   </WorkerField>
-                  <WorkerField label="사용 상태">
-                    <div
-                      className={`flex min-h-[70px] items-center justify-between rounded-xl border px-4 py-3 ${
-                        isEditing
-                          ? 'border-gray-200 bg-gray-50'
-                          : 'border-transparent bg-transparent px-0'
-                      }`}
-                    >
-                      <span className="text-sm text-gray-600">
-                        근무자 선택 목록 표시
+                  <div className="grid min-w-0 grid-cols-2 gap-3">
+                    <div className="min-w-0">
+                      <span className="mb-1 block text-xs font-medium text-gray-600">
+                        사용 상태 <span className="text-rose-600">*</span>
                       </span>
-                      {isEditing ? (
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={form.isActive}
-                          onClick={() =>
-                            setForm((previous) => ({
-                              ...previous,
-                              isActive: !previous.isActive,
-                            }))
-                          }
-                          className={`relative h-7 w-12 cursor-pointer rounded-full transition ${
-                            form.isActive ? 'bg-brand-500' : 'bg-gray-300'
-                          }`}
+                    <div className="flex min-h-[42px] items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                      {[
+                        { value: true, label: '사용' },
+                        { value: false, label: '미사용' },
+                      ].map((option) => (
+                        <label
+                          key={String(option.value)}
+                          className="inline-flex cursor-pointer items-center gap-2 text-sm text-gray-700"
                         >
-                          <span
-                            className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${
-                              form.isActive ? 'left-6' : 'left-1'
-                            }`}
+                          <input
+                            type="radio"
+                            checked={form.isActive === option.value}
+                            disabled={!isEditing}
+                            onChange={() =>
+                              setForm((previous) => ({
+                                ...previous,
+                                isActive: option.value,
+                              }))
+                            }
                           />
-                        </button>
-                      ) : (
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                            form.isActive
-                              ? 'bg-emerald-50 text-emerald-700'
-                              : 'bg-gray-100 text-gray-500'
-                          }`}
-                        >
-                          {form.isActive ? '사용' : '미사용'}
-                        </span>
-                      )}
+                          {option.label}
+                        </label>
+                      ))}
                     </div>
-                  </WorkerField>
+                    </div>
+                    <div className="min-w-0">
+                      <span className="mb-1 block text-xs font-medium text-gray-600">
+                        지급 대상 <span className="text-rose-600">*</span>
+                      </span>
+                    <div className="flex min-h-[42px] items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                      {[
+                        { value: true, label: '지급' },
+                        { value: false, label: '미지급' },
+                      ].map((option) => (
+                        <label
+                          key={String(option.value)}
+                          className="inline-flex cursor-pointer items-center gap-2 text-sm text-gray-700"
+                        >
+                          <input
+                            type="radio"
+                            checked={form.isPayrollEligible === option.value}
+                            disabled={!isEditing}
+                            onChange={() =>
+                              setForm((previous) => ({
+                                ...previous,
+                                isPayrollEligible: option.value,
+                              }))
+                            }
+                          />
+                          {option.label}
+                        </label>
+                      ))}
+                    </div>
+                    </div>
+                  </div>
                   <WorkerField label="특이사항" className="sm:col-span-2">
                     <textarea
                       value={form.note}

@@ -68,7 +68,7 @@ const StampHistoryItem = ({
       쿠폰 사용
     </span>
   ) : isStampAdjustment ? (
-    <span className="inline-flex whitespace-nowrap rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
+    <span className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-gray-100 px-2 py-1 text-center text-xs font-medium text-gray-600">
       스탬프 조정
     </span>
   ) : null;
@@ -79,7 +79,7 @@ const StampHistoryItem = ({
         {!isCustomerRemark && !isCouponUse && (
           <div>
             {hasSpecialCustomer ? (
-              <span className="inline-flex whitespace-nowrap rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
+              <span className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-gray-100 px-3 py-1 text-center text-xs font-semibold text-gray-600">
                 특수계정
               </span>
             ) : (
@@ -94,7 +94,7 @@ const StampHistoryItem = ({
         />
       </div>
 
-      <div className="ml-2 flex min-w-0 self-center flex-col items-stretch gap-1.5">
+      <div className="flex min-w-0 self-center flex-col items-center gap-1.5 text-center">
         {customerBadge}
         {log.jsonb && "storeName" in log.jsonb && (
           <StoreLabel jsonb={log.jsonb} />

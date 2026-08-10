@@ -5,7 +5,8 @@ import { createSupabaseAdmin } from "@/libs/supabaseAdmin";
 export const hashVerificationToken = (token: string) =>
   createHash("sha256").update(token).digest("hex");
 
-export const createVerificationToken = () => randomBytes(32).toString("base64url");
+// 144 bits of entropy keeps one-time links unguessable while making them easier to share.
+export const createVerificationToken = () => randomBytes(18).toString("base64url");
 
 export const getAuthenticatedStaff = async (authorization: string | null) => {
   const accessToken = authorization?.replace(/^Bearer\s+/i, "").trim();
