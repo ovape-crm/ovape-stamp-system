@@ -187,6 +187,13 @@ export default function CustomersPage() {
         onSortChange={setSort}
         headerActions={
           <>
+            <Button
+              size="sm"
+              variant="gray"
+              onClick={() => router.push("/adult-verifications")}
+            >
+              성인 인증 관리
+            </Button>
             {quickLinkDefinitions.map((definition) => {
               const customer = findQuickLink(definition.key);
               return (
