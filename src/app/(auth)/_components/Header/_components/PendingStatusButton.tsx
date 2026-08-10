@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import { AfterServiceStatusEnum } from "@/app/_enums/enums";
 import { getAfterServiceStatusGroups } from "@/app/_utils/utils";
 import { getCurrentWorkerName } from "@/app/_domains/_workJournal/_utils/currentWorker";
 import { useUser } from "@/app/_contexts/UserContext";
@@ -69,10 +68,6 @@ const formatMemoTime = (value: string) =>
     timeZone: "Asia/Seoul",
   }).format(new Date(value));
 
-const getAfterServiceStatusName = (status: string) =>
-  Object.values(AfterServiceStatusEnum).find((item) => item.value === status)
-    ?.name ?? status;
-
 export default function PendingStatusButton() {
   const { isAdmin } = useUser();
   const [isOpen, setIsOpen] = useState(false);
@@ -128,60 +123,72 @@ export default function PendingStatusButton() {
       ...afterServiceStatusGroups.received,
       ...afterServiceStatusGroups.inProgress,
     ];
-    const [reservationResult, afterServiceResult, purchaseOrderResult, memoResult] =
-      await Promise.all([
-        supabase
-          .from("logs")
-          .select("id, note, jsonb, customers(name, phone)")
-          .eq("category", "reservation")
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("after_services")
-          .select("id, item_name, status, customers(name, phone)")
-          .in("status", pendingAfterServiceStatuses)
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("inventory_purchase_orders")
-          .select(
-            "id, status, inventory_suppliers(name), inventory_purchase_order_lines(pending_quantity)",
-          )
-          .in("status", ["pending", "partial"])
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("handover_memos")
-          .select(
-            "id, content, author_name, created_at, is_completed, completed_at, completed_by_name",
-          )
-          .eq("is_completed", false)
-          .order("created_at", { ascending: false }),
-      ]);
+    const [
+      reservationResult,
+      afterServiceResult,
+      purchaseOrderResult,
+      memoResult,
+    ] = await Promise.all([
+      supabase
+        .from("logs")
+        .select("id, note, jsonb, customers(name, phone)")
+        .eq("category", "reservation")
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("after_services")
+        .select("id, item_name, status, customers(name, phone)")
+        .in("status", pendingAfterServiceStatuses)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("inventory_purchase_orders")
+        .select(
+          "id, status, inventory_suppliers(name), inventory_purchase_order_lines(pending_quantity)",
+        )
+        .in("status", ["pending", "partial"])
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("handover_memos")
+        .select(
+          "id, content, author_name, created_at, is_completed, completed_at, completed_by_name",
+        )
+        .eq("is_completed", false)
+        .order("created_at", { ascending: false }),
+    ]);
 
     if (reservationResult.error) console.error(reservationResult.error);
     if (afterServiceResult.error) console.error(afterServiceResult.error);
     if (purchaseOrderResult.error) console.error(purchaseOrderResult.error);
 
     setReservations(
-      ((reservationResult.data ?? []) as unknown as Array<
-        Omit<ReservationRow, "customers"> & {
-          customers: ReservationRow["customers"] | ReservationRow["customers"][];
-        }
-      >).map((row) => ({ ...row, customers: getRelation(row.customers) })),
+      (
+        (reservationResult.data ?? []) as unknown as Array<
+          Omit<ReservationRow, "customers"> & {
+            customers:
+              ReservationRow["customers"] | ReservationRow["customers"][];
+          }
+        >
+      ).map((row) => ({ ...row, customers: getRelation(row.customers) })),
     );
     setAfterServices(
-      ((afterServiceResult.data ?? []) as unknown as Array<
-        Omit<AfterServiceRow, "customers"> & {
-          customers: AfterServiceRow["customers"] | AfterServiceRow["customers"][];
-        }
-      >).map((row) => ({ ...row, customers: getRelation(row.customers) })),
+      (
+        (afterServiceResult.data ?? []) as unknown as Array<
+          Omit<AfterServiceRow, "customers"> & {
+            customers:
+              AfterServiceRow["customers"] | AfterServiceRow["customers"][];
+          }
+        >
+      ).map((row) => ({ ...row, customers: getRelation(row.customers) })),
     );
     setPurchaseOrders(
-      ((purchaseOrderResult.data ?? []) as unknown as Array<
-        Omit<PurchaseOrderRow, "inventory_suppliers"> & {
-          inventory_suppliers:
-            | PurchaseOrderRow["inventory_suppliers"]
-            | PurchaseOrderRow["inventory_suppliers"][];
-        }
-      >).map((row) => ({
+      (
+        (purchaseOrderResult.data ?? []) as unknown as Array<
+          Omit<PurchaseOrderRow, "inventory_suppliers"> & {
+            inventory_suppliers:
+              | PurchaseOrderRow["inventory_suppliers"]
+              | PurchaseOrderRow["inventory_suppliers"][];
+          }
+        >
+      ).map((row) => ({
         ...row,
         inventory_suppliers: getRelation(row.inventory_suppliers),
       })),
@@ -252,7 +259,9 @@ export default function PendingStatusButton() {
     if (!content || !memoStorageAvailable) return;
     const resolvedActorName = await resolveActorName();
     if (!resolvedActorName) {
-      toast.error("현재 근무자를 확인할 수 없습니다. 출근 기록을 확인해 주세요.");
+      toast.error(
+        "현재 근무자를 확인할 수 없습니다. 출근 기록을 확인해 주세요.",
+      );
       return;
     }
     setIsSavingMemo(true);
@@ -275,7 +284,9 @@ export default function PendingStatusButton() {
     if (!memoToComplete) return;
     const resolvedActorName = await resolveActorName();
     if (!resolvedActorName) {
-      toast.error("현재 근무자를 확인할 수 없습니다. 출근 기록을 확인해 주세요.");
+      toast.error(
+        "현재 근무자를 확인할 수 없습니다. 출근 기록을 확인해 주세요.",
+      );
       return;
     }
     const {
@@ -314,9 +325,7 @@ export default function PendingStatusButton() {
       toast.error("이전 메모 기록을 삭제하지 못했습니다.");
       return;
     }
-    setMemoHistory((current) =>
-      current.filter((item) => item.id !== memo.id),
-    );
+    setMemoHistory((current) => current.filter((item) => item.id !== memo.id));
     setMemoHistoryCount((current) => Math.max(0, current - 1));
     toast.success("이전 메모 기록을 삭제했습니다.");
   };
@@ -348,7 +357,10 @@ export default function PendingStatusButton() {
           >
             <header className="flex items-center justify-between border-b border-gray-200 px-5 py-4 sm:px-6">
               <div>
-                <h2 id="pending-status-title" className="text-xl font-bold text-gray-950">
+                <h2
+                  id="pending-status-title"
+                  className="text-xl font-bold text-gray-950"
+                >
                   미처리 현황
                 </h2>
                 <p className="mt-0.5 text-sm text-gray-500">
@@ -382,31 +394,28 @@ export default function PendingStatusButton() {
                   count={reservations.length}
                   href="/histories?tab=reservation"
                 >
-                  {reservations.slice(0, 5).map((reservation) => (
-                    <Link
-                      key={reservation.id}
-                      href="/histories?tab=reservation"
-                      onClick={() => setIsOpen(false)}
-                      className="grid grid-cols-[1fr_auto] gap-3 border-b border-gray-100 px-1 py-3 last:border-b-0 hover:bg-gray-50"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-base font-semibold text-gray-900">
-                          {reservation.customers?.name ?? "고객 정보 없음"}
-                        </p>
-                        <p className="mt-0.5 truncate text-sm text-gray-500">
-                          {formatReservationItems(reservation.jsonb)}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-brand-600">
+                  <div className="grid gap-2 pt-3 sm:grid-cols-2">
+                    {reservations.slice(0, 6).map((reservation) => (
+                      <Link
+                        key={reservation.id}
+                        href={`/histories?tab=reservation#history-${reservation.id}`}
+                        onClick={() => setIsOpen(false)}
+                        className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5 transition hover:border-brand-300 hover:bg-brand-50/60 hover:shadow-sm"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-gray-900">
+                            {reservation.customers?.name ?? "고객 정보 없음"}
+                          </p>
+                          <p className="mt-0.5 truncate text-xs text-gray-500">
+                            {formatReservationItems(reservation.jsonb)}
+                          </p>
+                        </div>
+                        <span className="whitespace-nowrap text-xs font-semibold text-brand-600">
                           {formatReservationDate(reservation.jsonb)}
                         </span>
-                        <span aria-hidden="true" className="text-lg text-gray-400">
-                          ›
-                        </span>
-                      </div>
-                    </Link>
-                  ))}
+                      </Link>
+                    ))}
+                  </div>
                   {!isLoading && reservations.length === 0 && (
                     <EmptyState text="미처리 출고 예약이 없습니다." />
                   )}
@@ -417,51 +426,49 @@ export default function PendingStatusButton() {
                   count={afterServices.length}
                   href="/after-services?group=all"
                 >
-                  {afterServices.slice(0, 10).map((afterService) => (
-                    <Link
-                      key={afterService.id}
-                      href={`/after-services?group=all&id=${afterService.id}`}
-                      onClick={() => setIsOpen(false)}
-                      className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-gray-100 px-1 py-2.5 last:border-b-0 hover:bg-gray-50"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-base font-semibold text-gray-900">
-                          {afterService.customers?.name ?? "고객 정보 없음"}
-                        </p>
-                        <p className="mt-0.5 truncate text-sm text-gray-500">
-                          {afterService.item_name}
-                        </p>
-                      </div>
-                      <div className="flex items-center">
-                        <span className="rounded-md bg-amber-50 px-2 py-1 text-sm font-semibold text-amber-700">
-                          {getAfterServiceStatusName(afterService.status)}
-                        </span>
-                      </div>
-                    </Link>
-                  ))}
+                  <div className="grid gap-2 pt-3 sm:grid-cols-3">
+                    {afterServices.slice(0, 10).map((afterService) => (
+                      <Link
+                        key={afterService.id}
+                        href={`/after-services?group=all&id=${afterService.id}`}
+                        onClick={() => setIsOpen(false)}
+                        className="min-w-0 rounded-lg border border-gray-200 bg-white px-3 py-2.5 transition hover:border-brand-300 hover:bg-brand-50/60 hover:shadow-sm"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-gray-900">
+                            {afterService.customers?.name ?? "고객 정보 없음"}
+                          </p>
+                          <p className="mt-0.5 truncate text-xs text-gray-500">
+                            {afterService.item_name}
+                          </p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
                   {!isLoading && afterServices.length === 0 && (
                     <EmptyState text="진행 중인 A/S가 없습니다." />
                   )}
                 </StatusCard>
 
-                <StatusCard title="미입고 거래처" count={pendingSuppliers.length} href="/inventory/receive">
-                  {pendingSuppliers.slice(0, 9).map((supplier) => (
-                    <div
-                      key={supplier.id}
-                      className="flex items-center gap-2 border-b border-gray-100 px-1 py-2.5 last:border-b-0"
-                    >
-                      <span className="truncate text-base font-semibold text-gray-900">
-                        {supplier.name}
-                      </span>
+                <StatusCard
+                  title="미입고 거래처"
+                  count={pendingSuppliers.length}
+                  href="/inventory/receive"
+                >
+                  <div className="grid gap-2 pt-3 sm:grid-cols-3">
+                    {pendingSuppliers.slice(0, 10).map((supplier) => (
                       <Link
-                        href="/inventory/receive"
+                        key={supplier.id}
+                        href={`/inventory/receive#order-${supplier.id}`}
                         onClick={() => setIsOpen(false)}
-                        className="shrink-0 rounded-lg border border-brand-200 bg-white px-2.5 py-1 text-xs font-semibold text-brand-700 shadow-sm transition hover:border-brand-300 hover:bg-brand-50"
+                        className="block min-w-0 rounded-lg border border-gray-200 bg-white px-3 py-2.5 transition hover:border-brand-300 hover:bg-brand-50/60 hover:shadow-sm"
                       >
-                        바로가기
+                        <span className="truncate text-sm font-semibold text-gray-900">
+                          {supplier.name}
+                        </span>
                       </Link>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                   {!isLoading && pendingSuppliers.length === 0 && (
                     <EmptyState text="미입고 거래처가 없습니다." />
                   )}
@@ -499,7 +506,9 @@ export default function PendingStatusButton() {
                       className="flex items-start gap-3 border-b border-gray-100 px-1 py-3 last:border-b-0"
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="break-words text-base text-gray-800">{memo.content}</p>
+                        <p className="break-words text-base text-gray-800">
+                          {memo.content}
+                        </p>
                         <p className="mt-1 text-sm text-gray-400">
                           {memo.author_name} · {formatMemoTime(memo.created_at)}
                         </p>
@@ -591,7 +600,10 @@ export default function PendingStatusButton() {
             aria-labelledby="complete-memo-title"
             className="relative z-10 w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl"
           >
-            <h3 id="complete-memo-title" className="text-lg font-bold text-gray-900">
+            <h3
+              id="complete-memo-title"
+              className="text-lg font-bold text-gray-900"
+            >
               전달 메모 완료 처리
             </h3>
             <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
@@ -655,7 +667,10 @@ export default function PendingStatusButton() {
           >
             <header className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
               <div>
-                <h3 id="memo-history-title" className="text-lg font-bold text-gray-900">
+                <h3
+                  id="memo-history-title"
+                  className="text-lg font-bold text-gray-900"
+                >
                   이전 메모 기록
                 </h3>
                 <p className="mt-0.5 text-sm text-gray-500">
@@ -683,7 +698,9 @@ export default function PendingStatusButton() {
                   <div className="mt-2 flex items-end justify-between gap-3">
                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500">
                       <span>작성자 {memo.author_name}</span>
-                      <span>처리자 {memo.completed_by_name || "알 수 없음"}</span>
+                      <span>
+                        처리자 {memo.completed_by_name || "알 수 없음"}
+                      </span>
                       {memo.completed_at && (
                         <span>완료 {formatMemoTime(memo.completed_at)}</span>
                       )}
@@ -744,11 +761,15 @@ const StatusCard = ({
           {count}
         </span>
       </div>
-      {action ?? (href && (
-        <Link href={href} className="text-sm font-semibold text-gray-500 hover:text-brand-600">
-          전체보기 ›
-        </Link>
-      ))}
+      {action ??
+        (href && (
+          <Link
+            href={href}
+            className="text-sm font-semibold text-gray-500 hover:text-brand-600"
+          >
+            전체보기 ›
+          </Link>
+        ))}
     </div>
     <div>{children}</div>
   </article>

@@ -46,6 +46,7 @@ import type {
   PurchaseAdjustmentKind,
   PurchaseOrder,
   PurchaseOrderAdjustment,
+  PurchaseOrderLine,
 } from "@/app/_domains/_inventory/_types/inventory.types";
 
 type Tab = "stock" | "untracked" | "receive" | "movements" | "initial";
@@ -69,7 +70,7 @@ type ReceiptRow = {
   quantity: string;
   unitPrice: string;
   note: string;
-  handlingType: "none" | "demo" | "reservation" | "memo";
+  handlingType: "none" | "demo" | "reservation" | "customer" | "memo";
   handlingNote: string;
   customerId: string;
   customerName: string;
@@ -93,8 +94,38 @@ const PURCHASE_HANDLING_OPTIONS = [
   { value: "none", label: "미입력" },
   { value: "demo", label: "시연용 처리" },
   { value: "reservation", label: "예약 연결" },
+  { value: "customer", label: "고객 연결" },
   { value: "memo", label: "메모입력" },
 ] as const;
+
+function PurchaseHandlingDetails({ line }: { line: PurchaseOrderLine }) {
+  if (!line.handling_type || line.handling_type === "none") return null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 text-sm font-semibold">
+      <span className="rounded-full bg-brand-50 px-2 py-0.5 text-brand-700">
+        {
+          PURCHASE_HANDLING_OPTIONS.find(
+            (option) => option.value === line.handling_type,
+          )?.label
+        }
+      </span>
+      {line.customer_id && (
+        <a
+          href={`/customers/${line.customer_id}`}
+          className="rounded-full bg-sky-50 px-2 py-0.5 text-sky-700 hover:bg-sky-100"
+        >
+          {line.handling_type === "reservation"
+            ? "예약 고객 보기"
+            : "연결 고객 보기"}
+        </a>
+      )}
+      {line.handling_note && (
+        <span className="font-medium text-gray-700">{line.handling_note}</span>
+      )}
+    </div>
+  );
+}
 
 const isLegacyDemoMemo = (value: string | null | undefined) =>
   /시연용\s*처리|시연용처리/.test(value?.trim() ?? "");
@@ -1792,7 +1823,8 @@ function ReceiptManager({
     queryFn: () => searchReservationCustomers(reservationCustomerSearch),
     enabled:
       createOpen &&
-      draftRow?.handlingType === "reservation" &&
+      (draftRow?.handlingType === "reservation" ||
+        draftRow?.handlingType === "customer") &&
       !draftRow?.customerId &&
       reservationCustomerSearch.trim().length > 0,
   });
@@ -1903,6 +1935,10 @@ function ReceiptManager({
       (!draftRow.customerId || !draftRow.reservationLogId)
     ) {
       toast.error("예약 고객과 예약 이력을 선택해 주세요.");
+      return;
+    }
+    if (draftRow.handlingType === "customer" && !draftRow.customerId) {
+      toast.error("연결할 고객을 선택해 주세요.");
       return;
     }
     if (draftRow.handlingType === "memo" && !draftRow.handlingNote.trim()) {
@@ -2533,7 +2569,7 @@ function ReceiptManager({
                               </option>
                             ))}
                           </select>
-                          <div className="hidden grid-cols-6 gap-1.5 sm:grid">
+                          <div className="hidden grid-cols-5 gap-1.5 sm:grid">
                             {PURCHASE_HANDLING_OPTIONS.map((option) => (
                               <Button
                                 key={option.value}
@@ -2604,8 +2640,15 @@ function ReceiptManager({
                             </div>
                           )}
 
-                          {row.handlingType === "reservation" && (
-                            <div className="mt-3 grid gap-3 rounded-xl border border-gray-200 bg-white p-3 lg:grid-cols-2">
+                          {(row.handlingType === "reservation" ||
+                            row.handlingType === "customer") && (
+                            <div
+                              className={`mt-3 grid gap-3 rounded-xl border border-gray-200 bg-white p-3 ${
+                                row.handlingType === "reservation"
+                                  ? "lg:grid-cols-2"
+                                  : ""
+                              }`}
+                            >
                               <div>
                                 <div>
                                   <input
@@ -2670,61 +2713,74 @@ function ReceiptManager({
                                     </div>
                                   )}
                               </div>
-                              <div>
-                                <div className="mt-1.5 max-h-44 overflow-y-auto rounded-lg border border-gray-200 p-1">
-                                  {row.customerId ? (
-                                    (reservationHistoriesQuery.data ?? [])
-                                      .length ? (
-                                      (
-                                        reservationHistoriesQuery.data ?? []
-                                      ).map((history) => (
-                                        <button
-                                          key={history.id}
-                                          type="button"
-                                          onClick={() =>
-                                            setRows((current) =>
-                                              current.map((item) =>
-                                                item.id === row.id
-                                                  ? {
-                                                      ...item,
-                                                      reservationLogId:
-                                                        history.id,
-                                                    }
-                                                  : item,
-                                              ),
-                                            )
-                                          }
-                                          className={`block min-h-11 w-full rounded-md px-2 py-1.5 text-left text-xs ${
-                                            row.reservationLogId === history.id
-                                              ? "bg-brand-50 text-brand-700 ring-1 ring-brand-300"
-                                              : "hover:bg-gray-50"
-                                          }`}
-                                        >
-                                          <strong>
-                                            {new Date(
-                                              history.created_at,
-                                            ).toLocaleDateString("ko-KR")}
-                                          </strong>
-                                          <span className="ml-2 text-gray-500">
-                                            {history.note || "예약 메모 없음"}
-                                          </span>
-                                        </button>
-                                      ))
+                              {row.handlingType === "reservation" && (
+                                <div>
+                                  <div className="mt-1.5 max-h-44 overflow-y-auto rounded-lg border border-gray-200 p-1">
+                                    {row.customerId ? (
+                                      (reservationHistoriesQuery.data ?? [])
+                                        .length ? (
+                                        (
+                                          reservationHistoriesQuery.data ?? []
+                                        ).map((history) => (
+                                          <button
+                                            key={history.id}
+                                            type="button"
+                                            onClick={() =>
+                                              setRows((current) =>
+                                                current.map((item) =>
+                                                  item.id === row.id
+                                                    ? {
+                                                        ...item,
+                                                        reservationLogId:
+                                                          history.id,
+                                                      }
+                                                    : item,
+                                                ),
+                                              )
+                                            }
+                                            className={`block min-h-11 w-full rounded-md px-2 py-1.5 text-left text-xs ${
+                                              row.reservationLogId ===
+                                              history.id
+                                                ? "bg-brand-50 text-brand-700 ring-1 ring-brand-300"
+                                                : "hover:bg-gray-50"
+                                            }`}
+                                          >
+                                            <strong>
+                                              {new Date(
+                                                history.created_at,
+                                              ).toLocaleDateString("ko-KR")}
+                                            </strong>
+                                            <span className="ml-2 text-gray-500">
+                                              {history.note || "예약 메모 없음"}
+                                            </span>
+                                          </button>
+                                        ))
+                                      ) : (
+                                        <p className="p-3 text-center text-xs text-gray-400">
+                                          연결할 예약 이력이 없습니다.
+                                        </p>
+                                      )
                                     ) : (
                                       <p className="p-3 text-center text-xs text-gray-400">
-                                        연결할 예약 이력이 없습니다.
+                                        고객을 먼저 선택해 주세요.
                                       </p>
-                                    )
-                                  ) : (
-                                    <p className="p-3 text-center text-xs text-gray-400">
-                                      고객을 먼저 선택해 주세요.
-                                    </p>
-                                  )}
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
-                              <div className="lg:col-span-2">
+                              )}
+                              <div
+                                className={
+                                  row.handlingType === "reservation"
+                                    ? "lg:col-span-2"
+                                    : ""
+                                }
+                              >
                                 <input
-                                  aria-label="예약 연결 메모"
+                                  aria-label={
+                                    row.handlingType === "reservation"
+                                      ? "예약 연결 메모"
+                                      : "고객 연결 메모"
+                                  }
                                   value={row.handlingNote}
                                   onChange={(event) =>
                                     setRows((current) =>
@@ -2738,7 +2794,11 @@ function ReceiptManager({
                                       ),
                                     )
                                   }
-                                  placeholder="예약 연결 관련 메모를 입력하세요. (선택)"
+                                  placeholder={
+                                    row.handlingType === "reservation"
+                                      ? "예약 연결 관련 메모를 입력하세요. (선택)"
+                                      : "고객 연결 관련 메모를 입력하세요. (선택)"
+                                  }
                                   className="mt-1.5 h-10 w-full rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                                 />
                               </div>
@@ -4317,32 +4377,6 @@ function PurchaseOrderList({
                         <tr key={line.id}>
                           <td className="border border-gray-200 px-3 py-3 font-semibold">
                             <p>{line.item_name}</p>
-                            {line.handling_type &&
-                              line.handling_type !== "none" && (
-                                <div className="mt-1 flex flex-wrap items-center gap-1 text-xs font-medium">
-                                  <span className="rounded-full bg-brand-50 px-2 py-0.5 text-brand-700">
-                                    {
-                                      PURCHASE_HANDLING_OPTIONS.find(
-                                        (option) =>
-                                          option.value === line.handling_type,
-                                      )?.label
-                                    }
-                                  </span>
-                                  {line.customer_id && (
-                                    <a
-                                      href={`/customers/${line.customer_id}`}
-                                      className="rounded-full bg-sky-50 px-2 py-0.5 text-sky-700 hover:bg-sky-100"
-                                    >
-                                      예약 고객 보기
-                                    </a>
-                                  )}
-                                  {line.handling_note && (
-                                    <span className="font-normal text-gray-500">
-                                      {line.handling_note}
-                                    </span>
-                                  )}
-                                </div>
-                              )}
                           </td>
                           <td className="border border-gray-200 px-3 py-3 text-right">
                             <strong className="text-gray-900">
@@ -4468,8 +4502,12 @@ function PurchaseOrderList({
                           </td>
                           <td className="border border-gray-200 px-3 py-3 text-gray-500">
                             <div className="flex items-start gap-2">
-                              {line.note || line.quantity_check_note ? (
+                              {line.note ||
+                              line.quantity_check_note ||
+                              (line.handling_type &&
+                                line.handling_type !== "none") ? (
                                 <div className="min-w-0 space-y-1">
+                                  <PurchaseHandlingDetails line={line} />
                                   {line.note && (
                                     <p>{cleanQuantityMemo(line.note)}</p>
                                   )}
@@ -4669,6 +4707,14 @@ function PurchaseOrderList({
                                     </span>
                                   </td>
                                   <td className="border border-gray-200 px-3 py-3 text-gray-600">
+                                    {orderLine &&
+                                    orderLine.handling_type !== "none" ? (
+                                      <div className="mb-1">
+                                        <PurchaseHandlingDetails
+                                          line={orderLine}
+                                        />
+                                      </div>
+                                    ) : null}
                                     {receiptLine.note ||
                                     receiptLine.quantity_check_note ||
                                     orderLine?.note ? (
@@ -4688,9 +4734,10 @@ function PurchaseOrderList({
                                           </p>
                                         )}
                                       </div>
-                                    ) : (
+                                    ) : orderLine?.handling_type === "none" ||
+                                      !orderLine ? (
                                       "-"
-                                    )}
+                                    ) : null}
                                   </td>
                                 </tr>
                               );

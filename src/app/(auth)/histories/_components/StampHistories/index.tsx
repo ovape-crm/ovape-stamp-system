@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   LogCategoryEnum,
   LogCategoryEnumType,
@@ -75,6 +75,18 @@ const StampHistories = ({
       paymentMethod || null,
       searchKeyword || null,
     );
+
+  useEffect(() => {
+    if (!items.length || !window.location.hash.startsWith("#history-")) return;
+    const targetId = decodeURIComponent(window.location.hash.slice(1));
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(targetId)?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [items]);
 
   const handleSearch = () => {
     setSearchKeyword(searchInput.trim());

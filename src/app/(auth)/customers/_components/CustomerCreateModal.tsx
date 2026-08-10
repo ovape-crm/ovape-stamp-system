@@ -353,7 +353,7 @@ export default function CustomerCreateModal({
             <input
               type="text"
               className="w-full rounded border border-brand-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
-              placeholder="'-' 없이 숫자만 (ex: 01012345678) / 정보 없을 경우 X"
+              placeholder="숫자만 (ex: 01012345678) / 정보 없을 경우 X"
               aria-invalid={!!errors.phone || undefined}
               {...register("phone")}
             />
