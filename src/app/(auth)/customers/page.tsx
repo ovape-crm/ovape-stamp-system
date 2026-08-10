@@ -124,6 +124,8 @@ export default function CustomersPage() {
         is_stamp_eligible: values.is_stamp_eligible,
         address: values.address,
         note: values.note,
+        adult_verification_method: values.adult_verification_method,
+        adult_verification_request_id: values.adult_verification_request_id,
       });
       toast.success("고객이 추가되었습니다.");
 
