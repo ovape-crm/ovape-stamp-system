@@ -76,7 +76,7 @@ export type PurchaseOrderLine = {
   note: string | null;
   quantity_check_note: string | null;
   quantity_checked_at: string | null;
-  handling_type: "none" | "demo" | "reservation" | "memo";
+  handling_type: "none" | "demo" | "reservation" | "customer" | "memo";
   handling_note: string | null;
   customer_id: string | null;
   reservation_log_id: string | null;

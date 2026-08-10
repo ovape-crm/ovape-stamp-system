@@ -288,24 +288,15 @@ const CustomersDetailStampsHistories = ({
                   key={log.id}
                   className="flex items-center justify-between p-3 rounded border border-brand-50 hover:bg-brand-50/30 transition-colors whitespace-nowrap"
                 >
-                  <div className="flex items-center gap-4 sm:gap-6">
+                  <div className="flex w-[128px] shrink-0 flex-col items-stretch justify-center gap-1 text-center">
                     {!(
                       targetUser.name.trim() === "X" &&
                       targetUser.phone.trim() === "X"
-                    ) && <ActionInfoLabel action={log.action} />}
-
-                    {log.users && (
-                      <div className="text-left">
-                        <LogActorInfo
-                          users={log.users}
-                          created_at={log.created_at}
-                          updated_at={log.updated_at}
-                          jsonb={log.jsonb}
-                        />
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex flex-col items-start gap-1 ml-4">
+                    ) &&
+                      log.jsonb?.paymentType !==
+                        PaymentTypeEnum.REMARK.value && (
+                        <ActionInfoLabel action={log.action} matchStoreLabel />
+                      )}
                     {log.jsonb && "storeName" in log.jsonb && (
                       <StoreLabel jsonb={log.jsonb} />
                     )}
@@ -314,7 +305,7 @@ const CustomersDetailStampsHistories = ({
                     )}
                     {typeof log.jsonb?.totalAmount === "number" &&
                       log.jsonb.totalAmount > 0 && (
-                        <span className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold px-2 py-1">
+                        <span className="flex h-7 w-full items-center justify-center whitespace-nowrap rounded-full bg-emerald-100 px-2 text-center text-xs font-semibold text-emerald-700">
                           {log.jsonb.totalAmount.toLocaleString("ko-KR")}원
                         </span>
                       )}
@@ -330,7 +321,9 @@ const CustomersDetailStampsHistories = ({
                       </Button>
                       <div className="min-w-[240px] flex-1 break-words whitespace-normal text-xs text-gray-600 sm:text-sm">
                         <p className="whitespace-pre-line">
-                          {log.note ? formatHistoryNote(log.note) : (
+                          {log.note ? (
+                            formatHistoryNote(log.note)
+                          ) : (
                             <span className="text-gray-400"> - </span>
                           )}
                         </p>
@@ -361,6 +354,16 @@ const CustomersDetailStampsHistories = ({
                       >
                         출고 확정
                       </Button>
+                    )}
+                    {log.users && (
+                      <div className="mr-1 text-left">
+                        <LogActorInfo
+                          users={log.users}
+                          created_at={log.created_at}
+                          updated_at={log.updated_at}
+                          jsonb={log.jsonb}
+                        />
+                      </div>
                     )}
                     {!isReservation && (
                       <Button

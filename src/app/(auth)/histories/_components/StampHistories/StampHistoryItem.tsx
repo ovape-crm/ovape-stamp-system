@@ -40,12 +40,11 @@ const StampHistoryItem = ({
     Array.isArray(log.jsonb?.payments) && log.jsonb.payments.length >= 2;
   const hasTransactionTag = Boolean(
     log.jsonb?.discount ||
-      (typeof log.jsonb?.deliveryFee === "number" &&
-        log.jsonb.deliveryFee > 0) ||
-      log.jsonb?.deliveryType === "self" ||
-      log.jsonb?.deliveryType === "customer_quick" ||
-      (typeof log.jsonb?.reservationDate === "string" &&
-        log.jsonb.reservationDate.trim()),
+    (typeof log.jsonb?.deliveryFee === "number" && log.jsonb.deliveryFee > 0) ||
+    log.jsonb?.deliveryType === "self" ||
+    log.jsonb?.deliveryType === "customer_quick" ||
+    (typeof log.jsonb?.reservationDate === "string" &&
+      log.jsonb.reservationDate.trim()),
   );
   const hasSpecialCustomer =
     Boolean(log.customers?.name) &&
@@ -64,7 +63,7 @@ const StampHistoryItem = ({
       고객 특이사항
     </span>
   ) : isCouponUse ? (
-    <span className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-blue-100 px-2 py-1 text-center text-xs font-semibold text-blue-700">
+    <span className="flex h-7 w-full items-center justify-center whitespace-nowrap rounded-full bg-blue-100 px-2 text-center text-xs font-semibold text-blue-700">
       쿠폰 사용
     </span>
   ) : isStampAdjustment ? (
@@ -74,7 +73,10 @@ const StampHistoryItem = ({
   ) : null;
 
   return (
-    <div className="grid grid-cols-[125px_128px_minmax(260px,1fr)_115px_auto] items-center gap-2 whitespace-nowrap rounded-lg border border-brand-50 p-2.5 text-xs transition-colors hover:bg-brand-50/30 sm:px-2 sm:py-4 sm:text-sm">
+    <div
+      id={`history-${log.id}`}
+      className="grid scroll-mt-6 grid-cols-[125px_128px_minmax(260px,1fr)_115px_auto] items-center gap-2 whitespace-nowrap rounded-lg border border-brand-50 p-2.5 text-xs transition-colors hover:bg-brand-50/30 target:bg-brand-50 target:ring-2 target:ring-brand-300 sm:px-2 sm:py-4 sm:text-sm"
+    >
       <div className="flex min-w-0 self-center flex-col items-center text-center">
         {!isCustomerRemark && !isCouponUse && (
           <div>
