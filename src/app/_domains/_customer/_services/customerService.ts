@@ -308,3 +308,48 @@ export const deleteCustomer = async (id: string) => {
 
   if (error) throw error;
 };
+
+export const updateCustomerAdultVerification = async (
+  id: string,
+  verified: boolean,
+  method: "physical_id" | "manual" = "physical_id",
+) => {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) throw new Error("AUTH_REQUIRED");
+
+  const previous = await getCustomerById(id);
+  const verifiedAt = verified ? new Date().toISOString() : null;
+  const { data, error } = await supabase
+    .from("customers")
+    .update({
+      adult_verified: verified,
+      adult_verified_at: verifiedAt,
+      adult_verification_method: verified ? method : null,
+      adult_verified_by: verified ? session.user.id : null,
+    })
+    .eq("id", id)
+    .select()
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) throw new Error("NOT_FOUND_CUSTOMER");
+
+  await createLog(
+    LogCategoryEnum.CUSTOMER.value,
+    id,
+    verified ? "adult-verification-manual-complete" : "adult-verification-revoked",
+    verified ? "성인 인증을 수동으로 완료했습니다." : "성인 인증을 해제했습니다.",
+    {
+      adultVerification: {
+        before: previous.adult_verified ?? false,
+        after: verified,
+        method: verified ? method : null,
+        verifiedAt,
+      },
+    },
+  );
+
+  return data;
+};
