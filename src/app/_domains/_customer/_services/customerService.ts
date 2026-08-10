@@ -132,16 +132,23 @@ export const getCustomers = async (
     const sortedData = [...allData].sort((a, b) => {
       const aCount = a.stamps?.[0]?.count || 0;
       const bCount = b.stamps?.[0]?.count || 0;
-      return sortOrder === "desc" ? bCount - aCount : aCount - bCount;
+      const countDifference =
+        sortOrder === "desc" ? bCount - aCount : aCount - bCount;
+      if (countDifference !== 0) return countDifference;
+      return Number(a.id) - Number(b.id);
     });
 
     // 정렬 후 페이지네이션 적용
     return sortedData.slice(from, to + 1);
   } else if (sortBy === "created_at") {
-    query = query.order("created_at", { ascending: sortOrder === "asc" });
+    query = query
+      .order("created_at", { ascending: sortOrder === "asc" })
+      .order("id", { ascending: true });
   } else {
     // 기본: 이름 가나다 순
-    query = query.order("name", { ascending: sortOrder === "asc" });
+    query = query
+      .order("name", { ascending: sortOrder === "asc" })
+      .order("id", { ascending: true });
   }
 
   // 페이지네이션 적용

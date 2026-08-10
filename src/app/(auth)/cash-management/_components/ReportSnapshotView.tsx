@@ -319,7 +319,10 @@ export default function ReportSnapshotView({
                   <tr key={`${worker.name}-${index}`}>
                     <td className="px-3 py-2 font-semibold">{worker.name}</td>
                     <td className="px-3 py-2 text-center">
-                      {worker.startTime} ~ {worker.actualEndTime}
+                      {worker.startTime} ~{" "}
+                      {worker.workType === "shift"
+                        ? worker.expectedEndTime
+                        : worker.actualEndTime}
                     </td>
                   </tr>
                 ))}

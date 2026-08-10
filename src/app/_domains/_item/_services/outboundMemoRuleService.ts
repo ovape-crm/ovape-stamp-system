@@ -7,7 +7,7 @@ import type {
 export const outboundMemoRuleKey = ["items", "outbound-memo-rules"] as const;
 
 const ruleSelect =
-  "id, target_type, category_id, item_id, message, auto_select_memo, applicable_outbound_types, is_required, is_active, created_at, updated_at, item_categories(name), items(item_name)";
+  "id, target_type, category_id, item_id, message, placeholder_message, auto_select_memo, applicable_outbound_types, is_required, is_active, created_at, updated_at, item_categories(name), items(item_name)";
 
 export const getOutboundMemoRules = async (): Promise<OutboundMemoRule[]> => {
   const { data, error } = await supabase
@@ -28,6 +28,7 @@ export const saveOutboundMemoRule = async (
     category_id: values.targetType === "category" ? values.targetId : null,
     item_id: values.targetType === "item" ? values.targetId : null,
     message: values.message.trim(),
+    placeholder_message: values.placeholderMessage.trim() || null,
     auto_select_memo: values.autoSelectMemo,
     applicable_outbound_types: values.applicableOutboundTypes,
     is_required: values.isRequired,

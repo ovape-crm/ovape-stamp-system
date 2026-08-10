@@ -5,6 +5,7 @@ create table if not exists public.outbound_memo_rules (
   category_id bigint references public.item_categories(id) on delete cascade,
   item_id bigint references public.items(id) on delete cascade,
   message text not null check (length(trim(message)) > 0),
+  placeholder_message text,
   auto_select_memo boolean not null default true,
   applicable_outbound_types text[] not null default array[
     'standard', 'service', 'exchange_in', 'exchange_out', 'price_adjust'
@@ -25,6 +26,10 @@ alter table public.outbound_memo_rules
   add column if not exists applicable_outbound_types text[] not null default array[
     'standard', 'service', 'exchange_in', 'exchange_out', 'price_adjust'
   ]::text[];
+
+-- 안내 문구와 입력창 예시를 서로 다르게 설정할 수 있습니다.
+alter table public.outbound_memo_rules
+  add column if not exists placeholder_message text;
 
 create unique index if not exists outbound_memo_rules_category_unique
   on public.outbound_memo_rules (category_id)

@@ -8,6 +8,7 @@ export type OutboundMemoRule = {
   category_id: string | null;
   item_id: string | null;
   message: string;
+  placeholder_message: string | null;
   auto_select_memo: boolean;
   applicable_outbound_types: OutboundMemoRuleOutboundType[];
   is_required: boolean;
@@ -22,6 +23,7 @@ export type OutboundMemoRuleInput = {
   targetType: OutboundMemoRuleTargetType;
   targetId: string;
   message: string;
+  placeholderMessage: string;
   autoSelectMemo: boolean;
   applicableOutboundTypes: OutboundMemoRuleOutboundType[];
   isRequired: boolean;

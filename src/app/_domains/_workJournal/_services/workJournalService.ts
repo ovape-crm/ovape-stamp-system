@@ -79,7 +79,7 @@ export const getWorkerNames = async (): Promise<string[]> => {
 export const getWorkerDetails = async (): Promise<WorkerDetailType[]> => {
   const { data: workers, error: workersError } = await supabase
     .from("work_journal_workers")
-    .select("id, name, is_active")
+    .select("id, name, is_active, is_payroll_eligible")
     .order("name", { ascending: true });
 
   if (workersError) throw workersError;
@@ -117,6 +117,7 @@ export const createWorker = async (values: {
   note: string;
   pin: string;
   isActive: boolean;
+  isPayrollEligible: boolean;
 }): Promise<void> => {
   const {
     data: { session },
@@ -130,6 +131,7 @@ export const createWorker = async (values: {
     .insert({
       name: values.name.trim(),
       is_active: values.isActive,
+      is_payroll_eligible: values.isPayrollEligible,
       created_by: session.user.id,
     })
     .select("id")
@@ -164,12 +166,14 @@ export const updateWorkerDetails = async (
     note: string;
     pin: string;
     isActive: boolean;
+    isPayrollEligible: boolean;
   },
 ): Promise<void> => {
   const { error: workerError } = await supabase
     .from("work_journal_workers")
     .update({
       is_active: values.isActive,
+      is_payroll_eligible: values.isPayrollEligible,
       updated_at: new Date().toISOString(),
     })
     .eq("id", workerId);
@@ -211,7 +215,7 @@ export const createWorkJournal = async (values: {
   endTime: string;
   workHours: number;
   note: string;
-  workType: "solo" | "shift";
+  startType: "solo" | "first" | "handover";
   pin: string;
 }): Promise<void> => {
   const {
@@ -229,6 +233,28 @@ export const createWorkJournal = async (values: {
   if (!verified) throw new Error("INVALID_WORKER_PIN");
 
   const normalizedWorkerName = values.workerName.trim();
+  const { data: otherJournals, error: otherJournalsError } = await supabase
+    .from("work_journals")
+    .select("id, work_type")
+    .eq("work_date", values.workDate)
+    .neq("worker_name", normalizedWorkerName);
+
+  if (otherJournalsError) throw otherJournalsError;
+
+  const hasSoloWorker = (otherJournals ?? []).some(
+    (journal) => journal.work_type === "solo",
+  );
+  const hasFirstShiftWorker = (otherJournals ?? []).some(
+    (journal) => journal.work_type === "shift",
+  );
+  if (hasSoloWorker) throw new Error("SOLO_WORK_DAY_LOCKED");
+  if (hasFirstShiftWorker && values.startType !== "handover") {
+    throw new Error("HANDOVER_WORKER_REQUIRED");
+  }
+  if (!hasFirstShiftWorker && values.startType === "handover") {
+    throw new Error("HANDOVER_WORKER_REQUIRED");
+  }
+
   const { data: pendingHandover, error: pendingError } = await supabase
     .from("work_journals")
     .select("id")
@@ -251,7 +277,7 @@ export const createWorkJournal = async (values: {
       expected_end_time: values.endTime,
       work_hours: values.workHours,
       note: values.note.trim() || null,
-      work_type: values.workType,
+      work_type: values.startType === "first" ? "shift" : "solo",
       status: "working",
       created_by: session.user.id,
     })

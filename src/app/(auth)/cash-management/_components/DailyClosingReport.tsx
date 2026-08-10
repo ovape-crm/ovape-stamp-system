@@ -337,6 +337,7 @@ export default function DailyClosingReport({
               journal.expected_end_time?.slice(0, 5) ??
               journal.end_time.slice(0, 5),
             actualEndTime: journal.end_time.slice(0, 5),
+            workType: journal.work_type,
             actualWorkHours: Number(journal.work_hours),
             inputWorkHours: Number(journal.input_work_hours ?? 0),
           })),
@@ -616,7 +617,10 @@ export default function DailyClosingReport({
                         {journal.start_time.slice(0, 5)} ~{" "}
                         {journal.status === "working"
                           ? "근무 중"
-                          : journal.end_time.slice(0, 5)}
+                          : journal.work_type === "shift" &&
+                              journal.expected_end_time
+                            ? journal.expected_end_time.slice(0, 5)
+                            : journal.end_time.slice(0, 5)}
                       </span>
                     </div>
                   ))

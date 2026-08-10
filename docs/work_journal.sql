@@ -147,10 +147,19 @@ create table if not exists public.work_journal_workers (
   id uuid primary key default gen_random_uuid(),
   name text not null unique check (length(trim(name)) > 0),
   is_active boolean not null default true,
+  is_payroll_eligible boolean not null default true,
   created_by uuid not null references auth.users(id),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- 기존 설치 환경에도 월급 지급 대상 컬럼을 추가합니다.
+-- 기본값이 true이므로 기존 근무자는 모두 지급 대상으로 설정됩니다.
+alter table public.work_journal_workers
+  add column if not exists is_payroll_eligible boolean not null default true;
+
+comment on column public.work_journal_workers.is_payroll_eligible is
+  '급여 지급 화면의 월급 지급 대상 여부. 근무시간 기록과는 독립적으로 관리한다.';
 
 alter table public.work_journal_workers enable row level security;
 

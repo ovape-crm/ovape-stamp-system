@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import Button from "@/app/_components/Button";
@@ -52,13 +52,20 @@ export default function OutboundMemoRuleManageModal({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [targetType, setTargetType] =
     useState<OutboundMemoRuleTargetType>("category");
+  const [itemSelectionMode, setItemSelectionMode] = useState<
+    "single" | "multiple"
+  >("single");
   const [targetId, setTargetId] = useState("");
+  const [targetIds, setTargetIds] = useState<string[]>([]);
   const [message, setMessage] = useState(initialMessage);
+  const [placeholderMessage, setPlaceholderMessage] = useState("");
   const [applicableOutboundTypes, setApplicableOutboundTypes] =
     useState<OutboundMemoRuleOutboundType[]>(allOutboundTypes);
   const [isRequired, setIsRequired] = useState(false);
   const [isActive, setIsActive] = useState(true);
   const [itemSearch, setItemSearch] = useState("");
+  const [isItemResultsOpen, setIsItemResultsOpen] = useState(false);
+  const itemSearchRef = useRef<HTMLDivElement>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [view, setView] = useState<"create" | "list">("create");
   const [ruleSearch, setRuleSearch] = useState("");
@@ -72,6 +79,10 @@ export default function OutboundMemoRuleManageModal({
   const selectedItem = itemsQuery.data?.find(
     (item) => String(item.id) === targetId,
   );
+  const selectedItems = (itemsQuery.data ?? []).filter((item) =>
+    targetIds.includes(String(item.id)),
+  );
+  const targetMode = targetType === "category" ? "category" : itemSelectionMode;
   const filteredItems = useMemo(() => {
     const keyword = itemSearch.trim().toLocaleLowerCase("ko-KR");
     if (!keyword) return [];
@@ -103,34 +114,55 @@ export default function OutboundMemoRuleManageModal({
             outboundTypeOptions.find((option) => option.value === value)?.label,
         )
         .join(" ");
-      return `${getRuleTargetLabel(rule)} ${rule.message} ${outboundLabels}`
+      return `${getRuleTargetLabel(rule)} ${rule.message} ${rule.placeholder_message ?? ""} ${outboundLabels}`
         .toLocaleLowerCase("ko-KR")
         .includes(keyword);
     });
   }, [ruleSearch, rules, statusFilter]);
 
+  useEffect(() => {
+    const closeItemResults = (event: PointerEvent) => {
+      if (!itemSearchRef.current?.contains(event.target as Node)) {
+        setIsItemResultsOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", closeItemResults);
+    return () => document.removeEventListener("pointerdown", closeItemResults);
+  }, []);
+
   const resetForm = () => {
     setEditingId(null);
     setTargetType("category");
+    setItemSelectionMode("single");
     setTargetId("");
+    setTargetIds([]);
     setMessage(initialMessage);
+    setPlaceholderMessage("");
     setApplicableOutboundTypes(allOutboundTypes);
     setIsRequired(false);
     setIsActive(true);
     setItemSearch("");
+    setIsItemResultsOpen(false);
   };
 
-  const changeTargetType = (next: OutboundMemoRuleTargetType) => {
-    setTargetType(next);
+  const changeTargetMode = (next: "category" | "single" | "multiple") => {
+    if (editingId && next === "multiple") return;
+    setTargetType(next === "category" ? "category" : "item");
+    setItemSelectionMode(next === "multiple" ? "multiple" : "single");
     setTargetId("");
+    setTargetIds([]);
     setItemSearch("");
+    setIsItemResultsOpen(false);
   };
 
   const startEditing = (rule: OutboundMemoRule) => {
     setEditingId(rule.id);
     setTargetType(rule.target_type);
+    setItemSelectionMode("single");
     setTargetId(String(rule.category_id ?? rule.item_id ?? ""));
+    setTargetIds([]);
     setMessage(rule.message);
+    setPlaceholderMessage(rule.placeholder_message ?? "");
     setApplicableOutboundTypes(
       rule.applicable_outbound_types?.length
         ? rule.applicable_outbound_types
@@ -139,28 +171,62 @@ export default function OutboundMemoRuleManageModal({
     setIsRequired(rule.is_required);
     setIsActive(rule.is_active);
     setItemSearch("");
+    setIsItemResultsOpen(false);
     setView("create");
   };
 
   const handleSave = async () => {
-    if (!targetId || !message.trim() || !applicableOutboundTypes.length) return;
+    const saveTargetIds =
+      targetType === "item" && itemSelectionMode === "multiple"
+        ? targetIds
+        : [targetId];
+    if (
+      !saveTargetIds.length ||
+      saveTargetIds.some((id) => !id) ||
+      !message.trim() ||
+      !applicableOutboundTypes.length
+    )
+      return;
+    if (
+      !editingId &&
+      targetType === "item" &&
+      saveTargetIds.some((id) =>
+        rules.some(
+          (rule) => rule.target_type === "item" && String(rule.item_id) === id,
+        ),
+      )
+    ) {
+      toast.error(
+        "선택한 품목 중 이미 알림이 등록된 품목이 있습니다. 해당 품목을 제외해 주세요.",
+      );
+      return;
+    }
     setIsSaving(true);
     try {
-      await saveOutboundMemoRule(
-        {
-          targetType,
-          targetId,
-          message,
-          autoSelectMemo: true,
-          applicableOutboundTypes,
-          isRequired,
-          isActive,
-        },
-        editingId ?? undefined,
+      await Promise.all(
+        saveTargetIds.map((saveTargetId) =>
+          saveOutboundMemoRule(
+            {
+              targetType,
+              targetId: saveTargetId,
+              message,
+              placeholderMessage,
+              autoSelectMemo: true,
+              applicableOutboundTypes,
+              isRequired,
+              isActive,
+            },
+            editingId ?? undefined,
+          ),
+        ),
       );
       await queryClient.invalidateQueries({ queryKey: outboundMemoRuleKey });
       toast.success(
-        editingId ? "메모 알림을 수정했습니다." : "메모 알림을 추가했습니다.",
+        editingId
+          ? "메모 알림을 수정했습니다."
+          : saveTargetIds.length > 1
+            ? `${saveTargetIds.length}개 품목에 메모 알림을 추가했습니다.`
+            : "메모 알림을 추가했습니다.",
       );
       const wasEditing = Boolean(editingId);
       resetForm();
@@ -260,45 +326,71 @@ export default function OutboundMemoRuleManageModal({
                       적용 기준
                     </span>
                     <div className="mt-1.5 sm:hidden">
-                      <Dropdown controlledValue={targetType}>
+                      <Dropdown controlledValue={targetMode}>
                         <Dropdown.Trigger>
-                          {targetType === "category"
+                          {targetMode === "category"
                             ? "품목 종류"
-                            : "특정 품목"}
+                            : targetMode === "single"
+                              ? "특정 품목 (단일)"
+                              : "특정 품목 (다수)"}
                         </Dropdown.Trigger>
                         <Dropdown.Content>
-                          <Dropdown.Item
-                            option={{ value: "category", label: "품목 종류" }}
-                            onSelect={(option: DropdownOption) =>
-                              changeTargetType(
-                                option.value as OutboundMemoRuleTargetType,
-                              )
-                            }
-                          />
-                          <Dropdown.Item
-                            option={{ value: "item", label: "특정 품목" }}
-                            onSelect={(option: DropdownOption) =>
-                              changeTargetType(
-                                option.value as OutboundMemoRuleTargetType,
-                              )
-                            }
-                          />
+                          {(
+                            [
+                              { value: "category", label: "품목 종류" },
+                              { value: "single", label: "특정 품목 (단일)" },
+                              ...(!editingId
+                                ? [
+                                    {
+                                      value: "multiple",
+                                      label: "특정 품목 (다수)",
+                                    },
+                                  ]
+                                : []),
+                            ] as Array<{
+                              value: "category" | "single" | "multiple";
+                              label: string;
+                            }>
+                          ).map((option) => (
+                            <Dropdown.Item
+                              key={option.value}
+                              option={option}
+                              onSelect={(selected: DropdownOption) =>
+                                changeTargetMode(
+                                  selected.value as
+                                    "category" | "single" | "multiple",
+                                )
+                              }
+                            />
+                          ))}
                         </Dropdown.Content>
                       </Dropdown>
                     </div>
-                    <div className="mt-1.5 hidden grid-cols-2 overflow-hidden rounded-lg border border-gray-300 bg-white sm:grid">
-                      {(["category", "item"] as const).map((type) => (
+                    <div className="mt-1.5 hidden grid-cols-3 overflow-hidden rounded-lg border border-gray-300 bg-white sm:grid">
+                      {(
+                        [
+                          { value: "category", label: "품목 종류" },
+                          { value: "single", label: "특정 품목 (단일)" },
+                          { value: "multiple", label: "특정 품목 (다수)" },
+                        ] as const
+                      ).map((option) => (
                         <button
-                          key={type}
+                          key={option.value}
                           type="button"
-                          onClick={() => changeTargetType(type)}
+                          onClick={() => changeTargetMode(option.value)}
+                          disabled={
+                            editingId !== null && option.value === "multiple"
+                          }
                           className={`h-10 cursor-pointer text-sm font-semibold transition ${
-                            targetType === type
+                            targetMode === option.value
                               ? "bg-brand-500 text-white"
-                              : "text-gray-600 hover:bg-gray-50"
+                              : editingId !== null &&
+                                  option.value === "multiple"
+                                ? "cursor-not-allowed bg-gray-100 text-gray-300"
+                                : "text-gray-600 hover:bg-gray-50"
                           }`}
                         >
-                          {type === "category" ? "품목 종류" : "특정 품목"}
+                          {option.label}
                         </button>
                       ))}
                     </div>
@@ -331,64 +423,157 @@ export default function OutboundMemoRuleManageModal({
                         </Dropdown>
                       </div>
                     ) : (
-                      <div className="relative mt-1.5">
-                        <input
-                          type="text"
-                          value={
-                            selectedItem ? selectedItem.item_name : itemSearch
-                          }
-                          onChange={(event) => {
-                            setTargetId("");
-                            setItemSearch(event.target.value);
-                          }}
-                          className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-3 pr-10 text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-                          placeholder="품목명을 입력하세요"
-                        />
-                        {selectedItem && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setTargetId("");
-                              setItemSearch("");
+                      <div className="mt-1.5 space-y-2">
+                        <div ref={itemSearchRef} className="relative">
+                          <input
+                            type="text"
+                            value={
+                              itemSelectionMode === "single" && selectedItem
+                                ? selectedItem.item_name
+                                : itemSearch
+                            }
+                            onChange={(event) => {
+                              if (itemSelectionMode === "single")
+                                setTargetId("");
+                              setItemSearch(event.target.value);
+                              setIsItemResultsOpen(true);
                             }}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-500"
-                            aria-label="선택 해제"
-                          >
-                            ×
-                          </button>
-                        )}
-                        {!selectedItem && itemSearch.trim() && (
-                          <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
-                            {filteredItems.length ? (
-                              filteredItems.map((item) => (
-                                <button
-                                  key={item.id}
-                                  type="button"
-                                  onClick={() => {
-                                    setTargetId(String(item.id));
-                                    setItemSearch("");
-                                  }}
-                                  className="block w-full cursor-pointer border-b border-gray-100 px-3 py-2.5 text-left last:border-0 hover:bg-gray-50"
-                                >
-                                  <span className="block text-sm font-medium text-gray-900">
-                                    {item.item_name}
-                                  </span>
-                                  <span className="text-xs text-gray-500">
-                                    {item.item_categories?.name ?? "미분류"}
-                                  </span>
-                                </button>
-                              ))
-                            ) : (
-                              <p className="px-3 py-4 text-center text-sm text-gray-400">
-                                검색 결과가 없습니다.
-                              </p>
+                            onFocus={() => {
+                              if (itemSearch.trim()) setIsItemResultsOpen(true);
+                            }}
+                            className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-3 pr-10 text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                            placeholder="품목명을 입력하세요"
+                          />
+                          {itemSelectionMode === "single" && selectedItem && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setTargetId("");
+                                setItemSearch("");
+                                setIsItemResultsOpen(false);
+                              }}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-500"
+                              aria-label="선택 해제"
+                            >
+                              ×
+                            </button>
+                          )}
+                          {!selectedItem &&
+                            itemSearch.trim() &&
+                            isItemResultsOpen && (
+                              <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
+                                {filteredItems.length ? (
+                                  filteredItems.map((item) => (
+                                    <button
+                                      key={item.id}
+                                      type="button"
+                                      onClick={() => {
+                                        const itemId = String(item.id);
+                                        const existingRule = rules.find(
+                                          (rule) =>
+                                            rule.target_type === "item" &&
+                                            String(rule.item_id) === itemId,
+                                        );
+                                        if (existingRule) {
+                                          const shouldEdit = window.confirm(
+                                            `${item.item_name}에는 이미 특정 품목 알림이 등록되어 있습니다.\n기존 알림을 수정할까요?`,
+                                          );
+                                          if (shouldEdit) {
+                                            startEditing(existingRule);
+                                          }
+                                          return;
+                                        }
+                                        if (itemSelectionMode === "multiple") {
+                                          setTargetIds((current) =>
+                                            current.includes(itemId)
+                                              ? current.filter(
+                                                  (id) => id !== itemId,
+                                                )
+                                              : [...current, itemId],
+                                          );
+                                        } else {
+                                          setTargetId(itemId);
+                                          setItemSearch("");
+                                          setIsItemResultsOpen(false);
+                                        }
+                                      }}
+                                      className="flex w-full cursor-pointer items-center gap-2 border-b border-gray-100 px-3 py-2.5 text-left last:border-0 hover:bg-gray-50"
+                                    >
+                                      {itemSelectionMode === "multiple" && (
+                                        <span
+                                          className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${
+                                            targetIds.includes(String(item.id))
+                                              ? "border-brand-500 bg-brand-500 text-white"
+                                              : "border-gray-300 bg-white"
+                                          }`}
+                                        >
+                                          {targetIds.includes(String(item.id))
+                                            ? "✓"
+                                            : ""}
+                                        </span>
+                                      )}
+                                      <span className="min-w-0">
+                                        <span className="flex flex-wrap items-center gap-1.5">
+                                          <span className="text-sm font-medium text-gray-900">
+                                            {item.item_name}
+                                          </span>
+                                          {rules.some(
+                                            (rule) =>
+                                              rule.target_type === "item" &&
+                                              String(rule.item_id) ===
+                                                String(item.id),
+                                          ) && (
+                                            <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                                              알림 등록됨
+                                            </span>
+                                          )}
+                                        </span>
+                                        <span className="text-xs text-gray-500">
+                                          {item.item_categories?.name ??
+                                            "미분류"}
+                                        </span>
+                                      </span>
+                                    </button>
+                                  ))
+                                ) : (
+                                  <p className="px-3 py-4 text-center text-sm text-gray-400">
+                                    검색 결과가 없습니다.
+                                  </p>
+                                )}
+                              </div>
                             )}
-                          </div>
-                        )}
+                        </div>
                       </div>
                     )}
                   </div>
                 </div>
+
+                {targetType === "item" &&
+                  itemSelectionMode === "multiple" &&
+                  selectedItems.length > 0 && (
+                    <div className="flex w-full flex-wrap gap-1.5 rounded-lg border border-gray-200 bg-white p-2">
+                      {selectedItems.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() =>
+                            setTargetIds((current) =>
+                              current.filter((id) => id !== String(item.id)),
+                            )
+                          }
+                          className="cursor-pointer rounded-md bg-brand-50 px-2 py-1 text-xs font-medium text-brand-700 hover:bg-brand-100"
+                          title="선택 해제"
+                        >
+                          {item.item_name} ×
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                <p className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700">
+                  특정 품목 알림이 등록되어 있으면 품목 종류 알림은 무시하고
+                  특정 품목 알림을 우선 표시합니다.
+                </p>
 
                 <label className="block text-xs font-semibold text-gray-600">
                   안내 문구
@@ -399,6 +584,22 @@ export default function OutboundMemoRuleManageModal({
                     className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                     placeholder="메모에 필요한 내용을 입력해 주세요."
                   />
+                </label>
+
+                <label className="block text-xs font-semibold text-gray-600">
+                  입력 예시 (플레이스홀더)
+                  <input
+                    type="text"
+                    value={placeholderMessage}
+                    onChange={(event) =>
+                      setPlaceholderMessage(event.target.value)
+                    }
+                    className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                    placeholder="예: 박스매장보관X, 설명O"
+                  />
+                  <span className="mt-1 block font-normal text-gray-400">
+                    비워두면 안내 문구가 입력창에도 표시됩니다.
+                  </span>
                 </label>
 
                 <div>
@@ -473,7 +674,9 @@ export default function OutboundMemoRuleManageModal({
                     onClick={handleSave}
                     disabled={
                       isSaving ||
-                      !targetId ||
+                      (targetType === "item" && itemSelectionMode === "multiple"
+                        ? !targetIds.length
+                        : !targetId) ||
                       !message.trim() ||
                       !applicableOutboundTypes.length
                     }
@@ -589,6 +792,11 @@ export default function OutboundMemoRuleManageModal({
                           <p className="mt-1 text-sm text-gray-600">
                             {rule.message}
                           </p>
+                          {rule.placeholder_message && (
+                            <p className="mt-1 text-xs text-gray-500">
+                              입력 예시: {rule.placeholder_message}
+                            </p>
+                          )}
                           <p className="mt-1 text-xs text-gray-400">
                             {(rule.applicable_outbound_types?.length
                               ? rule.applicable_outbound_types

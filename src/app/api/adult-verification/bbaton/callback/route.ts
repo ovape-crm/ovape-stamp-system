@@ -16,7 +16,7 @@ type BBatonUserResponse = {
 };
 
 const resultUrl = (request: NextRequest, state: string, result: string) =>
-  new URL(`/adult-verify/${encodeURIComponent(state)}?result=${result}`, request.url);
+  new URL(`/v/${encodeURIComponent(state)}?result=${result}`, request.url);
 
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code") ?? "";

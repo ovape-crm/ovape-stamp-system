@@ -20,8 +20,6 @@ type AfterServiceRow = {
   id: string;
   item_name: string;
   status: string;
-  customer_note: string | null;
-  shop_note: string | null;
   customers: { name: string; phone: string } | null;
 };
 
@@ -139,9 +137,7 @@ export default function PendingStatusButton() {
           .order("created_at", { ascending: false }),
         supabase
           .from("after_services")
-          .select(
-            "id, item_name, status, customer_note, shop_note, customers(name, phone)",
-          )
+          .select("id, item_name, status, customers(name, phone)")
           .in("status", pendingAfterServiceStatuses)
           .order("created_at", { ascending: false }),
         supabase
@@ -421,12 +417,12 @@ export default function PendingStatusButton() {
                   count={afterServices.length}
                   href="/after-services?group=all"
                 >
-                  {afterServices.slice(0, 5).map((afterService) => (
+                  {afterServices.slice(0, 10).map((afterService) => (
                     <Link
                       key={afterService.id}
                       href={`/after-services?group=all&id=${afterService.id}`}
                       onClick={() => setIsOpen(false)}
-                      className="grid gap-3 border-b border-gray-100 px-1 py-3 last:border-b-0 hover:bg-gray-50 sm:grid-cols-[minmax(100px,0.8fr)_minmax(100px,1fr)_minmax(110px,1fr)_auto] sm:items-center"
+                      className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-gray-100 px-1 py-2.5 last:border-b-0 hover:bg-gray-50"
                     >
                       <div className="min-w-0">
                         <p className="truncate text-base font-semibold text-gray-900">
@@ -436,28 +432,9 @@ export default function PendingStatusButton() {
                           {afterService.item_name}
                         </p>
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-gray-400">
-                          고객 특이사항
-                        </p>
-                        <p className="mt-0.5 line-clamp-2 text-sm text-gray-600">
-                          {afterService.customer_note || "없음"}
-                        </p>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-gray-400">
-                          매장 특이사항
-                        </p>
-                        <p className="mt-0.5 line-clamp-2 text-sm text-gray-600">
-                          {afterService.shop_note || "없음"}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center">
                         <span className="rounded-md bg-amber-50 px-2 py-1 text-sm font-semibold text-amber-700">
                           {getAfterServiceStatusName(afterService.status)}
-                        </span>
-                        <span aria-hidden="true" className="text-lg text-gray-400">
-                          ›
                         </span>
                       </div>
                     </Link>
@@ -468,25 +445,22 @@ export default function PendingStatusButton() {
                 </StatusCard>
 
                 <StatusCard title="미입고 거래처" count={pendingSuppliers.length} href="/inventory/receive">
-                  {pendingSuppliers.slice(0, 5).map((supplier) => (
-                    <Link
+                  {pendingSuppliers.slice(0, 9).map((supplier) => (
+                    <div
                       key={supplier.id}
-                      href="/inventory/receive"
-                      onClick={() => setIsOpen(false)}
-                      className="flex items-center justify-between gap-3 border-b border-gray-100 px-1 py-3 last:border-b-0 hover:bg-gray-50"
+                      className="flex items-center gap-2 border-b border-gray-100 px-1 py-2.5 last:border-b-0"
                     >
                       <span className="truncate text-base font-semibold text-gray-900">
                         {supplier.name}
                       </span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-brand-600">
-                          {supplier.pendingQuantity.toLocaleString()}개 미입고
-                        </span>
-                        <span aria-hidden="true" className="text-lg text-gray-400">
-                          ›
-                        </span>
-                      </div>
-                    </Link>
+                      <Link
+                        href="/inventory/receive"
+                        onClick={() => setIsOpen(false)}
+                        className="shrink-0 rounded-lg border border-brand-200 bg-white px-2.5 py-1 text-xs font-semibold text-brand-700 shadow-sm transition hover:border-brand-300 hover:bg-brand-50"
+                      >
+                        바로가기
+                      </Link>
+                    </div>
                   ))}
                   {!isLoading && pendingSuppliers.length === 0 && (
                     <EmptyState text="미입고 거래처가 없습니다." />

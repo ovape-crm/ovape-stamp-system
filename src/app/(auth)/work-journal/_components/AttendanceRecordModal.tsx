@@ -127,14 +127,20 @@ export default function AttendanceRecordModal({
       journalsQuery.data?.find((journal) => journal.worker_name === workerName),
     [journalsQuery.data, workerName],
   );
-  const isHandoverWorker = Boolean(
-    journalsQuery.data?.some(
-      (journal) =>
-        journal.worker_name !== workerName &&
-        (journal.status === "handover_pending" ||
-          (Boolean(editingJournal) && journal.start_time < startTime)),
-    ),
+  const otherWorkerJournals = useMemo(
+    () =>
+      journalsQuery.data?.filter(
+        (journal) => journal.worker_name !== workerName,
+      ) ?? [],
+    [journalsQuery.data, workerName],
   );
+  const hasSoloWorker = otherWorkerJournals.some(
+    (journal) => journal.work_type === "solo",
+  );
+  const hasFirstShiftWorker = otherWorkerJournals.some(
+    (journal) => journal.work_type === "shift",
+  );
+  const isHandoverWorker = hasFirstShiftWorker && !hasSoloWorker;
   const openJournal =
     selectedJournal && selectedJournal.status === "working"
       ? selectedJournal
@@ -195,7 +201,7 @@ export default function AttendanceRecordModal({
         endTime: expectedEndTime,
         workHours: calculateHours(startTime, expectedEndTime),
         note,
-        workType: startType === "first" ? "shift" : "solo",
+        startType,
         pin,
       }),
     onSuccess: async () => {
@@ -210,6 +216,14 @@ export default function AttendanceRecordModal({
       }
       if (error.message === "INVALID_WORKER_PIN") {
         toast.error("개인 PIN이 올바르지 않습니다.");
+        return;
+      }
+      if (error.message === "SOLO_WORK_DAY_LOCKED") {
+        toast.error("혼자 근무로 설정된 날에는 다른 근무자가 출근할 수 없습니다.");
+        return;
+      }
+      if (error.message === "HANDOVER_WORKER_REQUIRED") {
+        toast.error("다음 출근자는 교대 근무자 (마지막 근무)로만 처리할 수 있습니다.");
         return;
       }
       toast.error("출근 기록 추가에 실패했습니다.");
@@ -300,6 +314,10 @@ export default function AttendanceRecordModal({
       toast.error("해당 날짜에 이미 근무 기록이 있습니다.");
       return;
     }
+    if (nextMode === "start" && !editingJournal && hasSoloWorker) {
+      toast.error("혼자 근무로 설정된 날에는 다른 근무자가 출근할 수 없습니다.");
+      return;
+    }
     if (nextMode === "end" && !openJournal) {
       toast.error("진행 중인 출근 기록이 없습니다.");
       return;
@@ -318,7 +336,7 @@ export default function AttendanceRecordModal({
   };
 
   const canContinue = verified && Boolean(mode);
-  const canConfirmStart = Boolean(startTime);
+  const canConfirmStart = Boolean(startTime) && (!hasSoloWorker || isEditing);
   const canConfirmEnd = Boolean(
     actualEndTime &&
     checkoutHours > 0 &&
@@ -328,6 +346,7 @@ export default function AttendanceRecordModal({
   );
 
   const handleStartTypeChange = (nextType: "solo" | "first" | "handover") => {
+    if (!editingJournal && isHandoverWorker) return;
     setStartType(nextType);
     setStartTime(nextType === "handover" ? "17:00" : "11:00");
   };
@@ -524,12 +543,13 @@ export default function AttendanceRecordModal({
                 출근 유형
                 <select
                   value={startType}
+                  disabled={!editingJournal && isHandoverWorker}
                   onChange={(event) =>
                     handleStartTypeChange(
                       event.target.value as "solo" | "first" | "handover",
                     )
                   }
-                  className="mt-1 h-11 w-full cursor-pointer rounded-lg border border-gray-300 bg-white px-3 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                  className="mt-1 h-11 w-full cursor-pointer rounded-lg border border-gray-300 bg-white px-3 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-600"
                 >
                   <option value="solo">혼자 근무</option>
                   <option value="first">교대 근무자 (첫 근무)</option>

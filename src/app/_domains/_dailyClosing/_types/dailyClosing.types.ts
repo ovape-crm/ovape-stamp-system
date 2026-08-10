@@ -28,6 +28,7 @@ export type DailyClosingReportSnapshot = {
     startTime: string;
     expectedEndTime: string;
     actualEndTime: string;
+    workType?: "solo" | "shift";
     actualWorkHours: number;
     inputWorkHours: number;
   }>;

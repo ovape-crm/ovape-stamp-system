@@ -29,7 +29,7 @@ const schema = z.object({
     .transform((v) => (v.toUpperCase() === "X" ? "X" : v)),
   gender: z.enum(["male", "female"]),
   is_stamp_eligible: z.boolean(),
-  adult_verification_method: z.enum(["unverified", "physical_id", "bbaton"]),
+  adult_verification_method: z.enum(["", "physical_id", "bbaton"]),
   adult_verification_request_id: z.string().optional(),
   address: z
     .string()
@@ -42,6 +42,13 @@ const schema = z.object({
     .max(500, { message: "메모는 500자 이하로 입력하세요." })
     .optional(),
 }).superRefine((value, context) => {
+  if (!value.adult_verification_method) {
+    context.addIssue({
+      code: "custom",
+      path: ["adult_verification_method"],
+      message: "성인 확인 방법을 선택해 주세요.",
+    });
+  }
   if (
     value.adult_verification_method === "bbaton" &&
     !value.adult_verification_request_id
@@ -49,7 +56,7 @@ const schema = z.object({
     context.addIssue({
       code: "custom",
       path: ["adult_verification_request_id"],
-      message: "완료된 비바톤 인증 기록을 선택해 주세요.",
+      message: "인증된 고객을 선택해 주세요.",
     });
   }
 });
@@ -66,9 +73,9 @@ type CompletedVerification = {
 };
 
 const adultVerificationLabels = {
-  unverified: "미확인",
+  "": "선택 안 함",
   physical_id: "직접 확인",
-  bbaton: "비바톤 확인",
+  bbaton: "성인 인증 링크확인",
 } as const;
 
 // ============================================================================
@@ -114,7 +121,7 @@ export default function CustomerCreateModal({
       phone: "",
       gender: "male",
       is_stamp_eligible: true,
-      adult_verification_method: "unverified",
+      adult_verification_method: "",
       adult_verification_request_id: "",
       address: "",
       note: "",
@@ -130,11 +137,23 @@ export default function CustomerCreateModal({
     let active = true;
     const loadCompletedVerifications = async () => {
       setIsVerificationLoading(true);
+      const koreaOffsetMs = 9 * 60 * 60 * 1000;
+      const koreaNow = new Date(Date.now() + koreaOffsetMs);
+      const todayStart = new Date(
+        Date.UTC(
+          koreaNow.getUTCFullYear(),
+          koreaNow.getUTCMonth(),
+          koreaNow.getUTCDate(),
+        ) - koreaOffsetMs,
+      );
+      const tomorrowStart = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
       const { data, error } = await supabase
         .from("adult_verification_requests")
         .select("id, request_label, completed_at")
         .eq("status", "completed")
         .is("customer_id", null)
+        .gte("completed_at", todayStart.toISOString())
+        .lt("completed_at", tomorrowStart.toISOString())
         .order("completed_at", { ascending: false });
       if (active) {
         setCompletedVerifications(error ? [] : (data ?? []));
@@ -309,7 +328,8 @@ export default function CustomerCreateModal({
 
         <div className="space-y-3 overflow-y-auto min-h-0 flex-1">
           {/* 기본 정보 입력 */}
-          <div>
+          <div className="grid grid-cols-2 gap-3">
+          <div className="min-w-0">
             <label className="block text-sm font-medium mb-1">
               이름 <span className="text-rose-600">*</span>
             </label>
@@ -326,7 +346,7 @@ export default function CustomerCreateModal({
             )}
           </div>
 
-          <div>
+          <div className="min-w-0">
             <label className="block text-sm font-medium mb-1">
               전화번호 <span className="text-rose-600">*</span>
             </label>
@@ -343,17 +363,19 @@ export default function CustomerCreateModal({
               </p>
             )}
           </div>
+          </div>
 
-          <div>
+          <div className="grid grid-cols-2 gap-3">
+          <div className="min-w-0">
             <span className="block text-sm font-medium mb-1">
               성별 <span className="text-rose-600">*</span>
             </span>
-            <div className="flex items-center gap-4">
-              <label className="inline-flex items-center gap-2 text-sm">
+            <div className="flex items-center gap-2 sm:gap-4">
+              <label className="inline-flex items-center gap-1.5 text-sm">
                 <input type="radio" value="male" {...register("gender")} />
                 남자
               </label>
-              <label className="inline-flex items-center gap-2 text-sm">
+              <label className="inline-flex items-center gap-1.5 text-sm">
                 <input type="radio" value="female" {...register("gender")} />
                 여자
               </label>
@@ -365,14 +387,16 @@ export default function CustomerCreateModal({
             )}
           </div>
 
-          <div>
-            <span className="block text-sm font-medium mb-1">적립 대상</span>
+          <div className="min-w-0">
+            <span className="block text-sm font-medium mb-1">
+              적립 대상 <span className="text-rose-600">*</span>
+            </span>
             <Controller
               name="is_stamp_eligible"
               control={control}
               render={({ field }) => (
-                <div className="flex items-center gap-4">
-                  <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
+                <div className="flex items-center gap-2 sm:gap-4">
+                  <label className="inline-flex cursor-pointer items-center gap-1.5 text-sm">
                     <input
                       type="radio"
                       checked={field.value}
@@ -380,7 +404,7 @@ export default function CustomerCreateModal({
                     />
                     적립
                   </label>
-                  <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
+                  <label className="inline-flex cursor-pointer items-center gap-1.5 text-sm">
                     <input
                       type="radio"
                       checked={!field.value}
@@ -391,6 +415,7 @@ export default function CustomerCreateModal({
                 </div>
               )}
             />
+          </div>
           </div>
 
           <div>
@@ -427,14 +452,14 @@ export default function CustomerCreateModal({
           </div>
           <div className="rounded-xl border border-gray-200 bg-gray-50/70 p-3">
             <span className="block text-sm font-medium text-gray-900">
-              성인 확인 여부 <span className="text-rose-600">*</span>
+              성인 확인 여부
             </span>
             <Controller
               name="adult_verification_method"
               control={control}
               render={({ field }) => (
-                <div className="mt-2 grid grid-cols-3 gap-2">
-                  {(["unverified", "physical_id", "bbaton"] as const).map(
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {(["physical_id", "bbaton"] as const).map(
                     (method) => (
                       <label
                         key={method}
@@ -464,6 +489,11 @@ export default function CustomerCreateModal({
                 </div>
               )}
             />
+            {errors.adult_verification_method && (
+              <p className="mt-1 text-xs text-rose-600">
+                {errors.adult_verification_method.message}
+              </p>
+            )}
 
             {adultVerificationMethod === "bbaton" && (
               <div className="mt-3">
@@ -480,10 +510,10 @@ export default function CustomerCreateModal({
                             (item) => item.id === selectedVerificationId,
                           )?.request_label ??
                         (completedVerifications.length > 0
-                          ? "완료된 비바톤 인증 선택"
-                          : "연결 가능한 인증 기록 없음")}
+                          ? "인증된 고객 선택"
+                          : "오늘 인증된 고객 없음")}
                   </Dropdown.Trigger>
-                  <Dropdown.Content neutral>
+                  <Dropdown.Content neutral maxHeightClass="max-h-48">
                     {completedVerifications.map((item) => (
                       <Dropdown.Item
                         key={item.id}

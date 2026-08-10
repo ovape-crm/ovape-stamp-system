@@ -358,6 +358,10 @@ export default function StampLogForm({
   const selectedMemoMessages = usesLegacyDeviceMemoRule
     ? ["박스 매장 보관 유무를 적어주세요."]
     : selectedMemoRules.map((rule) => rule.message);
+  const selectedMemoPlaceholder = usesLegacyDeviceMemoRule
+    ? "박스 매장 보관 유무를 적어주세요."
+    : (selectedMemoRules[0]?.placeholder_message ??
+      selectedMemoRules[0]?.message);
   const isSelectedMemoRequired = selectedMemoRules.some(
     (rule) => rule.is_required,
   );
@@ -1679,8 +1683,8 @@ export default function StampLogForm({
               onChange={(e) => setCustomRemark(e.target.value)}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-500"
               placeholder={
-                selectedMemoMessages[0]
-                  ? selectedMemoMessages[0]
+                selectedMemoPlaceholder
+                  ? selectedMemoPlaceholder
                   : remarkType === "service"
                     ? "특이사항을 입력하세요. (선택)"
                     : "특이사항을 입력하세요."
@@ -1716,7 +1720,7 @@ export default function StampLogForm({
             onChange={(event) => setExchangeMemo(event.target.value)}
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-500"
             placeholder={
-              selectedMemoMessages[0] ?? "특이사항을 입력하세요. (선택)"
+              selectedMemoPlaceholder ?? "특이사항을 입력하세요. (선택)"
             }
           />
         )}
@@ -1747,7 +1751,7 @@ export default function StampLogForm({
               value={priceAdjustMemo}
               onChange={(e) => setPriceAdjustMemo(e.target.value)}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-500"
-              placeholder={selectedMemoMessages[0] ?? "미입력 시 가격 조정"}
+              placeholder={selectedMemoPlaceholder ?? "미입력 시 가격 조정"}
             />
           </div>
         )}
