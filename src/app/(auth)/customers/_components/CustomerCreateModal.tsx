@@ -3,9 +3,11 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import Button from "@/app/_components/Button";
 import { formatPhoneNumber } from "@/app/_utils/utils";
+import { Dropdown } from "@/app/_components/Dropdown";
+import supabase from "@/libs/supabaseClient";
 
 // ============================================================================
 // 폼 검증 스키마
@@ -27,6 +29,8 @@ const schema = z.object({
     .transform((v) => (v.toUpperCase() === "X" ? "X" : v)),
   gender: z.enum(["male", "female"]),
   is_stamp_eligible: z.boolean(),
+  adult_verification_method: z.enum(["unverified", "physical_id", "bbaton"]),
+  adult_verification_request_id: z.string().optional(),
   address: z
     .string()
     .trim()
@@ -37,12 +41,35 @@ const schema = z.object({
     .trim()
     .max(500, { message: "메모는 500자 이하로 입력하세요." })
     .optional(),
+}).superRefine((value, context) => {
+  if (
+    value.adult_verification_method === "bbaton" &&
+    !value.adult_verification_request_id
+  ) {
+    context.addIssue({
+      code: "custom",
+      path: ["adult_verification_request_id"],
+      message: "완료된 비바톤 인증 기록을 선택해 주세요.",
+    });
+  }
 });
 
 type FormValues = z.infer<typeof schema>;
 
 export type CustomerCreateValues = FormValues;
 export type CustomerCreateAction = "customer-only" | "add-outbound";
+
+type CompletedVerification = {
+  id: string;
+  request_label: string;
+  completed_at: string | null;
+};
+
+const adultVerificationLabels = {
+  unverified: "미확인",
+  physical_id: "직접 확인",
+  bbaton: "비바톤 확인",
+} as const;
 
 // ============================================================================
 // 컴포넌트
@@ -65,6 +92,8 @@ export default function CustomerCreateModal({
   // ========================================================================
   const [showConfirm, setShowConfirm] = useState(false);
   const [formData, setFormData] = useState<CustomerCreateValues | null>(null);
+  const [completedVerifications, setCompletedVerifications] = useState<CompletedVerification[]>([]);
+  const [isVerificationLoading, setIsVerificationLoading] = useState(false);
   const canSubmitRef = useRef(true); // 중복 제출 방지용
 
   // ========================================================================
@@ -74,6 +103,8 @@ export default function CustomerCreateModal({
     register,
     control,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors, isValid },
   } = useForm<FormValues>({
     mode: "onChange",
@@ -83,10 +114,38 @@ export default function CustomerCreateModal({
       phone: "",
       gender: "male",
       is_stamp_eligible: true,
+      adult_verification_method: "unverified",
+      adult_verification_request_id: "",
       address: "",
       note: "",
     },
   });
+
+  const adultVerificationMethod = watch("adult_verification_method");
+  const selectedVerificationId = watch("adult_verification_request_id");
+
+  useEffect(() => {
+    if (adultVerificationMethod !== "bbaton") return;
+
+    let active = true;
+    const loadCompletedVerifications = async () => {
+      setIsVerificationLoading(true);
+      const { data, error } = await supabase
+        .from("adult_verification_requests")
+        .select("id, request_label, completed_at")
+        .eq("status", "completed")
+        .is("customer_id", null)
+        .order("completed_at", { ascending: false });
+      if (active) {
+        setCompletedVerifications(error ? [] : (data ?? []));
+        setIsVerificationLoading(false);
+      }
+    };
+    void loadCompletedVerifications();
+    return () => {
+      active = false;
+    };
+  }, [adultVerificationMethod]);
 
   const canSubmit = isValid;
 
@@ -167,6 +226,17 @@ export default function CustomerCreateModal({
                 </span>
                 <p className="text-base font-semibold text-gray-900">
                   {formData.is_stamp_eligible ? "적립" : "미적립"}
+                </p>
+              </div>
+              <div>
+                <span className="text-sm font-medium text-gray-600">
+                  성인 확인:
+                </span>
+                <p className="text-base font-semibold text-gray-900">
+                  {adultVerificationLabels[formData.adult_verification_method]}
+                  {formData.adult_verification_method === "bbaton"
+                    ? ` · ${completedVerifications.find((item) => item.id === formData.adult_verification_request_id)?.request_label ?? "인증 기록"}`
+                    : ""}
                 </p>
               </div>
               {formData.note && (
@@ -353,6 +423,96 @@ export default function CustomerCreateModal({
               <p className="mt-1 text-xs text-rose-600">
                 {errors.address.message}
               </p>
+            )}
+          </div>
+          <div className="rounded-xl border border-gray-200 bg-gray-50/70 p-3">
+            <span className="block text-sm font-medium text-gray-900">
+              성인 확인 여부 <span className="text-rose-600">*</span>
+            </span>
+            <Controller
+              name="adult_verification_method"
+              control={control}
+              render={({ field }) => (
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  {(["unverified", "physical_id", "bbaton"] as const).map(
+                    (method) => (
+                      <label
+                        key={method}
+                        className={`flex cursor-pointer items-center justify-center rounded-lg border px-2 py-2 text-xs font-medium transition sm:text-sm ${
+                          field.value === method
+                            ? "border-brand-400 bg-white text-brand-700 shadow-sm"
+                            : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          className="sr-only"
+                          checked={field.value === method}
+                          onChange={() => {
+                            field.onChange(method);
+                            if (method !== "bbaton") {
+                              setValue("adult_verification_request_id", "", {
+                                shouldValidate: true,
+                              });
+                            }
+                          }}
+                        />
+                        {adultVerificationLabels[method]}
+                      </label>
+                    ),
+                  )}
+                </div>
+              )}
+            />
+
+            {adultVerificationMethod === "bbaton" && (
+              <div className="mt-3">
+                <Dropdown
+                  controlledValue={selectedVerificationId}
+                  disabled={
+                    isVerificationLoading || completedVerifications.length === 0
+                  }
+                >
+                  <Dropdown.Trigger neutral>
+                    {isVerificationLoading
+                      ? "인증 기록 불러오는 중..."
+                      : completedVerifications.find(
+                            (item) => item.id === selectedVerificationId,
+                          )?.request_label ??
+                        (completedVerifications.length > 0
+                          ? "완료된 비바톤 인증 선택"
+                          : "연결 가능한 인증 기록 없음")}
+                  </Dropdown.Trigger>
+                  <Dropdown.Content neutral>
+                    {completedVerifications.map((item) => (
+                      <Dropdown.Item
+                        key={item.id}
+                        neutral
+                        option={{
+                          value: item.id,
+                          label: `${item.request_label}${
+                            item.completed_at
+                              ? ` · ${new Date(item.completed_at).toLocaleDateString("ko-KR")}`
+                              : ""
+                          }`,
+                        }}
+                        onSelect={(option) =>
+                          setValue(
+                            "adult_verification_request_id",
+                            String(option.value),
+                            { shouldValidate: true },
+                          )
+                        }
+                      />
+                    ))}
+                  </Dropdown.Content>
+                </Dropdown>
+                {errors.adult_verification_request_id && (
+                  <p className="mt-1 text-xs text-rose-600">
+                    {errors.adult_verification_request_id.message}
+                  </p>
+                )}
+              </div>
             )}
           </div>
         </div>

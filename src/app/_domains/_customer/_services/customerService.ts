@@ -184,6 +184,8 @@ export const createCustomer = async (customer: {
   is_stamp_eligible?: boolean;
   address?: string;
   note?: string;
+  adult_verification_method?: "unverified" | "physical_id" | "bbaton";
+  adult_verification_request_id?: string;
 }) => {
   // X는 중복 체크 제외
   if (customer.phone !== "X") {
@@ -199,12 +201,20 @@ export const createCustomer = async (customer: {
     }
   }
 
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const isDirectlyVerified = customer.adult_verification_method === "physical_id";
   const insertPayload = {
     name: customer.name,
     phone: customer.phone,
     gender: customer.gender,
     is_stamp_eligible: customer.is_stamp_eligible ?? true,
     note: customer.note,
+    adult_verified: isDirectlyVerified,
+    adult_verified_at: isDirectlyVerified ? new Date().toISOString() : null,
+    adult_verification_method: isDirectlyVerified ? "physical_id" : null,
+    adult_verified_by: isDirectlyVerified ? session?.user.id ?? null : null,
     ...(customer.address?.trim() ? { address: customer.address.trim() } : {}),
   };
 
@@ -215,6 +225,22 @@ export const createCustomer = async (customer: {
     .single();
 
   if (error) throw error;
+
+  if (
+    customer.adult_verification_method === "bbaton" &&
+    customer.adult_verification_request_id
+  ) {
+    const { data: attached, error: attachError } = await supabase.rpc(
+      "attach_adult_verification_to_customer",
+      {
+        p_request_id: customer.adult_verification_request_id,
+        p_customer_id: data.id,
+      },
+    );
+    if (attachError || attached !== true) {
+      throw attachError ?? new Error("ADULT_VERIFICATION_ATTACH_FAILED");
+    }
+  }
 
   await createLog(
     LogCategoryEnum.CUSTOMER.value,
