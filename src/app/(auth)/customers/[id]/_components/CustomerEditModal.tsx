@@ -2,7 +2,7 @@
 
 import { Controller, Resolver, useForm } from "react-hook-form";
 import { z } from "zod";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Button from "@/app/_components/Button";
 import { formatPhoneNumber } from "@/app/_utils/utils";
 
@@ -93,6 +93,8 @@ export default function CustomerEditModal({
   const [formData, setFormData] = useState<FormValues | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const savingRef = useRef(false);
 
   const {
     register,
@@ -122,8 +124,14 @@ export default function CustomerEditModal({
   };
 
   const handleConfirm = async () => {
-    if (formData) {
+    if (!formData || savingRef.current) return;
+    savingRef.current = true;
+    setIsSaving(true);
+    try {
       await onSubmit(formData);
+    } finally {
+      savingRef.current = false;
+      setIsSaving(false);
     }
   };
 
@@ -267,11 +275,11 @@ export default function CustomerEditModal({
             취소
           </Button>
           <Button
-            disabled={isSubmitting || !isValid}
+            disabled={isSubmitting || isSaving || !isValid}
             onClick={handleConfirm}
             size="sm"
           >
-            {isSubmitting ? "수정 중..." : "수정"}
+            {isSaving ? "수정 중..." : "수정"}
           </Button>
         </div>
       </div>

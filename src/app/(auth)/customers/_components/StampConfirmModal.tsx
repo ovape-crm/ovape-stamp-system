@@ -7,7 +7,7 @@ import {
   PaymentTypeEnumType,
 } from "@/app/_enums/enums";
 import type { StampLogMeta } from "@/app/_domains/_stamp/_services/stampService";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useModal } from "@/app/_contexts/ModalContext";
 import StampLogForm, { StampLogValue } from "./StampLogForm";
@@ -104,6 +104,8 @@ export default function StampConfirmModal({
 }) {
   const { setSize } = useModal();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+  const requestIdRef = useRef(crypto.randomUUID());
   const [showConfirm, setShowConfirm] = useState(false);
 
   const [note, setNote] = useState("");
@@ -147,6 +149,9 @@ export default function StampConfirmModal({
     target.phone,
     target.is_stamp_eligible ?? true,
   );
+  const isAnonymousXCustomer =
+    target.name.trim() === "X" && target.phone.trim() === "X";
+  const requiresXCustomerInfo = isAnonymousXCustomer && !selectedCustomer;
   const usesStandardSalesFlow =
     customerMode === "normal" || customerMode === "x";
   const effectiveFormCustomerMode = selectedCustomer ? "normal" : customerMode;
@@ -155,8 +160,7 @@ export default function StampConfirmModal({
 
   useEffect(() => {
     if (
-      customerMode !== "x" ||
-      !xCustomerName.trim() ||
+      !isAnonymousXCustomer ||
       xPhoneLastDigits.length !== 4
     ) {
       setCustomerMatches([]);
@@ -183,7 +187,7 @@ export default function StampConfirmModal({
       isActive = false;
       window.clearTimeout(timer);
     };
-  }, [customerMode, xCustomerName, xPhoneLastDigits]);
+  }, [isAnonymousXCustomer, xCustomerName, xPhoneLastDigits]);
 
   // 출고 이력 추가(mode === 'add') 전용 스텝 상태
   const [addStep, setAddStep] = useState<1 | 2 | 3>(
@@ -232,12 +236,14 @@ export default function StampConfirmModal({
     (mode === "use10" && breathType === "") || !hasRequiredAdjustmentNote;
 
   const handleConfirm = async () => {
+    if (submittingRef.current) return;
     if (!hasRequiredAdjustmentNote) {
       toast.error("특이사항을 입력해 주세요.");
       return;
     }
 
     try {
+      submittingRef.current = true;
       setIsSubmitting(true);
       if (mode === "add") {
         if (!stampLog) return;
@@ -297,6 +303,7 @@ export default function StampConfirmModal({
           stampLog.amount,
           {
             ...stampLog.logMeta,
+            clientRequestId: requestIdRef.current,
             reservationDate: reservationTag
               ? reservationDate.trim()
               : undefined,
@@ -312,6 +319,7 @@ export default function StampConfirmModal({
         await onConfirm(note);
       }
     } finally {
+      submittingRef.current = false;
       setIsSubmitting(false);
     }
   };
@@ -535,9 +543,7 @@ export default function StampConfirmModal({
           onChange={setStampLog}
           onValidityChange={setFormValidity}
           reservationSlot={
-            effectiveFormCustomerMode === "x"
-              ? xCustomerInfoFields
-              : reservationToggle
+            requiresXCustomerInfo ? xCustomerInfoFields : reservationToggle
           }
           xCustomerName={xCustomerName}
           xPhoneLastDigits={xPhoneLastDigits}
@@ -557,7 +563,7 @@ export default function StampConfirmModal({
                   className="grid grid-cols-2 gap-2 md:grid-cols-5"
                 >
                   {[
-                    ...(effectiveFormCustomerMode === "x"
+                    ...(requiresXCustomerInfo
                       ? [
                           { label: "이름", value: xCustomerName.trim() },
                           {
@@ -586,7 +592,7 @@ export default function StampConfirmModal({
                                 : "배달대행"
                             : "매장방문",
                     },
-                    ...(effectiveFormCustomerMode === "x"
+                    ...(requiresXCustomerInfo
                       ? []
                       : [
                           {
@@ -955,7 +961,7 @@ export default function StampConfirmModal({
                   }
                   if (
                     addStep === 2 &&
-                    effectiveFormCustomerMode === "x" &&
+                    requiresXCustomerInfo &&
                     !isCustomerInfoDeclined &&
                     (!xCustomerName.trim() || xPhoneLastDigits.length !== 4)
                   ) {

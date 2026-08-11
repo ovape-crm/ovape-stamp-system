@@ -33,7 +33,14 @@ export const useLogsByAfterServiceId = (
     enabled: !!afterServiceId,
   });
 
-  const logs = (data?.pages.flat() ?? []) as AfterServiceLogsResType;
+  const logs = Array.from(
+    new Map(
+      ((data?.pages.flat() ?? []) as AfterServiceLogsResType).map((item) => [
+        item.id,
+        item,
+      ]),
+    ).values(),
+  ) as AfterServiceLogsResType;
 
   return {
     logs,

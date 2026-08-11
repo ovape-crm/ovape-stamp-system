@@ -5,6 +5,8 @@ import toast from "react-hot-toast";
 import Button from "@/app/_components/Button";
 import { useUser } from "@/app/_contexts/UserContext";
 import supabase from "@/libs/supabaseClient";
+import GuideSettingsModal from "./_components/GuideSettingsModal";
+import { showConfirmDialog } from "@/app/_components/AppDialog";
 
 type VerificationRequest = {
   id: string;
@@ -19,6 +21,11 @@ type VerificationRequest = {
 type StatusFilter = "pending" | "completed" | "rejected" | "all";
 
 const PAGE_SIZE = 5;
+const DEFAULT_GUIDE_STEPS = [
+  "인증 링크 생성 후 고객에게 발송",
+  "인증 완료 시 고객 추가 및 연동",
+  "결제 진행",
+];
 
 const statusLabels: Record<VerificationRequest["status"], string> = {
   pending: "인증 대기",
@@ -55,6 +62,9 @@ export default function AdultVerificationsPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [guideSteps, setGuideSteps] = useState<string[]>(DEFAULT_GUIDE_STEPS);
+  const [guideSettingsOpen, setGuideSettingsOpen] = useState(false);
+  const [isSavingGuide, setIsSavingGuide] = useState(false);
 
   const tabCounts = useMemo(
     () => ({
@@ -112,6 +122,45 @@ export default function AdultVerificationsPage() {
     return () => window.clearInterval(interval);
   }, [loadRequests]);
 
+  useEffect(() => {
+    const loadGuideSteps = async () => {
+      const { data, error } = await supabase
+        .from("adult_verification_guide_settings")
+        .select("steps")
+        .eq("id", "default")
+        .maybeSingle();
+
+      if (!error && Array.isArray(data?.steps)) {
+        const savedSteps = data.steps.filter((step): step is string => typeof step === "string" && Boolean(step.trim()));
+        if (savedSteps.length) setGuideSteps(savedSteps);
+      }
+    };
+    void loadGuideSteps();
+  }, []);
+
+  const saveGuideSteps = async (steps: string[]) => {
+    if (!steps.length) {
+      toast.error("설명을 한 개 이상 입력해 주세요.");
+      return;
+    }
+
+    setIsSavingGuide(true);
+    try {
+      const { error } = await supabase
+        .from("adult_verification_guide_settings")
+        .upsert({ id: "default", steps, updated_at: new Date().toISOString() }, { onConflict: "id" });
+      if (error) throw error;
+
+      setGuideSteps(steps);
+      setGuideSettingsOpen(false);
+      toast.success("성인인증 설명을 저장했습니다.");
+    } catch {
+      toast.error("설명을 저장하지 못했습니다. 설정 SQL 적용 여부를 확인해 주세요.");
+    } finally {
+      setIsSavingGuide(false);
+    }
+  };
+
   const createLink = async () => {
     if (!label.trim()) {
       toast.error("고객을 구분할 이름이나 메모를 입력해 주세요.");
@@ -145,7 +194,12 @@ export default function AdultVerificationsPage() {
   };
 
   const deleteRequest = async (item: VerificationRequest) => {
-    if (!window.confirm(`'${item.request_label}' 인증 요청 기록을 삭제할까요?`)) return;
+    if (!(await showConfirmDialog({
+      title: "인증 요청 기록 삭제",
+      description: `‘${item.request_label}’ 인증 요청 기록을 삭제할까요?`,
+      confirmLabel: "삭제",
+      tone: "danger",
+    }))) return;
 
     setDeletingId(item.id);
     try {
@@ -173,12 +227,15 @@ export default function AdultVerificationsPage() {
   return (
     <main className="mx-auto mt-10 max-w-6xl px-4 pb-10 sm:px-6 lg:px-8">
       <section className="mb-4 rounded-xl border border-gray-200 bg-gray-50/70 p-4">
-        <ol className="grid gap-3 sm:grid-cols-3">
-          {[
-            "인증 링크 생성 후 고객에게 발송",
-            "인증 완료 시 고객 추가 및 연동",
-            "결제 진행",
-          ].map((step, index) => (
+        {isAdmin && (
+          <div className="mb-3 flex justify-end">
+            <Button size="sm" variant="gray" onClick={() => setGuideSettingsOpen(true)}>
+              설명 관리
+            </Button>
+          </div>
+        )}
+        <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {guideSteps.map((step, index) => (
             <li
               key={step}
               className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-3 text-sm font-medium text-gray-800 shadow-sm"
@@ -186,7 +243,7 @@ export default function AdultVerificationsPage() {
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">
                 {index + 1}
               </span>
-              <span>{step}</span>
+              <span className="whitespace-pre-line">{step}</span>
             </li>
           ))}
         </ol>
@@ -350,6 +407,14 @@ export default function AdultVerificationsPage() {
             더보기
           </Button>
         </div>
+      )}
+      {isAdmin && guideSettingsOpen && (
+        <GuideSettingsModal
+          initialSteps={guideSteps}
+          isSaving={isSavingGuide}
+          onClose={() => setGuideSettingsOpen(false)}
+          onSave={saveGuideSteps}
+        />
       )}
     </main>
   );

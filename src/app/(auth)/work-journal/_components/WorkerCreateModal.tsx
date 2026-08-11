@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import Button from '@/app/_components/Button';
 import { WorkerDetailType } from '@/app/_domains/_workJournal/_types/workJournal.types';
+import { showConfirmDialog } from '@/app/_components/AppDialog';
 
 type WorkerFormValues = {
   name: string;
@@ -470,12 +471,12 @@ const WorkerCreateModal = ({
                       variant="danger"
                       disabled={deletingName === selectedWorker.name}
                       onClick={async () => {
-                        if (
-                          !window.confirm(
-                            `${selectedWorker.name}님을 근무자 선택 목록에서 삭제하시겠습니까?`,
-                          )
-                        )
-                          return;
+                        if (!(await showConfirmDialog({
+                          title: '근무자 삭제',
+                          description: `${selectedWorker.name}님을 근무자 선택 목록에서 삭제할까요?`,
+                          confirmLabel: '삭제',
+                          tone: 'danger',
+                        }))) return;
                         try {
                           setDeletingName(selectedWorker.name);
                           await onDelete(selectedWorker.name);

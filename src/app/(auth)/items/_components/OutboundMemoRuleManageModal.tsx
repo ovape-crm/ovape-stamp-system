@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
+import { showConfirmDialog } from "@/app/_components/AppDialog";
 import Button from "@/app/_components/Button";
 import { Dropdown, type DropdownOption } from "@/app/_components/Dropdown";
 import { useItemCategories } from "@/app/_domains/_item/_hooks/useItemCategories";
@@ -244,7 +245,7 @@ export default function OutboundMemoRuleManageModal({
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("이 메모 알림 규칙을 삭제할까요?")) return;
+    if (!(await showConfirmDialog({ title: "메모 알림 규칙 삭제", description: "이 메모 알림 규칙을 삭제할까요?", confirmLabel: "삭제", tone: "danger" }))) return;
     try {
       await deleteOutboundMemoRule(id);
       await queryClient.invalidateQueries({ queryKey: outboundMemoRuleKey });
@@ -467,7 +468,7 @@ export default function OutboundMemoRuleManageModal({
                                     <button
                                       key={item.id}
                                       type="button"
-                                      onClick={() => {
+                                      onClick={async () => {
                                         const itemId = String(item.id);
                                         const existingRule = rules.find(
                                           (rule) =>
@@ -475,9 +476,7 @@ export default function OutboundMemoRuleManageModal({
                                             String(rule.item_id) === itemId,
                                         );
                                         if (existingRule) {
-                                          const shouldEdit = window.confirm(
-                                            `${item.item_name}에는 이미 특정 품목 알림이 등록되어 있습니다.\n기존 알림을 수정할까요?`,
-                                          );
+                                          const shouldEdit = await showConfirmDialog({ title: "기존 알림 수정", description: `${item.item_name}에는 이미 특정 품목 알림이 등록되어 있습니다.\n기존 알림을 수정할까요?`, confirmLabel: "수정하기" });
                                           if (shouldEdit) {
                                             startEditing(existingRule);
                                           }

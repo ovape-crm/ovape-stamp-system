@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Button from '@/app/_components/Button';
 
 interface ConfirmModalProps {
@@ -23,12 +23,16 @@ const ConfirmModal = ({
   onCancel,
 }: ConfirmModalProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submittingRef = useRef(false);
 
   const handleConfirm = async () => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setIsSubmitting(true);
     try {
       await onConfirm();
     } finally {
+      submittingRef.current = false;
       setIsSubmitting(false);
     }
   };

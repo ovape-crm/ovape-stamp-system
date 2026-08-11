@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
+import { showConfirmDialog } from '@/app/_components/AppDialog';
 import Button from '@/app/_components/Button';
 import KoreanDatePicker from '@/app/_components/KoreanDatePicker';
 import Loading from '@/app/_components/Loading';
@@ -89,7 +90,7 @@ export default function LiqudStandPage() {
     },
   });
 
-  const handleCellMove = (
+  const handleCellMove = async (
     source: CellPosition,
     target: { sectionId: string; row: number; column: number; cell?: LiqudStandCell },
   ) => {
@@ -104,7 +105,7 @@ export default function LiqudStandPage() {
       const targetItems = [target.cell.item_name, target.cell.secondary_item_name]
         .filter(Boolean)
         .join(' / ');
-      if (!window.confirm(`'${sourceItems}'와 '${targetItems}'의 위치를 교환하시겠습니까?`)) {
+      if (!(await showConfirmDialog({ title: '품목 위치 교환', description: `‘${sourceItems}’와 ‘${targetItems}’의 위치를 교환할까요?`, confirmLabel: '위치 교환' }))) {
         setMoveSource(null);
         return;
       }
@@ -349,7 +350,7 @@ export default function LiqudStandPage() {
               <Button size="xs" variant="gray" onClick={() => setLineAddConfirm({ section, direction: 'column' })}>세로줄 추가</Button>
               <Button size="xs" variant={lineDeleteMode?.sectionId === section.id && lineDeleteMode.direction === 'row' ? 'danger' : 'gray'} disabled={section.row_count <= 1} onClick={() => setLineDeleteMode((current) => current?.sectionId === section.id && current.direction === 'row' ? null : { sectionId: section.id, direction: 'row' })}>가로줄 선택 삭제</Button>
               <Button size="xs" variant={lineDeleteMode?.sectionId === section.id && lineDeleteMode.direction === 'column' ? 'danger' : 'gray'} disabled={section.column_count <= 1} onClick={() => setLineDeleteMode((current) => current?.sectionId === section.id && current.direction === 'column' ? null : { sectionId: section.id, direction: 'column' })}>세로줄 선택 삭제</Button>
-              <Button size="xs" variant="danger" disabled={sections.length <= 1} onClick={() => window.confirm(`'${section.name}' 표와 안의 데이터를 모두 삭제할까요?`) && mutation.mutate(async () => { await deleteLiqudSection(section.id); toast.success('구역 표가 삭제되었습니다.'); })}>표 삭제</Button>
+              <Button size="xs" variant="danger" disabled={sections.length <= 1} onClick={async () => { const confirmed = await showConfirmDialog({ title: '구역 표 삭제', description: `‘${section.name}’ 표와 안의 데이터를 모두 삭제할까요?`, confirmLabel: '표 삭제', tone: 'danger' }); if (confirmed) mutation.mutate(async () => { await deleteLiqudSection(section.id); toast.success('구역 표가 삭제되었습니다.'); }); }}>표 삭제</Button>
               <Button size="xs" onClick={() => { setLayoutEditingSectionId(null); setLineDeleteMode(null); }}>편집 완료</Button>
             </div>}
           </div>

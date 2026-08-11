@@ -27,6 +27,7 @@ import WorkerCreateModal from "./_components/WorkerCreateModal";
 import AttendanceRecordModal from "./_components/AttendanceRecordModal";
 import { useUser } from "@/app/_contexts/UserContext";
 import StaffOpeningProgressBanner from "@/app/(auth)/_components/StaffOpeningProgressBanner";
+import { showConfirmDialog, showPromptDialog } from "@/app/_components/AppDialog";
 import {
   WorkJournalType,
   WorkPaymentStatus,
@@ -489,9 +490,9 @@ export default function WorkJournalPage() {
     onError: () => toast.error("지급 상태 변경에 실패했습니다."),
   });
 
-  const handleAdvanceToggle = (journal: WorkJournalType) => {
+  const handleAdvanceToggle = async (journal: WorkJournalType) => {
     const isAdvance = journal.payment_status === "advance";
-    if (isAdvance && !window.confirm("선지급 처리를 취소하시겠습니까?")) return;
+    if (isAdvance && !(await showConfirmDialog({ title: "선지급 처리 취소", description: "선지급 처리를 취소할까요?", confirmLabel: "처리 취소", tone: "warning" }))) return;
 
     paymentMutation.mutate({
       journalIds: [journal.id],
@@ -503,15 +504,13 @@ export default function WorkJournalPage() {
     });
   };
 
-  const handleWorkerSalaryPayment = (group: (typeof paymentGroups)[number]) => {
+  const handleWorkerSalaryPayment = async (group: (typeof paymentGroups)[number]) => {
     if (!group.unpaid.length) return;
     const advanceNotice = group.advance.length
       ? ` 선지급 ${group.advance.length}건은 그대로 유지됩니다.`
       : "";
     if (
-      !window.confirm(
-        `${group.workerName}님의 미지급 근무 ${group.unpaid.length}건을 월급 지급 처리하시겠습니까?${advanceNotice}`,
-      )
+      !(await showConfirmDialog({ title: "월급 지급 처리", description: `${group.workerName}님의 미지급 근무 ${group.unpaid.length}건을 월급 지급 처리할까요?${advanceNotice}`, confirmLabel: "지급 처리" }))
     )
       return;
 
@@ -523,12 +522,10 @@ export default function WorkJournalPage() {
     });
   };
 
-  const handleWorkerSalaryCancel = (group: (typeof paymentGroups)[number]) => {
+  const handleWorkerSalaryCancel = async (group: (typeof paymentGroups)[number]) => {
     if (
       !group.salary.length ||
-      !window.confirm(
-        `${group.workerName}님의 월급 지급 ${group.salary.length}건을 미지급으로 되돌리시겠습니까?`,
-      )
+      !(await showConfirmDialog({ title: "월급 지급 취소", description: `${group.workerName}님의 월급 지급 ${group.salary.length}건을 미지급으로 되돌릴까요?`, confirmLabel: "미지급으로 변경", tone: "warning" }))
     )
       return;
 
@@ -1377,10 +1374,8 @@ export default function WorkJournalPage() {
                                     size="xs"
                                     variant="secondary"
                                     disabled={closeHandoverMutation.isPending}
-                                    onClick={() => {
-                                      const reason = window.prompt(
-                                        "교대 없이 종료하는 사유를 입력해 주세요.",
-                                      );
+                                    onClick={async () => {
+                                      const reason = await showPromptDialog({ title: "교대 없이 종료", description: "교대 없이 근무를 종료하는 사유를 입력해 주세요.", inputLabel: "종료 사유", placeholder: "사유 입력", confirmLabel: "종료 처리", required: true, tone: "warning" });
                                       if (!reason?.trim()) return;
                                       closeHandoverMutation.mutate({
                                         id: journal.id,
@@ -1403,12 +1398,8 @@ export default function WorkJournalPage() {
                                   size="xs"
                                   variant="danger"
                                   disabled={deleteMutation.isPending}
-                                  onClick={() => {
-                                    if (
-                                      window.confirm(
-                                        "이 근무 기록을 삭제하시겠습니까?",
-                                      )
-                                    ) {
+                                  onClick={async () => {
+                                    if (await showConfirmDialog({ title: "근무 기록 삭제", description: "이 근무 기록을 삭제할까요?", confirmLabel: "삭제", tone: "danger" })) {
                                       deleteMutation.mutate(journal.id);
                                     }
                                   }}

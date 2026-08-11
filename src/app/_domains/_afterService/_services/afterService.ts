@@ -269,15 +269,17 @@ export const updateAfterServiceStatus = async (
     throw new Error('세션을 찾을 수 없습니다');
   }
 
-  // AS 상태 업데이트
+  // 동일 상태의 재요청은 이력까지 중복 생성하지 않습니다.
   const { data: afterService, error: updateError } = await supabase
     .from('after_services')
     .update({ status })
     .eq('id', id)
+    .neq('status', status)
     .select()
-    .single();
+    .maybeSingle();
 
   if (updateError) throw updateError;
+  if (!afterService) return getAfterServiceDetail(id);
 
   // 로그 생성
   const action = `after-service-${status}`;

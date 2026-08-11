@@ -7,6 +7,7 @@ import { getAfterServiceStatusGroups } from "@/app/_utils/utils";
 import { getCurrentWorkerName } from "@/app/_domains/_workJournal/_utils/currentWorker";
 import { useUser } from "@/app/_contexts/UserContext";
 import supabase from "@/libs/supabaseClient";
+import { showConfirmDialog } from "@/app/_components/AppDialog";
 
 type ReservationRow = {
   id: string;
@@ -312,9 +313,12 @@ export default function PendingStatusButton() {
 
   const deleteCompletedMemo = async (memo: HandoverMemo) => {
     if (!isAdmin) return;
-    const shouldDelete = window.confirm(
-      `이전 메모 기록을 삭제하시겠습니까?\n\n내용: ${memo.content}\n작성자: ${memo.author_name}\n처리자: ${memo.completed_by_name || "알 수 없음"}`,
-    );
+    const shouldDelete = await showConfirmDialog({
+      title: "이전 메모 기록 삭제",
+      description: `내용: ${memo.content}\n작성자: ${memo.author_name}\n처리자: ${memo.completed_by_name || "알 수 없음"}`,
+      confirmLabel: "삭제",
+      tone: "danger",
+    });
     if (!shouldDelete) return;
     const { error } = await supabase
       .from("handover_memos")
