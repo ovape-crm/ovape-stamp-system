@@ -45,7 +45,9 @@ const useLogs = (
     initialPageParam: 0,
   });
 
-  const items = data?.pages.flat() ?? [];
+  const items = Array.from(
+    new Map((data?.pages.flat() ?? []).map((item) => [item.id, item])).values(),
+  );
 
   const updateItem = (
     id: string,

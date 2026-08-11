@@ -97,10 +97,35 @@ export default function AdultVerificationPage() {
         ) : (
           <>
             <h1 className="text-xl font-semibold text-gray-900">성인 인증</h1>
-            <p className="mt-3 text-sm leading-6 text-gray-600">
-              비바톤에서 성인 여부만 확인합니다. 인증 결과 외 이름, 생년월일,
-              전화번호는 이 서비스에 저장하지 않습니다.
-            </p>
+            <div className="mt-5 rounded-xl border border-blue-200 bg-blue-50/70 p-4 text-left">
+              <div className="flex items-start gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white shadow-sm">
+                  <svg
+                    className="h-5 w-5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2.2}
+                      d="m9 12 2 2 4-4m5-3.5V12c0 4.5-3.2 7.4-8 9-4.8-1.6-8-4.5-8-9V6.5L12 3l8 3.5Z"
+                    />
+                  </svg>
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold leading-6 text-blue-800">
+                    고객님의 개인정보는 저장되지 않습니다
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-gray-700 sm:text-sm sm:leading-6">
+                    성인 여부만 확인하며 이름, 생년월일, 전화번호는 저장하지
+                    않아 안전하게 이용할 수 있습니다.
+                  </p>
+                </div>
+              </div>
+            </div>
             <a
               href={`/api/adult-verification/bbaton/start?token=${encodeURIComponent(token)}`}
               className="mt-6 inline-flex w-full cursor-pointer items-center justify-center rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"

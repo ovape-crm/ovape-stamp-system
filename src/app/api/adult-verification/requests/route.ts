@@ -4,6 +4,7 @@ import {
   getAuthenticatedStaff,
   hashVerificationToken,
 } from "@/app/_domains/_adultVerification/server";
+import { shortenVerificationUrl } from "@/app/_domains/_adultVerification/shortenVerificationUrl";
 import { createSupabaseAdmin } from "@/libs/supabaseAdmin";
 
 export async function GET(request: NextRequest) {
@@ -77,8 +78,10 @@ export async function POST(request: NextRequest) {
     if (error) throw error;
 
     const origin = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || request.nextUrl.origin;
+    const originalUrl = `${origin}/v/${token}`;
+    const url = await shortenVerificationUrl(originalUrl);
     return NextResponse.json({
-      url: `${origin}/v/${token}`,
+      url,
       expiresAt,
     });
   } catch (error) {

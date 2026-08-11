@@ -107,8 +107,9 @@ const StampSection = ({
             targetCustomerId?: string,
             shouldAddStampForSelectedCustomer?: boolean,
           ) => {
+            let didSave = false;
             if (isReservation) {
-              await handleReserve(
+              didSave = await handleReserve(
                 modalNote,
                 paymentType,
                 amount,
@@ -117,7 +118,7 @@ const StampSection = ({
                 shouldAddStampForSelectedCustomer,
               );
             } else {
-              await handleAdd(
+              didSave = await handleAdd(
                 modalNote,
                 paymentType,
                 amount,
@@ -126,7 +127,7 @@ const StampSection = ({
                 shouldAddStampForSelectedCustomer,
               );
             }
-            close();
+            if (didSave) close();
           }}
         />
       ),
@@ -172,10 +173,14 @@ const StampSection = ({
           ? "미적립으로 기록되었습니다."
           : `스탬프 ${effectiveAmount}개 적립 완료!`,
       );
+      return true;
     } catch (error) {
       const errorMessage = getRequestErrorMessage(error);
       console.warn("출고 처리 실패:", errorMessage);
-      toast.error(errorMessage);
+      if (errorMessage !== "출고 처리를 취소했습니다.") {
+        toast.error(errorMessage);
+      }
+      return false;
     } finally {
       setIsLoading(false);
     }
@@ -207,9 +212,11 @@ const StampSection = ({
       );
       invalidateLogLists();
       toast.success("출고 예약으로 저장되었습니다.");
+      return true;
     } catch (error) {
       console.error("출고 예약 실패:", error);
       toast.error("출고 예약에 실패했습니다.");
+      return false;
     } finally {
       setIsLoading(false);
     }

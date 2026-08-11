@@ -159,6 +159,7 @@ export const getLogsByCustomer = async (
     .eq("customer_id", customerId)
     .eq("category", category)
     .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
     .range(from, to);
 
   if (error) throw error;
@@ -223,6 +224,7 @@ export const getLogsByAfterServiceId = async (
     .eq("after_service_id", afterServiceId)
     .eq("category", "after_service")
     .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
     .range(from, to);
 
   if (error) throw error;
@@ -272,6 +274,7 @@ export const getLogs = async (
 
   const { data, error } = await query
     .order("created_at", { ascending: !!dateRange })
+    .order("id", { ascending: !!dateRange })
     .range(from, to);
 
   if (error) throw error;

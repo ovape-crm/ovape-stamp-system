@@ -35,7 +35,14 @@ export const useLogsByCustomerId = (
     enabled: !!customerId,
   });
 
-  const logs = (data?.pages.flat() ?? []) as CustomersLogsResType;
+  const logs = Array.from(
+    new Map(
+      ((data?.pages.flat() ?? []) as CustomersLogsResType).map((item) => [
+        item.id,
+        item,
+      ]),
+    ).values(),
+  ) as CustomersLogsResType;
 
   const loadMore = async (): Promise<number> => {
     const result = await fetchNextPage();

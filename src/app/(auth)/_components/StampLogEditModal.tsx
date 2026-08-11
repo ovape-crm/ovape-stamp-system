@@ -113,6 +113,8 @@ const StampLogEditModal = ({
     target.phone,
     target.is_stamp_eligible ?? true,
   );
+  const requiresXCustomerInfo =
+    target.name.trim() === "X" && target.phone.trim() === "X";
   const [stampLog, setStampLog] = useState<StampLogValue | null>(null);
   const [xCustomerName, setXCustomerName] = useState(
     initialLogMeta?.xCustomerName ?? "",
@@ -290,11 +292,9 @@ const StampLogEditModal = ({
           step={step}
           customerMode={customerMode}
           customerAddress={target.address}
-          reservationSlot={
-            customerMode === "x" ? xCustomerInfoFields : undefined
-          }
-          xCustomerName={xCustomerName}
-          xPhoneLastDigits={xPhoneLastDigits}
+          reservationSlot={requiresXCustomerInfo ? xCustomerInfoFields : undefined}
+          xCustomerName={requiresXCustomerInfo ? xCustomerName : undefined}
+          xPhoneLastDigits={requiresXCustomerInfo ? xPhoneLastDigits : undefined}
           onChange={setStampLog}
           onValidityChange={setFormValidity}
         />
@@ -303,7 +303,7 @@ const StampLogEditModal = ({
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
               {[
-                ...(customerMode === "x"
+                ...(requiresXCustomerInfo
                   ? [
                       { label: "이름", value: xCustomerName.trim() },
                       {
@@ -333,7 +333,7 @@ const StampLogEditModal = ({
                             : "배달대행"
                         : "매장방문",
                 },
-                ...(customerMode === "x"
+                ...(requiresXCustomerInfo
                   ? []
                   : [
                       {
@@ -595,7 +595,7 @@ const StampLogEditModal = ({
                     ? !formValidity.hasCompletedBasicSequence
                     : !formValidity.hasItems ||
                       !hasValidSplitPaymentAmounts ||
-                      (customerMode === "x" &&
+                      (requiresXCustomerInfo &&
                         !isCustomerInfoDeclined &&
                         (!xCustomerName.trim() || xPhoneLastDigits.length !== 4))
                 }
@@ -610,7 +610,7 @@ const StampLogEditModal = ({
               disabled={
                 isSubmitting ||
                 !stampLog ||
-                (customerMode === "x" &&
+                (requiresXCustomerInfo &&
                   !isCustomerInfoDeclined &&
                   (!xCustomerName.trim() || xPhoneLastDigits.length !== 4))
               }

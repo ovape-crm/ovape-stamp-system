@@ -27,15 +27,18 @@ export const findCustomersByNameAndPhoneLastDigits = async (
 ): Promise<ExistingCustomerMatch[]> => {
   const normalizedName = name.trim();
   const normalizedDigits = phoneLastDigits.replace(/\D/g, "");
-  if (!normalizedName || normalizedDigits.length !== 4) return [];
+  if (normalizedDigits.length !== 4) return [];
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("customers")
     .select("id, name, phone, address, note, is_stamp_eligible")
-    .eq("name", normalizedName)
     .like("phone", `%${normalizedDigits}`)
     .neq("phone", "X")
     .limit(5);
+
+  if (normalizedName) query = query.eq("name", normalizedName);
+
+  const { data, error } = await query;
 
   if (error) throw error;
   return data ?? [];
@@ -194,20 +197,6 @@ export const createCustomer = async (customer: {
   adult_verification_method?: "unverified" | "physical_id" | "bbaton";
   adult_verification_request_id?: string;
 }) => {
-  // X는 중복 체크 제외
-  if (customer.phone !== "X") {
-    const { data: existing, error: existingError } = await supabase
-      .from("customers")
-      .select("id")
-      .eq("phone", customer.phone)
-      .maybeSingle();
-
-    if (existingError) throw existingError;
-    if (existing) {
-      throw new Error("DUPLICATE_CUSTOMER");
-    }
-  }
-
   const {
     data: { session },
   } = await supabase.auth.getSession();
@@ -225,37 +214,15 @@ export const createCustomer = async (customer: {
     ...(customer.address?.trim() ? { address: customer.address.trim() } : {}),
   };
 
-  const { data, error } = await supabase
-    .from("customers")
-    .insert(insertPayload)
-    .select()
-    .single();
+  const { data, error } = await supabase.rpc("create_customer_with_log", {
+    p_customer: insertPayload,
+    p_adult_verification_request_id:
+      customer.adult_verification_method === "bbaton"
+        ? customer.adult_verification_request_id ?? null
+        : null,
+  });
 
   if (error) throw error;
-
-  if (
-    customer.adult_verification_method === "bbaton" &&
-    customer.adult_verification_request_id
-  ) {
-    const { data: attached, error: attachError } = await supabase.rpc(
-      "attach_adult_verification_to_customer",
-      {
-        p_request_id: customer.adult_verification_request_id,
-        p_customer_id: data.id,
-      },
-    );
-    if (attachError || attached !== true) {
-      throw attachError ?? new Error("ADULT_VERIFICATION_ATTACH_FAILED");
-    }
-  }
-
-  await createLog(
-    LogCategoryEnum.CUSTOMER.value,
-    data.id,
-    "create-customer",
-    "",
-    null,
-  );
 
   return data;
 };
@@ -274,21 +241,6 @@ export const updateCustomer = async (
     note?: string;
   },
 ) => {
-  // 중복 체크 (X는 제외)
-  if (updates.phone && updates.phone !== "X") {
-    const { data: existing, error: existingError } = await supabase
-      .from("customers")
-      .select("id")
-      .eq("phone", updates.phone)
-      .neq("id", id)
-      .maybeSingle();
-
-    if (existingError) throw existingError;
-    if (existing) {
-      throw new Error("DUPLICATE_CUSTOMER");
-    }
-  }
-
   const prevCustomer = await getCustomerById(id);
 
   const changeObj = getUpdateLogNote(
@@ -311,21 +263,13 @@ export const updateCustomer = async (
     },
   );
 
-  await createLog(
-    LogCategoryEnum.CUSTOMER.value,
-    id,
-    "update-customer-info",
-    "",
-    changeObj,
-  );
+  if (Object.keys(changeObj).length === 0) return prevCustomer;
 
-  // 고객 업데이트 (결과 없을 수 있음)
-  const { data, error } = await supabase
-    .from("customers")
-    .update(updates)
-    .eq("id", id)
-    .select()
-    .maybeSingle();
+  const { data, error } = await supabase.rpc("update_customer_with_log", {
+    p_customer_id: Number(id),
+    p_updates: updates,
+    p_changes: changeObj,
+  });
 
   if (error) throw error;
   if (!data) throw new Error("NOT_FOUND_CUSTOMER");
@@ -353,13 +297,21 @@ export const updateCustomerAdultVerification = async (
   if (!session) throw new Error("AUTH_REQUIRED");
 
   const previous = await getCustomerById(id);
+  const previousMethod = previous.adult_verification_method ?? null;
+  const nextMethod = verified ? method : null;
+  if (
+    (previous.adult_verified ?? false) === verified &&
+    previousMethod === nextMethod
+  ) {
+    return previous;
+  }
   const verifiedAt = verified ? new Date().toISOString() : null;
   const { data, error } = await supabase
     .from("customers")
     .update({
       adult_verified: verified,
       adult_verified_at: verifiedAt,
-      adult_verification_method: verified ? method : null,
+      adult_verification_method: nextMethod,
       adult_verified_by: verified ? session.user.id : null,
     })
     .eq("id", id)

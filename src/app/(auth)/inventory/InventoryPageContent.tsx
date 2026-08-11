@@ -10,6 +10,8 @@ import Loading from "@/app/_components/Loading";
 import KoreanDatePicker, {
   KoreanDateRangePicker,
 } from "@/app/_components/KoreanDatePicker";
+import SupplierDefaultTaxInvoiceDialog from "./_components/SupplierDefaultTaxInvoiceDialog";
+import { showConfirmDialog, showPromptDialog } from "@/app/_components/AppDialog";
 import { useUser } from "@/app/_contexts/UserContext";
 import {
   getInventoryMovements,
@@ -715,9 +717,15 @@ function InitialStockSetup({
   };
 
   const resetAllInventory = async () => {
-    const confirmation = window.prompt(
-      "현재 재고와 모든 재고 변동 이력이 삭제됩니다. 계속하려면 '재고초기화'를 입력하세요.",
-    );
+    const confirmation = await showPromptDialog({
+      title: "전체 재고 초기화",
+      description: "현재 재고와 모든 재고 변동 이력이 삭제됩니다.\n계속하려면 아래에 ‘재고초기화’를 입력하세요.",
+      inputLabel: "확인 문구",
+      placeholder: "재고초기화",
+      confirmLabel: "초기화",
+      required: true,
+      tone: "danger",
+    });
     if (confirmation !== "재고초기화") return;
     setResetting(true);
     try {
@@ -1655,6 +1663,8 @@ function ReceiptManager({
   const [supplierId, setSupplierId] = useState("");
   const [supplierSearch, setSupplierSearch] = useState("");
   const [supplierPickerOpen, setSupplierPickerOpen] = useState(false);
+  const [pendingSupplierTaxInvoiceStatus, setPendingSupplierTaxInvoiceStatus] =
+    useState<TaxInvoiceStatus | null>(null);
   const supplierPickerRef = useRef<HTMLDivElement>(null);
   const [taxInvoiceStatus, setTaxInvoiceStatus] =
     useState<TaxInvoiceStatus>("");
@@ -1867,6 +1877,8 @@ function ReceiptManager({
   );
 
   const selectSupplier = (supplier: InventorySupplier) => {
+    const supplierInput = supplierPickerRef.current?.querySelector("input");
+    supplierInput?.blur();
     setSupplierId(supplier.id);
     setSupplierSearch(supplier.name);
     setSupplierPickerOpen(false);
@@ -1875,20 +1887,8 @@ function ReceiptManager({
       supplier.note,
     );
     if (!savedTaxInvoiceStatus) return;
-
-    const shouldLoad = window.confirm(
-      `저장된 발행 종류(${savedTaxInvoiceStatus})를 불러오시겠습니까?\n\nA/S 입고나 스티커 처리 시 아니오를 클릭하고 발행 종류를 X로 선택해 주세요.`,
-    );
-    if (shouldLoad) {
-      setTaxInvoiceStatus(savedTaxInvoiceStatus);
-      setTaxInvoiceSearch(savedTaxInvoiceStatus);
-      setTaxInvoicePickerOpen(false);
-      return;
-    }
-
-    setTaxInvoiceStatus("");
-    setTaxInvoiceSearch("");
-    setTaxInvoicePickerOpen(true);
+    setTaxInvoicePickerOpen(false);
+    setPendingSupplierTaxInvoiceStatus(savedTaxInvoiceStatus);
   };
 
   const commitDraftRow = () => {
@@ -2164,7 +2164,11 @@ function ReceiptManager({
                         </svg>
                         <input
                           value={supplierSearch}
-                          onFocus={() => setSupplierPickerOpen(true)}
+                          onFocus={() => {
+                            if (!pendingSupplierTaxInvoiceStatus) {
+                              setSupplierPickerOpen(true);
+                            }
+                          }}
                           onChange={(event) => {
                             setSupplierSearch(event.target.value);
                             setSupplierId("");
@@ -3268,6 +3272,25 @@ function ReceiptManager({
               </div>
             </div>
           )}
+          {pendingSupplierTaxInvoiceStatus && (
+            <SupplierDefaultTaxInvoiceDialog
+              savedStatus={pendingSupplierTaxInvoiceStatus}
+              onLoad={() => {
+                setSupplierPickerOpen(false);
+                setTaxInvoiceStatus(pendingSupplierTaxInvoiceStatus);
+                setTaxInvoiceSearch(pendingSupplierTaxInvoiceStatus);
+                setTaxInvoicePickerOpen(false);
+                setPendingSupplierTaxInvoiceStatus(null);
+              }}
+              onChooseManually={() => {
+                setSupplierPickerOpen(false);
+                setTaxInvoiceStatus("");
+                setTaxInvoiceSearch("");
+                setPendingSupplierTaxInvoiceStatus(null);
+                setTaxInvoicePickerOpen(true);
+              }}
+            />
+          )}
         </div>
       )}
 
@@ -4158,9 +4181,8 @@ function PurchaseOrderList({
                           <Button
                             size="xs"
                             variant="danger"
-                            onClick={() => {
-                              const reason =
-                                window.prompt("입고 취소 사유를 입력하세요.");
+                            onClick={async () => {
+                              const reason = await showPromptDialog({ title: "입고 취소", description: "입고를 취소하면 반영된 재고가 복구됩니다.", inputLabel: "취소 사유", placeholder: "사유 입력", confirmLabel: "입고 취소", required: true, tone: "danger" });
                               if (reason?.trim())
                                 void run(
                                   () =>
@@ -4247,12 +4269,8 @@ function PurchaseOrderList({
                     <Button
                       size="xs"
                       variant="danger"
-                      onClick={() => {
-                        if (
-                          window.confirm(
-                            "이 입고 이력을 삭제할까요? 반영된 입고 재고와 관련 변동 이력도 함께 되돌아갑니다.",
-                          )
-                        )
+                      onClick={async () => {
+                        if (await showConfirmDialog({ title: "입고 이력 삭제", description: "이 입고 이력을 삭제할까요?\n반영된 입고 재고와 관련 변동 이력도 함께 되돌아갑니다.", confirmLabel: "이력 삭제", tone: "danger" }))
                           void run(
                             () => deletePurchaseOrderHistory(order.id),
                             "입고 이력을 삭제했습니다.",
@@ -4430,13 +4448,11 @@ function PurchaseOrderList({
                                     [line.id]: nextValue,
                                   }))
                                 }
-                                onSave={() => {
+                                onSave={async () => {
                                   const qty = Number(value);
                                   if (
                                     qty > lineRemaining &&
-                                    !window.confirm(
-                                      `주문 잔량은 ${lineRemaining}개입니다. ${qty}개로 저장할까요?`,
-                                    )
+                                    !(await showConfirmDialog({ title: "주문 잔량 초과", description: `주문 잔량은 ${lineRemaining}개입니다.\n${qty}개로 저장할까요?`, confirmLabel: "수량 저장", tone: "warning" }))
                                   )
                                     return;
                                   void (async () => {
@@ -4901,9 +4917,8 @@ function PurchaseOrderList({
                     {isAdmin && (
                       <Button
                         variant="gray"
-                        onClick={() => {
-                          const reason =
-                            window.prompt("미입고 종료 사유를 입력하세요.");
+                        onClick={async () => {
+                          const reason = await showPromptDialog({ title: "미입고 종료", description: "남은 미입고 수량을 종료하는 사유를 입력해 주세요.", inputLabel: "종료 사유", placeholder: "사유 입력", confirmLabel: "미입고 종료", required: true, tone: "warning" });
                           if (reason?.trim())
                             void run(
                               () =>
@@ -4936,9 +4951,8 @@ function PurchaseOrderList({
                         <Button
                           size="xs"
                           variant="danger"
-                          onClick={() => {
-                            const reason =
-                              window.prompt("입고 취소 사유를 입력하세요.");
+                          onClick={async () => {
+                            const reason = await showPromptDialog({ title: "입고 취소", description: "입고를 취소하면 반영된 재고가 복구됩니다.", inputLabel: "취소 사유", placeholder: "사유 입력", confirmLabel: "입고 취소", required: true, tone: "danger" });
                             if (reason?.trim())
                               void run(
                                 () =>
@@ -5732,10 +5746,8 @@ function PurchaseAdjustmentCategoryOverlay({
                         size="sm"
                         variant="danger"
                         disabled={pending}
-                        onClick={() => {
-                          if (
-                            window.confirm(`‘${item.name}’ 항목을 삭제할까요?`)
-                          )
+                        onClick={async () => {
+                          if (await showConfirmDialog({ title: "거래 항목 삭제", description: `‘${item.name}’ 항목을 삭제할까요?`, confirmLabel: "삭제", tone: "danger" }))
                             void run(
                               () =>
                                 deactivatePurchaseAdjustmentCategory(item.id),

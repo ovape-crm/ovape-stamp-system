@@ -32,6 +32,7 @@ export type StampLogItem = {
 };
 
 export type StampLogMeta = {
+  clientRequestId?: string;
   storeName?: StoreTypeEnumType["value"];
   totalAmount?: number;
   extraNote?: string;
@@ -70,7 +71,11 @@ export const addStamp = async (
   paymentType?: PaymentTypeEnumType["value"],
   logMeta?: StampLogMeta,
 ) => {
-  if (!(await confirmOutboundInventory(logMeta?.items ?? []))) {
+  const requestMeta = {
+    ...logMeta,
+    clientRequestId: logMeta?.clientRequestId ?? crypto.randomUUID(),
+  };
+  if (!(await confirmOutboundInventory(requestMeta.items ?? []))) {
     throw new Error("출고 처리를 취소했습니다.");
   }
   const { error } = await supabase.rpc("apply_stamp_log_operation", {
@@ -78,7 +83,7 @@ export const addStamp = async (
     p_stamp_delta: amount,
     p_action: amount === 0 ? "no-stamp" : `add-${amount}`,
     p_note: note,
-    p_jsonb: await withCreatedWorker({ paymentType, ...logMeta }),
+    p_jsonb: await withCreatedWorker({ paymentType, ...requestMeta }),
   });
   if (error) throw error;
 };
@@ -93,12 +98,16 @@ export const addReservationStamp = async (
   paymentType?: PaymentTypeEnumType["value"],
   logMeta?: StampLogMeta,
 ) => {
+  const requestMeta = {
+    ...logMeta,
+    clientRequestId: logMeta?.clientRequestId ?? crypto.randomUUID(),
+  };
   return createLog(
     LogCategoryEnum.RESERVATION.value,
     customerId,
     amount === 0 ? "no-stamp" : `add-${amount}`,
     note,
-    { paymentType, ...logMeta },
+    { paymentType, ...requestMeta },
   );
 };
 
