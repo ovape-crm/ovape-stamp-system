@@ -336,6 +336,16 @@ export const updateLogNote = async (
     } else {
       delete nextJsonb.extraNote;
     }
+    if (logMeta.xCustomerName !== undefined) {
+      nextJsonb.xCustomerName = logMeta.xCustomerName;
+    } else {
+      delete nextJsonb.xCustomerName;
+    }
+    if (logMeta.xPhoneLastDigits !== undefined) {
+      nextJsonb.xPhoneLastDigits = logMeta.xPhoneLastDigits;
+    } else {
+      delete nextJsonb.xPhoneLastDigits;
+    }
     nextJsonb.deliveryMethod = logMeta.deliveryMethod ?? "store_visit";
     if (logMeta.deliveryType) {
       nextJsonb.deliveryType = logMeta.deliveryType;

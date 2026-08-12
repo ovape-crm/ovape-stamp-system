@@ -361,7 +361,7 @@ export const getPurchaseOrders = async (
   const { data, error } = await supabase
     .from("inventory_purchase_orders")
     .select(
-      `*, inventory_suppliers(name), inventory_purchase_order_lines(${lineColumns}), inventory_purchase_receipts(id, arrived_on, note, created_at, reversed_at, inventory_purchase_receipt_lines(id, order_line_id, item_name, quantity, note, quantity_check_note)), inventory_purchase_order_adjustments(id, category_id, category_name, kind, amount, note)`,
+      `*, inventory_suppliers(name), inventory_purchase_order_lines(${lineColumns}, customers(name, phone)), inventory_purchase_receipts(id, arrived_on, note, created_at, reversed_at, inventory_purchase_receipt_lines(id, order_line_id, item_name, quantity, note, quantity_check_note)), inventory_purchase_order_adjustments(id, category_id, category_name, kind, amount, note)`,
     )
     .order("created_at", { ascending: false });
   if (!error) return (data ?? []) as unknown as PurchaseOrder[];
@@ -375,7 +375,7 @@ export const getPurchaseOrders = async (
   const { data: compatibleData, error: compatibleError } = await supabase
     .from("inventory_purchase_orders")
     .select(
-      `*, inventory_suppliers(name), inventory_purchase_order_lines(${compatibleLineColumns}), inventory_purchase_receipts(id, arrived_on, note, created_at, reversed_at, inventory_purchase_receipt_lines(id, order_line_id, item_name, quantity, note))`,
+      `*, inventory_suppliers(name), inventory_purchase_order_lines(${compatibleLineColumns}, customers(name, phone)), inventory_purchase_receipts(id, arrived_on, note, created_at, reversed_at, inventory_purchase_receipt_lines(id, order_line_id, item_name, quantity, note))`,
     )
     .order("created_at", { ascending: false });
   if (!compatibleError) {

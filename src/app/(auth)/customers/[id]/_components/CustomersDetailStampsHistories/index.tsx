@@ -212,6 +212,7 @@ const CustomersDetailStampsHistories = ({
             target={{
               name: targetUser.name,
               phone: targetUser.phone,
+              gender: targetUser.gender,
               address: targetUser.address,
               note: targetUser.note,
               is_stamp_eligible: targetUser.is_stamp_eligible,
@@ -239,6 +240,7 @@ const CustomersDetailStampsHistories = ({
       onUpdateLog,
       isReservation,
       targetUser.name,
+      targetUser.gender,
       targetUser.address,
       targetUser.note,
       targetUser.phone,
@@ -332,6 +334,18 @@ const CustomersDetailStampsHistories = ({
                             <p className="mt-1 italic text-gray-400">
                               출고 특이사항: &quot;{log.jsonb.extraNote.trim()}
                               &quot;
+                            </p>
+                          )}
+                        {typeof log.jsonb?.xCustomerName === "string" &&
+                          log.jsonb.xCustomerName.trim() && (
+                            <p className="mt-1 italic text-gray-400">
+                              이름: {log.jsonb.xCustomerName.trim()}
+                            </p>
+                          )}
+                        {typeof log.jsonb?.xPhoneLastDigits === "string" &&
+                          log.jsonb.xPhoneLastDigits.trim() && (
+                            <p className="mt-1 italic text-gray-400">
+                              핸드폰 뒷번호: {log.jsonb.xPhoneLastDigits.trim()}
                             </p>
                           )}
                         {(log.jsonb?.deliveryMethod === "parcel" ||
