@@ -76,11 +76,6 @@ export default function PendingStatusButton() {
   const [reservations, setReservations] = useState<ReservationRow[]>([]);
   const [afterServices, setAfterServices] = useState<AfterServiceRow[]>([]);
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrderRow[]>([]);
-  const [memos, setMemos] = useState<HandoverMemo[]>([]);
-  const [memoInput, setMemoInput] = useState("");
-  const [isMemoFormOpen, setIsMemoFormOpen] = useState(false);
-  const [isSavingMemo, setIsSavingMemo] = useState(false);
-  const [memoStorageAvailable, setMemoStorageAvailable] = useState(true);
   const [memoToComplete, setMemoToComplete] = useState<HandoverMemo | null>(
     null,
   );
@@ -124,12 +119,8 @@ export default function PendingStatusButton() {
       ...afterServiceStatusGroups.received,
       ...afterServiceStatusGroups.inProgress,
     ];
-    const [
-      reservationResult,
-      afterServiceResult,
-      purchaseOrderResult,
-      memoResult,
-    ] = await Promise.all([
+    const [reservationResult, afterServiceResult, purchaseOrderResult] =
+      await Promise.all([
       supabase
         .from("logs")
         .select("id, note, jsonb, customers(name, phone)")
@@ -146,13 +137,6 @@ export default function PendingStatusButton() {
           "id, status, inventory_suppliers(name), inventory_purchase_order_lines(pending_quantity)",
         )
         .in("status", ["pending", "partial"])
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("handover_memos")
-        .select(
-          "id, content, author_name, created_at, is_completed, completed_at, completed_by_name",
-        )
-        .eq("is_completed", false)
         .order("created_at", { ascending: false }),
     ]);
 
@@ -195,14 +179,6 @@ export default function PendingStatusButton() {
       })),
     );
 
-    if (memoResult.error) {
-      console.warn("전달 메모 저장소를 불러오지 못했습니다.", memoResult.error);
-      setMemoStorageAvailable(false);
-      setMemos([]);
-    } else {
-      setMemoStorageAvailable(true);
-      setMemos((memoResult.data ?? []) as HandoverMemo[]);
-    }
     setIsLoading(false);
   }, []);
 
@@ -253,32 +229,6 @@ export default function PendingStatusButton() {
         : [...current, ...((data ?? []) as HandoverMemo[])],
     );
     setMemoHistoryCount(count ?? 0);
-  };
-
-  const addMemo = async () => {
-    const content = memoInput.trim();
-    if (!content || !memoStorageAvailable) return;
-    const resolvedActorName = await resolveActorName();
-    if (!resolvedActorName) {
-      toast.error(
-        "현재 근무자를 확인할 수 없습니다. 출근 기록을 확인해 주세요.",
-      );
-      return;
-    }
-    setIsSavingMemo(true);
-    const { error } = await supabase.from("handover_memos").insert({
-      content,
-      author_name: resolvedActorName,
-    });
-    setIsSavingMemo(false);
-    if (error) {
-      toast.error("전달 메모를 저장하지 못했습니다.");
-      return;
-    }
-    setMemoInput("");
-    setIsMemoFormOpen(false);
-    toast.success("전달 메모를 추가했습니다.");
-    void loadData();
   };
 
   const completeMemo = async () => {
@@ -368,7 +318,7 @@ export default function PendingStatusButton() {
                   미처리 현황
                 </h2>
                 <p className="mt-0.5 text-sm text-gray-500">
-                  예약, A/S, 미입고와 전달 메모를 한곳에서 확인합니다.
+                  출고 예약, 미입고 거래처, 진행 중 A/S를 한곳에서 확인합니다.
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -392,7 +342,7 @@ export default function PendingStatusButton() {
             </header>
 
             <div className="min-h-0 flex-1 overflow-y-auto bg-gray-50/70 p-4 sm:p-6">
-              <div className="grid gap-4 lg:grid-cols-2">
+              <div className="grid gap-4 lg:grid-cols-3">
                 <StatusCard
                   title="출고 예약"
                   count={reservations.length}
@@ -430,7 +380,7 @@ export default function PendingStatusButton() {
                   count={afterServices.length}
                   href="/after-services?group=all"
                 >
-                  <div className="grid gap-2 pt-3 sm:grid-cols-3">
+                  <div className="grid gap-2 pt-3 sm:grid-cols-2">
                     {afterServices.slice(0, 10).map((afterService) => (
                       <Link
                         key={afterService.id}
@@ -459,7 +409,7 @@ export default function PendingStatusButton() {
                   count={pendingSuppliers.length}
                   href="/inventory/receive"
                 >
-                  <div className="grid gap-2 pt-3 sm:grid-cols-3">
+                  <div className="grid gap-2 pt-3 sm:grid-cols-2">
                     {pendingSuppliers.slice(0, 10).map((supplier) => (
                       <Link
                         key={supplier.id}
@@ -478,117 +428,6 @@ export default function PendingStatusButton() {
                   )}
                 </StatusCard>
 
-                <StatusCard
-                  title="전달 메모"
-                  count={memos.length}
-                  action={
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsMemoHistoryOpen(true);
-                          void loadMemoHistory(0);
-                        }}
-                        className="cursor-pointer rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-semibold text-gray-600 hover:border-brand-200 hover:bg-gray-50 hover:text-brand-600"
-                      >
-                        이전 메모 기록
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setIsMemoFormOpen(true)}
-                        disabled={!memoStorageAvailable || isMemoFormOpen}
-                        className="cursor-pointer rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        메모 추가
-                      </button>
-                    </div>
-                  }
-                >
-                  {memos.slice(0, 5).map((memo) => (
-                    <div
-                      key={memo.id}
-                      className="flex items-start gap-3 border-b border-gray-100 px-1 py-3 last:border-b-0"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="break-words text-base text-gray-800">
-                          {memo.content}
-                        </p>
-                        <p className="mt-1 text-sm text-gray-400">
-                          {memo.author_name} · {formatMemoTime(memo.created_at)}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          void resolveActorName().then((resolvedName) => {
-                            if (!resolvedName) {
-                              toast.error(
-                                "현재 근무자를 확인할 수 없습니다. 출근 기록을 확인해 주세요.",
-                              );
-                              return;
-                            }
-                            setMemoToComplete(memo);
-                          });
-                        }}
-                        className="cursor-pointer rounded-md border border-gray-200 bg-white px-2 py-1 text-sm font-semibold text-gray-500 hover:bg-gray-50"
-                      >
-                        완료
-                      </button>
-                    </div>
-                  ))}
-                  {!isLoading && memos.length === 0 && (
-                    <EmptyState
-                      text={
-                        memoStorageAvailable
-                          ? "등록된 전달 메모가 없습니다."
-                          : "전달 메모 DB 적용이 필요합니다."
-                      }
-                    />
-                  )}
-                  {isMemoFormOpen && (
-                    <div className="border-t border-gray-100 pt-3">
-                      <input
-                        type="text"
-                        value={memoInput}
-                        onChange={(event) => setMemoInput(event.target.value)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter" && memoInput.trim()) {
-                            void addMemo();
-                          }
-                        }}
-                        autoFocus
-                        disabled={!memoStorageAvailable || isSavingMemo}
-                        placeholder="전달할 내용을 입력하세요"
-                        className="w-full min-w-0 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-base text-gray-900 shadow-sm outline-none placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:bg-gray-100"
-                      />
-                      <div className="mt-2 flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setMemoInput("");
-                            setIsMemoFormOpen(false);
-                          }}
-                          disabled={isSavingMemo}
-                          className="cursor-pointer rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-semibold text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          취소
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void addMemo()}
-                          disabled={
-                            !memoInput.trim() ||
-                            isSavingMemo ||
-                            !memoStorageAvailable
-                          }
-                          className="cursor-pointer rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          {isSavingMemo ? "등록 중" : "등록"}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </StatusCard>
               </div>
             </div>
           </section>

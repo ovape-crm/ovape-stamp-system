@@ -185,6 +185,7 @@ const StampHistories = ({
             target={{
               name: log.customers.name,
               phone: log.customers.phone,
+              gender: log.customers.gender,
               address: log.customers.address,
               note: log.customers.note,
               is_stamp_eligible: log.customers.is_stamp_eligible,

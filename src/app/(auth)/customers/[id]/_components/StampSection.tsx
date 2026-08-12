@@ -90,6 +90,7 @@ const StampSection = ({
           target={{
             name: target.name,
             phone: target.phone,
+            gender: target.gender,
             address: target.address,
             note: target.note,
             is_stamp_eligible: target.is_stamp_eligible,
@@ -168,11 +169,20 @@ const StampSection = ({
       );
       onUpdate();
       invalidateLogLists();
-      toast.success(
-        effectiveAmount === 0
+      const successMessage = targetCustomerId
+        ? effectiveAmount === 0
           ? "미적립으로 기록되었습니다."
-          : `스탬프 ${effectiveAmount}개 적립 완료!`,
-      );
+          : `스탬프 ${effectiveAmount}개 적립 완료!`
+        : customerMode === "x"
+          ? "특수계정 출고가 완료되었습니다."
+          : customerMode === "demo"
+            ? "시연용 처리가 완료되었습니다."
+            : customerMode === "adjustment"
+              ? "재고조정이 완료되었습니다."
+              : effectiveAmount === 0
+                ? "미적립으로 기록되었습니다."
+                : `스탬프 ${effectiveAmount}개 적립 완료!`;
+      toast.success(successMessage);
       return true;
     } catch (error) {
       const errorMessage = getRequestErrorMessage(error);
@@ -339,6 +349,7 @@ const StampSection = ({
                         target={{
                           name: target.name,
                           phone: target.phone,
+                          gender: target.gender,
                           address: target.address,
                           note: target.note,
                           is_stamp_eligible: target.is_stamp_eligible,
@@ -369,6 +380,7 @@ const StampSection = ({
                         target={{
                           name: target.name,
                           phone: target.phone,
+                          gender: target.gender,
                           address: target.address,
                           note: target.note,
                           is_stamp_eligible: target.is_stamp_eligible,

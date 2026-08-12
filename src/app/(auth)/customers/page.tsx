@@ -11,7 +11,7 @@ import {
   type CustomerQuickLink,
 } from "@/app/_domains/_customer/_services/customerService";
 import toast from "react-hot-toast";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Button from "@/app/_components/Button";
 import { useQueryClient } from "@tanstack/react-query";
 import { customerKeys } from "@/app/_domains/_customer/_queryKeys/customerKeys";
@@ -66,6 +66,8 @@ export default function CustomersPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [quickLinks, setQuickLinks] = useState<CustomerQuickLink[]>([]);
   const [isQuickLinksLoading, setIsQuickLinksLoading] = useState(false);
+  const [isQuickLinksOpen, setIsQuickLinksOpen] = useState(false);
+  const quickLinksRef = useRef<HTMLDivElement>(null);
 
   const findQuickLink = (key: (typeof quickLinkDefinitions)[number]["key"]) =>
     quickLinks.find((customer) => {
@@ -106,6 +108,26 @@ export default function CustomersPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!isQuickLinksOpen) return;
+
+    const handleOutsidePointer = (event: PointerEvent) => {
+      if (!quickLinksRef.current?.contains(event.target as Node)) {
+        setIsQuickLinksOpen(false);
+      }
+    };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsQuickLinksOpen(false);
+    };
+
+    document.addEventListener("pointerdown", handleOutsidePointer);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("pointerdown", handleOutsidePointer);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [isQuickLinksOpen]);
+
   // ========================================================================
   // 고객 추가 핸들러
   // ========================================================================
@@ -124,7 +146,8 @@ export default function CustomersPage() {
         is_stamp_eligible: values.is_stamp_eligible,
         address: values.address,
         note: values.note,
-        adult_verification_method: values.adult_verification_method || undefined,
+        adult_verification_method:
+          values.adult_verification_method || undefined,
         adult_verification_request_id: values.adult_verification_request_id,
       });
       toast.success("고객이 추가되었습니다.");
@@ -189,22 +212,43 @@ export default function CustomersPage() {
         onSortChange={setSort}
         headerActions={
           <>
-            {quickLinkDefinitions.map((definition) => {
-              const customer = findQuickLink(definition.key);
-              return (
-                <Button
-                  key={definition.key}
-                  size="sm"
-                  variant="secondary"
-                  disabled={isQuickLinksLoading || !customer}
-                  onClick={() =>
-                    customer && router.push(`/customers/${customer.id}`)
-                  }
-                >
-                  {isQuickLinksLoading ? "불러오는 중..." : definition.label}
-                </Button>
-              );
-            })}
+            <div ref={quickLinksRef} className="relative flex items-center">
+              {isQuickLinksOpen && (
+                <div className="absolute right-full top-1/2 z-30 mr-2 flex -translate-y-1/2 flex-nowrap items-center gap-2 whitespace-nowrap rounded-xl border border-gray-200 bg-white p-1.5 shadow-lg">
+                  {quickLinkDefinitions.map((definition) => {
+                    const customer = findQuickLink(definition.key);
+                    return (
+                      <Button
+                        key={definition.key}
+                        size="sm"
+                        variant="secondary"
+                        className="whitespace-nowrap"
+                        disabled={isQuickLinksLoading || !customer}
+                        onClick={() => {
+                          if (!customer) return;
+                          setIsQuickLinksOpen(false);
+                          router.push(`/customers/${customer.id}`);
+                        }}
+                      >
+                        {isQuickLinksLoading
+                          ? "불러오는 중..."
+                          : definition.label}
+                      </Button>
+                    );
+                  })}
+                </div>
+              )}
+              <Button
+                size="sm"
+                variant="secondary"
+                className="whitespace-nowrap"
+                aria-expanded={isQuickLinksOpen}
+                aria-haspopup="menu"
+                onClick={() => setIsQuickLinksOpen((open) => !open)}
+              >
+                특수계정 바로가기
+              </Button>
+            </div>
             <Button
               size="sm"
               variant="secondary"

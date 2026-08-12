@@ -83,6 +83,7 @@ export default function StampConfirmModal({
   target: {
     name: string;
     phone: string;
+    gender?: "male" | "female" | null;
     address?: string | null;
     note?: string | null;
     is_stamp_eligible?: boolean;
@@ -119,12 +120,18 @@ export default function StampConfirmModal({
     "remove",
   );
   const [stampLog, setStampLog] = useState<StampLogValue | null>(null);
-  const [isReservation, setIsReservation] = useState(false);
+  const [shipmentTiming, setShipmentTiming] = useState<
+    "immediate" | "reservation" | ""
+  >("");
   const [reservationDate, setReservationDate] = useState("");
+  const isReservation = shipmentTiming === "reservation";
+  const hasSelectedShipmentTiming = shipmentTiming !== "";
   const [xCustomerName, setXCustomerName] = useState("");
   const [xPhoneLastDigits, setXPhoneLastDigits] = useState("");
   const isCustomerInfoDeclined =
     xCustomerName === "X" && xPhoneLastDigits === "X";
+  const hasValidXPhoneLastDigits =
+    xPhoneLastDigits === "X" || /^\d{4}$/.test(xPhoneLastDigits);
   const [customerMatches, setCustomerMatches] = useState<
     ExistingCustomerMatch[]
   >([]);
@@ -132,8 +139,10 @@ export default function StampConfirmModal({
     useState<ExistingCustomerMatch | null>(null);
   const [pendingCustomer, setPendingCustomer] =
     useState<ExistingCustomerMatch | null>(null);
-  const [shouldAddStampForSelectedCustomer, setShouldAddStampForSelectedCustomer] =
-    useState(false);
+  const [
+    shouldAddStampForSelectedCustomer,
+    setShouldAddStampForSelectedCustomer,
+  ] = useState(false);
   const [isSearchingCustomer, setIsSearchingCustomer] = useState(false);
   const hasValidReservationDate =
     !isReservation || /^\d{1,2}\/\d{1,2}$/.test(reservationDate.trim());
@@ -159,10 +168,11 @@ export default function StampConfirmModal({
     selectedCustomer?.is_stamp_eligible !== false;
 
   useEffect(() => {
-    if (
-      !isAnonymousXCustomer ||
-      xPhoneLastDigits.length !== 4
-    ) {
+    const hasSearchableName =
+      xCustomerName.trim().length > 0 &&
+      xCustomerName.trim().toUpperCase() !== "X";
+    const hasSearchablePhone = /^\d{4}$/.test(xPhoneLastDigits);
+    if (!isAnonymousXCustomer || (!hasSearchableName && !hasSearchablePhone)) {
       setCustomerMatches([]);
       return;
     }
@@ -219,9 +229,9 @@ export default function StampConfirmModal({
         ? "재고조정 (입고 또는 출고)"
         : customerMode === "demo"
           ? "시연용 처리"
-        : isReservation
-          ? "출고 예약 추가"
-          : "출고 이력 추가"
+          : isReservation
+            ? "출고 예약 추가"
+            : "출고 이력 추가"
       : mode === "adjust"
         ? "스탬프 조정"
         : "쿠폰 사용";
@@ -325,33 +335,34 @@ export default function StampConfirmModal({
   };
 
   const reservationToggle = (
-    <div className="h-full rounded-lg border border-gray-200 bg-gray-50 p-3">
-      <p className="mb-2 text-sm font-semibold text-gray-800">출고 방식</p>
-      <div className="grid grid-cols-[minmax(0,1fr)_110px] items-center gap-2">
-        <div className="grid grid-cols-2 gap-2">
-          <Button
-            type="button"
-            size="sm"
-            variant={!isReservation ? "primary" : "gray"}
-            className="rounded-lg"
-            onClick={() => {
-              setIsReservation(false);
-              setReservationDate("");
-            }}
-          >
-            즉시 출고
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={isReservation ? "primary" : "gray"}
-            className="rounded-lg"
-            onClick={() => setIsReservation(true)}
-          >
-            예약 출고
-          </Button>
-        </div>
-        {isReservation ? (
+    <div className="h-full">
+      <div
+        className={`grid items-center gap-2 ${
+          isReservation ? "grid-cols-3" : "grid-cols-2"
+        }`}
+      >
+        <Button
+          type="button"
+          size="sm"
+          variant={shipmentTiming === "immediate" ? "primary" : "gray"}
+          className="h-10 w-full rounded-lg py-0 sm:py-0"
+          onClick={() => {
+            setShipmentTiming("immediate");
+            setReservationDate("");
+          }}
+        >
+          즉시 출고
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={isReservation ? "primary" : "gray"}
+          className="h-10 w-full rounded-lg py-0 sm:py-0"
+          onClick={() => setShipmentTiming("reservation")}
+        >
+          예약 출고
+        </Button>
+        {isReservation && (
           <input
             type="text"
             inputMode="numeric"
@@ -364,34 +375,34 @@ export default function StampConfirmModal({
             }}
             placeholder="ex) 7/19"
             aria-label="예약 출고 날짜"
-            className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none transition placeholder:text-gray-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+            className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm shadow-sm outline-none transition placeholder:text-gray-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
           />
-        ) : (
-          <div aria-hidden="true" className="h-11" />
         )}
       </div>
     </div>
   );
 
   const xCustomerInfoFields = (
-    <div className="h-full rounded-lg border border-gray-200 bg-gray-50 p-3">
-      <div className="mb-2 flex items-center gap-2">
-        <p className="text-sm font-semibold text-gray-800">고객 정보</p>
-        <Button
-          type="button"
-          size="xs"
-          variant={isCustomerInfoDeclined ? "primary" : "gray"}
-          onClick={() => {
-            setXCustomerName(isCustomerInfoDeclined ? "" : "X");
-            setXPhoneLastDigits(isCustomerInfoDeclined ? "" : "X");
-            setSelectedCustomer(null);
-          }}
-        >
-          정보 제공 안 함
-        </Button>
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <label className="min-w-0">
+    <div className="h-full overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+      <div className="grid min-h-12 grid-cols-[72px_minmax(0,1fr)] items-stretch">
+        <p className="flex items-center justify-center whitespace-nowrap border-r border-gray-200 px-2 text-center text-sm font-semibold text-gray-800">
+          고객 정보
+        </p>
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_90px] items-center gap-1 p-1.5">
+          <Button
+            type="button"
+            size="xs"
+            variant={isCustomerInfoDeclined ? "primary" : "gray"}
+            className="order-3 h-8 w-full whitespace-nowrap px-2"
+            onClick={() => {
+              setXCustomerName(isCustomerInfoDeclined ? "" : "X");
+              setXPhoneLastDigits(isCustomerInfoDeclined ? "" : "X");
+              setSelectedCustomer(null);
+            }}
+          >
+            둘 다 제공 X
+          </Button>
+          <label className="order-1 min-w-0">
           <input
             type="text"
             aria-label="이름"
@@ -401,34 +412,37 @@ export default function StampConfirmModal({
               setXCustomerName(event.target.value);
               setSelectedCustomer(null);
             }}
-            placeholder="이름 입력"
-            className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
+            placeholder="이름 / 미제공 X"
+            className="h-8 w-full rounded-lg border border-gray-300 bg-white px-2 text-xs font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
           />
-        </label>
-        <label className="min-w-0">
+          </label>
+          <label className="order-2 min-w-0">
           <input
             type="text"
             aria-label="핸드폰 뒷번호"
-            inputMode="numeric"
             maxLength={4}
             value={xPhoneLastDigits}
             disabled={isCustomerInfoDeclined}
             onChange={(event) => {
+              const value = event.target.value.toUpperCase();
               setXPhoneLastDigits(
-                event.target.value.replace(/\D/g, "").slice(0, 4),
+                value === "X" ? "X" : value.replace(/\D/g, "").slice(0, 4),
               );
               setSelectedCustomer(null);
             }}
-            placeholder="뒷번호 4자리"
-            className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
+            placeholder="뒷번호 / 미제공 X"
+            className="h-8 w-full rounded-lg border border-gray-300 bg-white px-2 text-xs font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
           />
-        </label>
+          </label>
+        </div>
       </div>
       {isSearchingCustomer && (
-        <p className="mt-2 text-xs text-gray-500">기존 고객을 확인하고 있습니다.</p>
+        <p className="mx-2 mb-2 mt-1 text-xs text-gray-500">
+          기존 고객을 확인하고 있습니다.
+        </p>
       )}
       {!isSearchingCustomer && customerMatches.length > 0 && (
-        <div className="mt-2 space-y-1.5 border-t border-gray-200 pt-2">
+        <div className="mx-2 mb-2 mt-1 space-y-1.5 border-t border-gray-200 pt-2">
           <p className="text-xs font-semibold text-brand-700">
             일치하는 기존 고객이 있습니다.
           </p>
@@ -443,7 +457,9 @@ export default function StampConfirmModal({
               <Button
                 type="button"
                 size="xs"
-                variant={selectedCustomer?.id === customer.id ? "primary" : "gray"}
+                variant={
+                  selectedCustomer?.id === customer.id ? "primary" : "gray"
+                }
                 onClick={() => setPendingCustomer(customer)}
               >
                 {selectedCustomer?.id === customer.id
@@ -526,7 +542,10 @@ export default function StampConfirmModal({
       {stepIndicator}
 
       {/* 대상 고객: 모든 스텝에서 고정 노출 */}
-      {!(!usesStandardSalesFlow && addStep === 3) && (
+      {customerMode !== "demo" &&
+        customerMode !== "adjustment" &&
+        customerMode !== "x" &&
+        (mode !== "add" || addStep === 1) && (
         <TargetCustomerCard
           name={selectedCustomer?.name ?? target.name}
           phone={selectedCustomer?.phone ?? target.phone}
@@ -536,6 +555,27 @@ export default function StampConfirmModal({
         />
       )}
 
+      {mode === "add" && customerMode === "x" && (
+        <div className="mb-1 flex shrink-0 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-gray-50/70 px-4 py-2.5 text-sm font-semibold text-gray-700">
+          <span className="h-2 w-2 shrink-0 rounded-full bg-brand-500" />
+          <span>
+            미적립 {target.gender === "female" ? "여자" : "남자"}{" "}
+            고객을 위한 특수 계정입니다
+          </span>
+        </div>
+      )}
+      {mode === "add" &&
+        (customerMode === "demo" || customerMode === "adjustment") && (
+          <div className="mb-1 flex shrink-0 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-gray-50/70 px-4 py-2.5 text-sm font-semibold text-gray-700">
+            <span className="h-2 w-2 shrink-0 rounded-full bg-brand-500" />
+            <span>
+              {customerMode === "demo"
+                ? "시연용 처리를 위한 특수 계정입니다."
+                : "재고조정을 위한 특수 계정입니다."}
+            </span>
+          </div>
+        )}
+
       <div className="min-h-0 flex-1 overflow-y-auto pr-1">
         <StampLogForm
           layout="split"
@@ -543,7 +583,13 @@ export default function StampConfirmModal({
           onChange={setStampLog}
           onValidityChange={setFormValidity}
           reservationSlot={
-            requiresXCustomerInfo ? xCustomerInfoFields : reservationToggle
+            requiresXCustomerInfo ? xCustomerInfoFields : undefined
+          }
+          stepOneReservationSlot={
+            customerMode === "x" ? undefined : reservationToggle
+          }
+          hasSelectedShipmentTiming={
+            customerMode === "x" || hasSelectedShipmentTiming
           }
           xCustomerName={xCustomerName}
           xPhoneLastDigits={xPhoneLastDigits}
@@ -553,14 +599,30 @@ export default function StampConfirmModal({
           }
           currentStampCount={stampCount}
           customerAddress={target.address}
+          customerSummary={
+            customerMode === "demo" ||
+            customerMode === "adjustment" ||
+            customerMode === "x"
+              ? undefined
+              : {
+                  name: selectedCustomer?.name ?? target.name,
+                  phone: selectedCustomer?.phone ?? target.phone,
+                  address: selectedCustomer?.address ?? target.address,
+                  note: selectedCustomer?.note ?? target.note,
+                }
+          }
         />
 
         {addStep === 3 && (
-          <div className="space-y-4">
+          <div className="mt-2.5 space-y-2.5">
             {stampLog && usesStandardSalesFlow && (
               <>
                 <div
-                  className="grid grid-cols-2 gap-2 md:grid-cols-5"
+                  className={`grid grid-cols-2 gap-2 ${
+                    requiresXCustomerInfo
+                      ? "md:grid-cols-[0.5fr_0.5fr_0.5fr_0.5fr_0.67fr_1.33fr]"
+                      : "md:grid-cols-5"
+                  }`}
                 >
                   {[
                     ...(requiresXCustomerInfo
@@ -571,12 +633,14 @@ export default function StampConfirmModal({
                             value: xPhoneLastDigits.trim(),
                           },
                         ]
-                      : [{
-                      label: "출고 방식",
-                      value: isReservation
-                        ? `${reservationDate} 예약 출고`
-                        : "즉시 출고",
-                      }]),
+                      : [
+                          {
+                            label: "출고 방식",
+                            value: isReservation
+                              ? `${reservationDate} 예약 출고`
+                              : "즉시 출고",
+                          },
+                        ]),
                     { label: "출고 매장", value: stampLog.storeLabel },
                     {
                       label: "수령 방식",
@@ -611,6 +675,14 @@ export default function StampConfirmModal({
                             .join(" · ")
                         : stampLog.paymentTypeName,
                     },
+                    ...(requiresXCustomerInfo
+                      ? [
+                          {
+                            label: "출고 메모",
+                            value: stampLog.logMeta.extraNote || "없음",
+                          },
+                        ]
+                      : []),
                   ].map((summary) => (
                     <div
                       key={summary.label}
@@ -651,23 +723,39 @@ export default function StampConfirmModal({
                       </p>
                     </div>
                   )}
-                  <div
-                    className={`rounded-lg border border-gray-200 bg-white px-3 py-2.5 ${
-                      stampLog.logMeta.deliveryMethod === "store_visit"
-                        ? "md:col-span-4"
-                        : ""
-                    }`}
-                  >
-                    <p className="text-xs font-medium text-gray-500">
-                      출고 메모
-                    </p>
-                    <p className="mt-1 whitespace-pre-wrap break-words text-sm text-gray-800">
-                      {stampLog.logMeta.extraNote || "없음"}
-                    </p>
-                  </div>
+                  {!requiresXCustomerInfo && (
+                    <div
+                      className={`rounded-lg border border-gray-200 bg-white px-3 py-2.5 ${
+                        stampLog.logMeta.deliveryMethod === "store_visit"
+                          ? "md:col-span-4"
+                          : ""
+                      }`}
+                    >
+                      <p className="text-xs font-medium text-gray-500">
+                        출고 메모
+                      </p>
+                      <p className="mt-1 whitespace-pre-wrap break-words text-sm text-gray-800">
+                        {stampLog.logMeta.extraNote || "없음"}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </>
             )}
+
+            {stampLog &&
+              (customerMode === "adjustment" || customerMode === "demo") && (
+                <div className="grid grid-cols-[25%_minmax(0,1fr)] overflow-hidden rounded-lg border border-gray-200 bg-white">
+                  <p className="flex items-center border-r border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-800">
+                    {customerMode === "adjustment"
+                      ? "재고조정 전체 특이사항"
+                      : "시연용 전체 특이사항"}
+                  </p>
+                  <p className="flex min-w-0 items-center whitespace-pre-wrap break-words px-3 py-2 text-sm text-gray-800 [overflow-wrap:anywhere]">
+                    {stampLog.logMeta.extraNote?.trim() || "없음"}
+                  </p>
+                </div>
+              )}
 
             <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
               <div className="flex items-center gap-3 border-b border-gray-200 bg-gray-50 px-4 py-3">
@@ -713,15 +801,15 @@ export default function StampConfirmModal({
                       <th className="w-[8%] px-2 py-2 text-center">수량</th>
                       {customerMode !== "adjustment" &&
                         customerMode !== "demo" && (
-                        <>
-                          <th className="w-[13%] px-2 py-2 text-right">
-                            단가
-                          </th>
-                          <th className="w-[14%] px-3 py-2 text-right">
-                            소계
-                          </th>
-                        </>
-                      )}
+                          <>
+                            <th className="w-[13%] px-2 py-2 text-right">
+                              단가
+                            </th>
+                            <th className="w-[14%] px-3 py-2 text-right">
+                              소계
+                            </th>
+                          </>
+                        )}
                     </tr>
                   </thead>
                   <tbody>
@@ -764,20 +852,20 @@ export default function StampConfirmModal({
                           </td>
                           {customerMode !== "adjustment" &&
                             customerMode !== "demo" && (
-                            <>
-                              <td className="px-2 py-2 text-right text-gray-700">
-                                {formatAmount(
-                                  typeof item.adjustedUnitPrice === "number"
-                                    ? item.adjustedUnitPrice
-                                    : item.unitPrice,
-                                )}
-                                원
-                              </td>
-                              <td className="px-3 py-2 text-right font-medium text-gray-900">
-                                {formatAmount(item.amount)}원
-                              </td>
-                            </>
-                          )}
+                              <>
+                                <td className="px-2 py-2 text-right text-gray-700">
+                                  {formatAmount(
+                                    typeof item.adjustedUnitPrice === "number"
+                                      ? item.adjustedUnitPrice
+                                      : item.unitPrice,
+                                  )}
+                                  원
+                                </td>
+                                <td className="px-3 py-2 text-right font-medium text-gray-900">
+                                  {formatAmount(item.amount)}원
+                                </td>
+                              </>
+                            )}
                         </tr>
                       );
                     })}
@@ -789,7 +877,9 @@ export default function StampConfirmModal({
         )}
       </div>
 
-      <div className="mt-4 flex shrink-0 flex-col gap-4 border-t border-gray-200 pt-4 lg:flex-row lg:items-center lg:justify-between">
+      <div
+        className={`${addStep === 2 ? "mt-2" : "mt-4"} flex shrink-0 flex-col gap-4 border-t border-gray-200 pt-4 lg:flex-row lg:items-center lg:justify-between`}
+      >
         {addStep === 2 && usesStandardSalesFlow && stampLog ? (
           <div className="grid flex-1 grid-cols-2 items-center gap-x-5 gap-y-3 lg:grid-cols-[1fr_1.2fr_1fr_0.8fr_1.2fr]">
             <div>
@@ -951,10 +1041,26 @@ export default function StampConfirmModal({
                 size="sm"
                 disabled={
                   addStep === 1
-                    ? !formValidity.hasCompletedBasicSequence
+                    ? !formValidity.hasCompletedBasicSequence ||
+                      (usesStandardSalesFlow &&
+                        customerMode !== "x" &&
+                        !hasSelectedShipmentTiming)
                     : !formValidity.hasItems || !hasValidSplitPaymentAmounts
                 }
                 onClick={() => {
+                  if (
+                    addStep === 1 &&
+                    usesStandardSalesFlow &&
+                    customerMode !== "x" &&
+                    !hasSelectedShipmentTiming
+                  ) {
+                    toast.error("즉시 출고 또는 예약 출고를 선택해 주세요.");
+                    return;
+                  }
+                  if (addStep === 1 && !hasValidReservationDate) {
+                    toast.error("예약 날짜를 7/19 형식으로 입력해 주세요.");
+                    return;
+                  }
                   if (addStep === 2 && !hasValidReservationDate) {
                     toast.error("예약 날짜를 7/19 형식으로 입력해 주세요.");
                     return;
@@ -963,9 +1069,12 @@ export default function StampConfirmModal({
                     addStep === 2 &&
                     requiresXCustomerInfo &&
                     !isCustomerInfoDeclined &&
-                    (!xCustomerName.trim() || xPhoneLastDigits.length !== 4)
+                    (!xCustomerName.trim() || !hasValidXPhoneLastDigits)
                   ) {
-                    toast.error("이름과 핸드폰 뒷번호 4자리를 입력해 주세요.");
+                    toast.error(
+                      "이름과 뒷번호를 입력해 주세요.\n미제공 정보만 X를 입력하거나\n‘둘 다 제공 X’를 선택할 수 있습니다.",
+                      { style: { whiteSpace: "pre-line" } },
+                    );
                     return;
                   }
                   if (addStep === 2 && stampLog?.logMeta.payments?.length) {
@@ -1016,7 +1125,8 @@ export default function StampConfirmModal({
                 : "스탬프를 추가하시겠습니까?"}
             </h3>
             <p className="mt-2 text-sm text-gray-600">
-              {pendingCustomer.name} · {pendingCustomer.phone} 고객으로 변경합니다.
+              {pendingCustomer.name} · {pendingCustomer.phone} 고객으로
+              변경합니다.
             </p>
             <div
               className={`mt-5 grid gap-2 ${

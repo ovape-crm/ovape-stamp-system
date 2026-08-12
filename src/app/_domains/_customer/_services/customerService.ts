@@ -27,16 +27,19 @@ export const findCustomersByNameAndPhoneLastDigits = async (
 ): Promise<ExistingCustomerMatch[]> => {
   const normalizedName = name.trim();
   const normalizedDigits = phoneLastDigits.replace(/\D/g, "");
-  if (normalizedDigits.length !== 4) return [];
+  const hasName =
+    normalizedName.length > 0 && normalizedName.toUpperCase() !== "X";
+  const hasPhoneLastDigits = normalizedDigits.length === 4;
+  if (!hasName && !hasPhoneLastDigits) return [];
 
   let query = supabase
     .from("customers")
     .select("id, name, phone, address, note, is_stamp_eligible")
-    .like("phone", `%${normalizedDigits}`)
     .neq("phone", "X")
     .limit(5);
 
-  if (normalizedName) query = query.eq("name", normalizedName);
+  if (hasName) query = query.eq("name", normalizedName);
+  if (hasPhoneLastDigits) query = query.like("phone", `%${normalizedDigits}`);
 
   const { data, error } = await query;
 
@@ -70,6 +73,11 @@ export const getCustomersCount = async (
     count: "exact",
     head: true,
   });
+
+  // 특수 고객은 바로가기와 이력에서만 접근하고 일반 고객 목록에서는 제외합니다.
+  query = query
+    .not("name", "in", '("시연용","재고조정")')
+    .or("name.neq.X,phone.neq.X");
 
   // 검색 조건 추가
   if (params?.keyword) {
@@ -106,6 +114,11 @@ export const getCustomers = async (
     *,
     stamps(count)
   `);
+
+  // 특수 고객은 바로가기와 이력에서만 접근하고 일반 고객 목록에서는 제외합니다.
+  query = query
+    .not("name", "in", '("시연용","재고조정")')
+    .or("name.neq.X,phone.neq.X");
 
   // 검색 조건 추가
   if (params?.keyword) {
@@ -200,7 +213,8 @@ export const createCustomer = async (customer: {
   const {
     data: { session },
   } = await supabase.auth.getSession();
-  const isDirectlyVerified = customer.adult_verification_method === "physical_id";
+  const isDirectlyVerified =
+    customer.adult_verification_method === "physical_id";
   const insertPayload = {
     name: customer.name,
     phone: customer.phone,
@@ -210,7 +224,7 @@ export const createCustomer = async (customer: {
     adult_verified: isDirectlyVerified,
     adult_verified_at: isDirectlyVerified ? new Date().toISOString() : null,
     adult_verification_method: isDirectlyVerified ? "physical_id" : null,
-    adult_verified_by: isDirectlyVerified ? session?.user.id ?? null : null,
+    adult_verified_by: isDirectlyVerified ? (session?.user.id ?? null) : null,
     ...(customer.address?.trim() ? { address: customer.address.trim() } : {}),
   };
 
@@ -218,7 +232,7 @@ export const createCustomer = async (customer: {
     p_customer: insertPayload,
     p_adult_verification_request_id:
       customer.adult_verification_method === "bbaton"
-        ? customer.adult_verification_request_id ?? null
+        ? (customer.adult_verification_request_id ?? null)
         : null,
   });
 
@@ -277,6 +291,76 @@ export const updateCustomer = async (
   return data;
 };
 
+export const updateCustomerWithAdultVerification = async (
+  id: string,
+  updates: {
+    name?: string;
+    phone?: string;
+    gender?: "male" | "female";
+    is_stamp_eligible?: boolean;
+    address?: string;
+    note?: string;
+  },
+  verification: {
+    method: "physical_id" | "bbaton";
+    requestId?: string;
+  },
+) => {
+  const prevCustomer = await getCustomerById(id);
+  const changeObj = getUpdateLogNote(
+    {
+      name: prevCustomer.name,
+      phone: prevCustomer.phone,
+      gender: prevCustomer.gender,
+      is_stamp_eligible: prevCustomer.is_stamp_eligible ?? true,
+      address: prevCustomer.address ?? "",
+      note: prevCustomer.note ?? "",
+    },
+    {
+      name: updates.name ?? prevCustomer.name,
+      phone: updates.phone ?? prevCustomer.phone,
+      gender: updates.gender ?? prevCustomer.gender,
+      is_stamp_eligible:
+        updates.is_stamp_eligible ?? prevCustomer.is_stamp_eligible ?? true,
+      address: updates.address ?? prevCustomer.address ?? "",
+      note: updates.note ?? prevCustomer.note ?? "",
+    },
+  );
+  const requestId =
+    verification.method === "bbaton" && verification.requestId !== "__current__"
+      ? (verification.requestId ?? null)
+      : null;
+
+  const { data, error } = await supabase.rpc(
+    "update_customer_with_adult_verification",
+    {
+      p_customer_id: Number(id),
+      p_updates: updates,
+      p_changes: changeObj,
+      p_adult_verification_method: verification.method,
+      p_adult_verification_request_id: requestId,
+    },
+  );
+
+  if (error) {
+    const isMissingMigration =
+      error.code === "PGRST202" ||
+      error.message.includes("update_customer_with_adult_verification");
+    if (!isMissingMigration) throw error;
+
+    await updateCustomer(id, updates);
+    if (verification.method === "physical_id") {
+      return updateCustomerAdultVerification(id, true, "physical_id");
+    }
+    if (requestId) {
+      await attachAdultVerificationToCustomer(id, requestId);
+    }
+    return getCustomerById(id);
+  }
+  if (!data) throw new Error("NOT_FOUND_CUSTOMER");
+  return data;
+};
+
 /**
  * 고객 삭제
  */
@@ -324,8 +408,12 @@ export const updateCustomerAdultVerification = async (
   await createLog(
     LogCategoryEnum.CUSTOMER.value,
     id,
-    verified ? "adult-verification-manual-complete" : "adult-verification-revoked",
-    verified ? "성인 인증을 수동으로 완료했습니다." : "성인 인증을 해제했습니다.",
+    verified
+      ? "adult-verification-manual-complete"
+      : "adult-verification-revoked",
+    verified
+      ? "성인 인증을 수동으로 완료했습니다."
+      : "성인 인증을 해제했습니다.",
     {
       adultVerification: {
         before: previous.adult_verified ?? false,
@@ -336,5 +424,40 @@ export const updateCustomerAdultVerification = async (
     },
   );
 
+  return data;
+};
+
+export const attachAdultVerificationToCustomer = async (
+  customerId: string,
+  requestId: string,
+) => {
+  const previous = await getCustomerById(customerId);
+  const { data, error } = await supabase.rpc(
+    "attach_adult_verification_to_customer",
+    {
+      p_request_id: requestId,
+      p_customer_id: Number(customerId),
+    },
+  );
+
+  if (error) throw error;
+  if (!data) throw new Error("ADULT_VERIFICATION_ATTACH_FAILED");
+
+  const updated = await getCustomerById(customerId);
+  await createLog(
+    LogCategoryEnum.CUSTOMER.value,
+    customerId,
+    "adult-verification-link-complete",
+    "성인 인증이 링크 확인으로 완료되었습니다.",
+    {
+      adultVerification: {
+        before: previous.adult_verified ?? false,
+        after: true,
+        method: "bbaton",
+        verifiedAt: updated.adult_verified_at,
+        requestId,
+      },
+    },
+  );
   return data;
 };

@@ -76,6 +76,7 @@ interface StampLogEditModalProps {
   target: {
     name: string;
     phone: string;
+    gender?: "male" | "female" | null;
     address?: string | null;
     note?: string | null;
     is_stamp_eligible?: boolean;
@@ -113,6 +114,12 @@ const StampLogEditModal = ({
     target.phone,
     target.is_stamp_eligible ?? true,
   );
+  const displayTitle =
+    customerMode === "demo"
+      ? "시연용 수정"
+      : customerMode === "adjustment"
+        ? "재고조정 수정"
+        : title;
   const requiresXCustomerInfo =
     target.name.trim() === "X" && target.phone.trim() === "X";
   const [stampLog, setStampLog] = useState<StampLogValue | null>(null);
@@ -124,6 +131,8 @@ const StampLogEditModal = ({
   );
   const isCustomerInfoDeclined =
     xCustomerName === "X" && xPhoneLastDigits === "X";
+  const hasValidXPhoneLastDigits =
+    xPhoneLastDigits === "X" || /^\d{4}$/.test(xPhoneLastDigits);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [step, setStep] = useState<1 | 2 | 3>(2);
   const [formValidity, setFormValidity] = useState({
@@ -172,46 +181,49 @@ const StampLogEditModal = ({
   };
 
   const xCustomerInfoFields = (
-    <div className="h-full rounded-lg border border-gray-200 bg-gray-50 p-3">
-      <div className="mb-2 flex items-center gap-2">
-        <p className="text-sm font-semibold text-gray-800">고객 정보</p>
+    <div className="grid min-h-12 grid-cols-[72px_minmax(0,1fr)] items-stretch overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+      <p className="flex items-center justify-center whitespace-nowrap border-r border-gray-200 px-2 text-center text-sm font-semibold text-gray-800">
+        고객 정보
+      </p>
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_90px] items-center gap-1 p-1.5">
         <Button
           type="button"
           size="xs"
           variant={isCustomerInfoDeclined ? "primary" : "gray"}
+          className="order-3 h-8 w-full whitespace-nowrap px-2"
           onClick={() => {
             setXCustomerName(isCustomerInfoDeclined ? "" : "X");
             setXPhoneLastDigits(isCustomerInfoDeclined ? "" : "X");
           }}
         >
-          정보 제공 안 함
+          둘 다 제공 X
         </Button>
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <label className="min-w-0">
+        <label className="order-1 min-w-0">
           <input
             type="text"
             aria-label="이름"
             value={xCustomerName}
             disabled={isCustomerInfoDeclined}
             onChange={(event) => setXCustomerName(event.target.value)}
-            placeholder="이름 입력"
-            className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
+            placeholder="이름 / 미제공 X"
+            className="h-8 w-full rounded-lg border border-gray-300 bg-white px-2 text-xs font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
           />
         </label>
-        <label className="min-w-0">
+        <label className="order-2 min-w-0">
           <input
             type="text"
             aria-label="핸드폰 뒷번호"
-            inputMode="numeric"
             maxLength={4}
             value={xPhoneLastDigits}
             disabled={isCustomerInfoDeclined}
-            onChange={(event) =>
-              setXPhoneLastDigits(event.target.value.replace(/\D/g, "").slice(0, 4))
-            }
-            placeholder="뒷번호 4자리"
-            className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
+            onChange={(event) => {
+              const value = event.target.value.toUpperCase();
+              setXPhoneLastDigits(
+                value === "X" ? "X" : value.replace(/\D/g, "").slice(0, 4),
+              );
+            }}
+            placeholder="뒷번호 / 미제공 X"
+            className="h-8 w-full rounded-lg border border-gray-300 bg-white px-2 text-xs font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
           />
         </label>
       </div>
@@ -231,7 +243,7 @@ const StampLogEditModal = ({
       </button>
 
       <h2 className="mb-4 shrink-0 pr-8 text-xl font-semibold text-gray-900">
-        {title}
+        {displayTitle}
       </h2>
 
       <div className="mb-5 flex shrink-0 items-start justify-center">
@@ -276,13 +288,34 @@ const StampLogEditModal = ({
         )}
       </div>
 
-      <TargetCustomerCard
-        name={target.name}
-        phone={target.phone}
-        address={target.address}
-        note={target.note}
-        className="mb-4 shrink-0"
-      />
+      {customerMode === "normal" && (
+        <TargetCustomerCard
+          name={target.name}
+          phone={target.phone}
+          address={target.address}
+          note={target.note}
+          className="mb-4 shrink-0"
+        />
+      )}
+      {customerMode === "x" && (
+        <div className="mb-1 flex shrink-0 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-gray-50/70 px-4 py-2.5 text-sm font-semibold text-gray-700">
+          <span className="h-2 w-2 shrink-0 rounded-full bg-brand-500" />
+          <span>
+            미적립 {target.gender === "female" ? "여자" : "남자"} 고객을 위한
+            특수 계정입니다.
+          </span>
+        </div>
+      )}
+      {(customerMode === "demo" || customerMode === "adjustment") && (
+        <div className="mb-1 flex shrink-0 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-gray-50/70 px-4 py-2.5 text-sm font-semibold text-gray-700">
+          <span className="h-2 w-2 shrink-0 rounded-full bg-brand-500" />
+          <span>
+            {customerMode === "demo"
+              ? "시연용 처리를 위한 특수 계정입니다."
+              : "재고조정을 위한 특수 계정입니다."}
+          </span>
+        </div>
+      )}
 
       <div className="min-h-0 flex-1 overflow-y-auto pr-1">
         <StampLogForm
@@ -292,9 +325,13 @@ const StampLogEditModal = ({
           step={step}
           customerMode={customerMode}
           customerAddress={target.address}
-          reservationSlot={requiresXCustomerInfo ? xCustomerInfoFields : undefined}
+          reservationSlot={
+            requiresXCustomerInfo ? xCustomerInfoFields : undefined
+          }
           xCustomerName={requiresXCustomerInfo ? xCustomerName : undefined}
-          xPhoneLastDigits={requiresXCustomerInfo ? xPhoneLastDigits : undefined}
+          xPhoneLastDigits={
+            requiresXCustomerInfo ? xPhoneLastDigits : undefined
+          }
           onChange={setStampLog}
           onValidityChange={setFormValidity}
         />
@@ -597,7 +634,7 @@ const StampLogEditModal = ({
                       !hasValidSplitPaymentAmounts ||
                       (requiresXCustomerInfo &&
                         !isCustomerInfoDeclined &&
-                        (!xCustomerName.trim() || xPhoneLastDigits.length !== 4))
+                        (!xCustomerName.trim() || !hasValidXPhoneLastDigits))
                 }
               >
                 다음
@@ -612,7 +649,7 @@ const StampLogEditModal = ({
                 !stampLog ||
                 (requiresXCustomerInfo &&
                   !isCustomerInfoDeclined &&
-                  (!xCustomerName.trim() || xPhoneLastDigits.length !== 4))
+                  (!xCustomerName.trim() || !hasValidXPhoneLastDigits))
               }
             >
               {isSubmitting ? "저장 중..." : "수정"}

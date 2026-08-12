@@ -21,6 +21,7 @@ import type {
 } from "@/app/_domains/_stamp/_services/stampService";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CustomerMode } from "@/app/_domains/_customer/_utils/specialCustomer";
+import { formatPhoneNumber } from "@/app/_utils/utils";
 
 const ovapePaymentTypes = [
   PaymentTypeEnum.CARD,
@@ -122,11 +123,14 @@ export default function StampLogForm({
   step,
   onValidityChange,
   reservationSlot,
+  stepOneReservationSlot,
+  hasSelectedShipmentTiming = true,
   xCustomerName,
   xPhoneLastDigits,
   customerMode = "normal",
   currentStampCount = 0,
   customerAddress,
+  customerSummary,
 }: {
   onChange: (value: StampLogValue | null) => void;
   initialValue?: StampLogFormInitialValue;
@@ -155,11 +159,21 @@ export default function StampLogForm({
   }) => void;
   /** step 모드에서 2번 스텝의 출고 특이사항 입력 오른쪽에 함께 렌더링할 요소 (예: 출고 예약 토글) */
   reservationSlot?: React.ReactNode;
+  /** step 1 기본정보에 표시할 출고일 선택 UI */
+  stepOneReservationSlot?: React.ReactNode;
+  /** 출고일 선택 전에는 스탬프 적립 행을 숨김 */
+  hasSelectedShipmentTiming?: boolean;
   xCustomerName?: string;
   xPhoneLastDigits?: string;
   customerMode?: CustomerMode;
   currentStampCount?: number;
   customerAddress?: string | null;
+  customerSummary?: {
+    name: string;
+    phone: string;
+    address?: string | null;
+    note?: string | null;
+  };
 }) {
   const [paymentType, setPaymentType] = useState<
     PaymentTypeEnumType["value"] | ""
@@ -513,12 +527,12 @@ export default function StampLogForm({
     }
   }, [itemSearch, selectedItem]);
 
-  // 부모에게 현재 값을 전달 (유효하지 않으면 null)
+  // 결제 정보가 유효하면 품목이 없어도 요약 표시용 현재 값을 전달합니다.
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
   useEffect(() => {
-    if (!hasValidPayment || draftLines.length === 0) {
+    if (!hasValidPayment) {
       onChangeRef.current(null);
       return;
     }
@@ -1036,7 +1050,7 @@ export default function StampLogForm({
   );
 
   const stampCountField = (
-    <div className={step === 1 ? "min-w-0 w-full" : undefined}>
+    <div className={step === 1 ? "h-full min-w-0 w-full" : undefined}>
       {step !== 1 && (
         <label className="mb-1 block text-sm font-medium text-gray-700">
           스탬프 개수 <span className="text-rose-600">*</span>
@@ -1045,7 +1059,7 @@ export default function StampLogForm({
       <div
         className={
           step === 1
-            ? "grid grid-cols-[minmax(42px,1fr)_32px_32px] items-center gap-1"
+            ? "grid h-full grid-cols-[minmax(42px,1fr)_32px_32px] items-stretch gap-1"
             : "flex items-center gap-2"
         }
       >
@@ -1060,13 +1074,13 @@ export default function StampLogForm({
             }
           }}
           disabled={!isStampAmountEditable}
-          className={`${step === 1 ? "h-9 w-full" : "w-16 py-2"} rounded-lg border border-gray-300 px-3 text-center text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-gray-100 disabled:text-gray-500`}
+          className={`${step === 1 ? "h-full min-h-9 w-full" : "w-16 py-2"} rounded-lg border border-gray-300 px-3 text-center text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-gray-100 disabled:text-gray-500`}
         />
         <button
           type="button"
           onClick={() => setAmount((v) => Math.max(0, v - 1))}
           disabled={!isStampAmountEditable}
-          className="flex h-9 w-8 items-center justify-center rounded-lg border border-gray-300 bg-white text-lg leading-none text-gray-600 transition-colors hover:bg-gray-50 active:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+          className={`${step === 1 ? "h-full min-h-9" : "h-9"} flex w-8 items-center justify-center rounded-lg border border-gray-300 bg-white text-lg leading-none text-gray-600 transition-colors hover:bg-gray-50 active:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40`}
         >
           −
         </button>
@@ -1074,7 +1088,7 @@ export default function StampLogForm({
           type="button"
           onClick={() => setAmount((v) => v + 1)}
           disabled={!isStampAmountEditable}
-          className="flex h-9 w-8 items-center justify-center rounded-lg bg-brand-500 text-lg leading-none text-white transition-colors hover:bg-brand-600 active:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40"
+          className={`${step === 1 ? "h-full min-h-9" : "h-9"} flex w-8 items-center justify-center rounded-lg bg-brand-500 text-lg leading-none text-white transition-colors hover:bg-brand-600 active:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40`}
         >
           +
         </button>
@@ -1086,6 +1100,7 @@ export default function StampLogForm({
             : "수정 시 스탬프 개수는 변경되지 않습니다."}
         </p>
       ) : (
+        step !== 1 &&
         amount === 0 && (
           <p className="mt-1.5 whitespace-nowrap text-[10px] text-gray-400">
             0개 입력시{" "}
@@ -1106,7 +1121,7 @@ export default function StampLogForm({
         </span>
         출고 매장 <span className="ml-1 text-rose-600">*</span>
       </div>
-      <div className="grid grid-cols-2 gap-2 p-4">
+      <div className="grid grid-cols-2 gap-2 px-4 py-2">
         {Object.values(StoreTypeEnum).map((option) => (
           <Button
             key={option.value}
@@ -1141,7 +1156,7 @@ export default function StampLogForm({
         </span>
         결제 정보 <span className="ml-1 text-rose-600">*</span>
       </div>
-      <div className="min-w-0 p-4">
+      <div className="min-w-0 px-4 py-2">
         <div className="grid grid-cols-3 gap-2">
           {(
             [
@@ -1234,7 +1249,7 @@ export default function StampLogForm({
         </span>
         수령 방식 <span className="ml-1 text-rose-600">*</span>
       </div>
-      <div className="min-w-0 p-4">
+      <div className="min-w-0 px-4 py-2">
         <div className="grid grid-cols-3 gap-2">
           {(
             [
@@ -1445,19 +1460,24 @@ export default function StampLogForm({
 
   const stepOneStampField = (
     <div className="grid grid-cols-[140px_minmax(0,1fr)]">
-      <div className="flex items-center border-r border-gray-200 px-4 py-2 text-sm font-bold text-gray-800">
+      <div className="flex items-center border-r border-gray-200 px-4 py-2 text-gray-800">
         <span className="mr-2 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-500 text-[11px] font-bold leading-none text-white">
-          4
+          5
         </span>
-        스탬프 적립
+        <div className="min-w-0">
+          <p className="text-sm font-bold">스탬프 적립</p>
+          <p className="mt-0.5 whitespace-nowrap text-[11px] font-semibold text-brand-600">
+            0개 입력시 미적립
+          </p>
+        </div>
       </div>
-      <div className="min-w-0 p-1">
+      <div className="min-w-0 px-1 py-0.5">
         <div className="grid grid-cols-3 items-stretch gap-2">
           <div className="min-w-0 rounded-lg border border-gray-200 bg-gray-50 p-1">
             {stampCountField}
           </div>
           <div className="flex min-w-0 flex-col items-center justify-center rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-center">
-            <p className="whitespace-nowrap text-[10px] text-gray-500">
+            <p className="whitespace-nowrap text-[11px] text-gray-700">
               현재 스탬프 잔여량
             </p>
             <strong className="text-base text-gray-900">
@@ -1465,7 +1485,7 @@ export default function StampLogForm({
             </strong>
           </div>
           <div className="flex min-w-0 flex-col items-center justify-center rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-center">
-            <p className="whitespace-nowrap text-[10px] text-gray-500">
+            <p className="whitespace-nowrap text-[11px] text-gray-700">
               적립 후 잔여량
             </p>
             <strong className="text-base text-brand-600">
@@ -1477,20 +1497,27 @@ export default function StampLogForm({
     </div>
   );
 
+  const stepOneReservationField = stepOneReservationSlot ? (
+    <div className="grid grid-cols-[140px_minmax(0,1fr)] border-b border-gray-200">
+      <div className="flex items-center border-r border-gray-200 px-4 py-4 text-sm font-bold text-gray-800">
+        <span className="mr-2 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-500 text-[11px] font-bold leading-none text-white">
+          4
+        </span>
+        출고일 <span className="ml-1 text-rose-600">*</span>
+      </div>
+      <div className="min-w-0 px-4 py-2">{stepOneReservationSlot}</div>
+    </div>
+  ) : null;
+
   const itemSelectionField = (
     <div className="grid grid-cols-1 gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3 lg:grid-cols-2 lg:items-stretch">
       <div className="grid gap-2 sm:grid-cols-[minmax(0,2fr)_minmax(270px,1fr)]">
         <div>
-          <div className="mb-1 flex items-center gap-2">
-            <label className="block text-sm font-medium text-gray-700">
-              품목 선택 <span className="text-rose-600">*</span>
-            </label>
-            {editingLineId && (
-              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
-                선택 품목 수정 중
-              </span>
-            )}
-          </div>
+          {editingLineId && (
+            <span className="mb-1 block w-fit rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
+              선택 품목 수정 중
+            </span>
+          )}
           <div ref={itemSearchRef} className="relative">
             <div className="relative">
               <svg
@@ -1583,9 +1610,6 @@ export default function StampLogForm({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            수량
-          </label>
           <div className="flex items-center gap-2">
             <input
               type="text"
@@ -1648,18 +1672,40 @@ export default function StampLogForm({
           remarkType === "" ? "lg:justify-center" : "lg:justify-start"
         }`}
       >
-        <div className="grid grid-cols-6 gap-1.5">
+        <div
+          className={
+            customerMode === "demo"
+              ? "grid grid-cols-[minmax(0,1fr)_minmax(0,5fr)] gap-1.5"
+              : customerMode === "adjustment"
+                ? "grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,4fr)] gap-1.5"
+              : "grid grid-cols-6 gap-1.5"
+          }
+        >
           {visibleRemarkOptions.map((option) => (
             <Button
               key={option.value}
               type="button"
               size="xs"
               variant={remarkType === option.value ? "primary" : "gray"}
+              className={isNonSalesSpecialCustomer ? "h-10 w-full" : ""}
               onClick={() => handleRemarkTypeChange(option.value)}
             >
               {option.name}
             </Button>
           ))}
+          {isNonSalesSpecialCustomer && (
+            <input
+              type="text"
+              value={operationMemo}
+              onChange={(event) => setOperationMemo(event.target.value)}
+              className="h-10 min-w-0 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none transition placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+              placeholder={
+                customerMode === "demo"
+                  ? "시연용 품목 메모 (선택)"
+                  : "재고조정 품목 메모 (선택)"
+              }
+            />
+          )}
         </div>
 
         {selectedMemoMessages.length > 0 && (
@@ -1681,7 +1727,7 @@ export default function StampLogForm({
               type="text"
               value={customRemark}
               onChange={(e) => setCustomRemark(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="h-8 w-full rounded-lg border border-gray-300 px-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-500"
               placeholder={
                 selectedMemoPlaceholder
                   ? selectedMemoPlaceholder
@@ -1693,32 +1739,12 @@ export default function StampLogForm({
           </div>
         )}
 
-        {(customerMode === "demo" || customerMode === "adjustment") && (
-          <div>
-            <input
-              type="text"
-              value={operationMemo}
-              onChange={(event) => setOperationMemo(event.target.value)}
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-              placeholder={
-                customerMode === "demo"
-                  ? "시연용 처리 메모 (선택)"
-                  : remarkType === "adjustment_in"
-                    ? "재고조정-입고 메모 (선택)"
-                    : remarkType === "adjustment_out"
-                      ? "재고조정-출고 메모 (선택)"
-                      : "처리 메모 (선택)"
-              }
-            />
-          </div>
-        )}
-
         {(remarkType === "exchange_in" || remarkType === "exchange_out") && (
           <input
             type="text"
             value={exchangeMemo}
             onChange={(event) => setExchangeMemo(event.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-500"
+            className="h-8 w-full rounded-lg border border-gray-300 px-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-500"
             placeholder={
               selectedMemoPlaceholder ?? "특이사항을 입력하세요. (선택)"
             }
@@ -1741,7 +1767,7 @@ export default function StampLogForm({
                   }
                 }}
                 inputMode="numeric"
-                className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-right text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="h-8 min-w-0 flex-1 rounded-lg border border-gray-300 px-3 text-right text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-500"
                 placeholder="금액"
               />
               <span className="text-sm text-gray-600">원</span>
@@ -1750,7 +1776,7 @@ export default function StampLogForm({
               type="text"
               value={priceAdjustMemo}
               onChange={(e) => setPriceAdjustMemo(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="h-8 w-full rounded-lg border border-gray-300 px-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-500"
               placeholder={selectedMemoPlaceholder ?? "미입력 시 가격 조정"}
             />
           </div>
@@ -1774,11 +1800,7 @@ export default function StampLogForm({
   );
 
   const itemListContent = (
-    <>
-      {draftLines.length === 0 ? (
-        <p className="text-sm text-gray-400">추가된 품목이 없습니다.</p>
-      ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+    <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
           <table
             className={`w-full table-fixed text-sm ${
               customerMode === "adjustment" || customerMode === "demo"
@@ -1792,7 +1814,13 @@ export default function StampLogForm({
                 <th
                   className={`${customerMode === "adjustment" ? "w-[39%]" : "w-[29%]"} px-2 py-2 text-left`}
                 >
-                  품목명
+                  <span className="flex items-center gap-2">
+                    <span>품목명</span>
+                    <span className="whitespace-nowrap text-[11px] font-medium text-gray-500">
+                      {new Set(draftLines.map((line) => line.itemId)).size}종 · 총{" "}
+                      {draftLines.reduce((sum, line) => sum + line.quantity, 0)}개
+                    </span>
+                  </span>
                 </th>
                 <th className="w-[11%] px-2 py-2 text-center">품목종류</th>
                 <th className="w-[10%] px-2 py-2 text-center">출고 유형</th>
@@ -1807,7 +1835,16 @@ export default function StampLogForm({
               </tr>
             </thead>
             <tbody>
-              {draftLines.map((line, index) => (
+              {draftLines.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={customerMode === "adjustment" || customerMode === "demo" ? 6 : 8}
+                    className="h-24 px-3 py-6 text-center text-sm text-gray-400"
+                  >
+                    추가된 품목이 없습니다.
+                  </td>
+                </tr>
+              ) : draftLines.map((line, index) => (
                 <tr
                   ref={setLineRef(line.id)}
                   key={line.id}
@@ -1903,9 +1940,7 @@ export default function StampLogForm({
               ))}
             </tbody>
           </table>
-        </div>
-      )}
-    </>
+    </div>
   );
 
   const itemListField = step ? (
@@ -1923,11 +1958,11 @@ export default function StampLogForm({
   );
 
   const discountField = (
-    <div className="h-full rounded-lg border border-gray-200 bg-gray-50 p-3">
-      <span className="mb-2 block text-sm font-semibold text-gray-800">
-        할인
+    <div className="grid h-full grid-cols-[72px_minmax(0,1fr)] items-center overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+      <span className="flex h-full items-center justify-center whitespace-nowrap border-r border-gray-200 px-2 text-center text-sm font-semibold text-gray-800">
+        할인 종류
       </span>
-      <div className="grid grid-cols-[minmax(0,1fr)_110px] items-center gap-2">
+      <div className="grid grid-cols-[minmax(0,1fr)_82px] items-center gap-2 p-2">
         <div className="grid grid-cols-3 gap-2">
           {discountOptions.map((option) => (
             <Button
@@ -1935,7 +1970,7 @@ export default function StampLogForm({
               type="button"
               size="sm"
               variant={discountType === option.value ? "primary" : "gray"}
-              className="rounded-lg"
+              className="flex h-8 items-center justify-center rounded-lg px-2 py-0 text-center text-sm leading-none sm:px-2 sm:py-0 sm:text-sm"
               onClick={() =>
                 setDiscountType((current) =>
                   current === option.value ? "" : option.value,
@@ -1958,7 +1993,7 @@ export default function StampLogForm({
                   setDiscountAmount(v === "" ? 0 : Number(v));
                 }
               }}
-              className="h-11 min-w-0 w-full rounded-lg border border-gray-300 bg-white px-3 text-right text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="h-8 min-w-0 w-full rounded-lg border border-gray-300 bg-white px-3 text-right text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-500"
               placeholder="0"
             />
             <span className="text-sm text-gray-600">원</span>
@@ -2076,21 +2111,67 @@ export default function StampLogForm({
       </div>
     ) : null;
 
-  const extraNoteField =
-    customerMode === "demo" ? null : (
-      <div className="h-full rounded-lg border border-gray-200 bg-gray-50 p-3">
-        <label className="mb-2 block text-sm font-semibold text-gray-800">
-          출고 메모
+  const extraNoteField = (
+      <div
+        className={`grid h-full items-center overflow-hidden rounded-lg border border-gray-200 bg-gray-50 ${
+          isNonSalesSpecialCustomer
+            ? "grid-cols-[180px_minmax(0,1fr)]"
+            : "grid-cols-[72px_minmax(0,1fr)]"
+        }`}
+      >
+        <label className="flex h-full items-center justify-center whitespace-nowrap border-r border-gray-200 px-2 text-center text-sm font-semibold text-gray-800">
+          {customerMode === "demo"
+            ? "시연용 전체 특이사항"
+            : customerMode === "adjustment"
+              ? "재고조정 전체 특이사항"
+              : "출고 메모"}
         </label>
-        <input
-          type="text"
-          value={extraNote}
-          onChange={(e) => setExtraNote(e.target.value)}
-          className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-500"
-          placeholder="특이사항을 입력하세요. (선택)"
-        />
+        <div className="p-2">
+          <input
+            type="text"
+            value={extraNote}
+            onChange={(e) => setExtraNote(e.target.value)}
+            className="h-8 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-500"
+            placeholder="전체 특이사항을 입력하세요. (선택)"
+          />
+        </div>
       </div>
     );
+
+  const stepCustomerSummaryPanel = customerSummary ? (
+    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+      <div className="grid min-h-20 grid-cols-[150px_minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="flex min-w-0 flex-col items-center justify-center bg-gray-50 px-3 py-2 text-center">
+          <p className="mb-1 flex items-center justify-center gap-1.5 text-xs font-medium text-gray-600">
+            <span className="h-2 w-2 rounded-full bg-brand-500" />
+            대상 고객
+          </p>
+          <p className="block w-full min-w-0 truncate text-base font-semibold text-gray-900">
+            {customerSummary.name}
+          </p>
+          <p className="mt-0.5 text-sm text-gray-600">
+            {formatPhoneNumber(customerSummary.phone)}
+          </p>
+        </div>
+        <div className="grid min-w-0 grid-cols-[64px_minmax(0,1fr)] border-l border-gray-200">
+          <p className="flex items-center justify-center bg-gray-50 px-2 text-center text-xs font-semibold text-gray-600">
+            주소지
+          </p>
+          <p className="flex min-w-0 items-center whitespace-pre-wrap break-words [overflow-wrap:anywhere] border-l border-gray-200 px-3 py-2 text-sm leading-5 text-gray-800">
+            {customerSummary.address?.trim() || "등록 없음"}
+          </p>
+        </div>
+        <div className="grid min-w-0 grid-cols-[64px_minmax(0,1fr)] border-l border-gray-200">
+          <p className="flex items-center justify-center bg-gray-50 px-2 text-center text-xs font-semibold text-gray-600">
+            특이사항
+          </p>
+          <p className="flex min-w-0 items-center whitespace-pre-wrap break-words [overflow-wrap:anywhere] border-l border-gray-200 px-3 py-2 text-sm leading-5 text-gray-800">
+            {customerSummary.note?.trim() || "등록 없음"}
+          </p>
+        </div>
+      </div>
+    </div>
+  ) : null;
 
   if (layout === "split") {
     // 스텝 UI 모드: step 값이 있으면 2단 레이아웃 대신 스텝별 필드만 노출.
@@ -2098,8 +2179,9 @@ export default function StampLogForm({
     // 매장명/결제유형/품목/할인 등 입력 상태가 그대로 유지된다.
     if (step) {
       return (
-        <div className="space-y-5">
-          <div className={step === 1 ? "space-y-5" : "hidden"}>
+        <div>
+          {(step === 2 || step === 3) && stepCustomerSummaryPanel}
+          <div className={step === 1 ? "mt-5 space-y-5" : "hidden"}>
             <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
               {stepOneStoreField}
               {isNonSalesSpecialCustomer ? (
@@ -2122,26 +2204,56 @@ export default function StampLogForm({
                     hasConfirmedDeliveryMethod &&
                     hasValidDeliveryInfo &&
                     hasValidPayment &&
+                    stepOneReservationField}
+                  {hasConfirmedStore &&
+                    hasConfirmedDeliveryMethod &&
+                    hasValidDeliveryInfo &&
+                    hasValidPayment &&
+                    hasSelectedShipmentTiming &&
                     customerMode !== "x" &&
                     stepOneStampField}
                 </>
               )}
             </div>
           </div>
-          <div className={step === 2 ? "space-y-5" : "hidden"}>
-            <div className="min-w-0">{itemSelectionField}</div>
-            <div className="min-w-0">{itemListField}</div>
-            {customerMode !== "demo" && (
-              <div className="grid grid-cols-1 gap-3 lg:grid-cols-3 lg:items-stretch">
-                {!isNonSalesSpecialCustomer && (
-                  <div className="min-w-0">{discountField}</div>
-                )}
-                {!isNonSalesSpecialCustomer && (
-                  <div className="min-w-0">{reservationSlot}</div>
-                )}
-                <div className="min-w-0">{extraNoteField}</div>
-              </div>
+          <div className={step === 2 ? "mt-2.5 space-y-2.5" : "hidden"}>
+            {customerSummary && reservationSlot && (
+              <div className="min-w-0">{reservationSlot}</div>
             )}
+            <div className="min-w-0 space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+              <div className="[&>div]:border-0 [&>div]:bg-transparent [&>div]:p-0">
+                {itemSelectionField}
+              </div>
+              {itemListContent}
+            </div>
+            {customerSummary ? (
+                <div
+                  className={`grid grid-cols-1 gap-3 lg:items-stretch ${
+                    isNonSalesSpecialCustomer ? "" : "lg:grid-cols-2"
+                  }`}
+                >
+                  {!isNonSalesSpecialCustomer && (
+                    <div className="min-w-0">{discountField}</div>
+                  )}
+                  <div className="min-w-0">{extraNoteField}</div>
+                </div>
+              ) : (
+                <div
+                  className={`grid grid-cols-1 gap-3 lg:items-stretch ${
+                    isNonSalesSpecialCustomer
+                      ? ""
+                      : "lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)]"
+                  }`}
+                >
+                  {!isNonSalesSpecialCustomer && (
+                    <div className="min-w-0">{discountField}</div>
+                  )}
+                  {!isNonSalesSpecialCustomer && (
+                    <div className="min-w-0">{reservationSlot}</div>
+                  )}
+                  <div className="min-w-0">{extraNoteField}</div>
+                </div>
+              )}
             {splitPaymentAmountField}
           </div>
         </div>

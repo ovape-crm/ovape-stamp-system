@@ -12,8 +12,8 @@ import Loading from "@/app/_components/Loading";
 import toast from "react-hot-toast";
 import { useModal } from "@/app/_contexts/ModalContext";
 import {
-  updateCustomer,
   deleteCustomer,
+  updateCustomerWithAdultVerification,
 } from "@/app/_domains/_customer/_services/customerService";
 import Button from "@/app/_components/Button";
 import { useUser } from "@/app/_contexts/UserContext";
@@ -92,11 +92,21 @@ export default function CustomerDetailPage() {
     phone: string;
     gender: "male" | "female";
     is_stamp_eligible: boolean;
+    adult_verification_method: "" | "physical_id" | "bbaton";
+    adult_verification_request_id?: string;
     address?: string;
     note?: string;
   }) => {
     try {
-      await updateCustomer(customerId, values);
+      const {
+        adult_verification_method,
+        adult_verification_request_id,
+        ...customerUpdates
+      } = values;
+      await updateCustomerWithAdultVerification(customerId, customerUpdates, {
+        method: adult_verification_method as "physical_id" | "bbaton",
+        requestId: adult_verification_request_id,
+      });
       toast.success("고객 정보가 수정되었습니다.");
       close();
       handleUpdate();

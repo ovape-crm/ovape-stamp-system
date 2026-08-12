@@ -11,8 +11,12 @@ import KoreanDatePicker, {
   KoreanDateRangePicker,
 } from "@/app/_components/KoreanDatePicker";
 import SupplierDefaultTaxInvoiceDialog from "./_components/SupplierDefaultTaxInvoiceDialog";
-import { showConfirmDialog, showPromptDialog } from "@/app/_components/AppDialog";
+import {
+  showConfirmDialog,
+  showPromptDialog,
+} from "@/app/_components/AppDialog";
 import { useUser } from "@/app/_contexts/UserContext";
+import { formatPhoneNumber } from "@/app/_utils/utils";
 import {
   getInventoryMovements,
   getInventoryOverview,
@@ -119,7 +123,9 @@ function PurchaseHandlingDetails({ line }: { line: PurchaseOrderLine }) {
         >
           {line.handling_type === "reservation"
             ? "예약 고객 보기"
-            : "연결 고객 보기"}
+            : line.customers
+              ? `${line.customers.name} · ${formatPhoneNumber(line.customers.phone)}`
+              : "연결 고객"}
         </a>
       )}
       {line.handling_note && (
@@ -719,7 +725,8 @@ function InitialStockSetup({
   const resetAllInventory = async () => {
     const confirmation = await showPromptDialog({
       title: "전체 재고 초기화",
-      description: "현재 재고와 모든 재고 변동 이력이 삭제됩니다.\n계속하려면 아래에 ‘재고초기화’를 입력하세요.",
+      description:
+        "현재 재고와 모든 재고 변동 이력이 삭제됩니다.\n계속하려면 아래에 ‘재고초기화’를 입력하세요.",
       inputLabel: "확인 문구",
       placeholder: "재고초기화",
       confirmLabel: "초기화",
@@ -1994,10 +2001,12 @@ function ReceiptManager({
     setActiveItemRow(null);
   };
 
-  const moveReceiptRow = (index: number, direction: -1 | 1) => {
+  const moveReceiptRow = (rowId: number | string, direction: -1 | 1) => {
     setRows((current) => {
       const draft = current[current.length - 1];
       const committed = current.slice(0, -1);
+      const index = committed.findIndex((row) => row.id === rowId);
+      if (index < 0) return current;
       const nextIndex = index + direction;
       if (nextIndex < 0 || nextIndex >= committed.length) return current;
       const nextCommitted = [...committed];
@@ -2933,7 +2942,7 @@ function ReceiptManager({
                                           <button
                                             type="button"
                                             onClick={() =>
-                                              moveReceiptRow(index, -1)
+                                              moveReceiptRow(row.id, -1)
                                             }
                                             disabled={index === 0}
                                             className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-gray-200 bg-white text-xs font-semibold text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-35"
@@ -2944,7 +2953,7 @@ function ReceiptManager({
                                           <button
                                             type="button"
                                             onClick={() =>
-                                              moveReceiptRow(index, 1)
+                                              moveReceiptRow(row.id, 1)
                                             }
                                             disabled={
                                               index === validRows.length - 1
@@ -4182,7 +4191,16 @@ function PurchaseOrderList({
                             size="xs"
                             variant="danger"
                             onClick={async () => {
-                              const reason = await showPromptDialog({ title: "입고 취소", description: "입고를 취소하면 반영된 재고가 복구됩니다.", inputLabel: "취소 사유", placeholder: "사유 입력", confirmLabel: "입고 취소", required: true, tone: "danger" });
+                              const reason = await showPromptDialog({
+                                title: "입고 취소",
+                                description:
+                                  "입고를 취소하면 반영된 재고가 복구됩니다.",
+                                inputLabel: "취소 사유",
+                                placeholder: "사유 입력",
+                                confirmLabel: "입고 취소",
+                                required: true,
+                                tone: "danger",
+                              });
                               if (reason?.trim())
                                 void run(
                                   () =>
@@ -4270,7 +4288,15 @@ function PurchaseOrderList({
                       size="xs"
                       variant="danger"
                       onClick={async () => {
-                        if (await showConfirmDialog({ title: "입고 이력 삭제", description: "이 입고 이력을 삭제할까요?\n반영된 입고 재고와 관련 변동 이력도 함께 되돌아갑니다.", confirmLabel: "이력 삭제", tone: "danger" }))
+                        if (
+                          await showConfirmDialog({
+                            title: "입고 이력 삭제",
+                            description:
+                              "이 입고 이력을 삭제할까요?\n반영된 입고 재고와 관련 변동 이력도 함께 되돌아갑니다.",
+                            confirmLabel: "이력 삭제",
+                            tone: "danger",
+                          })
+                        )
                           void run(
                             () => deletePurchaseOrderHistory(order.id),
                             "입고 이력을 삭제했습니다.",
@@ -4291,12 +4317,12 @@ function PurchaseOrderList({
                 <table className="purchase-order-table purchase-order-table--clean-edges w-full table-fixed border-collapse bg-white text-sm">
                   <colgroup>
                     <col className="w-[240px]" />
-                    <col className="w-[84px]" />
+                    <col className="w-[70px]" />
                     {showPartialDetails && <col className="w-[90px]" />}
                     {showPartialDetails && <col className="w-[90px]" />}
-                    {showPartialDetails && <col className="w-[100px]" />}
-                    <col className="w-[84px]" />
-                    <col className="w-[280px]" />
+                    {showPartialDetails && <col className="w-[68px]" />}
+                    <col className="w-[70px]" />
+                    <col className="w-[340px]" />
                     <col className="w-[120px]" />
                   </colgroup>
                   <thead className="bg-brand-50 text-brand-700">
@@ -4452,7 +4478,12 @@ function PurchaseOrderList({
                                   const qty = Number(value);
                                   if (
                                     qty > lineRemaining &&
-                                    !(await showConfirmDialog({ title: "주문 잔량 초과", description: `주문 잔량은 ${lineRemaining}개입니다.\n${qty}개로 저장할까요?`, confirmLabel: "수량 저장", tone: "warning" }))
+                                    !(await showConfirmDialog({
+                                      title: "주문 잔량 초과",
+                                      description: `주문 잔량은 ${lineRemaining}개입니다.\n${qty}개로 저장할까요?`,
+                                      confirmLabel: "수량 저장",
+                                      tone: "warning",
+                                    }))
                                   )
                                     return;
                                   void (async () => {
@@ -4595,18 +4626,18 @@ function PurchaseOrderList({
                   <div className="min-w-[1080px] overflow-hidden rounded-xl border border-brand-200 bg-white">
                     <table className="purchase-order-table purchase-order-table--clean-edges w-full table-fixed border-collapse bg-white text-sm">
                       <colgroup>
-                        <col className="w-[190px]" />
+                        <col className="w-[180px]" />
                         <col className="w-[220px]" />
-                        <col className="w-[90px]" />
+                        <col className="w-[72px]" />
                         {showCompletedCumulativeDetails && (
                           <col className="w-[120px]" />
                         )}
                         {showCompletedCumulativeDetails && (
                           <col className="w-[100px]" />
                         )}
-                        <col className="w-[100px]" />
-                        <col className="w-[140px]" />
-                        <col className="w-[260px]" />
+                        <col className="w-[72px]" />
+                        <col className="w-[94px]" />
+                        <col className="w-[362px]" />
                       </colgroup>
                       <thead className="bg-brand-50 text-brand-700">
                         <tr>
@@ -4680,12 +4711,9 @@ function PurchaseOrderList({
                                   }
                                 >
                                   <td className="border border-gray-200 px-3 py-3">
-                                    {formatKoreanDate(receipt.arrived_on)}
-                                    {receipt.note && (
-                                      <p className="mt-1 text-xs text-gray-500">
-                                        입고 메모: {receipt.note}
-                                      </p>
-                                    )}
+                                    <span className="whitespace-nowrap">
+                                      {formatKoreanDate(receipt.arrived_on)}
+                                    </span>
                                     {receipt.reversed_at && (
                                       <span className="ml-2 text-xs font-bold text-rose-600">
                                         취소됨
@@ -4731,10 +4759,14 @@ function PurchaseOrderList({
                                         />
                                       </div>
                                     ) : null}
-                                    {receiptLine.note ||
+                                    {receipt.note ||
+                                    receiptLine.note ||
                                     receiptLine.quantity_check_note ||
                                     orderLine?.note ? (
                                       <div className="space-y-1">
+                                        {receipt.note && (
+                                          <p>입고 메모: {receipt.note}</p>
+                                        )}
                                         {(receiptLine.note ||
                                           orderLine?.note) && (
                                           <p>
@@ -4918,7 +4950,16 @@ function PurchaseOrderList({
                       <Button
                         variant="gray"
                         onClick={async () => {
-                          const reason = await showPromptDialog({ title: "미입고 종료", description: "남은 미입고 수량을 종료하는 사유를 입력해 주세요.", inputLabel: "종료 사유", placeholder: "사유 입력", confirmLabel: "미입고 종료", required: true, tone: "warning" });
+                          const reason = await showPromptDialog({
+                            title: "미입고 종료",
+                            description:
+                              "남은 미입고 수량을 종료하는 사유를 입력해 주세요.",
+                            inputLabel: "종료 사유",
+                            placeholder: "사유 입력",
+                            confirmLabel: "미입고 종료",
+                            required: true,
+                            tone: "warning",
+                          });
                           if (reason?.trim())
                             void run(
                               () =>
@@ -4952,7 +4993,16 @@ function PurchaseOrderList({
                           size="xs"
                           variant="danger"
                           onClick={async () => {
-                            const reason = await showPromptDialog({ title: "입고 취소", description: "입고를 취소하면 반영된 재고가 복구됩니다.", inputLabel: "취소 사유", placeholder: "사유 입력", confirmLabel: "입고 취소", required: true, tone: "danger" });
+                            const reason = await showPromptDialog({
+                              title: "입고 취소",
+                              description:
+                                "입고를 취소하면 반영된 재고가 복구됩니다.",
+                              inputLabel: "취소 사유",
+                              placeholder: "사유 입력",
+                              confirmLabel: "입고 취소",
+                              required: true,
+                              tone: "danger",
+                            });
                             if (reason?.trim())
                               void run(
                                 () =>
@@ -5747,7 +5797,14 @@ function PurchaseAdjustmentCategoryOverlay({
                         variant="danger"
                         disabled={pending}
                         onClick={async () => {
-                          if (await showConfirmDialog({ title: "거래 항목 삭제", description: `‘${item.name}’ 항목을 삭제할까요?`, confirmLabel: "삭제", tone: "danger" }))
+                          if (
+                            await showConfirmDialog({
+                              title: "거래 항목 삭제",
+                              description: `‘${item.name}’ 항목을 삭제할까요?`,
+                              confirmLabel: "삭제",
+                              tone: "danger",
+                            })
+                          )
                             void run(
                               () =>
                                 deactivatePurchaseAdjustmentCategory(item.id),
