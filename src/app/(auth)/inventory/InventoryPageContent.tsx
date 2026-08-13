@@ -2425,16 +2425,19 @@ function ReceiptManager({
                                             );
                                             setActiveItemRow(null);
                                           }}
-                                          className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-3 text-left text-sm hover:bg-brand-50"
+                                          className="min-h-11 w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-brand-50"
                                         >
-                                          <span>
-                                            <strong className="text-gray-900">
-                                              {item.item_name}
-                                            </strong>
+                                          <span className="mb-1 flex items-center justify-between gap-3">
+                                            <span className="block w-fit rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
+                                              {item.category_name ?? "미분류"}
+                                            </span>
+                                            <span className="shrink-0 text-xs font-semibold text-gray-500">
+                                              {item.quantity.toLocaleString()}개
+                                            </span>
                                           </span>
-                                          <span className="shrink-0 text-xs font-semibold text-gray-500">
-                                            현재 {item.quantity}개
-                                          </span>
+                                          <strong className="block break-words text-gray-900">
+                                            {item.item_name}
+                                          </strong>
                                         </button>
                                       ))}
                                   </div>
@@ -3555,6 +3558,9 @@ function PurchaseOrderList({
   onCreate?: () => void;
   onEdit?: (order: PurchaseOrder) => void;
 }) {
+  type PurchaseOrderListTab =
+    "waiting" | "partial" | "completed" | "closed" | "all";
+  const expansionStorageKey = "inventory-purchase-order-expansion";
   const [quantities, setQuantities] = useState<Record<string, string>>({});
   const [arrivalDates, setArrivalDates] = useState<Record<string, string>>({});
   const [arrivalNotes, setArrivalNotes] = useState<Record<string, string>>({});
@@ -3566,18 +3572,47 @@ function PurchaseOrderList({
     queryFn: () => getPurchaseAdjustmentCategories(true),
     enabled: isAdmin,
   });
-  const [listTab, setListTab] = useState<
-    "waiting" | "partial" | "completed" | "closed"
-  >("waiting");
+  const [listTab, setListTab] = useState<PurchaseOrderListTab>("waiting");
   const [tabExpandedDefaults, setTabExpandedDefaults] = useState({
     waiting: true,
     partial: true,
     completed: false,
     closed: false,
+    all: false,
   });
   const [expandedOrders, setExpandedOrders] = useState<Record<string, boolean>>(
     {},
   );
+  const [hasLoadedExpansionState, setHasLoadedExpansionState] = useState(false);
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(expansionStorageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved) as {
+          tabExpandedDefaults?: typeof tabExpandedDefaults;
+          expandedOrders?: Record<string, boolean>;
+        };
+        if (parsed.tabExpandedDefaults) {
+          setTabExpandedDefaults(parsed.tabExpandedDefaults);
+        }
+        if (parsed.expandedOrders) setExpandedOrders(parsed.expandedOrders);
+      }
+    } catch {
+      window.localStorage.removeItem(expansionStorageKey);
+    } finally {
+      setHasLoadedExpansionState(true);
+    }
+  }, []);
+  useEffect(() => {
+    if (!hasLoadedExpansionState) return;
+    window.localStorage.setItem(
+      expansionStorageKey,
+      JSON.stringify({ tabExpandedDefaults, expandedOrders }),
+    );
+  }, [hasLoadedExpansionState, tabExpandedDefaults, expandedOrders]);
+  useEffect(() => {
+    if (!isAdmin && listTab === "all") setListTab("waiting");
+  }, [isAdmin, listTab]);
   useEffect(() => {
     setQuantities({});
     setEditingQuantities({});
@@ -3627,28 +3662,33 @@ function PurchaseOrderList({
       Number(window.localStorage.getItem("purchase-note-column-width")) || 280
     );
   });
-  const toggleTabExpansion = (
-    tab: "waiting" | "partial" | "completed" | "closed",
-  ) => {
-    const nextExpanded = !tabExpandedDefaults[tab];
-    setTabExpandedDefaults((current) => ({
-      ...current,
-      [tab]: nextExpanded,
-    }));
-    const matchingOrders = orders.filter((order) =>
-      tab === "waiting"
-        ? order.status === "pending"
-        : tab === "partial"
-          ? order.status === "partial"
-          : tab === "completed"
-            ? order.status === "completed"
-            : order.status === "closed" || order.status === "cancelled",
-    );
+  const toggleTabExpansion = (tab: PurchaseOrderListTab) => {
+    setTabExpandedDefaults((currentDefaults) => {
+      const nextExpanded = !currentDefaults[tab];
+      const matchingOrders = orders.filter((order) =>
+        tab === "waiting"
+          ? order.status === "pending"
+          : tab === "partial"
+            ? order.status === "partial"
+            : tab === "completed"
+              ? order.status === "completed" || order.status === "cancelled"
+              : tab === "closed"
+                ? order.status === "closed"
+                : true,
+      );
+      setExpandedOrders((currentOrders) => ({
+        ...currentOrders,
+        ...Object.fromEntries(
+          matchingOrders.map((order) => [order.id, nextExpanded]),
+        ),
+      }));
+      return { ...currentDefaults, [tab]: nextExpanded };
+    });
+  };
+  const toggleOrderExpansion = (orderId: string, isExpanded: boolean) => {
     setExpandedOrders((current) => ({
       ...current,
-      ...Object.fromEntries(
-        matchingOrders.map((order) => [order.id, nextExpanded]),
-      ),
+      [orderId]: !isExpanded,
     }));
   };
   const statusLabels: Record<PurchaseOrder["status"], string> = {
@@ -3704,9 +3744,7 @@ function PurchaseOrderList({
     setArrivalDates({});
     setArrivalNotes({});
   };
-  const changeListTab = async (
-    nextTab: "waiting" | "partial" | "completed" | "closed",
-  ) => {
+  const changeListTab = async (nextTab: PurchaseOrderListTab) => {
     if (nextTab === listTab || pending) return;
     if (listTab === "waiting" || listTab === "partial") {
       const currentOrders =
@@ -3749,7 +3787,10 @@ function PurchaseOrderList({
       order.status !== "closed",
   );
   const closedOrders = orders.filter((order) => order.status === "closed");
-  const filterHistoryOrders = (targetOrders: PurchaseOrder[]) =>
+  const filterHistoryOrders = (
+    targetOrders: PurchaseOrder[],
+    dateBasis: "arrival" | "order" = "arrival",
+  ) =>
     targetOrders.filter((order) => {
       const matchesSupplier = (order.inventory_suppliers?.name ?? "")
         .toLocaleLowerCase("ko-KR")
@@ -3764,13 +3805,16 @@ function PurchaseOrderList({
             .toLocaleLowerCase("ko-KR")
             .includes(normalizedItemSearch),
         );
-      const receiptDates = order.inventory_purchase_receipts.map(
-        (receipt) => receipt.arrived_on,
-      );
+      const targetDates =
+        dateBasis === "order"
+          ? [order.ordered_on]
+          : order.inventory_purchase_receipts.map(
+              (receipt) => receipt.arrived_on,
+            );
       const matchesDate =
         historyDateMode === "all" ||
         (Boolean(historyStartDate) &&
-          receiptDates.some((date) =>
+          targetDates.some((date) =>
             historyEndDate
               ? date >= historyStartDate && date <= historyEndDate
               : date === historyStartDate,
@@ -3779,6 +3823,11 @@ function PurchaseOrderList({
     });
   const filteredCompletedOrders = filterHistoryOrders(completedOrders);
   const filteredClosedOrders = filterHistoryOrders(closedOrders);
+  const allHistoryOrders = orders;
+  const filteredAllHistoryOrders = filterHistoryOrders(
+    allHistoryOrders,
+    "order",
+  );
   const visibleOrders =
     listTab === "waiting"
       ? waitingOrders
@@ -3786,7 +3835,9 @@ function PurchaseOrderList({
         ? partialOrders
         : listTab === "completed"
           ? filteredCompletedOrders
-          : filteredClosedOrders;
+          : listTab === "closed"
+            ? filteredClosedOrders
+            : filteredAllHistoryOrders;
   const formatKoreanDate = (value: string) =>
     new Intl.DateTimeFormat("ko-KR", {
       year: "numeric",
@@ -3797,7 +3848,7 @@ function PurchaseOrderList({
     }).format(new Date(`${value}T00:00:00+09:00`));
   const cleanQuantityMemo = (value: string | null | undefined) =>
     value?.replace(/\[자동 수량 확인\]\s*/g, "").trim() ?? "";
-  const copyOrderForExcel = async (order: PurchaseOrder) => {
+  const buildOrderExcelRows = (order: PurchaseOrder) => {
     const orderNote = splitPurchaseOrderNote(order.note);
     const supplierName = order.inventory_suppliers?.name ?? "";
     const commonColumns = [supplierName, formatKoreanDate(order.ordered_on)];
@@ -3833,20 +3884,61 @@ function PurchaseOrderList({
         "",
       ].join("\t");
     });
-    const text = [...itemRows, ...adjustmentRows].join("\n");
+    return [...itemRows, ...adjustmentRows];
+  };
+  const copyOrdersForExcel = async (targetOrders: PurchaseOrder[]) => {
+    const rows = [...targetOrders]
+      .sort((a, b) => a.ordered_on.localeCompare(b.ordered_on))
+      .flatMap(buildOrderExcelRows);
+    if (rows.length === 0) {
+      toast.error("복사할 입고 내역이 없습니다.");
+      return;
+    }
+    const text = rows.join("\n");
     try {
-      await navigator.clipboard.writeText(text);
+      if (typeof ClipboardItem !== "undefined") {
+        const htmlRows = rows
+          .map((row) => {
+            const cells = row.split("\t");
+            return `<tr>${cells
+              .map((cell) => {
+                const escaped = cell
+                  .replaceAll("&", "&amp;")
+                  .replaceAll("<", "&lt;")
+                  .replaceAll(">", "&gt;")
+                  .replaceAll('"', "&quot;");
+                return cell.startsWith("=")
+                  ? `<td class="formula" x:fmla="=RC[-2]*RC[-1]" x:num>${escaped}</td>`
+                  : `<td>${escaped}</td>`;
+              })
+              .join("")}</tr>`;
+          })
+          .join("");
+        const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta name="ProgId" content="Excel.Sheet"><style>td.formula{mso-number-format:General;}</style></head><body><table>${htmlRows}</table></body></html>`;
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            "text/plain": new Blob([text], { type: "text/plain" }),
+            "text/html": new Blob([html], { type: "text/html" }),
+          }),
+        ]);
+      } else {
+        await navigator.clipboard.writeText(text);
+      }
       toast.success("엑셀 붙여넣기 형식으로 복사했습니다.");
     } catch {
       toast.error("복사하지 못했습니다. 다시 시도해 주세요.");
     }
   };
+  const copyOrderForExcel = async (order: PurchaseOrder) =>
+    copyOrdersForExcel([order]);
   if (loading)
     return <Loading size="sm" text="입고 예정 목록을 불러오는 중..." />;
   return (
     <section className="mt-4 space-y-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="grid grid-cols-2 gap-1 rounded-xl bg-gray-100 p-1 sm:w-[720px] sm:grid-cols-4">
+        <div
+          className={`grid grid-cols-2 gap-1 rounded-xl bg-gray-100 p-1 ${isAdmin ? "sm:w-[900px] sm:grid-cols-5" : "sm:w-[720px] sm:grid-cols-4"}`}
+        >
           <div className="relative">
             <button
               type="button"
@@ -3923,6 +4015,29 @@ function PurchaseOrderList({
               <CollapseChevron expanded={tabExpandedDefaults.closed} />
             </button>
           </div>
+          {isAdmin && (
+            <div className="relative col-span-2 sm:col-span-1">
+              <button
+                type="button"
+                onClick={() => void changeListTab("all")}
+                disabled={pending}
+                className={`min-h-11 w-full rounded-lg px-4 pr-10 text-sm font-bold transition ${listTab === "all" ? "bg-white text-brand-700 shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
+              >
+                전체 입고{" "}
+                <span className="ml-1 text-xs">
+                  {allHistoryOrders.length}건
+                </span>
+              </button>
+              <button
+                type="button"
+                aria-label={`전체 입고 표 ${tabExpandedDefaults.all ? "접기" : "펼치기"}`}
+                onClick={() => toggleTabExpansion("all")}
+                className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-base text-gray-500 hover:bg-gray-200"
+              >
+                <CollapseChevron expanded={tabExpandedDefaults.all} />
+              </button>
+            </div>
+          )}
         </div>
         {onCreate ? (
           <div className="flex items-center gap-2">
@@ -3947,7 +4062,7 @@ function PurchaseOrderList({
       </div>
       {(listTab === "waiting" || listTab === "partial") &&
         visibleOrders.length > 0 && (
-          <div className="flex items-center gap-2 overflow-x-auto rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
             <span className="shrink-0 text-xs font-bold text-gray-500">
               거래처 바로가기
             </span>
@@ -3963,15 +4078,20 @@ function PurchaseOrderList({
                 className="shrink-0 rounded-full border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
               >
                 {order.inventory_suppliers?.name ?? "거래처 정보 없음"}
+                <span className="ml-2 font-medium text-gray-500">
+                  주문일 {order.ordered_on}
+                </span>
               </button>
             ))}
           </div>
         )}
-      {(listTab === "completed" || listTab === "closed") && (
+      {(listTab === "completed" ||
+        listTab === "closed" ||
+        listTab === "all") && (
         <div className="flex flex-col gap-2 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm lg:flex-row lg:items-stretch lg:gap-3">
           <div className="flex w-full flex-col rounded-xl border border-gray-200 bg-gray-50/70 p-2.5 sm:w-[120px] sm:shrink-0">
             <p className="mb-1 text-xs font-semibold text-gray-600">
-              조회 기간
+              {listTab === "all" ? "주문일 기간" : "조회 기간"}
             </p>
             <Dropdown controlledValue={historyDateMode}>
               <Dropdown.Trigger compact>
@@ -4098,6 +4218,33 @@ function PurchaseOrderList({
               </span>
             </label>
           </div>
+          {listTab === "all" && isAdmin && (
+            <div className="flex w-full items-center lg:ml-auto lg:w-auto">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  if (
+                    historyDateMode !== "custom" ||
+                    !historyStartDate ||
+                    !historyEndDate
+                  ) {
+                    toast.error("복사할 조회기간을 먼저 선택해 주세요.");
+                    return;
+                  }
+                  void copyOrdersForExcel(visibleOrders);
+                }}
+                disabled={
+                  visibleOrders.length === 0 ||
+                  historyDateMode !== "custom" ||
+                  !historyStartDate ||
+                  !historyEndDate
+                }
+              >
+                기간 전체 복사
+              </Button>
+            </div>
+          )}
         </div>
       )}
       <div className="hidden items-center justify-between">
@@ -4141,7 +4288,7 @@ function PurchaseOrderList({
             key={order.id}
             className="relative overflow-visible rounded-2xl border border-gray-200 bg-gray-50 shadow-sm"
           >
-            <header className="flex flex-col rounded-t-[15px] bg-gray-50 sm:min-h-[112px] sm:flex-row sm:items-stretch">
+            <header className="relative flex flex-col rounded-t-[15px] bg-gray-50 sm:min-h-[112px] sm:flex-row sm:items-stretch">
               <div className="flex w-full shrink-0 flex-col justify-center gap-2 border-b border-gray-200 px-3 py-3 sm:w-[180px] sm:border-b-0 sm:border-r">
                 <div className="flex min-h-9 items-center justify-center">
                   <span
@@ -4248,14 +4395,9 @@ function PurchaseOrderList({
                 <div className="flex flex-wrap items-center gap-2 pt-7 sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:self-center">
                   <button
                     type="button"
-                    onClick={() =>
-                      setExpandedOrders((current) => ({
-                        ...current,
-                        [order.id]: !isExpanded,
-                      }))
-                    }
+                    onClick={() => toggleOrderExpansion(order.id, isExpanded)}
                     aria-label={`${order.inventory_suppliers?.name ?? "입고 건"} 표 ${isExpanded ? "접기" : "펼치기"}`}
-                    className="absolute right-4 top-2 flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-base font-bold text-gray-500 shadow-sm hover:border-brand-300 hover:text-brand-600"
+                    className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-base font-bold text-gray-500 shadow-sm hover:border-brand-300 hover:text-brand-600 sm:right-4"
                   >
                     <CollapseChevron expanded={isExpanded} />
                   </button>

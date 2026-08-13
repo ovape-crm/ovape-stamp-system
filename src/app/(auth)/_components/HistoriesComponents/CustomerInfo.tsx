@@ -4,10 +4,12 @@ const CustomerInfo = ({
   name,
   phone,
   onClick,
+  singleLineLabel,
 }: {
   name: string | null | undefined;
   phone: string | null | undefined;
   onClick: () => void;
+  singleLineLabel?: string;
 }) => {
   return (
     <div
@@ -15,9 +17,11 @@ const CustomerInfo = ({
       onClick={onClick}
     >
       <p className="text-base font-semibold text-gray-900">
-        {name || "이름 없음"}
+        {singleLineLabel || name || "이름 없음"}
       </p>
-      <p className="text-sm text-gray-600">{formatPhoneNumber(phone)}</p>
+      {!singleLineLabel && (
+        <p className="text-sm text-gray-600">{formatPhoneNumber(phone)}</p>
+      )}
     </div>
   );
 };

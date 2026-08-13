@@ -16,6 +16,7 @@ import { useCallback } from "react";
 import {
   PaymentTypeEnum,
   PaymentTypeEnumType,
+  StoreTypeEnum,
   StoreTypeEnumType,
 } from "@/app/_enums/enums";
 import { groupLogsByDate, formatDateKey } from "@/app/_utils/utils";
@@ -295,18 +296,42 @@ const CustomersDetailStampsHistories = ({
                       targetUser.name.trim() === "X" &&
                       targetUser.phone.trim() === "X"
                     ) &&
-                      log.jsonb?.paymentType !==
-                        PaymentTypeEnum.REMARK.value && (
+                      log.jsonb?.paymentType !== PaymentTypeEnum.REMARK.value &&
+                      !log.action.startsWith("coupon-") && (
                         <ActionInfoLabel action={log.action} matchStoreLabel />
                       )}
-                    {log.jsonb && "storeName" in log.jsonb && (
-                      <StoreLabel jsonb={log.jsonb} />
+                    {(log.action.startsWith("coupon-") ||
+                      (log.jsonb && "storeName" in log.jsonb)) && (
+                      <StoreLabel
+                        jsonb={{
+                          ...(log.jsonb ?? {}),
+                          ...(log.action.startsWith("coupon-") &&
+                          !log.jsonb?.storeName
+                            ? { storeName: StoreTypeEnum.OVAPE.value }
+                            : {}),
+                        }}
+                      />
                     )}
-                    {log.jsonb && "paymentType" in log.jsonb && (
-                      <PaymentTypeLabel jsonb={log.jsonb} />
+                    {(log.action.startsWith("coupon-") ||
+                      (log.jsonb && "paymentType" in log.jsonb)) && (
+                      <PaymentTypeLabel
+                        jsonb={{
+                          ...(log.jsonb ?? {}),
+                          ...(log.action.startsWith("coupon-") &&
+                          !log.jsonb?.paymentType
+                            ? {
+                                paymentType:
+                                  PaymentTypeEnum.SHIPMENT_REMARK.value,
+                              }
+                            : {}),
+                        }}
+                      />
+                    )}
+                    {log.action.startsWith("coupon-") && (
+                      <ActionInfoLabel action={log.action} matchStoreLabel />
                     )}
                     {typeof log.jsonb?.totalAmount === "number" &&
-                      log.jsonb.totalAmount > 0 && (
+                      log.jsonb.totalAmount !== 0 && (
                         <span className="flex h-7 w-full items-center justify-center whitespace-nowrap rounded-full bg-emerald-100 px-2 text-center text-xs font-semibold text-emerald-700">
                           {log.jsonb.totalAmount.toLocaleString("ko-KR")}원
                         </span>

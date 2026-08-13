@@ -1,14 +1,19 @@
-import supabase from '@/libs/supabaseClient';
-import { ItemType } from '../_types/item.types';
+import supabase from "@/libs/supabaseClient";
+import { ItemType } from "../_types/item.types";
 
-const normalizeItemName = (value: string) => value.normalize('NFC').trim();
+const normalizeItemName = (value: string) => value.normalize("NFC").trim();
 
 const ensureUniqueItemName = async (itemName: string, excludeId?: string) => {
-  let query = supabase.from('items').select('id, item_name').ilike('item_name', itemName);
-  if (excludeId) query = query.neq('id', excludeId);
+  let query = supabase
+    .from("items")
+    .select("id, item_name")
+    .ilike("item_name", itemName);
+  if (excludeId) query = query.neq("id", excludeId);
   const { data, error } = await query;
   if (error) throw error;
-  if ((data ?? []).some((item) => normalizeItemName(item.item_name) === itemName)) {
+  if (
+    (data ?? []).some((item) => normalizeItemName(item.item_name) === itemName)
+  ) {
     throw new Error(`이미 등록된 품목명입니다: ${itemName}`);
   }
 };
@@ -23,11 +28,11 @@ type ItemFiltersParam = {
 
 const buildQuery = (filters?: ItemFiltersParam) => {
   let query = supabase
-    .from('items')
-    .select('*, item_categories(id, name, order_index, created_at)');
+    .from("items")
+    .select("*, item_categories(id, name, order_index, created_at)");
 
   if (filters?.categoryId) {
-    query = query.eq('category_id', filters.categoryId);
+    query = query.eq("category_id", filters.categoryId);
   }
 
   if (filters?.searchConditions?.length) {
@@ -37,12 +42,14 @@ const buildQuery = (filters?: ItemFiltersParam) => {
   }
 
   if (filters?.searchKeyword) {
-    const keyword = filters.searchKeyword.replaceAll(',', '\\,').trim();
-    query = query.or(`item_name.ilike.%${keyword}%,item_code.ilike.%${keyword}%`);
+    const keyword = filters.searchKeyword.replaceAll(",", "\\,").trim();
+    query = query.or(
+      `item_name.ilike.%${keyword}%,item_code.ilike.%${keyword}%`,
+    );
   }
 
   if (filters?.isUse !== undefined) {
-    query = query.eq('is_use', filters.isUse);
+    query = query.eq("is_use", filters.isUse);
   }
 
   return query;
@@ -54,22 +61,43 @@ export const getItems = async (
   filters?: ItemFiltersParam,
 ): Promise<ItemType[]> => {
   const { data, error } = await buildQuery(filters)
-    .order('created_at', { ascending: false })
+    .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 
   if (error) throw error;
   const items = (data ?? []) as ItemType[];
   if (items.length) {
-    const locationResult = await supabase
-      .from('liqud_stand_cells')
-      .select('item_name, secondary_item_name, row_index, column_index, liqud_stand_sections(name)');
+    const [locationResult, balanceResult] = await Promise.all([
+      supabase
+        .from("liqud_stand_cells")
+        .select(
+          "item_name, secondary_item_name, row_index, column_index, liqud_stand_sections(name)",
+        ),
+      supabase
+        .from("inventory_balances")
+        .select("item_name, quantity")
+        .in(
+          "item_name",
+          items.map((item) => item.item_name),
+        ),
+    ]);
     let locations = locationResult.data;
+
+    if (balanceResult.error) throw balanceResult.error;
+    const quantityByItemName = new Map(
+      (balanceResult.data ?? []).map((balance) => [
+        normalizeItemName(balance.item_name),
+        balance.quantity,
+      ]),
+    );
 
     // 시연대 SQL이 아직 최신 버전이 아니어도 품목 목록 자체는 정상 표시합니다.
     if (locationResult.error) {
       const legacyResult = await supabase
-        .from('liqud_stand_cells')
-        .select('item_name, row_index, column_index, liqud_stand_sections(name)');
+        .from("liqud_stand_cells")
+        .select(
+          "item_name, row_index, column_index, liqud_stand_sections(name)",
+        );
       locations = legacyResult.error
         ? []
         : (legacyResult.data ?? []).map((cell) => ({
@@ -78,10 +106,13 @@ export const getItems = async (
           }));
     }
     for (const item of items) {
+      item.current_quantity =
+        quantityByItemName.get(normalizeItemName(item.item_name)) ?? 0;
       item.liqud_stand_cells = (locations ?? [])
-        .filter((cell) =>
-          cell.item_name === item.item_name ||
-          cell.secondary_item_name === item.item_name,
+        .filter(
+          (cell) =>
+            cell.item_name === item.item_name ||
+            cell.secondary_item_name === item.item_name,
         )
         .map((cell) => ({
           row_index: cell.row_index,
@@ -102,11 +133,11 @@ export const getItemsCount = async (
   filters?: ItemFiltersParam,
 ): Promise<number> => {
   let query = supabase
-    .from('items')
-    .select('*', { count: 'exact', head: true });
+    .from("items")
+    .select("*", { count: "exact", head: true });
 
   if (filters?.categoryId) {
-    query = query.eq('category_id', filters.categoryId);
+    query = query.eq("category_id", filters.categoryId);
   }
 
   if (filters?.searchConditions?.length) {
@@ -116,12 +147,14 @@ export const getItemsCount = async (
   }
 
   if (filters?.searchKeyword) {
-    const keyword = filters.searchKeyword.replaceAll(',', '\\,').trim();
-    query = query.or(`item_name.ilike.%${keyword}%,item_code.ilike.%${keyword}%`);
+    const keyword = filters.searchKeyword.replaceAll(",", "\\,").trim();
+    query = query.or(
+      `item_name.ilike.%${keyword}%,item_code.ilike.%${keyword}%`,
+    );
   }
 
   if (filters?.isUse !== undefined) {
-    query = query.eq('is_use', filters.isUse);
+    query = query.eq("is_use", filters.isUse);
   }
 
   const { count, error } = await query;
@@ -141,7 +174,7 @@ export const createItem = async (values: {
 }): Promise<void> => {
   const itemName = normalizeItemName(values.itemName);
   await ensureUniqueItemName(itemName);
-  const { error } = await supabase.from('items').insert({
+  const { error } = await supabase.from("items").insert({
     category_id: values.categoryId,
     item_code: values.itemCode,
     item_name: itemName,
@@ -173,7 +206,7 @@ export const updateItem = async (
   const itemName = normalizeItemName(values.itemName);
   await ensureUniqueItemName(itemName, id);
   const { error } = await supabase
-    .from('items')
+    .from("items")
     .update({
       category_id: values.categoryId,
       item_code: values.itemCode,
@@ -186,12 +219,12 @@ export const updateItem = async (
       is_use: values.isUse,
       updated_at: new Date().toISOString(),
     })
-    .eq('id', id);
+    .eq("id", id);
 
   if (error) throw error;
 };
 
 export const deleteItem = async (id: string): Promise<void> => {
-  const { error } = await supabase.from('items').delete().eq('id', id);
+  const { error } = await supabase.from("items").delete().eq("id", id);
   if (error) throw error;
 };

@@ -9,9 +9,11 @@ import {
   StoreTypeEnumType,
 } from "@/app/_enums/enums";
 import {
+  getLogs,
   updateLogNote,
   deleteLog,
 } from "@/app/_domains/_log/_services/logService";
+import useCopy from "@/app/_domains/_log/_hooks/useCopy";
 import { confirmReservationStamp } from "@/app/_domains/_stamp/_services/stampService";
 import { useQueryClient } from "@tanstack/react-query";
 import { logKeys } from "@/app/_domains/_log/_queryKeys/logKeys";
@@ -56,6 +58,7 @@ const StampHistories = ({
   const router = useRouter();
   const { isAdmin } = useUser();
   const { open, close } = useModal();
+  const { copyLogsToClipboard } = useCopy();
   const queryClient = useQueryClient();
 
   const [startDate, setStartDate] = useState<string | null>(null);
@@ -63,6 +66,7 @@ const StampHistories = ({
   const [paymentMethod, setPaymentMethod] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [searchKeyword, setSearchKeyword] = useState("");
+  const [isCopyingPeriod, setIsCopyingPeriod] = useState(false);
 
   const dateRange =
     startDate && endDate ? { start: startDate, end: endDate } : null;
@@ -95,6 +99,40 @@ const StampHistories = ({
   const handleSearchKeyDown = (e: React.KeyboardEvent) => {
     if (e.nativeEvent.isComposing) return;
     if (e.key === "Enter") handleSearch();
+  };
+
+  const handleCopyPeriod = async () => {
+    if (!dateRange || isCopyingPeriod) return;
+
+    try {
+      setIsCopyingPeriod(true);
+      const allLogs: LogsResType[] = [];
+      const copyPageSize = 500;
+
+      while (true) {
+        const page = await getLogs(
+          copyPageSize,
+          allLogs.length,
+          category,
+          dateRange,
+          paymentMethod || undefined,
+          searchKeyword || undefined,
+        );
+        allLogs.push(...page);
+        if (page.length < copyPageSize) break;
+      }
+
+      if (allLogs.length === 0) {
+        toast.error("선택한 기간에 복사할 이력이 없습니다.");
+        return;
+      }
+      await copyLogsToClipboard(allLogs);
+    } catch (error) {
+      console.error("Failed to copy period logs:", error);
+      toast.error("기간 전체 복사에 실패했습니다.");
+    } finally {
+      setIsCopyingPeriod(false);
+    }
   };
 
   const startEdit = useCallback(
@@ -284,7 +322,7 @@ const StampHistories = ({
   return (
     <>
       <div className="flex flex-col gap-3 mb-4 pb-3 border-b border-brand-100 text-xs sm:text-sm">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 sm:gap-4">
+        <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-end sm:gap-4">
           <div className="flex flex-col gap-1.5">
             <label className="font-medium text-gray-600">기간</label>
             <DateRangePicker
@@ -321,6 +359,18 @@ const StampHistories = ({
               </Dropdown>
             </div>
           </div>
+          {isAdmin && !isReservation && (
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="sm:ml-auto"
+              disabled={!dateRange || isCopyingPeriod}
+              onClick={() => void handleCopyPeriod()}
+            >
+              {isCopyingPeriod ? "복사 중..." : "기간 전체 복사"}
+            </Button>
+          )}
         </div>
 
         <div className="flex items-center gap-2">

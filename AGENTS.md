@@ -72,3 +72,10 @@ These are product-wide UI rules. Apply them to all new UI and keep them consiste
 - Controls with the same role on the same screen must be visually and behaviorally identical. Do not create a one-off button or input style when the existing `Button`, `Dropdown`, or canonical search input can be reused.
 - This reuse rule is required so later product-wide changes can be made from one shared implementation.
 - Addition buttons use a plain Korean action label without a leading `+` symbol (for example, `거래처 추가`, not `+ 거래처 추가`).
+
+## Outbound modal variants
+
+- Treat outbound modals as four independent UI variants: inventory adjustment, demo, X customer (male/female), and normal customer.
+- Within each variant, creation/processing and editing must use the same modal UI and step structure.
+- The creation/processing flow is canonical: inventory-adjustment edits follow inventory-adjustment processing, demo edits follow demo processing, and X/normal edits follow outbound-history creation.
+- When changing one variant, do not automatically apply the change to the other three variants unless the requirement explicitly calls for a shared change.

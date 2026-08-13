@@ -15,9 +15,11 @@ interface CustomerListProps {
   hasMore?: boolean;
   isLoadingMore?: boolean;
   totalCount?: number;
-  sortBy?: "name" | "stamp" | "created_at";
+  sortBy?: "recent_usage" | "name" | "stamp" | "created_at";
   sortOrder?: "asc" | "desc";
-  onSortChange?: (sortBy: "name" | "stamp" | "created_at") => void;
+  onSortChange?: (
+    sortBy: "recent_usage" | "name" | "stamp" | "created_at",
+  ) => void;
   headerActions?: React.ReactNode;
 }
 
@@ -58,12 +60,24 @@ const CustomerList = ({
             {totalCount !== undefined && totalCount > 0 && (
               <>
                 {" / "}
-                <span className="font-semibold text-gray-600">{totalCount}</span>
+                <span className="font-semibold text-gray-600">
+                  {totalCount}
+                </span>
               </>
             )}
           </div>
           {onSortChange && (
             <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => onSortChange("recent_usage")}
+                className={`whitespace-nowrap px-2 py-1 text-xs rounded border transition-colors cursor-pointer ${
+                  sortBy === "recent_usage"
+                    ? "bg-brand-100 border-brand-300 text-brand-700 font-medium"
+                    : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                최근 이용순
+              </button>
               <button
                 onClick={() => onSortChange("name")}
                 className={`whitespace-nowrap px-2 py-1 text-xs rounded border transition-colors cursor-pointer ${
@@ -140,8 +154,7 @@ const CustomerList = ({
             ) : (
               customers.map((customer, index) => {
                 const isNoStampCustomer =
-                  customer.name.trim() === "X" &&
-                  customer.phone.trim() === "X";
+                  customer.name.trim() === "X" && customer.phone.trim() === "X";
                 const stampCount = isNoStampCustomer
                   ? 0
                   : customer.stamps?.[0]?.count || 0;

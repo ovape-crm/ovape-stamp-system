@@ -10,8 +10,8 @@ import {
   StoreLabel,
 } from "@/app/(auth)/_components/HistoriesComponents";
 import useCopy from "@/app/_domains/_log/_hooks/useCopy";
-import { isSpecialCustomer } from "@/app/_domains/_customer/_utils/specialCustomer";
-import { PaymentTypeEnum } from "@/app/_enums/enums";
+import { getCustomerMode } from "@/app/_domains/_customer/_utils/specialCustomer";
+import { PaymentTypeEnum, StoreTypeEnum } from "@/app/_enums/enums";
 
 interface StampHistoryItemProps {
   log: LogsResType;
@@ -46,12 +46,35 @@ const StampHistoryItem = ({
     (typeof log.jsonb?.reservationDate === "string" &&
       log.jsonb.reservationDate.trim()),
   );
-  const hasSpecialCustomer =
-    Boolean(log.customers?.name) &&
-    isSpecialCustomer(log.customers.name, log.customers.phone);
+  const customerMode = log.customers?.name
+    ? getCustomerMode(
+        log.customers.name,
+        log.customers.phone,
+        log.customers.is_stamp_eligible ?? true,
+      )
+    : "normal";
+  const specialCustomerLabel =
+    customerMode === "x"
+      ? log.customers?.gender === "female"
+        ? "X 여자"
+        : "X 남자"
+      : customerMode === "adjustment"
+        ? "재고조정"
+        : customerMode === "demo"
+          ? "시연용"
+          : undefined;
   const isCustomerRemark =
     log.jsonb?.paymentType === PaymentTypeEnum.REMARK.value;
-  const isCouponUse = log.action === "coupon-10";
+  const isCouponUse = log.action.startsWith("coupon-");
+  const historyLabelJsonb = {
+    ...(log.jsonb ?? {}),
+    ...(isCouponUse && !log.jsonb?.storeName
+      ? { storeName: StoreTypeEnum.OVAPE.value }
+      : {}),
+    ...(isCouponUse && !log.jsonb?.paymentType
+      ? { paymentType: PaymentTypeEnum.SHIPMENT_REMARK.value }
+      : {}),
+  };
   const isStampAdjustment =
     !isCustomerRemark &&
     !isCouponUse &&
@@ -80,7 +103,7 @@ const StampHistoryItem = ({
       <div className="flex min-w-0 self-center flex-col items-center text-center">
         {!isCustomerRemark && !isCouponUse && (
           <div>
-            {hasSpecialCustomer ? (
+            {specialCustomerLabel ? (
               <span className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-gray-100 px-3 py-1 text-center text-xs font-semibold text-gray-600">
                 특수계정
               </span>
@@ -93,19 +116,22 @@ const StampHistoryItem = ({
           name={log.customers?.name}
           phone={log.customers?.phone}
           onClick={onNavigate}
+          singleLineLabel={specialCustomerLabel}
         />
       </div>
 
       <div className="flex min-w-0 self-center flex-col items-center gap-1.5 text-center">
-        {customerBadge}
-        {log.jsonb && "storeName" in log.jsonb && (
-          <StoreLabel jsonb={log.jsonb} />
+        {!isCouponUse && customerBadge}
+        {(isCouponUse || (log.jsonb && "storeName" in log.jsonb)) && (
+          <StoreLabel jsonb={historyLabelJsonb} />
         )}
-        {!isCustomerRemark && log.jsonb && "paymentType" in log.jsonb && (
-          <PaymentTypeLabel jsonb={log.jsonb} />
-        )}
+        {!isCustomerRemark &&
+          (isCouponUse || (log.jsonb && "paymentType" in log.jsonb)) && (
+            <PaymentTypeLabel jsonb={historyLabelJsonb} />
+          )}
+        {isCouponUse && customerBadge}
         {typeof log.jsonb?.totalAmount === "number" &&
-          log.jsonb.totalAmount > 0 && (
+          log.jsonb.totalAmount !== 0 && (
             <span className="flex h-7 w-full items-center justify-center whitespace-nowrap rounded-full bg-emerald-100 px-2 text-xs font-semibold text-emerald-700">
               {log.jsonb.totalAmount.toLocaleString("ko-KR")}원
             </span>
