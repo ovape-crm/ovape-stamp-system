@@ -1,21 +1,23 @@
-import { useMemo, useState } from 'react';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useMemo, useState } from "react";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import {
   getCustomers,
   getCustomersCount,
   SearchParams,
-} from '@/app/_domains/_customer/_services/customerService';
-import { CustomerType } from '@/app/_domains/_customer/_types/customer.types';
-import { customerKeys } from '@/app/_domains/_customer/_queryKeys/customerKeys';
+} from "@/app/_domains/_customer/_services/customerService";
+import { CustomerType } from "@/app/_domains/_customer/_types/customer.types";
+import { customerKeys } from "@/app/_domains/_customer/_queryKeys/customerKeys";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 5;
 
 export const useCustomers = (initialParams?: SearchParams) => {
   const [searchParams, setSearchParams] = useState<SearchParams>(
     initialParams || {},
   );
-  const [sortBy, setSortBy] = useState<'name' | 'stamp' | 'created_at'>('name');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [sortBy, setSortBy] = useState<
+    "recent_usage" | "name" | "stamp" | "created_at"
+  >("recent_usage");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   const queryKey = customerKeys.list({ ...searchParams, sortBy, sortOrder });
 
@@ -63,19 +65,19 @@ export const useCustomers = (initialParams?: SearchParams) => {
   const totalCount = data?.pages[0]?.totalCount ?? 0;
 
   const search = (target: string, keyword: string) => {
-    setSearchParams({ target: target as SearchParams['target'], keyword });
+    setSearchParams({ target: target as SearchParams["target"], keyword });
   };
 
-  const setSort = (by: 'name' | 'stamp' | 'created_at') => {
+  const setSort = (by: "recent_usage" | "name" | "stamp" | "created_at") => {
     setSortBy(by);
-    setSortOrder(by === 'name' ? 'asc' : 'desc');
+    setSortOrder(by === "name" ? "asc" : "desc");
   };
 
   return {
     customers,
     isLoading: isPending,
     isLoadingMore: isFetchingNextPage,
-    error: isError ? '데이터를 불러오는데 실패했습니다.' : '',
+    error: isError ? "데이터를 불러오는데 실패했습니다." : "",
     search,
     loadMore: () => fetchNextPage(),
     hasMore: hasNextPage ?? false,

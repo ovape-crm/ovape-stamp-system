@@ -18,6 +18,7 @@ export type ItemType = {
   is_use: boolean;
   created_at: string;
   updated_at: string;
+  current_quantity?: number;
   item_categories: ItemCategoryType | null;
   liqud_stand_cells?: Array<{
     row_index: number;

@@ -4,9 +4,15 @@ import Button from "@/app/_components/Button";
 import {
   BreathTypeEnum,
   BreathTypeEnumType,
+  PaymentTypeEnum,
   PaymentTypeEnumType,
+  StoreTypeEnum,
+  StoreTypeEnumType,
 } from "@/app/_enums/enums";
-import type { StampLogMeta } from "@/app/_domains/_stamp/_services/stampService";
+import {
+  getCouponUsageNote,
+  type StampLogMeta,
+} from "@/app/_domains/_stamp/_services/stampService";
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useModal } from "@/app/_contexts/ModalContext";
@@ -19,6 +25,15 @@ import {
 } from "@/app/_domains/_customer/_services/customerService";
 
 const formatAmount = (value: number) => value.toLocaleString("ko-KR");
+
+const getStampAmountFromAction = (action?: string) => {
+  if (!action || action === "no-stamp") return 0;
+  if (action.startsWith("add-")) {
+    const amount = Number(action.replace("add-", ""));
+    return Number.isFinite(amount) ? amount : 0;
+  }
+  return 0;
+};
 
 const getShipmentTypeLabel = (
   item: NonNullable<StampLogMeta["items"]>[number],
@@ -77,6 +92,13 @@ export default function StampConfirmModal({
   mode,
   amount: amountProp,
   stampCount = 0,
+  initialAction,
+  initialPaymentType,
+  initialStoreName,
+  initialLogMeta,
+  isStampAmountEditable = false,
+  editTitle = "출고 이력 수정",
+  onEditSubmit,
   onConfirm,
   onCancel,
 }: {
@@ -88,9 +110,22 @@ export default function StampConfirmModal({
     note?: string | null;
     is_stamp_eligible?: boolean;
   };
-  mode: "add" | "adjust" | "use10";
+  mode: "add" | "edit" | "adjust" | "use10";
   amount?: number;
   stampCount?: number;
+  initialAction?: string;
+  initialPaymentType?: PaymentTypeEnumType["value"];
+  initialStoreName?: StoreTypeEnumType["value"];
+  initialLogMeta?: StampLogMeta | null;
+  isStampAmountEditable?: boolean;
+  editTitle?: string;
+  onEditSubmit?: (values: {
+    note: string;
+    paymentType?: PaymentTypeEnumType["value"];
+    storeName: StoreTypeEnumType["value"];
+    logMeta: StampLogMeta;
+    amount: number;
+  }) => Promise<void>;
   onConfirm: (
     note?: string,
     paymentType?: PaymentTypeEnumType["value"],
@@ -113,21 +148,37 @@ export default function StampConfirmModal({
   const [breathType, setBreathType] = useState<
     BreathTypeEnumType["value"] | ""
   >("");
+  const [couponStoreName, setCouponStoreName] = useState<
+    StoreTypeEnumType["value"]
+  >(StoreTypeEnum.OVAPE.value);
   const [amount, setAmount] = useState<number>(
-    amountProp ?? (mode === "adjust" ? 1 : 0),
+    amountProp ?? (mode === "adjust" || mode === "use10" ? 1 : 0),
   );
   const [adjustDirection, setAdjustDirection] = useState<"add" | "remove">(
     "remove",
   );
   const [stampLog, setStampLog] = useState<StampLogValue | null>(null);
+  const initialReservationDate = initialLogMeta?.reservationDate?.trim() ?? "";
   const [shipmentTiming, setShipmentTiming] = useState<
     "immediate" | "reservation" | ""
-  >("");
-  const [reservationDate, setReservationDate] = useState("");
+  >(
+    mode === "edit"
+      ? initialReservationDate
+        ? "reservation"
+        : "immediate"
+      : "",
+  );
+  const [reservationDate, setReservationDate] = useState(
+    initialReservationDate,
+  );
   const isReservation = shipmentTiming === "reservation";
   const hasSelectedShipmentTiming = shipmentTiming !== "";
-  const [xCustomerName, setXCustomerName] = useState("");
-  const [xPhoneLastDigits, setXPhoneLastDigits] = useState("");
+  const [xCustomerName, setXCustomerName] = useState(
+    initialLogMeta?.xCustomerName ?? "",
+  );
+  const [xPhoneLastDigits, setXPhoneLastDigits] = useState(
+    initialLogMeta?.xPhoneLastDigits ?? "",
+  );
   const isCustomerInfoDeclined =
     xCustomerName === "X" && xPhoneLastDigits === "X";
   const hasValidXPhoneLastDigits =
@@ -172,7 +223,11 @@ export default function StampConfirmModal({
       xCustomerName.trim().length > 0 &&
       xCustomerName.trim().toUpperCase() !== "X";
     const hasSearchablePhone = /^\d{4}$/.test(xPhoneLastDigits);
-    if (!isAnonymousXCustomer || (!hasSearchableName && !hasSearchablePhone)) {
+    if (
+      mode === "edit" ||
+      !isAnonymousXCustomer ||
+      (!hasSearchableName && !hasSearchablePhone)
+    ) {
       setCustomerMatches([]);
       return;
     }
@@ -197,7 +252,7 @@ export default function StampConfirmModal({
       isActive = false;
       window.clearTimeout(timer);
     };
-  }, [isAnonymousXCustomer, xCustomerName, xPhoneLastDigits]);
+  }, [mode, isAnonymousXCustomer, xCustomerName, xPhoneLastDigits]);
 
   // 출고 이력 추가(mode === 'add') 전용 스텝 상태
   const [addStep, setAddStep] = useState<1 | 2 | 3>(
@@ -212,7 +267,7 @@ export default function StampConfirmModal({
 
   // 품목·금액과 최종 확인은 좌우 2단으로 보여줘야 해서 모달을 더 넓게
   useEffect(() => {
-    if (mode !== "add") return;
+    if (mode !== "add" && mode !== "edit") return;
     setSize(
       addStep >= 2
         ? (customerMode === "adjustment" || customerMode === "demo") &&
@@ -232,9 +287,15 @@ export default function StampConfirmModal({
           : isReservation
             ? "출고 예약 추가"
             : "출고 이력 추가"
-      : mode === "adjust"
-        ? "스탬프 조정"
-        : "쿠폰 사용";
+      : mode === "edit"
+        ? customerMode === "adjustment"
+          ? "재고조정 수정"
+          : customerMode === "demo"
+            ? "시연용 수정"
+            : editTitle
+        : mode === "adjust"
+          ? "스탬프 조정"
+          : "쿠폰 사용";
 
   const adjustActionLabel = adjustDirection === "add" ? "추가" : "차감";
 
@@ -242,8 +303,20 @@ export default function StampConfirmModal({
   const labelText = " (조정 사유 입력)";
 
   const hasRequiredAdjustmentNote = mode !== "adjust" || note.trim().length > 0;
+  const couponUsageNote =
+    mode === "use10" && breathType
+      ? `${
+          breathType === BreathTypeEnum.MTL.value
+            ? "입호흡"
+            : breathType === BreathTypeEnum.DTL.value
+              ? "폐호흡"
+              : note.trim()
+        } 쿠폰 ${amount}장 사용`.trim()
+      : note;
   const isConfirmDisabled =
-    (mode === "use10" && breathType === "") || !hasRequiredAdjustmentNote;
+    (mode === "use10" &&
+      (breathType === "" || amount < 1 || amount * 10 > stampCount)) ||
+    !hasRequiredAdjustmentNote;
 
   const handleConfirm = async () => {
     if (submittingRef.current) return;
@@ -255,7 +328,7 @@ export default function StampConfirmModal({
     try {
       submittingRef.current = true;
       setIsSubmitting(true);
-      if (mode === "add") {
+      if (mode === "add" || mode === "edit") {
         if (!stampLog) return;
         if (!hasValidReservationDate) {
           toast.error("예약 날짜를 7/19 형식으로 입력해 주세요.");
@@ -267,6 +340,9 @@ export default function StampConfirmModal({
             : "";
         const discountTag = stampLog.logMeta.discount
           ? `${stampLog.logMeta.discount.name}할인${stampLog.logMeta.discount.amount}`
+          : "";
+        const couponUseTag = stampLog.logMeta.couponUse
+          ? getCouponUsageNote(stampLog.logMeta.couponUse)
           : "";
         const deliveryFeeTag =
           (stampLog.logMeta.deliveryFee ?? 0) > 0
@@ -288,7 +364,7 @@ export default function StampConfirmModal({
                 ? "손님이 퀵부르심"
                 : "";
         const hasSavedTransactionTags = Boolean(
-          discountTag || deliveryFeeTag || deliveryTypeTag,
+          couponUseTag || discountTag || deliveryFeeTag || deliveryTypeTag,
         );
         const transactionCloseIndex = hasSavedTransactionTags
           ? stampLog.note.indexOf(")")
@@ -298,6 +374,7 @@ export default function StampConfirmModal({
             ? stampLog.note.slice(transactionCloseIndex + 1).trimStart()
             : stampLog.note;
         const transactionTags = [
+          couponUseTag,
           discountTag,
           reservationTag,
           deliveryFeeTag,
@@ -307,26 +384,43 @@ export default function StampConfirmModal({
           transactionTags.length > 0
             ? `${transactionTags.join(",")})${itemNote ? ` ${itemNote}` : ""}`
             : itemNote;
-        await onConfirm(
-          nextNote,
-          stampLog.paymentType,
-          stampLog.amount,
-          {
-            ...stampLog.logMeta,
-            clientRequestId: requestIdRef.current,
-            reservationDate: reservationTag
-              ? reservationDate.trim()
-              : undefined,
-          },
-          undefined,
-          isReservation,
-          selectedCustomer?.id,
-          selectedCustomer ? shouldAddStampForSelectedCustomer : undefined,
-        );
+        const nextLogMeta = {
+          ...stampLog.logMeta,
+          ...(mode === "add" ? { clientRequestId: requestIdRef.current } : {}),
+          reservationDate: reservationTag ? reservationDate.trim() : undefined,
+        };
+        if (mode === "edit") {
+          if (!onEditSubmit) return;
+          await onEditSubmit({
+            note: nextNote,
+            paymentType: stampLog.paymentType,
+            storeName: stampLog.storeName,
+            logMeta: nextLogMeta,
+            amount: stampLog.amount,
+          });
+        } else {
+          await onConfirm(
+            nextNote,
+            stampLog.paymentType,
+            stampLog.amount,
+            nextLogMeta,
+            undefined,
+            isReservation,
+            selectedCustomer?.id,
+            selectedCustomer ? shouldAddStampForSelectedCustomer : undefined,
+          );
+        }
       } else if (mode === "adjust") {
         await onConfirm(note, undefined, amount, undefined, adjustDirection);
       } else {
-        await onConfirm(note);
+        await onConfirm(
+          couponUsageNote,
+          PaymentTypeEnum.SHIPMENT_REMARK.value,
+          amount,
+          {
+            storeName: couponStoreName,
+          },
+        );
       }
     } finally {
       submittingRef.current = false;
@@ -337,7 +431,7 @@ export default function StampConfirmModal({
   const reservationToggle = (
     <div className="h-full">
       <div
-        className={`grid items-center gap-2 ${
+        className={`grid items-center gap-[10px] ${
           isReservation ? "grid-cols-3" : "grid-cols-2"
         }`}
       >
@@ -403,36 +497,36 @@ export default function StampConfirmModal({
             둘 다 제공 X
           </Button>
           <label className="order-1 min-w-0">
-          <input
-            type="text"
-            aria-label="이름"
-            value={xCustomerName}
-            disabled={isCustomerInfoDeclined}
-            onChange={(event) => {
-              setXCustomerName(event.target.value);
-              setSelectedCustomer(null);
-            }}
-            placeholder="이름 / 미제공 X"
-            className="h-8 w-full rounded-lg border border-gray-300 bg-white px-2 text-xs font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
-          />
+            <input
+              type="text"
+              aria-label="이름"
+              value={xCustomerName}
+              disabled={isCustomerInfoDeclined}
+              onChange={(event) => {
+                setXCustomerName(event.target.value);
+                setSelectedCustomer(null);
+              }}
+              placeholder="이름 / 미제공 X"
+              className="h-8 w-full rounded-lg border border-gray-300 bg-white px-2 text-xs font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
+            />
           </label>
           <label className="order-2 min-w-0">
-          <input
-            type="text"
-            aria-label="핸드폰 뒷번호"
-            maxLength={4}
-            value={xPhoneLastDigits}
-            disabled={isCustomerInfoDeclined}
-            onChange={(event) => {
-              const value = event.target.value.toUpperCase();
-              setXPhoneLastDigits(
-                value === "X" ? "X" : value.replace(/\D/g, "").slice(0, 4),
-              );
-              setSelectedCustomer(null);
-            }}
-            placeholder="뒷번호 / 미제공 X"
-            className="h-8 w-full rounded-lg border border-gray-300 bg-white px-2 text-xs font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
-          />
+            <input
+              type="text"
+              aria-label="핸드폰 뒷번호"
+              maxLength={4}
+              value={xPhoneLastDigits}
+              disabled={isCustomerInfoDeclined}
+              onChange={(event) => {
+                const value = event.target.value.toUpperCase();
+                setXPhoneLastDigits(
+                  value === "X" ? "X" : value.replace(/\D/g, "").slice(0, 4),
+                );
+                setSelectedCustomer(null);
+              }}
+              placeholder="뒷번호 / 미제공 X"
+              className="h-8 w-full rounded-lg border border-gray-300 bg-white px-2 text-xs font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
+            />
           </label>
         </div>
       </div>
@@ -475,7 +569,11 @@ export default function StampConfirmModal({
 
   // ── 출고 이력 추가(mode === 'add') 전용 스텝 UI ──────────────────────────────
   const stepIndicator = (
-    <div className="mb-5 flex items-start justify-center shrink-0">
+    <div
+      className={`flex shrink-0 items-start justify-center ${
+        mode === "add" && customerMode === "normal" ? "mb-2.5" : "mb-5"
+      }`}
+    >
       {(usesStandardSalesFlow
         ? addStepLabels.map((label, idx) => ({
             label,
@@ -545,22 +643,23 @@ export default function StampConfirmModal({
       {customerMode !== "demo" &&
         customerMode !== "adjustment" &&
         customerMode !== "x" &&
-        (mode !== "add" || addStep === 1) && (
-        <TargetCustomerCard
-          name={selectedCustomer?.name ?? target.name}
-          phone={selectedCustomer?.phone ?? target.phone}
-          address={selectedCustomer?.address ?? target.address}
-          note={selectedCustomer?.note ?? target.note}
-          className="mr-1 mb-4 shrink-0"
-        />
-      )}
+        ((mode !== "add" && mode !== "edit") || addStep === 1) && (
+          <TargetCustomerCard
+            name={selectedCustomer?.name ?? target.name}
+            phone={selectedCustomer?.phone ?? target.phone}
+            address={selectedCustomer?.address ?? target.address}
+            note={selectedCustomer?.note ?? target.note}
+            className="mr-1 mb-1 shrink-0"
+            compact
+          />
+        )}
 
       {mode === "add" && customerMode === "x" && (
         <div className="mb-1 flex shrink-0 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-gray-50/70 px-4 py-2.5 text-sm font-semibold text-gray-700">
           <span className="h-2 w-2 shrink-0 rounded-full bg-brand-500" />
           <span>
-            미적립 {target.gender === "female" ? "여자" : "남자"}{" "}
-            고객을 위한 특수 계정입니다
+            미적립 {target.gender === "female" ? "여자" : "남자"} 고객을 위한
+            특수 계정입니다
           </span>
         </div>
       )}
@@ -578,6 +677,17 @@ export default function StampConfirmModal({
 
       <div className="min-h-0 flex-1 overflow-y-auto pr-1">
         <StampLogForm
+          initialValue={
+            mode === "edit"
+              ? {
+                  paymentType: initialPaymentType,
+                  storeName: initialStoreName ?? StoreTypeEnum.OVAPE.value,
+                  amount: getStampAmountFromAction(initialAction),
+                  logMeta: initialLogMeta,
+                }
+              : undefined
+          }
+          isEditMode={mode === "edit"}
           layout="split"
           step={addStep}
           onChange={setStampLog}
@@ -595,10 +705,13 @@ export default function StampConfirmModal({
           xPhoneLastDigits={xPhoneLastDigits}
           customerMode={effectiveFormCustomerMode}
           isStampAmountEditable={
-            effectiveFormCustomerMode !== "x" && canSelectedCustomerAccrueStamp
+            effectiveFormCustomerMode !== "x" &&
+            canSelectedCustomerAccrueStamp &&
+            (mode !== "edit" || isStampAmountEditable)
           }
           currentStampCount={stampCount}
           customerAddress={target.address}
+          compactStepOneSpacing={customerMode === "normal"}
           customerSummary={
             customerMode === "demo" ||
             customerMode === "adjustment" ||
@@ -614,14 +727,16 @@ export default function StampConfirmModal({
         />
 
         {addStep === 3 && (
-          <div className="mt-2.5 space-y-2.5">
+          <div className="mt-2.5 flex flex-col gap-2.5">
             {stampLog && usesStandardSalesFlow && (
               <>
                 <div
-                  className={`grid grid-cols-2 gap-2 ${
+                  className={`grid grid-cols-2 gap-2.5 ${
                     requiresXCustomerInfo
                       ? "md:grid-cols-[0.5fr_0.5fr_0.5fr_0.5fr_0.67fr_1.33fr]"
-                      : "md:grid-cols-5"
+                      : stampLog.couponUse
+                        ? "md:grid-cols-[3.75fr_3fr_3fr_3fr_3fr_4fr_11fr]"
+                        : "md:grid-cols-[3.75fr_3fr_3fr_3fr_4fr_14fr]"
                   }`}
                 >
                   {[
@@ -666,6 +781,14 @@ export default function StampConfirmModal({
                                 ? "미적립"
                                 : `${stampLog.amount}개`,
                           },
+                          ...(stampLog.couponUse
+                            ? [
+                                {
+                                  label: "쿠폰 사용",
+                                  value: `${stampLog.couponUse.quantity}장`,
+                                },
+                              ]
+                            : []),
                         ]),
                     {
                       label: "결제 정보",
@@ -675,14 +798,10 @@ export default function StampConfirmModal({
                             .join(" · ")
                         : stampLog.paymentTypeName,
                     },
-                    ...(requiresXCustomerInfo
-                      ? [
-                          {
-                            label: "출고 메모",
-                            value: stampLog.logMeta.extraNote || "없음",
-                          },
-                        ]
-                      : []),
+                    {
+                      label: "출고 메모",
+                      value: stampLog.logMeta.extraNote || "없음",
+                    },
                   ].map((summary) => (
                     <div
                       key={summary.label}
@@ -698,22 +817,22 @@ export default function StampConfirmModal({
                   ))}
                 </div>
 
-                <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
-                  {(stampLog.logMeta.deliveryMethod === "parcel" ||
-                    (stampLog.logMeta.deliveryMethod === "delivery" &&
-                      stampLog.logMeta.deliveryType === "agency")) && (
-                    <div className="rounded-lg border border-gray-200 bg-white px-3 py-2.5">
-                      <p className="text-xs font-medium text-gray-500">
-                        {stampLog.logMeta.deliveryMethod === "delivery"
-                          ? "배달대행비"
-                          : "택배비"}
-                      </p>
-                      <p className="mt-1 text-sm font-semibold text-gray-900">
-                        {formatAmount(stampLog.logMeta.deliveryFee ?? 0)}원
-                      </p>
-                    </div>
-                  )}
-                  {stampLog.logMeta.deliveryMethod !== "store_visit" && (
+                {stampLog.logMeta.deliveryMethod !== "store_visit" && (
+                  <div className="grid grid-cols-1 gap-2.5 md:grid-cols-4">
+                    {(stampLog.logMeta.deliveryMethod === "parcel" ||
+                      (stampLog.logMeta.deliveryMethod === "delivery" &&
+                        stampLog.logMeta.deliveryType === "agency")) && (
+                      <div className="rounded-lg border border-gray-200 bg-white px-3 py-2.5">
+                        <p className="text-xs font-medium text-gray-500">
+                          {stampLog.logMeta.deliveryMethod === "delivery"
+                            ? "배달대행비"
+                            : "택배비"}
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-gray-900">
+                          {formatAmount(stampLog.logMeta.deliveryFee ?? 0)}원
+                        </p>
+                      </div>
+                    )}
                     <div className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 md:col-span-2">
                       <p className="text-xs font-medium text-gray-500">
                         배송 주소
@@ -722,24 +841,8 @@ export default function StampConfirmModal({
                         {stampLog.logMeta.deliveryAddress}
                       </p>
                     </div>
-                  )}
-                  {!requiresXCustomerInfo && (
-                    <div
-                      className={`rounded-lg border border-gray-200 bg-white px-3 py-2.5 ${
-                        stampLog.logMeta.deliveryMethod === "store_visit"
-                          ? "md:col-span-4"
-                          : ""
-                      }`}
-                    >
-                      <p className="text-xs font-medium text-gray-500">
-                        출고 메모
-                      </p>
-                      <p className="mt-1 whitespace-pre-wrap break-words text-sm text-gray-800">
-                        {stampLog.logMeta.extraNote || "없음"}
-                      </p>
-                    </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </>
             )}
 
@@ -878,7 +981,7 @@ export default function StampConfirmModal({
       </div>
 
       <div
-        className={`${addStep === 2 ? "mt-2" : "mt-4"} flex shrink-0 flex-col gap-4 border-t border-gray-200 pt-4 lg:flex-row lg:items-center lg:justify-between`}
+        className={`${addStep === 2 ? "mt-2" : addStep === 3 ? "mt-2.5" : "mt-4"} flex shrink-0 flex-col gap-4 border-t border-gray-200 pt-4 lg:flex-row lg:items-center lg:justify-between`}
       >
         {addStep === 2 && usesStandardSalesFlow && stampLog ? (
           <div className="grid flex-1 grid-cols-2 items-center gap-x-5 gap-y-3 lg:grid-cols-[1fr_1.2fr_1fr_0.8fr_1.2fr]">
@@ -1111,7 +1214,13 @@ export default function StampConfirmModal({
               disabled={!stampLog || isSubmitting}
               onClick={handleConfirm}
             >
-              {isSubmitting ? "처리 중..." : "확인"}
+              {isSubmitting
+                ? mode === "edit"
+                  ? "저장 중..."
+                  : "처리 중..."
+                : mode === "edit"
+                  ? "수정"
+                  : "확인"}
             </Button>
           )}
         </div>
@@ -1174,7 +1283,7 @@ export default function StampConfirmModal({
     </div>
   );
 
-  if (mode === "add") {
+  if (mode === "add" || mode === "edit") {
     return addModeContent;
   }
 
@@ -1211,14 +1320,16 @@ export default function StampConfirmModal({
               <span className="text-sm font-medium text-gray-600">
                 쿠폰 사용:
               </span>
-              <p className="text-base font-semibold text-gray-900">10개 차감</p>
+              <p className="text-base font-semibold text-gray-900">
+                {amount}장 · {(amount * 10).toLocaleString()}개 차감
+              </p>
             </div>
           )}
-          {note && (
+          {(mode === "use10" ? couponUsageNote : note) && (
             <div>
               <span className="text-sm font-medium text-gray-600">메모:</span>
               <p className="text-sm text-gray-900 whitespace-pre-wrap">
-                {note}
+                {mode === "use10" ? couponUsageNote : note}
               </p>
             </div>
           )}
@@ -1261,10 +1372,74 @@ export default function StampConfirmModal({
           />
 
           {mode === "use10" && (
-            <div className="text-center py-4">
-              <p className="text-gray-700 text-base leading-relaxed">
-                쿠폰을 사용 처리 하시겠습니까? (10개 차감)
-              </p>
+            <div className="rounded-xl border border-gray-200 bg-gray-50/70 p-3">
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-gray-800">
+                    쿠폰 사용 수량
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    type="button"
+                    aria-label="쿠폰 사용 수량 감소"
+                    onClick={() => setAmount((value) => Math.max(1, value - 1))}
+                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-300 bg-white text-lg leading-none text-gray-600 shadow-sm transition-colors hover:bg-gray-50 active:bg-gray-100"
+                  >
+                    −
+                  </button>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    aria-label="쿠폰 사용 수량"
+                    value={amount}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      if (value === "" || /^[0-9]+$/.test(value)) {
+                        setAmount(
+                          value === "" ? 1 : Math.max(1, Number(value)),
+                        );
+                      }
+                    }}
+                    className="h-9 w-14 rounded-lg border border-gray-300 bg-white px-2 text-center text-sm font-semibold text-gray-900 shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                  />
+                  <button
+                    type="button"
+                    aria-label="쿠폰 사용 수량 증가"
+                    onClick={() => setAmount((value) => value + 1)}
+                    disabled={(amount + 1) * 10 > stampCount}
+                    className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 text-lg leading-none text-white shadow-sm transition-colors hover:bg-brand-600 active:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+              <div className="mt-3 grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center overflow-hidden rounded-lg border border-brand-100 bg-white px-3 py-2.5 text-center">
+                <div>
+                  <p className="text-[11px] font-medium text-gray-500">
+                    현재 스탬프
+                  </p>
+                  <p className="mt-0.5 text-base font-bold text-gray-900">
+                    {stampCount.toLocaleString()}개
+                  </p>
+                </div>
+                <span className="px-2 text-base text-gray-300">−</span>
+                <div>
+                  <p className="text-[11px] font-medium text-gray-500">차감</p>
+                  <p className="mt-0.5 text-base font-bold text-brand-600">
+                    {(amount * 10).toLocaleString()}개
+                  </p>
+                </div>
+                <span className="px-2 text-base text-gray-300">=</span>
+                <div>
+                  <p className="text-[11px] font-medium text-gray-500">
+                    사용 후 잔여
+                  </p>
+                  <p className="mt-0.5 text-base font-bold text-gray-900">
+                    {(stampCount - amount * 10).toLocaleString()}개
+                  </p>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -1329,6 +1504,24 @@ export default function StampConfirmModal({
 
           {mode === "use10" && (
             <div className="mb-6">
+              <span className="mb-2 block text-sm font-medium text-gray-700">
+                매장명
+              </span>
+              <div className="mb-5 grid grid-cols-2 gap-[10px]">
+                {Object.values(StoreTypeEnum).map((store) => (
+                  <Button
+                    key={store.value}
+                    type="button"
+                    size="sm"
+                    variant={
+                      couponStoreName === store.value ? "primary" : "gray"
+                    }
+                    onClick={() => setCouponStoreName(store.value)}
+                  >
+                    {store.name}
+                  </Button>
+                ))}
+              </div>
               <span className="block text-sm font-medium text-gray-700 mb-3">
                 쿠폰 사용 유형
               </span>
@@ -1344,7 +1537,7 @@ export default function StampConfirmModal({
                   className="flex-1 text-center"
                   onClick={() => {
                     setBreathType(BreathTypeEnum.MTL.value);
-                    setNote("입호흡 쿠폰 사용");
+                    setNote("");
                   }}
                 >
                   입호흡
@@ -1360,7 +1553,7 @@ export default function StampConfirmModal({
                   className="flex-1 text-center"
                   onClick={() => {
                     setBreathType(BreathTypeEnum.DTL.value);
-                    setNote("폐호흡 쿠폰 사용");
+                    setNote("");
                   }}
                 >
                   폐호흡

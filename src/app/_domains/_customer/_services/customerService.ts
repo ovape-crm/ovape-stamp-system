@@ -7,7 +7,7 @@ import { getUpdateLogNote } from "@/app/_utils/utils";
 export interface SearchParams {
   target?: "all" | "name" | "phone";
   keyword?: string;
-  sortBy?: "name" | "stamp" | "created_at";
+  sortBy?: "recent_usage" | "name" | "stamp" | "created_at";
   sortOrder?: "asc" | "desc";
 }
 
@@ -134,10 +134,49 @@ export const getCustomers = async (
   }
 
   // 정렬 처리
-  const sortBy = params?.sortBy || "name";
+  const sortBy = params?.sortBy || "recent_usage";
   const sortOrder = params?.sortOrder || (sortBy === "name" ? "asc" : "desc");
 
-  if (sortBy === "stamp") {
+  if (sortBy === "recent_usage") {
+    const { data: allCustomers, error: customerError } = await query;
+
+    if (customerError) throw customerError;
+    if (!allCustomers.length) return [];
+
+    const customerIds = allCustomers.map((customer) => customer.id);
+    const { data: usageLogs, error: logError } = await supabase
+      .from("logs")
+      .select("customer_id, created_at")
+      .in("customer_id", customerIds)
+      .eq("category", LogCategoryEnum.STAMP.value)
+      .order("created_at", { ascending: false });
+
+    if (logError) throw logError;
+
+    const latestUsageByCustomer = new Map<string, string>();
+    usageLogs?.forEach((log) => {
+      const customerId = String(log.customer_id);
+      if (!latestUsageByCustomer.has(customerId)) {
+        latestUsageByCustomer.set(customerId, log.created_at);
+      }
+    });
+
+    const sortedData = [...allCustomers].sort((a, b) => {
+      const aLatest = latestUsageByCustomer.get(String(a.id));
+      const bLatest = latestUsageByCustomer.get(String(b.id));
+      if (aLatest && bLatest) {
+        const dateDifference = bLatest.localeCompare(aLatest);
+        if (dateDifference !== 0) return dateDifference;
+      } else if (aLatest) {
+        return -1;
+      } else if (bLatest) {
+        return 1;
+      }
+      return String(b.id).localeCompare(String(a.id));
+    });
+
+    return sortedData.slice(from, to + 1);
+  } else if (sortBy === "stamp") {
     // 스탬프 많은 순/적은 순은 클라이언트에서 정렬해야 함 (관계형 데이터이므로)
     // 페이지네이션 없이 모든 데이터 가져오기
     const { data: allData, error } = await query;

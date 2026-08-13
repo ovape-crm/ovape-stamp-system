@@ -1,3 +1,21 @@
+-- Existing duplicate logs must be preserved for audit and stock/stamp correction.
+-- Keep the request id on the earliest row only so the unique index can be added.
+with ranked_request_ids as (
+  select
+    id,
+    row_number() over (
+      partition by jsonb->>'clientRequestId'
+      order by created_at asc, id asc
+    ) as duplicate_rank
+  from public.logs
+  where nullif(jsonb->>'clientRequestId', '') is not null
+)
+update public.logs as logs
+set jsonb = logs.jsonb - 'clientRequestId'
+from ranked_request_ids
+where logs.id = ranked_request_ids.id
+  and ranked_request_ids.duplicate_rank > 1;
+
 create unique index if not exists logs_client_request_id_unique
 on public.logs ((jsonb->>'clientRequestId'))
 where nullif(jsonb->>'clientRequestId', '') is not null;

@@ -7,10 +7,16 @@ import StampCards from "./StampCards";
 import {
   addStamp,
   addReservationStamp,
+  getCouponUsageNote,
   removeStamp,
   StampLogMeta,
 } from "@/app/_domains/_stamp/_services/stampService";
-import { PaymentTypeEnumType } from "@/app/_enums/enums";
+import {
+  PaymentTypeEnum,
+  PaymentTypeEnumType,
+  StoreTypeEnum,
+  StoreTypeEnumType,
+} from "@/app/_enums/enums";
 import { useModal } from "@/app/_contexts/ModalContext";
 import { useQueryClient } from "@tanstack/react-query";
 import { logKeys } from "@/app/_domains/_log/_queryKeys/logKeys";
@@ -167,6 +173,16 @@ const StampSection = ({
         paymentType,
         logMeta,
       );
+      if (logMeta?.couponUse) {
+        await removeStamp(
+          "coupon",
+          targetCustomerId ?? target.id,
+          logMeta.couponUse.quantity * 10,
+          getCouponUsageNote(logMeta.couponUse),
+          PaymentTypeEnum.SHIPMENT_REMARK.value,
+          logMeta.storeName ?? StoreTypeEnum.OVAPE.value,
+        );
+      }
       onUpdate();
       invalidateLogLists();
       const successMessage = targetCustomerId
@@ -248,15 +264,29 @@ const StampSection = ({
     }
   };
 
-  const handleUse10 = async (memo?: string) => {
-    if (stampCount < 10) {
-      toast.error("스탬프가 10개 미만입니다.");
+  const handleUse10 = async (
+    memo?: string,
+    couponQuantity: number = 1,
+    paymentType: PaymentTypeEnumType["value"] = PaymentTypeEnum.SHIPMENT_REMARK
+      .value,
+    storeName: StoreTypeEnumType["value"] = StoreTypeEnum.OVAPE.value,
+  ) => {
+    const stampAmount = couponQuantity * 10;
+    if (stampCount < stampAmount) {
+      toast.error("보유 스탬프가 쿠폰 사용 수량보다 부족합니다.");
       return;
     }
 
     try {
       setIsLoading(true);
-      await removeStamp("coupon", target.id, 10, memo ?? "");
+      await removeStamp(
+        "coupon",
+        target.id,
+        stampAmount,
+        memo ?? "",
+        paymentType,
+        storeName,
+      );
       onUpdate();
       toast.success("쿠폰 사용 완료! 🎉");
     } catch (error) {
@@ -355,9 +385,20 @@ const StampSection = ({
                           is_stamp_eligible: target.is_stamp_eligible,
                         }}
                         mode="use10"
+                        stampCount={stampCount}
                         onCancel={close}
-                        onConfirm={async (modalNote?: string) => {
-                          await handleUse10(modalNote);
+                        onConfirm={async (
+                          modalNote?: string,
+                          paymentType?: PaymentTypeEnumType["value"],
+                          couponQuantity?: number,
+                          logMeta?: StampLogMeta,
+                        ) => {
+                          await handleUse10(
+                            modalNote,
+                            couponQuantity ?? 1,
+                            paymentType,
+                            logMeta?.storeName,
+                          );
                           close();
                         }}
                       />

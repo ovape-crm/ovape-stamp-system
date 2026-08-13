@@ -4,8 +4,12 @@ import {
   withCreatedWorker,
 } from "@/app/_domains/_log/_services/logService";
 import {
+  BreathTypeEnum,
+  BreathTypeEnumType,
   LogCategoryEnum,
+  PaymentTypeEnum,
   PaymentTypeEnumType,
+  StoreTypeEnum,
   StoreTypeEnumType,
 } from "@/app/_enums/enums";
 import { confirmOutboundInventory } from "@/app/_domains/_inventory/_services/outboundInventoryService";
@@ -59,6 +63,24 @@ export type StampLogMeta = {
     lineText: string;
   };
   items?: StampLogItem[];
+  couponUse?: {
+    quantity: number;
+    breathType: BreathTypeEnumType["value"];
+    customMemo?: string;
+  };
+};
+
+export const getCouponUsageNote = (
+  couponUse: NonNullable<StampLogMeta["couponUse"]>,
+) => {
+  const typeLabel =
+    couponUse.breathType === BreathTypeEnum.MTL.value
+      ? BreathTypeEnum.MTL.name
+      : couponUse.breathType === BreathTypeEnum.DTL.value
+        ? BreathTypeEnum.DTL.name
+        : couponUse.customMemo?.trim() || BreathTypeEnum.CUSTOM.name;
+
+  return `${typeLabel} 쿠폰 ${couponUse.quantity}장 사용`;
 };
 
 /**
@@ -136,6 +158,19 @@ export const confirmReservationStamp = async (logId: string) => {
     { p_log_id: String(logId) },
   );
   if (updateError) throw updateError;
+
+  const couponUse = log.jsonb?.couponUse as StampLogMeta["couponUse"];
+  if (couponUse?.quantity && couponUse.quantity >= 1) {
+    await removeStamp(
+      "coupon",
+      String(log.customer_id),
+      couponUse.quantity * 10,
+      getCouponUsageNote(couponUse),
+      PaymentTypeEnum.SHIPMENT_REMARK.value,
+      (log.jsonb?.storeName as StoreTypeEnumType["value"] | undefined) ??
+        StoreTypeEnum.OVAPE.value,
+    );
+  }
 };
 
 /**
@@ -146,13 +181,17 @@ export const removeStamp = async (
   customerId: string,
   amount: number = 1,
   note: string = "",
+  paymentType?: PaymentTypeEnumType["value"],
+  storeName?: StoreTypeEnumType["value"],
 ) => {
   const { error } = await supabase.rpc("apply_stamp_log_operation", {
     p_customer_id: customerId,
     p_stamp_delta: -amount,
     p_action: `${mode}-${amount}`,
     p_note: note,
-    p_jsonb: await withCreatedWorker(null),
+    p_jsonb: await withCreatedWorker(
+      paymentType || storeName ? { paymentType, storeName } : null,
+    ),
   });
   if (error) throw error;
 };

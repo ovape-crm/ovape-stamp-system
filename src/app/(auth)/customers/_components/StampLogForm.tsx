@@ -2,6 +2,8 @@
 
 import Button from "@/app/_components/Button";
 import {
+  BreathTypeEnum,
+  BreathTypeEnumType,
   PaymentTypeEnum,
   PaymentTypeEnumType,
   StoreTypeEnum,
@@ -84,6 +86,11 @@ export type StampLogValue = {
   storeLabel: string;
   finalAmount: number;
   finalAmountExpression: string;
+  couponUse?: {
+    quantity: number;
+    breathType: BreathTypeEnumType["value"];
+    customMemo?: string;
+  };
 };
 
 export type StampLogFormInitialValue = {
@@ -116,6 +123,7 @@ const getOutboundRuleType = (
 export default function StampLogForm({
   onChange,
   initialValue,
+  isEditMode = false,
   isStampAmountEditable = true,
   layout = "stacked",
   leftPanelExtra,
@@ -131,9 +139,11 @@ export default function StampLogForm({
   currentStampCount = 0,
   customerAddress,
   customerSummary,
+  compactStepOneSpacing = false,
 }: {
   onChange: (value: StampLogValue | null) => void;
   initialValue?: StampLogFormInitialValue;
+  isEditMode?: boolean;
   isStampAmountEditable?: boolean;
   /**
    * 'stacked' (기본): 기존처럼 모든 섹션을 한 줄로 쌓아서 표시
@@ -168,6 +178,8 @@ export default function StampLogForm({
   customerMode?: CustomerMode;
   currentStampCount?: number;
   customerAddress?: string | null;
+  /** step 1 상단 여백을 대상 고객 카드와 가까운 간격으로 표시 */
+  compactStepOneSpacing?: boolean;
   customerSummary?: {
     name: string;
     phone: string;
@@ -181,6 +193,41 @@ export default function StampLogForm({
   const [amount, setAmount] = useState<number>(
     customerMode === "x" ? 0 : (initialValue?.amount ?? 0),
   );
+  const initialCouponUse = initialValue?.logMeta?.couponUse;
+  const [useCouponAfterShipment, setUseCouponAfterShipment] = useState(
+    Boolean(initialCouponUse),
+  );
+  const [couponUseQuantity, setCouponUseQuantity] = useState<number>(
+    initialCouponUse?.quantity ?? 1,
+  );
+  const [couponBreathType, setCouponBreathType] = useState<
+    BreathTypeEnumType["value"] | ""
+  >(initialCouponUse?.breathType ?? "");
+  const [couponCustomMemo, setCouponCustomMemo] = useState(
+    initialCouponUse?.customMemo ?? "",
+  );
+  const maxCouponUseQuantity = Math.floor((currentStampCount + amount) / 10);
+  const couponUseDisplay = initialCouponUse
+    ? `${
+        initialCouponUse.breathType === BreathTypeEnum.MTL.value
+          ? BreathTypeEnum.MTL.name
+          : initialCouponUse.breathType === BreathTypeEnum.DTL.value
+            ? BreathTypeEnum.DTL.name
+            : initialCouponUse.customMemo?.trim() || BreathTypeEnum.CUSTOM.name
+      } 쿠폰 ${initialCouponUse.quantity}장 사용`
+    : "";
+  useEffect(() => {
+    if (!isEditMode && currentStampCount + amount < 10) {
+      setUseCouponAfterShipment(false);
+    }
+  }, [amount, currentStampCount, isEditMode]);
+  useEffect(() => {
+    if (!isEditMode && maxCouponUseQuantity >= 1) {
+      setCouponUseQuantity((quantity) =>
+        Math.min(Math.max(1, quantity), maxCouponUseQuantity),
+      );
+    }
+  }, [maxCouponUseQuantity, isEditMode]);
   const [paymentMode, setPaymentMode] = useState<"single" | "split" | "remark">(
     initialValue?.logMeta?.payments?.length
       ? "split"
@@ -465,6 +512,25 @@ export default function StampLogForm({
       : paymentMode === "split"
         ? hasSelectedSplitPayments
         : paymentType !== "";
+  const selectedPaymentTypes =
+    paymentMode === "split"
+      ? splitPayments.map((payment) => payment.paymentType)
+      : paymentType
+        ? [paymentType]
+        : [];
+  const canUseTransferDiscount = selectedPaymentTypes.some(
+    (value) =>
+      value === PaymentTypeEnum.TRANSFER.value ||
+      value === PaymentTypeEnum.EGU_TRANSFER.value ||
+      value === PaymentTypeEnum.TRANSFER_CASH_RECEIPT.value,
+  );
+  const canUseCashDiscount = selectedPaymentTypes.some(
+    (value) =>
+      value === PaymentTypeEnum.CASH.value ||
+      value === PaymentTypeEnum.EGU_CASH.value ||
+      value === PaymentTypeEnum.CASH_RECEIPT.value ||
+      value === PaymentTypeEnum.EGU_CASH_RECEIPT.value,
+  );
   const hasValidDeliveryInfo =
     deliveryMethod === "store_visit" ||
     (deliveryAddress.trim().length > 0 &&
@@ -472,6 +538,14 @@ export default function StampLogForm({
         ? deliveryFeeInput !== "" && parcelCarrier.trim().length > 0
         : deliveryType !== "" &&
           (deliveryType !== "agency" || deliveryFeeInput !== "")));
+  const hasValidCouponSelection =
+    isEditMode ||
+    !useCouponAfterShipment ||
+    (couponUseQuantity >= 1 &&
+      couponUseQuantity * 10 <= currentStampCount + amount &&
+      couponBreathType !== "" &&
+      (couponBreathType !== BreathTypeEnum.CUSTOM.value ||
+        couponCustomMemo.trim().length > 0));
 
   useEffect(() => {
     if (!isNonSalesSpecialCustomer) return;
@@ -480,6 +554,15 @@ export default function StampLogForm({
     setDiscountType("");
     setDiscountAmount(0);
   }, [isNonSalesSpecialCustomer]);
+
+  useEffect(() => {
+    if (
+      (discountType === "transfer" && !canUseTransferDiscount) ||
+      (discountType === "cash" && !canUseCashDiscount)
+    ) {
+      setDiscountType("");
+    }
+  }, [discountType, canUseTransferDiscount, canUseCashDiscount]);
 
   useEffect(() => {
     if (customerMode === "x") setAmount(0);
@@ -596,6 +679,17 @@ export default function StampLogForm({
         lineText: line.lineText,
         inventoryAction: line.inventoryAction,
       })),
+      couponUse:
+        useCouponAfterShipment && couponBreathType
+          ? {
+              quantity: couponUseQuantity,
+              breathType: couponBreathType,
+              customMemo:
+                couponBreathType === BreathTypeEnum.CUSTOM.value
+                  ? couponCustomMemo.trim() || undefined
+                  : undefined,
+            }
+          : undefined,
     };
 
     onChangeRef.current({
@@ -621,6 +715,17 @@ export default function StampLogForm({
         "",
       finalAmount,
       finalAmountExpression,
+      couponUse:
+        useCouponAfterShipment && couponBreathType
+          ? {
+              quantity: couponUseQuantity,
+              breathType: couponBreathType,
+              customMemo:
+                couponBreathType === BreathTypeEnum.CUSTOM.value
+                  ? couponCustomMemo.trim() || undefined
+                  : undefined,
+            }
+          : undefined,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -652,6 +757,10 @@ export default function StampLogForm({
     splitPayments,
     hasValidPayment,
     hasSelectedSplitPayments,
+    useCouponAfterShipment,
+    couponUseQuantity,
+    couponBreathType,
+    couponCustomMemo,
   ]);
 
   // 스텝 UI에서 "다음" 버튼 활성화 여부를 부모가 판단할 수 있도록 알림
@@ -667,7 +776,8 @@ export default function StampLogForm({
         hasConfirmedStore &&
         hasConfirmedDeliveryMethod &&
         hasValidDeliveryInfo &&
-        hasValidPayment,
+        hasValidPayment &&
+        hasValidCouponSelection,
     });
   }, [
     hasValidPayment,
@@ -675,6 +785,7 @@ export default function StampLogForm({
     hasConfirmedStore,
     hasConfirmedDeliveryMethod,
     draftLines,
+    hasValidCouponSelection,
   ]);
 
   const handleItemSelect = (item: ItemType) => {
@@ -1059,7 +1170,7 @@ export default function StampLogForm({
       <div
         className={
           step === 1
-            ? "grid h-full grid-cols-[minmax(42px,1fr)_32px_32px] items-stretch gap-1"
+            ? "grid h-full grid-cols-[42px_28px_28px] items-stretch gap-1"
             : "flex items-center gap-2"
         }
       >
@@ -1074,13 +1185,13 @@ export default function StampLogForm({
             }
           }}
           disabled={!isStampAmountEditable}
-          className={`${step === 1 ? "h-full min-h-9 w-full" : "w-16 py-2"} rounded-lg border border-gray-300 px-3 text-center text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-gray-100 disabled:text-gray-500`}
+          className={`${step === 1 ? "h-full min-h-9 w-full px-1" : "w-16 px-3 py-2"} rounded-lg border border-gray-300 text-center text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-gray-100 disabled:text-gray-500`}
         />
         <button
           type="button"
           onClick={() => setAmount((v) => Math.max(0, v - 1))}
           disabled={!isStampAmountEditable}
-          className={`${step === 1 ? "h-full min-h-9" : "h-9"} flex w-8 items-center justify-center rounded-lg border border-gray-300 bg-white text-lg leading-none text-gray-600 transition-colors hover:bg-gray-50 active:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40`}
+          className={`${step === 1 ? "h-full min-h-9 w-7" : "h-9 w-8"} flex items-center justify-center rounded-lg border border-gray-300 bg-white text-lg leading-none text-gray-600 transition-colors hover:bg-gray-50 active:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40`}
         >
           −
         </button>
@@ -1088,7 +1199,7 @@ export default function StampLogForm({
           type="button"
           onClick={() => setAmount((v) => v + 1)}
           disabled={!isStampAmountEditable}
-          className={`${step === 1 ? "h-full min-h-9" : "h-9"} flex w-8 items-center justify-center rounded-lg bg-brand-500 text-lg leading-none text-white transition-colors hover:bg-brand-600 active:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40`}
+          className={`${step === 1 ? "h-full min-h-9 w-7" : "h-9 w-8"} flex items-center justify-center rounded-lg bg-brand-500 text-lg leading-none text-white transition-colors hover:bg-brand-600 active:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40`}
         >
           +
         </button>
@@ -1115,13 +1226,13 @@ export default function StampLogForm({
 
   const stepOneStoreField = (
     <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center border-b border-gray-200">
-      <div className="flex h-full items-center border-r border-gray-200 px-4 py-4 text-sm font-bold text-gray-800">
+      <div className="flex h-full items-center border-r border-gray-200 px-4 py-[10px] text-sm font-bold text-gray-800">
         <span className="mr-2 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-500 text-[11px] font-bold leading-none text-white">
           {hasConfirmedStore ? "✓" : "1"}
         </span>
         출고 매장 <span className="ml-1 text-rose-600">*</span>
       </div>
-      <div className="grid grid-cols-2 gap-2 px-4 py-2">
+      <div className="grid grid-cols-2 gap-[10px] px-4 py-[4.5px] [&_button]:h-8 [&_button]:py-0 sm:[&_button]:py-0">
         {Object.values(StoreTypeEnum).map((option) => (
           <Button
             key={option.value}
@@ -1150,14 +1261,14 @@ export default function StampLogForm({
 
   const stepOnePaymentField = (
     <div className="grid grid-cols-[140px_minmax(0,1fr)] border-b border-gray-200">
-      <div className="flex items-start border-r border-gray-200 px-4 py-5 text-sm font-bold text-gray-800">
+      <div className="flex items-start border-r border-gray-200 px-4 py-[10px] text-sm font-bold text-gray-800">
         <span className="mr-2 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-500 text-[11px] font-bold leading-none text-white">
           {hasValidPayment ? "✓" : "3"}
         </span>
         결제 정보 <span className="ml-1 text-rose-600">*</span>
       </div>
-      <div className="min-w-0 px-4 py-2">
-        <div className="grid grid-cols-3 gap-2">
+      <div className="min-w-0 px-4 py-[4.5px] [&_button]:h-8 [&_button]:py-0 sm:[&_button]:py-0">
+        <div className="grid grid-cols-3 gap-[10px]">
           {(
             [
               { value: "single", label: "단일결제" },
@@ -1191,8 +1302,8 @@ export default function StampLogForm({
         </div>
 
         {paymentMode !== "remark" && (
-          <div className="mt-3 border-t border-gray-200 pt-3">
-            <div className="grid grid-cols-3 gap-2">
+          <div className="mt-[5px] border-t border-gray-200 pt-1">
+            <div className="grid grid-cols-3 gap-[10px]">
               {paymentTypeOptions.map((option) => {
                 const splitPayment = splitPayments.find(
                   (payment) => payment.paymentType === option.value,
@@ -1243,14 +1354,14 @@ export default function StampLogForm({
 
   const stepOneDeliveryField = (
     <div className="grid grid-cols-[140px_minmax(0,1fr)] border-b border-gray-200">
-      <div className="flex items-start border-r border-gray-200 px-4 py-5 text-sm font-bold text-gray-800">
+      <div className="flex items-start border-r border-gray-200 px-4 py-[10px] text-sm font-bold text-gray-800">
         <span className="mr-2 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-500 text-[11px] font-bold leading-none text-white">
           {hasConfirmedDeliveryMethod && hasValidDeliveryInfo ? "✓" : "2"}
         </span>
         수령 방식 <span className="ml-1 text-rose-600">*</span>
       </div>
-      <div className="min-w-0 px-4 py-2">
-        <div className="grid grid-cols-3 gap-2">
+      <div className="min-w-0 px-4 py-[4.5px] [&_button]:h-8 [&_button]:py-0 sm:[&_button]:py-0">
+        <div className="grid grid-cols-3 gap-[10px]">
           {(
             [
               { value: "store_visit", label: "매장방문" },
@@ -1285,8 +1396,8 @@ export default function StampLogForm({
           ))}
         </div>
         {deliveryMethod === "delivery" && (
-          <div className="mt-3 border-t border-gray-200 pt-3">
-            <div className="grid grid-cols-3 gap-2">
+          <div className="mt-[5px] border-t border-gray-200 pt-1">
+            <div className="grid grid-cols-3 gap-[10px]">
               {(
                 [
                   { value: "agency", label: "배달대행" },
@@ -1316,7 +1427,7 @@ export default function StampLogForm({
         {deliveryMethod !== "store_visit" &&
           (deliveryMethod !== "delivery" || deliveryType !== "") && (
             <div
-              className={`mt-3 grid items-start gap-2 pt-2 ${
+              className={`mt-[10px] grid items-start gap-2 ${
                 deliveryMethod === "parcel"
                   ? "grid-cols-1 sm:grid-cols-[150px_minmax(0,1fr)_88px]"
                   : deliveryType === "agency"
@@ -1326,9 +1437,6 @@ export default function StampLogForm({
             >
               {deliveryMethod === "parcel" && (
                 <div>
-                  <label className="mb-1 block h-4 text-xs font-semibold leading-4 text-gray-600">
-                    택배사 이름
-                  </label>
                   <input
                     type="text"
                     maxLength={30}
@@ -1364,9 +1472,6 @@ export default function StampLogForm({
               )}
               {deliveryMethod === "delivery" && deliveryType === "agency" && (
                 <div>
-                  <label className="mb-1 block h-4 text-xs font-semibold leading-4 text-gray-600">
-                    배달대행비
-                  </label>
                   <div className="relative">
                     <textarea
                       inputMode="numeric"
@@ -1401,9 +1506,6 @@ export default function StampLogForm({
                 </div>
               )}
               <div className="min-w-0">
-                <label className="mb-1 block h-4 text-xs font-semibold leading-4 text-gray-600">
-                  배송 주소
-                </label>
                 <textarea
                   value={deliveryAddress}
                   onChange={(event) => setDeliveryAddress(event.target.value)}
@@ -1417,8 +1519,7 @@ export default function StampLogForm({
                 />
               </div>
               <div>
-                <div aria-hidden="true" className="mb-1 h-4" />
-                <div className="grid h-20 grid-rows-2 gap-2">
+                <div className="grid h-[82px] grid-rows-2 gap-[10px]">
                   <Button
                     type="button"
                     size="xs"
@@ -1459,210 +1560,362 @@ export default function StampLogForm({
   );
 
   const stepOneStampField = (
-    <div className="grid grid-cols-[140px_minmax(0,1fr)]">
-      <div className="flex items-center border-r border-gray-200 px-4 py-2 text-gray-800">
-        <span className="mr-2 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-500 text-[11px] font-bold leading-none text-white">
-          5
-        </span>
-        <div className="min-w-0">
-          <p className="text-sm font-bold">스탬프 적립</p>
-          <p className="mt-0.5 whitespace-nowrap text-[11px] font-semibold text-brand-600">
-            0개 입력시 미적립
-          </p>
-        </div>
-      </div>
-      <div className="min-w-0 px-1 py-0.5">
-        <div className="grid grid-cols-3 items-stretch gap-2">
-          <div className="min-w-0 rounded-lg border border-gray-200 bg-gray-50 p-1">
-            {stampCountField}
-          </div>
-          <div className="flex min-w-0 flex-col items-center justify-center rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-center">
-            <p className="whitespace-nowrap text-[11px] text-gray-700">
-              현재 스탬프 잔여량
+    <>
+      <div className="grid grid-cols-[140px_minmax(0,1fr)]">
+        <div className="flex items-center border-r border-gray-200 px-4 py-2 text-gray-800">
+          <span className="mr-2 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-500 text-[11px] font-bold leading-none text-white">
+            5
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-bold">스탬프 적립</p>
+            <p className="mt-0.5 whitespace-nowrap text-[11px] font-semibold text-brand-600">
+              0개 입력시 미적립
             </p>
-            <strong className="text-base text-gray-900">
-              {currentStampCount}개
-            </strong>
-          </div>
-          <div className="flex min-w-0 flex-col items-center justify-center rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-center">
-            <p className="whitespace-nowrap text-[11px] text-gray-700">
-              적립 후 잔여량
-            </p>
-            <strong className="text-base text-brand-600">
-              {currentStampCount + amount}개
-            </strong>
           </div>
         </div>
+        <div className="min-w-0 space-y-2 px-4 py-2">
+          <div className="grid grid-cols-[110px_minmax(0,1fr)_80px_80px] items-stretch gap-[10px]">
+            <div>{stampCountField}</div>
+            <div className="grid min-w-0 grid-cols-[minmax(0,23fr)_24px_minmax(0,23fr)_minmax(0,4fr)] items-stretch gap-[10px]">
+              <div className="flex items-center justify-center rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-center">
+                <strong className="whitespace-nowrap text-base text-gray-900">
+                  {currentStampCount}개
+                </strong>
+              </div>
+              <span className="flex h-6 w-6 self-center items-center justify-center rounded-full bg-gray-100 text-gray-500 ring-1 ring-gray-200">
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  className="h-3.5 w-3.5"
+                >
+                  <path
+                    d="M4 10h11m-4-4 4 4-4 4"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </span>
+              <div className="flex items-center justify-center rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-center">
+                <strong className="whitespace-nowrap text-base text-brand-600">
+                  {currentStampCount + amount}개
+                </strong>
+              </div>
+              <div aria-hidden="true" />
+            </div>
+            {isEditMode ? (
+              initialCouponUse ? (
+                <div className="col-span-2 flex min-h-9 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 px-3 text-center text-xs font-semibold text-gray-700">
+                  {couponUseDisplay}
+                </div>
+              ) : (
+                <div className="col-span-2" aria-hidden="true" />
+              )
+            ) : (
+              <>
+                {currentStampCount + amount >= 10 ? (
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant={!useCouponAfterShipment ? "primary" : "gray"}
+                    className="h-full min-h-9 w-20 whitespace-nowrap"
+                    onClick={() => setUseCouponAfterShipment(false)}
+                  >
+                    쿠폰 미사용
+                  </Button>
+                ) : (
+                  <div aria-hidden="true" />
+                )}
+                {currentStampCount + amount >= 10 ? (
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant={useCouponAfterShipment ? "primary" : "gray"}
+                    className="h-full min-h-9 w-full whitespace-nowrap"
+                    onClick={() => {
+                      setUseCouponAfterShipment(true);
+                      if (couponUseQuantity < 1) setCouponUseQuantity(1);
+                    }}
+                  >
+                    쿠폰 사용
+                  </Button>
+                ) : (
+                  <div aria-hidden="true" />
+                )}
+              </>
+            )}
+          </div>
+        </div>
       </div>
-    </div>
+      {!isEditMode &&
+        currentStampCount + amount >= 10 &&
+        useCouponAfterShipment && (
+          <div className="grid grid-cols-[140px_minmax(0,1fr)] border-t border-gray-200">
+            <div className="flex items-center border-r border-gray-200 px-4 py-2 text-gray-800">
+              <span className="mr-2 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-500 text-[11px] font-bold leading-none text-white">
+                6
+              </span>
+              <p className="text-sm font-bold">쿠폰 사용</p>
+            </div>
+            <div className="min-w-0 px-4 py-2">
+              <div className="flex flex-nowrap items-center gap-[10px]">
+                <div className="grid w-[110px] shrink-0 grid-cols-[42px_28px_28px] items-stretch gap-1">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={couponUseQuantity}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      if (value === "" || /^[0-9]+$/.test(value)) {
+                        setCouponUseQuantity(
+                          value === ""
+                            ? 0
+                            : Math.min(
+                                Math.max(1, Number(value)),
+                                maxCouponUseQuantity,
+                              ),
+                        );
+                      }
+                    }}
+                    className="h-full min-h-9 w-full rounded-lg border border-gray-300 bg-white px-1 text-center text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                  />
+                  <button
+                    type="button"
+                    aria-label="쿠폰 사용 수량 감소"
+                    onClick={() =>
+                      setCouponUseQuantity((quantity) =>
+                        Math.max(1, quantity - 1),
+                      )
+                    }
+                    className="flex h-full min-h-9 w-7 items-center justify-center rounded-lg border border-gray-300 bg-white text-lg leading-none text-gray-600 transition-colors hover:bg-gray-50 active:bg-gray-100"
+                  >
+                    −
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="쿠폰 사용 수량 증가"
+                    onClick={() =>
+                      setCouponUseQuantity((quantity) =>
+                        Math.min(maxCouponUseQuantity, quantity + 1),
+                      )
+                    }
+                    disabled={couponUseQuantity >= maxCouponUseQuantity}
+                    className="flex h-full min-h-9 w-7 items-center justify-center rounded-lg bg-brand-500 text-lg leading-none text-white transition-colors hover:bg-brand-600 active:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    +
+                  </button>
+                </div>
+                {Object.values(BreathTypeEnum).map((option) => (
+                  <Button
+                    key={option.value}
+                    type="button"
+                    size="xs"
+                    variant={
+                      couponBreathType === option.value ? "primary" : "gray"
+                    }
+                    className="h-8 whitespace-nowrap"
+                    onClick={() => setCouponBreathType(option.value)}
+                  >
+                    {option.name}
+                  </Button>
+                ))}
+                {couponBreathType === BreathTypeEnum.CUSTOM.value && (
+                  <input
+                    type="text"
+                    value={couponCustomMemo}
+                    onChange={(event) =>
+                      setCouponCustomMemo(event.target.value)
+                    }
+                    placeholder="쿠폰사용 내용입력"
+                    className="h-8 min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none placeholder:text-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+    </>
   );
 
   const stepOneReservationField = stepOneReservationSlot ? (
     <div className="grid grid-cols-[140px_minmax(0,1fr)] border-b border-gray-200">
-      <div className="flex items-center border-r border-gray-200 px-4 py-4 text-sm font-bold text-gray-800">
+      <div className="flex items-center border-r border-gray-200 px-4 py-[10px] text-sm font-bold text-gray-800">
         <span className="mr-2 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-500 text-[11px] font-bold leading-none text-white">
           4
         </span>
         출고일 <span className="ml-1 text-rose-600">*</span>
       </div>
-      <div className="min-w-0 px-4 py-2">{stepOneReservationSlot}</div>
+      <div className="min-w-0 px-4 py-[4.5px] [&_button]:h-8 [&_button]:py-0 sm:[&_button]:py-0 [&_input]:h-8">
+        {stepOneReservationSlot}
+      </div>
     </div>
   ) : null;
 
   const itemSelectionField = (
     <div className="grid grid-cols-1 gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3 lg:grid-cols-2 lg:items-stretch">
-      <div className="grid gap-2 sm:grid-cols-[minmax(0,2fr)_minmax(270px,1fr)]">
-        <div>
-          {editingLineId && (
-            <span className="mb-1 block w-fit rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
-              선택 품목 수정 중
-            </span>
-          )}
-          <div ref={itemSearchRef} className="relative">
-            <div className="relative">
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="m21 21-4.35-4.35m2.1-5.4a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"
-                />
-              </svg>
-              <input
-                type="text"
-                value={selectedItem ? getItemLabel(selectedItem) : itemSearch}
-                onChange={(e) => {
-                  if (!selectedItem) {
-                    setItemSearch(e.target.value);
-                  }
-                }}
-                onFocus={() => {
-                  if (!selectedItem && itemSearch.trim()) {
-                    setShowItemResults(true);
-                  }
-                }}
-                disabled={!!selectedItem}
-                className={`h-10 w-full rounded-lg border border-gray-300 bg-white pl-9 pr-10 text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 ${
-                  selectedItem
-                    ? "bg-gray-100 text-gray-700 cursor-not-allowed"
-                    : "bg-white"
-                }`}
-                placeholder="품목명을 입력하세요"
-              />
-              {selectedItem && !editingLineId ? (
-                <button
-                  type="button"
-                  onClick={handleItemRemove}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                  aria-label="품목 선택 해제"
+      <div className="min-w-0">
+        {editingLineId && (
+          <span className="mb-1 block w-fit rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
+            선택 품목 수정 중
+          </span>
+        )}
+        <div className="grid gap-2 sm:grid-cols-[minmax(0,2fr)_minmax(270px,1fr)]">
+          <div className="min-w-0">
+            <div ref={itemSearchRef} className="relative">
+              <div className="relative">
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
                 >
-                  X
-                </button>
-              ) : !selectedItem ? (
-                isItemsLoading && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <div className="w-4 h-4 border-2 border-brand-300 border-t-brand-600 rounded-full animate-spin" />
-                  </div>
-                )
-              ) : null}
-            </div>
-
-            {!selectedItem && showItemResults && items.length > 0 && (
-              <div className="absolute z-50 w-full mt-1 bg-white border border-brand-200 rounded-lg shadow-lg max-h-60 overflow-auto">
-                {items.map((item) => (
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="m21 21-4.35-4.35m2.1-5.4a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"
+                  />
+                </svg>
+                <input
+                  type="text"
+                  value={selectedItem ? getItemLabel(selectedItem) : itemSearch}
+                  onChange={(e) => {
+                    if (!selectedItem) {
+                      setItemSearch(e.target.value);
+                    }
+                  }}
+                  onFocus={() => {
+                    if (!selectedItem && itemSearch.trim()) {
+                      setShowItemResults(true);
+                    }
+                  }}
+                  disabled={!!selectedItem}
+                  className={`h-10 w-full rounded-lg border border-gray-300 bg-white pl-9 pr-10 text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 ${
+                    selectedItem
+                      ? "bg-gray-100 text-gray-700 cursor-not-allowed"
+                      : "bg-white"
+                  }`}
+                  placeholder="품목명을 입력하세요"
+                />
+                {selectedItem && !editingLineId ? (
                   <button
-                    key={item.id}
                     type="button"
-                    className="block w-full px-4 py-3 text-left cursor-pointer hover:bg-brand-50 transition-colors border-b border-brand-50 last:border-b-0"
-                    onClick={() => handleItemSelect(item)}
+                    onClick={handleItemRemove}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    aria-label="품목 선택 해제"
                   >
-                    <div className="flex items-start gap-2">
-                      <p className="min-w-0 flex-1 break-words text-sm font-medium text-gray-900">
-                        {getItemLabel(item)}
-                      </p>
-                      <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
-                        {item.item_categories?.name ?? "미분류"}
-                      </span>
-                    </div>
+                    X
                   </button>
-                ))}
+                ) : !selectedItem ? (
+                  isItemsLoading && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <div className="w-4 h-4 border-2 border-brand-300 border-t-brand-600 rounded-full animate-spin" />
+                    </div>
+                  )
+                ) : null}
               </div>
-            )}
 
-            {!selectedItem &&
-              showItemResults &&
-              items.length === 0 &&
-              itemSearch.trim() &&
-              !isItemsLoading && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-brand-200 rounded-lg shadow-lg p-4">
-                  <p className="text-sm text-gray-500 text-center">
-                    검색 결과가 없습니다.
-                  </p>
+              {!selectedItem && showItemResults && items.length > 0 && (
+                <div className="absolute z-50 mt-1 max-h-[272px] w-full overflow-auto rounded-lg border border-brand-200 bg-white shadow-lg">
+                  {items.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className="block min-h-[68px] w-full cursor-pointer border-b border-brand-50 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-brand-50"
+                      onClick={() => handleItemSelect(item)}
+                    >
+                      <div className="min-w-0">
+                        <div className="mb-1 flex items-center justify-between gap-3">
+                          <span className="block w-fit rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
+                            {item.item_categories?.name ?? "미분류"}
+                          </span>
+                          <span className="shrink-0 text-xs font-semibold text-gray-500">
+                            {(item.current_quantity ?? 0).toLocaleString()}개
+                          </span>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="break-words text-sm font-medium text-gray-900">
+                            {getItemLabel(item)}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
                 </div>
               )}
-          </div>
-        </div>
 
-        <div>
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              value={quantity}
-              onChange={(e) => {
-                const v = e.target.value;
-                if (v === "" || /^[0-9]+$/.test(v)) {
-                  setQuantity(v === "" ? 1 : Math.max(1, Number(v)));
-                }
-              }}
-              className="h-10 w-16 rounded-lg border border-gray-300 px-3 text-center text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-500"
-            />
-            <button
-              type="button"
-              onClick={() => setQuantity((v) => Math.max(1, v - 1))}
-              className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-300 bg-white text-lg leading-none text-gray-600 transition-colors hover:bg-gray-50 active:bg-gray-100"
-            >
-              −
-            </button>
-            <button
-              type="button"
-              onClick={() => setQuantity((v) => v + 1)}
-              className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500 text-lg leading-none text-white transition-colors hover:bg-brand-600 active:bg-brand-700"
-            >
-              +
-            </button>
-            {editingLineId && (
+              {!selectedItem &&
+                showItemResults &&
+                items.length === 0 &&
+                itemSearch.trim() &&
+                !isItemsLoading && (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-brand-200 rounded-lg shadow-lg p-4">
+                    <p className="text-sm text-gray-500 text-center">
+                      검색 결과가 없습니다.
+                    </p>
+                  </div>
+                )}
+            </div>
+          </div>
+
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
+              <input
+                type="text"
+                value={quantity}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "" || /^[0-9]+$/.test(v)) {
+                    setQuantity(v === "" ? 1 : Math.max(1, Number(v)));
+                  }
+                }}
+                className="h-10 w-16 rounded-lg border border-gray-300 px-3 text-center text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+              <button
+                type="button"
+                onClick={() => setQuantity((v) => Math.max(1, v - 1))}
+                className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-300 bg-white text-lg leading-none text-gray-600 transition-colors hover:bg-gray-50 active:bg-gray-100"
+              >
+                −
+              </button>
+              <button
+                type="button"
+                onClick={() => setQuantity((v) => v + 1)}
+                className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500 text-lg leading-none text-white transition-colors hover:bg-brand-600 active:bg-brand-700"
+              >
+                +
+              </button>
+              {editingLineId && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="gray"
+                  onClick={resetLineInputs}
+                  className="h-10"
+                >
+                  취소
+                </Button>
+              )}
               <Button
                 type="button"
                 size="sm"
-                variant="gray"
-                onClick={resetLineInputs}
+                onClick={handleAddLine}
                 className="h-10"
+                disabled={
+                  !selectedItem ||
+                  quantity < 1 ||
+                  (isSelectedMemoRequired && !selectedRuleMemo.trim()) ||
+                  (customerMode === "adjustment" &&
+                    remarkType !== "adjustment_in" &&
+                    remarkType !== "adjustment_out")
+                }
               >
-                취소
+                {editingLineId ? "수정" : "추가"}
               </Button>
-            )}
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleAddLine}
-              className="h-10"
-              disabled={
-                !selectedItem ||
-                quantity < 1 ||
-                (isSelectedMemoRequired && !selectedRuleMemo.trim()) ||
-                (customerMode === "adjustment" &&
-                  remarkType !== "adjustment_in" &&
-                  remarkType !== "adjustment_out")
-              }
-            >
-              {editingLineId ? "수정" : "추가"}
-            </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -1678,7 +1931,7 @@ export default function StampLogForm({
               ? "grid grid-cols-[minmax(0,1fr)_minmax(0,5fr)] gap-1.5"
               : customerMode === "adjustment"
                 ? "grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,4fr)] gap-1.5"
-              : "grid grid-cols-6 gap-1.5"
+                : "grid grid-cols-6 gap-1.5"
           }
         >
           {visibleRemarkOptions.map((option) => (
@@ -1800,146 +2053,152 @@ export default function StampLogForm({
   );
 
   const itemListContent = (
-    <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-          <table
-            className={`w-full table-fixed text-sm ${
-              customerMode === "adjustment" || customerMode === "demo"
-                ? "min-w-[650px]"
-                : "min-w-[820px]"
-            }`}
-          >
-            <thead className="bg-gray-50 text-xs font-semibold text-gray-600">
-              <tr className="border-b border-gray-200">
-                <th className="w-[5%] px-2 py-2 text-center">번호</th>
-                <th
-                  className={`${customerMode === "adjustment" ? "w-[39%]" : "w-[29%]"} px-2 py-2 text-left`}
-                >
-                  <span className="flex items-center gap-2">
-                    <span>품목명</span>
-                    <span className="whitespace-nowrap text-[11px] font-medium text-gray-500">
-                      {new Set(draftLines.map((line) => line.itemId)).size}종 · 총{" "}
-                      {draftLines.reduce((sum, line) => sum + line.quantity, 0)}개
-                    </span>
+    <div className="min-h-[210px] overflow-x-auto rounded-lg border border-gray-200 bg-white">
+      <table
+        className={`w-full table-fixed text-sm ${
+          customerMode === "adjustment" || customerMode === "demo"
+            ? "min-w-[650px]"
+            : "min-w-[820px]"
+        }`}
+      >
+        <thead className="bg-gray-50 text-xs font-semibold text-gray-600">
+          <tr className="border-b border-gray-200">
+            <th className="w-[5%] px-2 py-2 text-center">번호</th>
+            <th
+              className={`${customerMode === "adjustment" ? "w-[39%]" : "w-[29%]"} px-2 py-2 text-left`}
+            >
+              <span className="flex items-center gap-2">
+                <span>품목명</span>
+                <span className="whitespace-nowrap text-[11px] font-medium text-gray-500">
+                  {new Set(draftLines.map((line) => line.itemId)).size}종 · 총{" "}
+                  {draftLines.reduce((sum, line) => sum + line.quantity, 0)}개
+                </span>
+              </span>
+            </th>
+            <th className="w-[11%] px-2 py-2 text-center">품목종류</th>
+            <th className="w-[10%] px-2 py-2 text-center">출고 유형</th>
+            <th className="w-[7%] px-2 py-2 text-center">수량</th>
+            {customerMode !== "adjustment" && customerMode !== "demo" && (
+              <>
+                <th className="w-[10%] px-2 py-2 text-right">단가</th>
+                <th className="w-[10%] px-2 py-2 text-right">소계</th>
+              </>
+            )}
+            <th className="w-[18%] px-3 py-2 text-center">작업</th>
+          </tr>
+        </thead>
+        <tbody>
+          {draftLines.length === 0 ? (
+            <tr>
+              <td
+                colSpan={
+                  customerMode === "adjustment" || customerMode === "demo"
+                    ? 6
+                    : 8
+                }
+                className="h-44 px-3 py-2 text-center text-sm text-gray-400"
+              >
+                추가된 품목이 없습니다.
+              </td>
+            </tr>
+          ) : (
+            draftLines.map((line, index) => (
+              <tr
+                ref={setLineRef(line.id)}
+                key={line.id}
+                className="border-b border-gray-200 last:border-b-0"
+              >
+                <td className="px-2 py-2">
+                  <span className="mx-auto flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-xs font-semibold leading-none text-white">
+                    {index + 1}
                   </span>
-                </th>
-                <th className="w-[11%] px-2 py-2 text-center">품목종류</th>
-                <th className="w-[10%] px-2 py-2 text-center">출고 유형</th>
-                <th className="w-[7%] px-2 py-2 text-center">수량</th>
+                </td>
+                <td className="px-2 py-2 font-medium text-gray-900">
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                    <span className="break-words">{line.itemName}</span>
+                    {getLineDisplayMemo(line) && (
+                      <span className="break-words text-xs font-normal text-gray-500">
+                        ({getLineDisplayMemo(line)})
+                      </span>
+                    )}
+                  </div>
+                </td>
+                <td className="px-2 py-2 text-center text-xs font-medium text-gray-600">
+                  {line.itemCategoryName ?? "미분류"}
+                </td>
+                <td className="px-2 py-2 text-center">
+                  <span
+                    className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold ${getShipmentTypeClassName(line)}`}
+                  >
+                    {getShipmentTypeLabel(line)}
+                  </span>
+                </td>
+                <td className="px-2 py-2 text-center font-medium text-gray-800">
+                  {line.quantity}개
+                </td>
                 {customerMode !== "adjustment" && customerMode !== "demo" && (
                   <>
-                    <th className="w-[10%] px-2 py-2 text-right">단가</th>
-                    <th className="w-[10%] px-2 py-2 text-right">소계</th>
+                    <td className="px-2 py-2 text-right text-gray-700">
+                      {formatAmount(
+                        typeof line.adjustedUnitPrice === "number"
+                          ? line.adjustedUnitPrice
+                          : line.unitPrice,
+                      )}
+                      원
+                    </td>
+                    <td className="px-2 py-2 text-right font-medium text-gray-900">
+                      {formatAmount(line.amount)}원
+                    </td>
                   </>
                 )}
-                <th className="w-[18%] px-3 py-2 text-center">작업</th>
-              </tr>
-            </thead>
-            <tbody>
-              {draftLines.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={customerMode === "adjustment" || customerMode === "demo" ? 6 : 8}
-                    className="h-24 px-3 py-6 text-center text-sm text-gray-400"
-                  >
-                    추가된 품목이 없습니다.
-                  </td>
-                </tr>
-              ) : draftLines.map((line, index) => (
-                <tr
-                  ref={setLineRef(line.id)}
-                  key={line.id}
-                  className="border-b border-gray-200 last:border-b-0"
-                >
-                  <td className="px-2 py-2">
-                    <span className="mx-auto flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-xs font-semibold leading-none text-white">
-                      {index + 1}
-                    </span>
-                  </td>
-                  <td className="px-2 py-2 font-medium text-gray-900">
-                    <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                      <span className="break-words">{line.itemName}</span>
-                      {getLineDisplayMemo(line) && (
-                        <span className="break-words text-xs font-normal text-gray-500">
-                          ({getLineDisplayMemo(line)})
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-2 py-2 text-center text-xs font-medium text-gray-600">
-                    {line.itemCategoryName ?? "미분류"}
-                  </td>
-                  <td className="px-2 py-2 text-center">
-                    <span
-                      className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold ${getShipmentTypeClassName(line)}`}
+                <td className="px-3 py-2">
+                  <div className="flex items-center justify-center gap-1">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="xs"
+                      onClick={() => handleEditLine(line)}
+                      aria-label={`${line.lineText} 수정`}
                     >
-                      {getShipmentTypeLabel(line)}
-                    </span>
-                  </td>
-                  <td className="px-2 py-2 text-center font-medium text-gray-800">
-                    {line.quantity}개
-                  </td>
-                  {customerMode !== "adjustment" && customerMode !== "demo" && (
-                    <>
-                      <td className="px-2 py-2 text-right text-gray-700">
-                        {formatAmount(
-                          typeof line.adjustedUnitPrice === "number"
-                            ? line.adjustedUnitPrice
-                            : line.unitPrice,
-                        )}
-                        원
-                      </td>
-                      <td className="px-2 py-2 text-right font-medium text-gray-900">
-                        {formatAmount(line.amount)}원
-                      </td>
-                    </>
-                  )}
-                  <td className="px-3 py-2">
-                    <div className="flex items-center justify-center gap-1">
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="xs"
-                        onClick={() => handleEditLine(line)}
-                        aria-label={`${line.lineText} 수정`}
-                      >
-                        ✏️
-                      </Button>
-                      <button
-                        type="button"
-                        onClick={() => moveLine(index, -1)}
-                        disabled={index === 0}
-                        className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-gray-200 bg-white text-xs font-semibold text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-35"
-                        aria-label={`${line.lineText} 위로 이동`}
-                      >
-                        ↑
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => moveLine(index, 1)}
-                        disabled={index === draftLines.length - 1}
-                        className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-gray-200 bg-white text-xs font-semibold text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-35"
-                        aria-label={`${line.lineText} 아래로 이동`}
-                      >
-                        ↓
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setDraftLines((prev) =>
-                            prev.filter((item) => item.id !== line.id),
-                          )
-                        }
-                        className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-xs font-semibold text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                        aria-label={`${line.lineText} 삭제`}
-                      >
-                        X
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                      ✏️
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={() => moveLine(index, -1)}
+                      disabled={index === 0}
+                      className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-gray-200 bg-white text-xs font-semibold text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-35"
+                      aria-label={`${line.lineText} 위로 이동`}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveLine(index, 1)}
+                      disabled={index === draftLines.length - 1}
+                      className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-gray-200 bg-white text-xs font-semibold text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-35"
+                      aria-label={`${line.lineText} 아래로 이동`}
+                    >
+                      ↓
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setDraftLines((prev) =>
+                          prev.filter((item) => item.id !== line.id),
+                        )
+                      }
+                      className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-xs font-semibold text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                      aria-label={`${line.lineText} 삭제`}
+                    >
+                      X
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
     </div>
   );
 
@@ -1970,6 +2229,10 @@ export default function StampLogForm({
               type="button"
               size="sm"
               variant={discountType === option.value ? "primary" : "gray"}
+              disabled={
+                (option.value === "transfer" && !canUseTransferDiscount) ||
+                (option.value === "cash" && !canUseCashDiscount)
+              }
               className="flex h-8 items-center justify-center rounded-lg px-2 py-0 text-center text-sm leading-none sm:px-2 sm:py-0 sm:text-sm"
               onClick={() =>
                 setDiscountType((current) =>
@@ -2112,31 +2375,31 @@ export default function StampLogForm({
     ) : null;
 
   const extraNoteField = (
-      <div
-        className={`grid h-full items-center overflow-hidden rounded-lg border border-gray-200 bg-gray-50 ${
-          isNonSalesSpecialCustomer
-            ? "grid-cols-[180px_minmax(0,1fr)]"
-            : "grid-cols-[72px_minmax(0,1fr)]"
-        }`}
-      >
-        <label className="flex h-full items-center justify-center whitespace-nowrap border-r border-gray-200 px-2 text-center text-sm font-semibold text-gray-800">
-          {customerMode === "demo"
-            ? "시연용 전체 특이사항"
-            : customerMode === "adjustment"
-              ? "재고조정 전체 특이사항"
-              : "출고 메모"}
-        </label>
-        <div className="p-2">
-          <input
-            type="text"
-            value={extraNote}
-            onChange={(e) => setExtraNote(e.target.value)}
-            className="h-8 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-500"
-            placeholder="전체 특이사항을 입력하세요. (선택)"
-          />
-        </div>
+    <div
+      className={`grid h-full items-center overflow-hidden rounded-lg border border-gray-200 bg-gray-50 ${
+        isNonSalesSpecialCustomer
+          ? "grid-cols-[180px_minmax(0,1fr)]"
+          : "grid-cols-[72px_minmax(0,1fr)]"
+      }`}
+    >
+      <label className="flex h-full items-center justify-center whitespace-nowrap border-r border-gray-200 px-2 text-center text-sm font-semibold text-gray-800">
+        {customerMode === "demo"
+          ? "시연용 전체 특이사항"
+          : customerMode === "adjustment"
+            ? "재고조정 전체 특이사항"
+            : "출고 메모"}
+      </label>
+      <div className="p-2">
+        <input
+          type="text"
+          value={extraNote}
+          onChange={(e) => setExtraNote(e.target.value)}
+          className="h-8 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-500"
+          placeholder="전체 특이사항을 입력하세요. (선택)"
+        />
       </div>
-    );
+    </div>
+  );
 
   const stepCustomerSummaryPanel = customerSummary ? (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
@@ -2181,7 +2444,13 @@ export default function StampLogForm({
       return (
         <div>
           {(step === 2 || step === 3) && stepCustomerSummaryPanel}
-          <div className={step === 1 ? "mt-5 space-y-5" : "hidden"}>
+          <div
+            className={
+              step === 1
+                ? `${compactStepOneSpacing ? "mt-2" : "mt-5"} space-y-5`
+                : "hidden"
+            }
+          >
             <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
               {stepOneStoreField}
               {isNonSalesSpecialCustomer ? (
@@ -2227,33 +2496,33 @@ export default function StampLogForm({
               {itemListContent}
             </div>
             {customerSummary ? (
-                <div
-                  className={`grid grid-cols-1 gap-3 lg:items-stretch ${
-                    isNonSalesSpecialCustomer ? "" : "lg:grid-cols-2"
-                  }`}
-                >
-                  {!isNonSalesSpecialCustomer && (
-                    <div className="min-w-0">{discountField}</div>
-                  )}
-                  <div className="min-w-0">{extraNoteField}</div>
-                </div>
-              ) : (
-                <div
-                  className={`grid grid-cols-1 gap-3 lg:items-stretch ${
-                    isNonSalesSpecialCustomer
-                      ? ""
-                      : "lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)]"
-                  }`}
-                >
-                  {!isNonSalesSpecialCustomer && (
-                    <div className="min-w-0">{discountField}</div>
-                  )}
-                  {!isNonSalesSpecialCustomer && (
-                    <div className="min-w-0">{reservationSlot}</div>
-                  )}
-                  <div className="min-w-0">{extraNoteField}</div>
-                </div>
-              )}
+              <div
+                className={`grid grid-cols-1 gap-3 lg:items-stretch ${
+                  isNonSalesSpecialCustomer ? "" : "lg:grid-cols-2"
+                }`}
+              >
+                {!isNonSalesSpecialCustomer && (
+                  <div className="min-w-0">{discountField}</div>
+                )}
+                <div className="min-w-0">{extraNoteField}</div>
+              </div>
+            ) : (
+              <div
+                className={`grid grid-cols-1 gap-3 lg:items-stretch ${
+                  isNonSalesSpecialCustomer
+                    ? ""
+                    : "lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)]"
+                }`}
+              >
+                {!isNonSalesSpecialCustomer && (
+                  <div className="min-w-0">{discountField}</div>
+                )}
+                {!isNonSalesSpecialCustomer && (
+                  <div className="min-w-0">{reservationSlot}</div>
+                )}
+                <div className="min-w-0">{extraNoteField}</div>
+              </div>
+            )}
             {splitPaymentAmountField}
           </div>
         </div>
