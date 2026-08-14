@@ -42,6 +42,11 @@ const getDays = (date: string | null) => {
   return Math.max(0, Math.floor((current.getTime() - start.getTime()) / 86400000));
 };
 
+const getTodayDateValue = () => {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+};
+
 export default function LiqudStandPage() {
   const { isAdmin } = useUser();
   const client = useQueryClient();
@@ -611,7 +616,7 @@ function CellEditor({ target, canClear, onClose, onSave, onClear }: { target: { 
     [target.cell?.item_name, target.cell?.secondary_item_name].filter(Boolean) as string[],
   );
   const [consumableType, setConsumableType] = useState(target.cell?.consumable_type ?? consumables[0].name);
-  const [installedOn, setInstalledOn] = useState(target.cell?.installed_on ?? new Date().toISOString().slice(0, 10));
+  const [installedOn, setInstalledOn] = useState(target.cell?.installed_on ?? getTodayDateValue());
   const [note, setNote] = useState(target.cell?.note ?? '');
   const [confirmClear, setConfirmClear] = useState(false);
   const { items } = useItems({ searchKeyword: search, isUse: true });
@@ -676,7 +681,13 @@ function CellEditor({ target, canClear, onClose, onSave, onClear }: { target: { 
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className="block text-sm font-semibold text-gray-700">교체 날짜<input type="date" value={installedOn} onChange={(e) => setInstalledOn(e.target.value)} className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm outline-none focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100" /></label>
+            <div className="text-sm font-semibold text-gray-700">
+              <div className="flex items-center gap-2">
+                <span>교체 날짜</span>
+                <Button type="button" size="xs" variant="gray" className="h-7 shrink-0 whitespace-nowrap" onClick={() => setInstalledOn(getTodayDateValue())}>오늘 날짜로 변경</Button>
+              </div>
+              <div className="mt-2"><KoreanDatePicker value={installedOn} onChange={setInstalledOn} selectedLabel="선택한 교체 날짜" placement="top" align="left" /></div>
+            </div>
             <label className="block text-sm font-semibold text-gray-700">메모<input value={note} onChange={(e) => setNote(e.target.value)} className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm outline-none focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100" placeholder="선택 입력" /></label>
           </div>
         </div>

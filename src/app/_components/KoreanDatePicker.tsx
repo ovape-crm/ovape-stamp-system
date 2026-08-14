@@ -20,11 +20,13 @@ const KoreanDatePicker = ({
   onChange,
   selectedLabel = "선택한 날짜",
   placement = "bottom",
+  align = "right",
 }: {
   value: string;
   onChange: (value: string) => void;
   selectedLabel?: string;
   placement?: "top" | "bottom";
+  align?: "left" | "right";
 }) => {
   const getMonthFromValue = () => {
     const date = value ? new Date(`${value}T00:00:00`) : new Date();
@@ -101,7 +103,7 @@ const KoreanDatePicker = ({
 
       {isOpen && (
         <div
-          className={`absolute right-0 z-40 w-[300px] rounded-xl border border-brand-100 bg-white p-3 shadow-xl ${placement === "top" ? "bottom-full mb-1" : "top-full mt-1"}`}
+          className={`absolute z-40 w-[300px] rounded-xl border border-brand-100 bg-white p-3 shadow-xl ${align === "left" ? "left-0" : "right-0"} ${placement === "top" ? "bottom-full mb-1" : "top-full mt-1"}`}
         >
           <div className="mb-3 rounded-lg bg-brand-50 px-3 py-2 text-center">
             <p className="text-xs text-brand-500">{selectedLabel}</p>
