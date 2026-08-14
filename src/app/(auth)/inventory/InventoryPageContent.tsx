@@ -121,11 +121,9 @@ function PurchaseHandlingDetails({ line }: { line: PurchaseOrderLine }) {
           href={`/customers/${line.customer_id}`}
           className="rounded-full bg-sky-50 px-2 py-0.5 text-sky-700 hover:bg-sky-100"
         >
-          {line.handling_type === "reservation"
-            ? "예약 고객 보기"
-            : line.customers
-              ? `${line.customers.name} · ${formatPhoneNumber(line.customers.phone)}`
-              : "연결 고객"}
+          {line.customers
+            ? `${line.customers.name} · ${formatPhoneNumber(line.customers.phone)}`
+            : "연결 고객"}
         </a>
       )}
       {line.handling_note && (
