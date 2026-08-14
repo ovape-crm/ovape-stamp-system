@@ -204,11 +204,7 @@ export default function StampConfirmModal({
         (sum, payment) => sum + payment.amount,
         0,
       ) === stampLog.finalAmount);
-  const customerMode = getCustomerMode(
-    target.name,
-    target.phone,
-    target.is_stamp_eligible ?? true,
-  );
+  const customerMode = getCustomerMode(target.name, target.phone);
   const isAnonymousXCustomer =
     target.name.trim() === "X" && target.phone.trim() === "X";
   const requiresXCustomerInfo = isAnonymousXCustomer && !selectedCustomer;

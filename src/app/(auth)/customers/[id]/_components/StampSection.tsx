@@ -72,11 +72,7 @@ const StampSection = ({
   const openOutboundModalRef = useRef<() => void>(() => undefined);
   const { open, close } = useModal();
   const queryClient = useQueryClient();
-  const customerMode = getCustomerMode(
-    target.name,
-    target.phone,
-    target.is_stamp_eligible ?? true,
-  );
+  const customerMode = getCustomerMode(target.name, target.phone);
   const isSpecialCustomer = customerMode !== "normal";
   const isRegularNonAccrualCustomer =
     customerMode === "x" &&

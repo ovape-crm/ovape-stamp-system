@@ -177,11 +177,7 @@ export default function CustomerDetailPage() {
     customer.name.trim() === "X" && customer.phone.trim() === "X"
       ? 0
       : customer.stamps?.[0]?.count || 0;
-  const isSpecialCustomer = checkSpecialCustomer(
-    customer.name,
-    customer.phone,
-    customer.is_stamp_eligible ?? true,
-  );
+  const isSpecialCustomer = checkSpecialCustomer(customer.name, customer.phone);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10">
