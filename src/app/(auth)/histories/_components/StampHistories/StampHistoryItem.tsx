@@ -12,6 +12,7 @@ import {
 import useCopy from "@/app/_domains/_log/_hooks/useCopy";
 import { getCustomerMode } from "@/app/_domains/_customer/_utils/specialCustomer";
 import { PaymentTypeEnum, StoreTypeEnum } from "@/app/_enums/enums";
+import { formatHistoryNote } from "@/app/_domains/_log/_utils/formatHistoryNote";
 
 interface StampHistoryItemProps {
   log: LogsResType;
@@ -22,9 +23,6 @@ interface StampHistoryItemProps {
   onConfirm?: () => void;
   showCopy?: boolean;
 }
-
-const formatHistoryNote = (note: string) =>
-  note.replace(/\(서비스\((.*?)\)\)/g, "(서비스,$1)");
 
 const StampHistoryItem = ({
   log,
@@ -152,7 +150,7 @@ const StampHistoryItem = ({
                       ? "분할결제,"
                       : "분할결제) "
                     : ""
-                }${formatHistoryNote(log.note)}`
+                }${formatHistoryNote(log.note, log.jsonb)}`
               ) : (
                 <span className="text-gray-400"> - </span>
               )}

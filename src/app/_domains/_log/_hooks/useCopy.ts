@@ -7,6 +7,7 @@ import {
 import { LogBaseType } from "../_types/log.types";
 import { formatPhoneNumber } from "@/app/_utils/utils";
 import toast from "react-hot-toast";
+import { formatHistoryNote } from "../_utils/formatHistoryNote";
 
 const paymentTypeNameByValue = Object.values(PaymentTypeEnum).reduce(
   (acc, type) => {
@@ -23,9 +24,6 @@ const storeNameByValue = Object.values(StoreTypeEnum).reduce(
   },
   {} as Record<StoreTypeEnumType["value"], string>,
 );
-
-const formatHistoryNote = (note: string) =>
-  note.replace(/\(서비스\((.*?)\)\)/g, "(서비스,$1)");
 
 const buildAmountFormula = (
   jsonb: Record<string, unknown> | null | undefined,
@@ -111,6 +109,7 @@ const useCopy = () => {
         )
       : [];
     const hasTransactionTag = Boolean(
+      log.jsonb?.couponUse ||
       log.jsonb?.discount ||
       (typeof log.jsonb?.deliveryFee === "number" &&
         log.jsonb.deliveryFee > 0) ||
@@ -201,14 +200,14 @@ const useCopy = () => {
         ? splitPayments
             .map((payment) =>
               buildClipboardRow(
-                `${hasTransactionTag ? "분할결제," : "분할결제) "}${formatHistoryNote(log.note)}`,
+                `${hasTransactionTag ? "분할결제," : "분할결제) "}${formatHistoryNote(log.note, log.jsonb)}`,
                 String(payment.amount),
                 paymentTypeNameByValue[payment.paymentType] ?? "",
               ),
             )
             .join("\n")
         : buildClipboardRow(
-            formatHistoryNote(log.note),
+            formatHistoryNote(log.note, log.jsonb),
             amountFormula,
             paymentTypeName ?? "",
           );

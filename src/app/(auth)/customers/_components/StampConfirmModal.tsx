@@ -363,16 +363,11 @@ export default function StampConfirmModal({
               : stampLog.logMeta.deliveryType === "customer_quick"
                 ? "손님이 퀵부르심"
                 : "";
-        const hasSavedTransactionTags = Boolean(
-          couponUseTag || discountTag || deliveryFeeTag || deliveryTypeTag,
-        );
-        const transactionCloseIndex = hasSavedTransactionTags
-          ? stampLog.note.indexOf(")")
-          : -1;
         const itemNote =
-          transactionCloseIndex >= 0
-            ? stampLog.note.slice(transactionCloseIndex + 1).trimStart()
-            : stampLog.note;
+          stampLog.logMeta.items
+            ?.map((item) => item.lineText)
+            .filter(Boolean)
+            .join(", ") ?? stampLog.note;
         const transactionTags = [
           couponUseTag,
           discountTag,
@@ -382,7 +377,7 @@ export default function StampConfirmModal({
         ].filter(Boolean);
         const nextNote =
           transactionTags.length > 0
-            ? `${transactionTags.join(",")})${itemNote ? ` ${itemNote}` : ""}`
+            ? `(${transactionTags.join(",")})${itemNote ? ` ${itemNote}` : ""}`
             : itemNote;
         const nextLogMeta = {
           ...stampLog.logMeta,
