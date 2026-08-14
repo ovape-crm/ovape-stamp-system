@@ -1,15 +1,19 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
-import { getItems, getItemsCount } from '../_services/itemService';
-import { itemKeys, ItemFilters } from '../_queryKeys/itemKeys';
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { getItems, getItemsCount } from "../_services/itemService";
+import { itemKeys, ItemFilters } from "../_queryKeys/itemKeys";
 
 export type { ItemFilters };
 
 const PAGE_SIZE = 20;
 
-export const useItems = (filters?: ItemFilters) => {
+export const useItems = (
+  filters?: ItemFilters,
+  options?: { enabled?: boolean },
+) => {
   const {
     data,
     isPending,
+    isFetching,
     isError,
     isFetchingNextPage,
     hasNextPage,
@@ -39,6 +43,8 @@ export const useItems = (filters?: ItemFilters) => {
       return allPages.reduce((sum, page) => sum + page.items.length, 0);
     },
     initialPageParam: 0,
+    enabled: options?.enabled ?? true,
+    retry: 1,
   });
 
   const items = data?.pages.flatMap((p) => p.items) ?? [];
@@ -47,8 +53,9 @@ export const useItems = (filters?: ItemFilters) => {
   return {
     items,
     isLoading: isPending,
+    isFetching,
     isLoadingMore: isFetchingNextPage,
-    error: isError ? '데이터를 불러오는데 실패했습니다.' : '',
+    error: isError ? "데이터를 불러오는데 실패했습니다." : "",
     loadMore: () => fetchNextPage(),
     hasMore: hasNextPage ?? false,
     totalCount,

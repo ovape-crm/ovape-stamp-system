@@ -27,9 +27,7 @@ import ConfirmModal from "@/app/(auth)/_components/ConfirmModal";
 import StampLogEditModal from "@/app/(auth)/_components/StampLogEditModal";
 import RemarkLogCreateModal from "../RemarkLogCreateModal";
 import type { StampLogMeta } from "@/app/_domains/_stamp/_services/stampService";
-
-const formatHistoryNote = (note: string) =>
-  note.replace(/\(서비스\((.*?)\)\)/g, "(서비스,$1)");
+import { formatHistoryNote } from "@/app/_domains/_log/_utils/formatHistoryNote";
 
 const CustomersDetailStampsHistories = ({
   targetUser,
@@ -349,7 +347,7 @@ const CustomersDetailStampsHistories = ({
                       <div className="min-w-[240px] flex-1 break-words whitespace-normal text-xs text-gray-600 sm:text-sm">
                         <p className="whitespace-pre-line">
                           {log.note ? (
-                            formatHistoryNote(log.note)
+                            formatHistoryNote(log.note, log.jsonb)
                           ) : (
                             <span className="text-gray-400"> - </span>
                           )}

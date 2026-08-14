@@ -300,6 +300,7 @@ export default function StampLogForm({
     initialValue.logMeta.deliveryBaseFee === undefined &&
     initialValue.logMeta.deliveryFee !== undefined;
   const [itemSearch, setItemSearch] = useState("");
+  const [debouncedItemSearch, setDebouncedItemSearch] = useState("");
   const [selectedItem, setSelectedItem] = useState<ItemType | null>(null);
   const [showItemResults, setShowItemResults] = useState(false);
   const [quantity, setQuantity] = useState(1);
@@ -338,16 +339,33 @@ export default function StampLogForm({
   const lineRefs = useRef(new Map<string, HTMLElement>());
   const previousLineRectsRef = useRef(new Map<string, DOMRect>());
 
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedItemSearch(itemSearch.trim());
+    }, 250);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [itemSearch]);
+
   const itemFilters = useMemo(
     () => ({
-      searchConditions: itemSearch.trim()
-        ? [{ searchTarget: "item_name", searchKeyword: itemSearch.trim() }]
+      searchConditions: debouncedItemSearch
+        ? [{ searchTarget: "item_name", searchKeyword: debouncedItemSearch }]
         : undefined,
       isUse: true,
     }),
-    [itemSearch],
+    [debouncedItemSearch],
   );
-  const { items, isLoading: isItemsLoading } = useItems(itemFilters);
+  const {
+    items,
+    isLoading: isItemsLoading,
+    isFetching: isItemsFetching,
+  } = useItems(itemFilters, { enabled: debouncedItemSearch.length > 0 });
+  const isItemSearchPending =
+    itemSearch.trim().length > 0 &&
+    (itemSearch.trim() !== debouncedItemSearch || isItemsFetching);
+  const canShowItemSearchResults =
+    itemSearch.trim() === debouncedItemSearch && !isItemSearchPending;
   const { rules: outboundMemoRules, isError: isOutboundMemoRulesError } =
     useOutboundMemoRules();
 
@@ -482,7 +500,7 @@ export default function StampLogForm({
     Boolean,
   );
   const transactionNote =
-    transactionTags.length > 0 ? `${transactionTags.join(",")})` : "";
+    transactionTags.length > 0 ? `(${transactionTags.join(",")})` : "";
   const itemNote = draftLines.map((line) => line.lineText).join(", ");
   const generatedNote = [transactionNote, itemNote].filter(Boolean).join(" ");
   const finalAmount = totalAmount - activeDiscountAmount;
@@ -1810,7 +1828,7 @@ export default function StampLogForm({
                     X
                   </button>
                 ) : !selectedItem ? (
-                  isItemsLoading && (
+                  isItemSearchPending && (
                     <div className="absolute right-3 top-1/2 -translate-y-1/2">
                       <div className="w-4 h-4 border-2 border-brand-300 border-t-brand-600 rounded-full animate-spin" />
                     </div>
@@ -1818,39 +1836,43 @@ export default function StampLogForm({
                 ) : null}
               </div>
 
-              {!selectedItem && showItemResults && items.length > 0 && (
-                <div className="absolute z-50 mt-1 max-h-[272px] w-full overflow-auto rounded-lg border border-brand-200 bg-white shadow-lg">
-                  {items.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      className="block min-h-[68px] w-full cursor-pointer border-b border-brand-50 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-brand-50"
-                      onClick={() => handleItemSelect(item)}
-                    >
-                      <div className="min-w-0">
-                        <div className="mb-1 flex items-center justify-between gap-3">
-                          <span className="block w-fit rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
-                            {item.item_categories?.name ?? "미분류"}
-                          </span>
-                          <span className="shrink-0 text-xs font-semibold text-gray-500">
-                            {(item.current_quantity ?? 0).toLocaleString()}개
-                          </span>
-                        </div>
+              {!selectedItem &&
+                showItemResults &&
+                canShowItemSearchResults &&
+                items.length > 0 && (
+                  <div className="absolute z-50 mt-1 max-h-[272px] w-full overflow-auto rounded-lg border border-brand-200 bg-white shadow-lg">
+                    {items.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className="block min-h-[68px] w-full cursor-pointer border-b border-brand-50 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-brand-50"
+                        onClick={() => handleItemSelect(item)}
+                      >
                         <div className="min-w-0">
-                          <p className="break-words text-sm font-medium text-gray-900">
-                            {getItemLabel(item)}
-                          </p>
+                          <div className="mb-1 flex items-center justify-between gap-3">
+                            <span className="block w-fit rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
+                              {item.item_categories?.name ?? "미분류"}
+                            </span>
+                            <span className="shrink-0 text-xs font-semibold text-gray-500">
+                              {(item.current_quantity ?? 0).toLocaleString()}개
+                            </span>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="break-words text-sm font-medium text-gray-900">
+                              {getItemLabel(item)}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
               {!selectedItem &&
                 showItemResults &&
                 items.length === 0 &&
                 itemSearch.trim() &&
+                canShowItemSearchResults &&
                 !isItemsLoading && (
                   <div className="absolute z-50 w-full mt-1 bg-white border border-brand-200 rounded-lg shadow-lg p-4">
                     <p className="text-sm text-gray-500 text-center">

@@ -67,21 +67,30 @@ export const getItems = async (
   if (error) throw error;
   const items = (data ?? []) as ItemType[];
   if (items.length) {
-    const [locationResult, balanceResult] = await Promise.all([
-      supabase
-        .from("liqud_stand_cells")
-        .select(
-          "item_name, secondary_item_name, row_index, column_index, liqud_stand_sections(name)",
-        ),
-      supabase
-        .from("inventory_balances")
-        .select("item_name, quantity")
-        .in(
-          "item_name",
-          items.map((item) => item.item_name),
-        ),
-    ]);
-    let locations = locationResult.data;
+    const itemNames = [...new Set(items.map((item) => item.item_name))];
+    const [primaryLocationResult, secondaryLocationResult, balanceResult] =
+      await Promise.all([
+        supabase
+          .from("liqud_stand_cells")
+          .select(
+            "item_name, secondary_item_name, row_index, column_index, liqud_stand_sections(name)",
+          )
+          .in("item_name", itemNames),
+        supabase
+          .from("liqud_stand_cells")
+          .select(
+            "item_name, secondary_item_name, row_index, column_index, liqud_stand_sections(name)",
+          )
+          .in("secondary_item_name", itemNames),
+        supabase
+          .from("inventory_balances")
+          .select("item_name, quantity")
+          .in("item_name", itemNames),
+      ]);
+    let locations = [
+      ...(primaryLocationResult.data ?? []),
+      ...(secondaryLocationResult.data ?? []),
+    ];
 
     if (balanceResult.error) throw balanceResult.error;
     const quantityByItemName = new Map(
@@ -92,12 +101,13 @@ export const getItems = async (
     );
 
     // 시연대 SQL이 아직 최신 버전이 아니어도 품목 목록 자체는 정상 표시합니다.
-    if (locationResult.error) {
+    if (primaryLocationResult.error || secondaryLocationResult.error) {
       const legacyResult = await supabase
         .from("liqud_stand_cells")
         .select(
           "item_name, row_index, column_index, liqud_stand_sections(name)",
-        );
+        )
+        .in("item_name", itemNames);
       locations = legacyResult.error
         ? []
         : (legacyResult.data ?? []).map((cell) => ({
