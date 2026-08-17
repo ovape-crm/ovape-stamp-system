@@ -9,7 +9,9 @@ import {
   StoreTypeEnum,
   StoreTypeEnumType,
 } from "@/app/_enums/enums";
-import { useItems } from "@/app/_domains/_item/_hooks/useItems";
+import { useQuery } from "@tanstack/react-query";
+import { itemKeys } from "@/app/_domains/_item/_queryKeys/itemKeys";
+import { searchOutboundItems } from "@/app/_domains/_item/_services/itemService";
 import { useOutboundMemoRules } from "@/app/_domains/_item/_hooks/useOutboundMemoRules";
 import type { ItemType } from "@/app/_domains/_item/_types/item.types";
 import type {
@@ -21,7 +23,7 @@ import type {
   StampLogItem,
   StampLogMeta,
 } from "@/app/_domains/_stamp/_services/stampService";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CustomerMode } from "@/app/_domains/_customer/_utils/specialCustomer";
 import { formatPhoneNumber } from "@/app/_utils/utils";
 
@@ -140,6 +142,7 @@ export default function StampLogForm({
   customerAddress,
   customerSummary,
   compactStepOneSpacing = false,
+  hideRemoteDeliveryMethods = false,
 }: {
   onChange: (value: StampLogValue | null) => void;
   initialValue?: StampLogFormInitialValue;
@@ -180,6 +183,8 @@ export default function StampLogForm({
   customerAddress?: string | null;
   /** step 1 상단 여백을 대상 고객 카드와 가까운 간격으로 표시 */
   compactStepOneSpacing?: boolean;
+  /** X남자/X여자 출고 추가에서는 매장방문만 선택 가능 */
+  hideRemoteDeliveryMethods?: boolean;
   customerSummary?: {
     name: string;
     phone: string;
@@ -257,7 +262,7 @@ export default function StampLogForm({
   );
   const [hasConfirmedStore, setHasConfirmedStore] = useState(true);
   const [hasConfirmedDeliveryMethod, setHasConfirmedDeliveryMethod] = useState(
-    Boolean(initialValue),
+    Boolean(initialValue) || hideRemoteDeliveryMethods,
   );
   const [deliveryAddressSource, setDeliveryAddressSource] = useState<
     "registered" | "new"
@@ -347,20 +352,15 @@ export default function StampLogForm({
     return () => window.clearTimeout(timeoutId);
   }, [itemSearch]);
 
-  const itemFilters = useMemo(
-    () => ({
-      searchConditions: debouncedItemSearch
-        ? [{ searchTarget: "item_name", searchKeyword: debouncedItemSearch }]
-        : undefined,
-      isUse: true,
-    }),
-    [debouncedItemSearch],
-  );
-  const {
-    items,
-    isLoading: isItemsLoading,
-    isFetching: isItemsFetching,
-  } = useItems(itemFilters, { enabled: debouncedItemSearch.length > 0 });
+  const itemSearchQuery = useQuery({
+    queryKey: [...itemKeys.search(debouncedItemSearch), "outbound"],
+    queryFn: () => searchOutboundItems(debouncedItemSearch),
+    enabled: debouncedItemSearch.length > 0,
+    staleTime: 30_000,
+  });
+  const items = itemSearchQuery.data ?? [];
+  const isItemsLoading = itemSearchQuery.isPending;
+  const isItemsFetching = itemSearchQuery.isFetching;
   const isItemSearchPending =
     itemSearch.trim().length > 0 &&
     (itemSearch.trim() !== debouncedItemSearch || isItemsFetching);
@@ -1265,7 +1265,7 @@ export default function StampLogForm({
             onClick={() => {
               setStoreName(option.value);
               setHasConfirmedStore(true);
-              setHasConfirmedDeliveryMethod(false);
+              setHasConfirmedDeliveryMethod(hideRemoteDeliveryMethods);
               setPaymentType("");
               setSplitPayments([]);
             }}
@@ -1281,7 +1281,7 @@ export default function StampLogForm({
     <div className="grid grid-cols-[140px_minmax(0,1fr)] border-b border-gray-200">
       <div className="flex items-start border-r border-gray-200 px-4 py-[10px] text-sm font-bold text-gray-800">
         <span className="mr-2 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-500 text-[11px] font-bold leading-none text-white">
-          {hasValidPayment ? "✓" : "3"}
+          {hasValidPayment ? "✓" : hideRemoteDeliveryMethods ? "2" : "3"}
         </span>
         결제 정보 <span className="ml-1 text-rose-600">*</span>
       </div>
@@ -1379,38 +1379,44 @@ export default function StampLogForm({
         수령 방식 <span className="ml-1 text-rose-600">*</span>
       </div>
       <div className="min-w-0 px-4 py-[4.5px] [&_button]:h-8 [&_button]:py-0 sm:[&_button]:py-0">
-        <div className="grid grid-cols-3 gap-[10px]">
+        <div
+          className={`grid gap-[10px] ${hideRemoteDeliveryMethods ? "grid-cols-1" : "grid-cols-3"}`}
+        >
           {(
-            [
-              { value: "store_visit", label: "매장방문" },
-              { value: "parcel", label: "택배" },
-              { value: "delivery", label: "배달" },
-            ] as const
+            hideRemoteDeliveryMethods
+              ? ([{ value: "store_visit", label: "매장방문" }] as const)
+              : ([
+                  { value: "store_visit", label: "매장방문" },
+                  { value: "parcel", label: "택배" },
+                  { value: "delivery", label: "배달" },
+                ] as const)
           ).map((option) => (
-            <Button
-              key={option.value}
-              type="button"
-              size="sm"
-              variant={
-                hasConfirmedDeliveryMethod && deliveryMethod === option.value
-                  ? "primary"
-                  : "gray"
-              }
-              onClick={() => {
-                setDeliveryMethod(option.value);
-                setHasConfirmedDeliveryMethod(true);
-                setPaymentType("");
-                setSplitPayments([]);
-                if (option.value === "store_visit") {
-                  setDeliveryType("");
-                  setParcelCarrier("");
-                  setDeliveryAddress("");
-                  setDeliveryFeeInput("");
+            <div key={option.value} className="relative min-w-0">
+              <Button
+                type="button"
+                size="sm"
+                className="w-full"
+                variant={
+                  hasConfirmedDeliveryMethod && deliveryMethod === option.value
+                    ? "primary"
+                    : "gray"
                 }
-              }}
-            >
-              {option.label}
-            </Button>
+                onClick={() => {
+                  setDeliveryMethod(option.value);
+                  setHasConfirmedDeliveryMethod(true);
+                  setPaymentType("");
+                  setSplitPayments([]);
+                  if (option.value === "store_visit") {
+                    setDeliveryType("");
+                    setParcelCarrier("");
+                    setDeliveryAddress("");
+                    setDeliveryFeeInput("");
+                  }
+                }}
+              >
+                {option.label}
+              </Button>
+            </div>
           ))}
         </div>
         {deliveryMethod === "delivery" && (
@@ -1853,9 +1859,11 @@ export default function StampLogForm({
                             <span className="block w-fit rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
                               {item.item_categories?.name ?? "미분류"}
                             </span>
-                            <span className="shrink-0 text-xs font-semibold text-gray-500">
-                              {(item.current_quantity ?? 0).toLocaleString()}개
-                            </span>
+                            {item.current_quantity !== undefined && (
+                              <span className="shrink-0 text-xs font-semibold text-gray-500">
+                                {item.current_quantity.toLocaleString()}개
+                              </span>
+                            )}
                           </div>
                           <div className="min-w-0">
                             <p className="break-words text-sm font-medium text-gray-900">
@@ -2486,7 +2494,9 @@ export default function StampLogForm({
                 </div>
               ) : (
                 <>
-                  {hasConfirmedStore && stepOneDeliveryField}
+                  {hasConfirmedStore &&
+                    !hideRemoteDeliveryMethods &&
+                    stepOneDeliveryField}
                   {hasConfirmedStore &&
                     hasConfirmedDeliveryMethod &&
                     hasValidDeliveryInfo &&

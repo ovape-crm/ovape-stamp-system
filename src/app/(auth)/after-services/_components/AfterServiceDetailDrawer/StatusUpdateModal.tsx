@@ -1,8 +1,10 @@
 'use client';
 
+import { useState } from 'react';
 import { Controller, Resolver, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import Button from '@/app/_components/Button';
+import KoreanDatePicker from '@/app/_components/KoreanDatePicker';
 import {
   AfterServiceStatusEnum,
   AfterServiceStatusEnumType,
@@ -12,6 +14,11 @@ import { Dropdown, DropdownOption } from '@/app/_components/Dropdown';
 type FormValues = {
   status: AfterServiceStatusEnumType['value'];
   note: string;
+};
+
+const getTodayDateValue = () => {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 };
 
 const schema = z.object({
@@ -54,6 +61,8 @@ const safeResolver = (schema: z.ZodTypeAny) => async (data: unknown) => {
 
 interface StatusUpdateModalProps {
   currentStatus: string;
+  isInventoryProcessed: boolean;
+  rentalItemSummary?: string;
   onSubmit: (values: FormValues) => Promise<void> | void;
   onCancel: () => void;
   isSubmitting: boolean;
@@ -61,10 +70,19 @@ interface StatusUpdateModalProps {
 
 const StatusUpdateModal = ({
   currentStatus,
+  isInventoryProcessed,
+  rentalItemSummary,
   onSubmit,
   onCancel,
   isSubmitting,
 }: StatusUpdateModalProps) => {
+  const [statusDate, setStatusDate] = useState(getTodayDateValue);
+  const [statusMemo, setStatusMemo] = useState('');
+  const [isInventoryReceiptConfirmed, setIsInventoryReceiptConfirmed] =
+    useState(false);
+  const [isCustomerContactConfirmed, setIsCustomerContactConfirmed] =
+    useState(false);
+  const [isRentalReturnConfirmed, setIsRentalReturnConfirmed] = useState(false);
   const {
     register,
     handleSubmit,
@@ -75,17 +93,40 @@ const StatusUpdateModal = ({
     mode: 'onChange',
     resolver: safeResolver(schema) as Resolver<FormValues, unknown>,
     defaultValues: {
-      status: currentStatus as AfterServiceStatusEnumType['value'],
+      status: undefined,
       note: '',
     },
   });
 
-  const statusOptions: DropdownOption[] = Object.values(
-    AfterServiceStatusEnum
-  ).map((opt) => ({
-    label: opt.name,
-    value: opt.value,
-  }));
+  const statusOptions: DropdownOption[] = Object.values(AfterServiceStatusEnum)
+    .filter((opt) => {
+      if (opt.value === currentStatus) {
+        return false;
+      }
+      if (
+        opt.value === AfterServiceStatusEnum.RECEIVED.value ||
+        opt.value === AfterServiceStatusEnum.EXCHANGE.value ||
+        opt.value === AfterServiceStatusEnum.RENTAL.value
+      ) {
+        return false;
+      }
+      if (opt.value === AfterServiceStatusEnum.REPAIR_RETURNED.value) {
+        return !isInventoryProcessed;
+      }
+      if (
+        opt.value === AfterServiceStatusEnum.REPAIR_RETURNED_COMPLETED.value
+      ) {
+        return isInventoryProcessed;
+      }
+      if (opt.value === AfterServiceStatusEnum.CUSTOMER_RECEIVED.value) {
+        return !isInventoryProcessed;
+      }
+      return true;
+    })
+    .map((opt) => ({
+      label: opt.name,
+      value: opt.value,
+    }));
 
   const selectedStatus = watch('status');
   const currentStatusInfo = Object.values(AfterServiceStatusEnum).find(
@@ -119,21 +160,112 @@ const StatusUpdateModal = ({
     }
   };
 
-  // 선택된 상태가 없으면 현재 상태를 사용 (초기 렌더링 대응)
-  const statusForGuide = selectedStatus || currentStatus;
-  const selectedStatusMemoGuide = getStatusMemoGuide(statusForGuide);
-  const placeholder = '위에 해당되는 날짜,특이사항을 입력해주세요.';
+  const selectedStatusMemoGuide = getStatusMemoGuide(selectedStatus || '');
+  const requiresInventoryReceiptConfirmation =
+    selectedStatus === AfterServiceStatusEnum.REPAIR_RETURNED_COMPLETED.value;
+  const requiresCustomerContactConfirmation =
+    selectedStatus === AfterServiceStatusEnum.REPAIR_RETURNED.value;
+  const requiresRentalReturnConfirmation =
+    selectedStatus === AfterServiceStatusEnum.CUSTOMER_RECEIVED.value &&
+    Boolean(rentalItemSummary);
+  const structuredStatusConfig = (() => {
+    switch (selectedStatus) {
+      case AfterServiceStatusEnum.SENT_FOR_REPAIR.value:
+        return {
+          dateLabel: '접수일',
+          memoPlaceholder: '메모를 입력하세요. (선택)',
+          memoRequired: false,
+        };
+      case AfterServiceStatusEnum.REPAIR_RETURNED_COMPLETED.value:
+        return {
+          dateLabel: '입고일',
+          memoPlaceholder: '메모를 입력하세요. (선택)',
+          memoRequired: false,
+        };
+      case AfterServiceStatusEnum.REPAIR_RETURNED.value:
+        return {
+          dateLabel: '입고일',
+          memoPlaceholder: '메모를 입력하세요. (선택)',
+          memoRequired: false,
+        };
+      case AfterServiceStatusEnum.CUSTOMER_RECEIVED.value:
+        return {
+          dateLabel: '수령일',
+          memoPlaceholder: '메모를 입력하세요. (선택)',
+          memoRequired: false,
+        };
+      case AfterServiceStatusEnum.REPAIR_REJECTED.value:
+        return {
+          dateLabel: 'A/S 불가 처리일',
+          memoPlaceholder: 'A/S 불가 사유를 입력해주세요.',
+          memoRequired: true,
+        };
+      case AfterServiceStatusEnum.RETURNED.value:
+        return {
+          dateLabel: '반품일',
+          memoPlaceholder: '반품처리 사유를 입력하세요.',
+          memoRequired: true,
+        };
+      case AfterServiceStatusEnum.OTHER_COMPLETED.value:
+        return {
+          dateLabel: '완료일',
+          memoPlaceholder: '기타 사유를 입력하세요.',
+          memoRequired: true,
+        };
+      case AfterServiceStatusEnum.OTHER_RECEIVED.value:
+        return {
+          dateLabel: '작성일',
+          memoPlaceholder: '기타 사유를 입력하세요.',
+          memoRequired: true,
+        };
+      default:
+        return null;
+    }
+  })();
+  const handleStatusSubmit = (values: FormValues) => {
+    if (structuredStatusConfig) {
+      if (
+        !statusDate ||
+        (structuredStatusConfig.memoRequired && !statusMemo.trim()) ||
+        (requiresInventoryReceiptConfirmation &&
+          !isInventoryReceiptConfirmed) ||
+        (requiresCustomerContactConfirmation &&
+          !isCustomerContactConfirmed) ||
+        (requiresRentalReturnConfirmation && !isRentalReturnConfirmed)
+      ) {
+        return;
+      }
+      const formattedDate = statusDate.replaceAll('-', '/');
+      return onSubmit({
+        ...values,
+        note: [
+          `${structuredStatusConfig.dateLabel} : ${formattedDate}`,
+          statusMemo.trim(),
+        ]
+          .filter(Boolean)
+          .join('\n'),
+      });
+    }
+    return onSubmit(values);
+  };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="w-full" noValidate>
+    <form
+      onSubmit={handleSubmit(handleStatusSubmit)}
+      className="w-full"
+      noValidate
+    >
       <h2 className="text-lg font-semibold mb-3">상태 수정</h2>
 
       <div className="space-y-3">
         {/* 현재 상태 */}
         <div>
           <label className="block text-sm font-medium mb-1">현재 상태</label>
-          <div className="w-full rounded border border-brand-300 bg-gray-50 px-3 py-2 text-sm text-gray-700">
-            {currentStatusInfo?.name || currentStatus}
+          <div className="flex w-full items-center justify-between gap-2 rounded-lg border border-brand-200 bg-white/70 px-3 py-1.5 text-left text-xs font-medium text-brand-700 shadow-sm sm:px-6 sm:py-2 sm:text-base">
+            <span className="min-w-0 flex-1 truncate text-left">
+              {currentStatusInfo?.name || currentStatus}
+            </span>
+            <span className="h-4 w-4 shrink-0" aria-hidden="true" />
           </div>
         </div>
 
@@ -148,8 +280,10 @@ const StatusUpdateModal = ({
             render={({ field }) => (
               <Dropdown>
                 <Dropdown.Trigger>
-                  {statusOptions.find((opt) => opt.value === field.value)
-                    ?.label || '상태를 선택하세요'}
+                  <span className="block w-full text-left">
+                    {statusOptions.find((opt) => opt.value === field.value)
+                      ?.label || '선택하기'}
+                  </span>
                 </Dropdown.Trigger>
                 <Dropdown.Content>
                   {statusOptions.map((option) => (
@@ -158,6 +292,11 @@ const StatusUpdateModal = ({
                       option={option}
                       onSelect={(option: DropdownOption) => {
                         field.onChange(option.value);
+                        setStatusDate(getTodayDateValue());
+                        setStatusMemo('');
+                        setIsInventoryReceiptConfirmed(false);
+                        setIsCustomerContactConfirmed(false);
+                        setIsRentalReturnConfirmed(false);
                       }}
                     />
                   ))}
@@ -172,25 +311,105 @@ const StatusUpdateModal = ({
           )}
         </div>
 
-        {/* 메모 */}
-        <div>
-          <label className="block text-sm font-medium mb-1 text-gray-700">
-            메모
-            <span className="text-xs text-gray-500 whitespace-pre-line block mt-2 mb-2">
+        {selectedStatus && (structuredStatusConfig ? (
+          <div className="space-y-3">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                {structuredStatusConfig.dateLabel}{' '}
+                <span className="text-rose-600">*</span>
+              </label>
+              <KoreanDatePicker
+                value={statusDate}
+                onChange={setStatusDate}
+                align="left"
+                floating
+              />
+            </div>
+            {requiresInventoryReceiptConfirmation && (
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 bg-gray-50/70 p-3 text-sm text-gray-700">
+                <span className="min-w-0 flex-1">
+                  입고 대기에 해당 거래처를 찾아 품목을 입고처리 해주세요.
+                </span>
+                <input
+                  type="checkbox"
+                  checked={isInventoryReceiptConfirmed}
+                  onChange={(event) =>
+                    setIsInventoryReceiptConfirmed(event.target.checked)
+                  }
+                  className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-brand-500"
+                  disabled={isSubmitting}
+                />
+              </label>
+            )}
+            {requiresCustomerContactConfirmation && (
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 bg-gray-50/70 p-3 text-sm text-gray-700">
+                <span className="min-w-0 flex-1">
+                  고객 특이사항에 적힌대로 연락해주세요.
+                </span>
+                <input
+                  type="checkbox"
+                  checked={isCustomerContactConfirmed}
+                  onChange={(event) =>
+                    setIsCustomerContactConfirmed(event.target.checked)
+                  }
+                  className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-brand-500"
+                  disabled={isSubmitting}
+                />
+              </label>
+            )}
+            {requiresRentalReturnConfirmation && (
+              <div className="space-y-2 rounded-lg border border-gray-200 bg-gray-50/70 p-3 text-sm text-gray-700">
+                <p className="whitespace-pre-wrap break-words">
+                  <span className="font-semibold">대여 품목: </span>
+                  {rentalItemSummary}
+                </p>
+                <label className="flex cursor-pointer items-center gap-3 border-t border-gray-200 pt-2">
+                  <span className="min-w-0 flex-1">매장에 다시 입고됨</span>
+                  <input
+                    type="checkbox"
+                    checked={isRentalReturnConfirmed}
+                    onChange={(event) =>
+                      setIsRentalReturnConfirmed(event.target.checked)
+                    }
+                    className="h-4 w-4 shrink-0 cursor-pointer accent-brand-500"
+                    disabled={isSubmitting}
+                  />
+                </label>
+              </div>
+            )}
+            <div>
+              <input
+                type="text"
+                value={statusMemo}
+                onChange={(event) => setStatusMemo(event.target.value)}
+                maxLength={500}
+                className="h-10 w-full rounded border border-brand-300 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-brand-300"
+                placeholder={structuredStatusConfig.memoPlaceholder}
+                required={structuredStatusConfig.memoRequired}
+                aria-required={structuredStatusConfig.memoRequired}
+                disabled={isSubmitting}
+              />
+            </div>
+          </div>
+        ) : (
+          <div>
+            <span className="mb-2 block whitespace-pre-line text-xs text-gray-500">
               {selectedStatusMemoGuide}
             </span>
-          </label>
-          <textarea
-            {...register('note')}
-            className="w-full min-h-24 rounded border border-brand-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
-            placeholder={placeholder}
-            aria-invalid={!!errors.note || undefined}
-            disabled={isSubmitting}
-          />
-          {errors.note && (
-            <p className="mt-1 text-xs text-rose-600">{errors.note.message}</p>
-          )}
-        </div>
+            <textarea
+              {...register('note')}
+              className="w-full min-h-24 rounded border border-brand-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
+              placeholder="메모를 입력하세요. (선택)"
+              aria-invalid={!!errors.note || undefined}
+              disabled={isSubmitting}
+            />
+            {errors.note && (
+              <p className="mt-1 text-xs text-rose-600">
+                {errors.note.message}
+              </p>
+            )}
+          </div>
+        ))}
       </div>
 
       <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 mt-6">
@@ -206,7 +425,19 @@ const StatusUpdateModal = ({
         <Button
           size="sm"
           type="submit"
-          disabled={isSubmitting || selectedStatus === currentStatus}
+          disabled={
+            isSubmitting || !selectedStatus || selectedStatus === currentStatus
+            ||
+            (Boolean(structuredStatusConfig) && !statusDate) ||
+            Boolean(
+              structuredStatusConfig?.memoRequired && !statusMemo.trim()
+            ) ||
+            (requiresInventoryReceiptConfirmation &&
+              !isInventoryReceiptConfirmed) ||
+            (requiresCustomerContactConfirmation &&
+              !isCustomerContactConfirmed) ||
+            (requiresRentalReturnConfirmation && !isRentalReturnConfirmed)
+          }
         >
           {isSubmitting ? '저장 중...' : '저장'}
         </Button>

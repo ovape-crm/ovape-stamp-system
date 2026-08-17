@@ -1,6 +1,11 @@
 import supabase from "@/libs/supabaseClient";
 import { ItemType } from "../_types/item.types";
 
+export type ItemSearchOption = Pick<
+  ItemType,
+  "id" | "item_name" | "item_categories"
+>;
+
 const normalizeItemName = (value: string) => value.normalize("NFC").trim();
 
 const ensureUniqueItemName = async (itemName: string, excludeId?: string) => {
@@ -137,6 +142,50 @@ export const getItems = async (
     return items.map((item) => ({ ...item, purchase_price: null }));
   }
   return items;
+};
+
+export const searchItemOptions = async (
+  keyword: string,
+  limit = 20,
+): Promise<ItemSearchOption[]> => {
+  const normalizedKeyword = keyword.trim();
+  if (!normalizedKeyword) return [];
+
+  const { data, error } = await supabase
+    .from("items")
+    .select("id, item_name, item_categories(id, name, order_index, created_at)")
+    .eq("is_use", true)
+    .ilike("item_name", `%${normalizedKeyword}%`)
+    .order("item_name", { ascending: true })
+    .limit(limit);
+
+  if (error) throw error;
+  return (data ?? []).map((item) => ({
+    id: item.id,
+    item_name: item.item_name,
+    item_categories: Array.isArray(item.item_categories)
+      ? (item.item_categories[0] ?? null)
+      : item.item_categories,
+  }));
+};
+
+/** 출고 모달 전용 검색: 재고·시연대 후속 조회 없이 한 번의 요청으로 끝낸다. */
+export const searchOutboundItems = async (
+  keyword: string,
+  limit = 20,
+): Promise<ItemType[]> => {
+  const normalizedKeyword = keyword.trim();
+  if (!normalizedKeyword) return [];
+
+  const { data, error } = await supabase
+    .from("items")
+    .select("*, item_categories(id, name, order_index, created_at)")
+    .eq("is_use", true)
+    .ilike("item_name", `%${normalizedKeyword}%`)
+    .order("item_name", { ascending: true })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as ItemType[];
 };
 
 export const getItemsCount = async (

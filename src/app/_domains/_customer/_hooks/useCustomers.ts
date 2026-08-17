@@ -33,6 +33,10 @@ export const useCustomers = (initialParams?: SearchParams) => {
     queryFn: async ({ pageParam }) => {
       const paramsWithSort = { ...searchParams, sortBy, sortOrder };
       if (pageParam === 0) {
+        if (sortBy === "recent_usage") {
+          const items = await getCustomers(PAGE_SIZE, 0, paramsWithSort);
+          return { items: items as CustomerType[], totalCount: items.length };
+        }
         const [items, totalCount] = await Promise.all([
           getCustomers(PAGE_SIZE, 0, paramsWithSort),
           getCustomersCount(searchParams),
@@ -47,6 +51,7 @@ export const useCustomers = (initialParams?: SearchParams) => {
       return { items: items as CustomerType[], totalCount: undefined };
     },
     getNextPageParam: (lastPage, allPages) => {
+      if (sortBy === "recent_usage") return undefined;
       if (lastPage.items.length < PAGE_SIZE) return undefined;
       return allPages.reduce((sum, page) => sum + page.items.length, 0);
     },

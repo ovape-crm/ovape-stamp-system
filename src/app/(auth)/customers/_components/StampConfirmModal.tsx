@@ -699,6 +699,7 @@ export default function StampConfirmModal({
           xCustomerName={xCustomerName}
           xPhoneLastDigits={xPhoneLastDigits}
           customerMode={effectiveFormCustomerMode}
+          hideRemoteDeliveryMethods={mode === "add" && customerMode === "x"}
           isStampAmountEditable={
             effectiveFormCustomerMode !== "x" &&
             canSelectedCustomerAccrueStamp &&

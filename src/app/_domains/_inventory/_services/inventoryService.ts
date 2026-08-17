@@ -258,7 +258,9 @@ export const getInventoryMovements = async (
       ...movement,
       counterparty_name:
         movement.reference_type === "outbound_log"
-          ? (outboundNames.get(movement.reference_id ?? "") ?? null)
+          ? (outboundNames.get(movement.reference_id ?? "") ??
+            movement.counterparty_name ??
+            null)
           : ["purchase_receipt", "purchase_receipt_reversal"].includes(
                 movement.reference_type ?? "",
               )
@@ -266,7 +268,9 @@ export const getInventoryMovements = async (
             : null,
       counterparty_id:
         movement.reference_type === "outbound_log"
-          ? (outboundCustomerIds.get(movement.reference_id ?? "") ?? null)
+          ? (outboundCustomerIds.get(movement.reference_id ?? "") ??
+            movement.counterparty_id ??
+            null)
           : null,
       purchase_order_id: [
         "purchase_receipt",
@@ -274,8 +278,9 @@ export const getInventoryMovements = async (
       ].includes(movement.reference_type ?? "")
         ? (receiptOrderIds.get(movement.reference_id ?? "") ?? null)
         : null,
-      inventory_action: itemDetail?.inventoryAction ?? null,
-      item_remark: itemDetail?.remark ?? null,
+      inventory_action:
+        itemDetail?.inventoryAction ?? movement.inventory_action ?? null,
+      item_remark: itemDetail?.remark ?? movement.item_remark ?? null,
     };
   });
 };
