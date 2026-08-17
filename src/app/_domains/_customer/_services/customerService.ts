@@ -144,7 +144,7 @@ export const getCustomers = async (
       .eq("category", LogCategoryEnum.STAMP.value)
       .not("customer_id", "is", null)
       .order("created_at", { ascending: false })
-      .limit(15);
+      .limit(40);
 
     if (logError) throw logError;
 
