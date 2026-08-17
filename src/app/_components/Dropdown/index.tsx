@@ -419,6 +419,13 @@ const DropdownItem = ({
     }
   }, [isFocused, isOpen]);
 
+  // 메뉴를 열면 현재 선택값이 긴 목록 안에서도 바로 보이도록 맞춥니다.
+  useEffect(() => {
+    if (isSelected && isOpen && itemRef.current) {
+      itemRef.current.scrollIntoView({ block: 'center', behavior: 'auto' });
+    }
+  }, [isOpen, isSelected]);
+
   const handleClick = () => {
     handleSelect(option);
     onSelect?.(option);

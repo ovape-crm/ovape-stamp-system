@@ -138,44 +138,37 @@ export const getCustomers = async (
   const sortOrder = params?.sortOrder || (sortBy === "name" ? "asc" : "desc");
 
   if (sortBy === "recent_usage") {
-    const { data: allCustomers, error: customerError } = await query;
-
-    if (customerError) throw customerError;
-    if (!allCustomers.length) return [];
-
-    const customerIds = allCustomers.map((customer) => customer.id);
     const { data: usageLogs, error: logError } = await supabase
       .from("logs")
       .select("customer_id, created_at")
-      .in("customer_id", customerIds)
       .eq("category", LogCategoryEnum.STAMP.value)
-      .order("created_at", { ascending: false });
+      .not("customer_id", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(15);
 
     if (logError) throw logError;
 
-    const latestUsageByCustomer = new Map<string, string>();
-    usageLogs?.forEach((log) => {
-      const customerId = String(log.customer_id);
-      if (!latestUsageByCustomer.has(customerId)) {
-        latestUsageByCustomer.set(customerId, log.created_at);
-      }
-    });
+    const recentCustomerIds = Array.from(
+      new Set(
+        (usageLogs ?? []).map((log) => String(log.customer_id)),
+      ),
+    ).slice(0, 5);
+    if (!recentCustomerIds.length || offset > 0) return [];
 
-    const sortedData = [...allCustomers].sort((a, b) => {
-      const aLatest = latestUsageByCustomer.get(String(a.id));
-      const bLatest = latestUsageByCustomer.get(String(b.id));
-      if (aLatest && bLatest) {
-        const dateDifference = bLatest.localeCompare(aLatest);
-        if (dateDifference !== 0) return dateDifference;
-      } else if (aLatest) {
-        return -1;
-      } else if (bLatest) {
-        return 1;
-      }
-      return String(b.id).localeCompare(String(a.id));
-    });
+    const { data: recentCustomers, error: customerError } = await query.in(
+      "id",
+      recentCustomerIds,
+    );
+    if (customerError) throw customerError;
 
-    return sortedData.slice(from, to + 1);
+    const orderByCustomerId = new Map(
+      recentCustomerIds.map((customerId, index) => [customerId, index]),
+    );
+    return [...recentCustomers].sort(
+      (left, right) =>
+        (orderByCustomerId.get(String(left.id)) ?? Number.MAX_SAFE_INTEGER) -
+        (orderByCustomerId.get(String(right.id)) ?? Number.MAX_SAFE_INTEGER),
+    );
   } else if (sortBy === "stamp") {
     // 스탬프 많은 순/적은 순은 클라이언트에서 정렬해야 함 (관계형 데이터이므로)
     // 페이지네이션 없이 모든 데이터 가져오기

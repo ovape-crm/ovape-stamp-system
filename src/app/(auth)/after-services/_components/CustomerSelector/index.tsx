@@ -1,10 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import {
-  getCustomers,
-  getCustomersCount,
-} from '@/app/_domains/_customer/_services/customerService';
+import { getCustomers } from '@/app/_domains/_customer/_services/customerService';
 import { CustomerType } from '@/app/_domains/_customer/_types/customer.types';
 import { formatPhoneNumber } from '@/app/_utils/utils';
 
@@ -60,11 +57,8 @@ export default function CustomerSelector({
         sortOrder: 'asc' as const,
       };
 
-      // 검색 결과의 총 개수를 먼저 확인
-      const totalCount = await getCustomersCount(searchParams);
-
-      // 모든 검색 결과를 가져오기
-      const results = await getCustomers(totalCount, 0, searchParams);
+      // 검색 결과 전체를 먼저 세지 않고 상위 20명만 조회합니다.
+      const results = await getCustomers(20, 0, searchParams);
       setSearchResults(results);
       setShowResults(results.length > 0);
     } catch (error) {
@@ -128,41 +122,62 @@ export default function CustomerSelector({
         <label className="block text-sm font-medium mb-1">
           고객 검색 {required && <span className="text-rose-600">*</span>}
         </label>
-        <div className="relative">
-          <input
-            type="text"
-            className={`w-full rounded border border-brand-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 ${
-              selectedCustomer
-                ? 'bg-gray-50 text-gray-500 cursor-not-allowed'
-                : 'bg-white'
-            }`}
-            placeholder="이름 또는 전화번호로 검색하세요"
-            value={searchKeyword}
-            onChange={(e) => {
-              if (!selectedCustomer) {
-                setSearchKeyword(e.target.value);
-              }
-            }}
-            onFocus={() => {
-              // 고객이 선택되어 있지 않을 때만 검색 결과 표시
-              if (!selectedCustomer && searchResults.length > 0) {
-                setShowResults(true);
-              }
-            }}
-            disabled={!!selectedCustomer}
-          />
-          {isSearching && (
-            <div className="absolute right-3 top-1/2 -translate-y-1/2">
-              <div className="w-4 h-4 border-2 border-brand-300 border-t-brand-600 rounded-full animate-spin" />
+        {selectedCustomer ? (
+          <div className="flex h-10 w-full items-center rounded-lg border border-gray-300 bg-white px-3 shadow-sm">
+            <div className="flex min-w-0 flex-1 items-center gap-3 text-sm">
+              <span className="truncate font-semibold text-gray-900">
+                {selectedCustomer.name}
+              </span>
+              <span className="shrink-0 text-gray-600">
+                {formatPhoneNumber(selectedCustomer.phone)}
+              </span>
             </div>
-          )}
-        </div>
+            <button
+              type="button"
+              onClick={handleCustomerRemove}
+              className="ml-3 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+              aria-label="고객 선택 해제"
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+        ) : (
+          <div className="relative">
+            <input
+              type="text"
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm outline-none transition hover:border-gray-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+              placeholder="이름 또는 전화번호로 검색하세요"
+              value={searchKeyword}
+              onChange={(e) => setSearchKeyword(e.target.value)}
+              onFocus={() => {
+                if (searchResults.length > 0) setShowResults(true);
+              }}
+            />
+            {isSearching && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-brand-300 border-t-brand-600" />
+              </div>
+            )}
+          </div>
+        )}
         {!selectedCustomer && showResults && searchResults.length > 0 && (
-          <div className="absolute z-50 w-full mt-1 bg-white border border-brand-200 rounded-lg shadow-lg max-h-60 overflow-auto">
+          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto">
             {searchResults.map((customer) => (
               <div
                 key={customer.id}
-                className="px-4 py-3 cursor-pointer hover:bg-brand-50 transition-colors border-b border-brand-50 last:border-b-0"
+                className="px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0"
                 onClick={() => handleCustomerSelect(customer)}
               >
                 <p className="text-sm font-medium text-gray-900">
@@ -180,7 +195,7 @@ export default function CustomerSelector({
           searchResults.length === 0 &&
           searchKeyword.trim() &&
           !isSearching && (
-            <div className="absolute z-50 w-full mt-1 bg-white border border-brand-200 rounded-lg shadow-lg p-4">
+            <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg p-4">
               <p className="text-sm text-gray-500 text-center">
                 검색 결과가 없습니다.
               </p>
@@ -189,49 +204,6 @@ export default function CustomerSelector({
         {error && <p className="mt-1 text-xs text-rose-600">{error}</p>}
       </div>
 
-      {/* 선택된 고객 카드 */}
-      {selectedCustomer && (
-        <div className="bg-brand-50 rounded-lg border border-brand-200 p-4">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <h3 className="text-base font-semibold text-gray-900">
-                  {selectedCustomer.name}
-                </h3>
-              </div>
-              <p className="text-sm text-gray-700 mb-1">
-                {formatPhoneNumber(selectedCustomer.phone)}
-              </p>
-              {selectedCustomer.note && (
-                <p className="text-xs text-gray-600 mt-2 whitespace-pre-wrap">
-                  <span className="font-medium">특이사항:</span>{' '}
-                  {selectedCustomer.note}
-                </p>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={handleCustomerRemove}
-              className="ml-2 text-gray-400 hover:text-gray-600 transition-colors"
-              aria-label="고객 선택 해제"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

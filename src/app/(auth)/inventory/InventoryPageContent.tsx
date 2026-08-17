@@ -268,7 +268,7 @@ export function InventoryPageContent({
   });
   const movementsQuery = useQuery({
     queryKey: inventoryKeys.movements,
-    queryFn: () => getInventoryMovements(2000),
+    queryFn: () => getInventoryMovements(200),
     enabled: Boolean(overviewQuery.data?.initializedAt),
   });
 

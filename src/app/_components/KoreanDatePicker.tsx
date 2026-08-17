@@ -1,15 +1,23 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Dropdown, type DropdownOption } from "@/app/_components/Dropdown";
+
+const parseDateValue = (value: string) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
 
 export const formatKoreanDate = (date: string) => {
-  if (!date) return "";
+  const parsedDate = parseDateValue(date);
+  if (!parsedDate) return "";
   return new Intl.DateTimeFormat("ko-KR", {
     year: "numeric",
     month: "long",
     day: "numeric",
     weekday: "long",
-  }).format(new Date(`${date}T00:00:00`));
+  }).format(parsedDate);
 };
 
 const toDateValue = (date: Date) =>
@@ -18,26 +26,39 @@ const toDateValue = (date: Date) =>
 const KoreanDatePicker = ({
   value,
   onChange,
-  selectedLabel = "선택한 날짜",
   placement = "bottom",
   align = "right",
+  floating = false,
 }: {
   value: string;
   onChange: (value: string) => void;
   selectedLabel?: string;
   placement?: "top" | "bottom";
   align?: "left" | "right";
+  floating?: boolean;
 }) => {
   const getMonthFromValue = () => {
-    const date = value ? new Date(`${value}T00:00:00`) : new Date();
+    const date = parseDateValue(value) ?? new Date();
     return new Date(date.getFullYear(), date.getMonth(), 1);
   };
 
   const [isOpen, setIsOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [floatingPosition, setFloatingPosition] = useState({ top: 0, left: 0 });
   const [visibleMonth, setVisibleMonth] = useState(getMonthFromValue);
+  const formattedValue = formatKoreanDate(value);
   const year = visibleMonth.getFullYear();
   const month = visibleMonth.getMonth();
+  const currentYear = new Date().getFullYear();
+  const yearOptions = Array.from({ length: 21 }, (_, index) => ({
+    value: currentYear - 15 + index,
+    label: `${currentYear - 15 + index}년`,
+  }));
+  const monthOptions = Array.from({ length: 12 }, (_, index) => ({
+    value: index,
+    label: `${index + 1}월`,
+  }));
   const firstWeekday = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const weekdays = ["일", "월", "화", "수", "목", "금", "토"];
@@ -50,7 +71,11 @@ const KoreanDatePicker = ({
     if (!isOpen) return;
 
     const handlePointerDown = (event: PointerEvent) => {
-      if (!pickerRef.current?.contains(event.target as Node)) {
+      const target = event.target as HTMLElement;
+      if (
+        !pickerRef.current?.contains(target) &&
+        !target.closest('[role="listbox"]')
+      ) {
         setIsOpen(false);
       }
     };
@@ -75,15 +100,29 @@ const KoreanDatePicker = ({
   return (
     <div ref={pickerRef} className="relative">
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => {
           setVisibleMonth(getMonthFromValue());
+          if (floating && triggerRef.current) {
+            const rect = triggerRef.current.getBoundingClientRect();
+            setFloatingPosition({
+              top: placement === "top" ? rect.top - 4 : rect.bottom + 4,
+              left: Math.max(
+                8,
+                Math.min(
+                  window.innerWidth - 308,
+                  align === "left" ? rect.left : rect.right - 300,
+                ),
+              ),
+            });
+          }
           setIsOpen((previous) => !previous);
         }}
         className="flex w-full items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2 text-left text-sm outline-none hover:border-brand-300 focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
       >
-        <span className={value ? "text-gray-800" : "text-gray-400"}>
-          {value ? formatKoreanDate(value) : "날짜를 선택하세요"}
+        <span className={formattedValue ? "text-gray-800" : "text-gray-400"}>
+          {formattedValue || "날짜를 선택하세요"}
         </span>
         <svg
           className="h-4 w-4 shrink-0 text-gray-400"
@@ -103,30 +142,65 @@ const KoreanDatePicker = ({
 
       {isOpen && (
         <div
-          className={`absolute z-40 w-[300px] rounded-xl border border-brand-100 bg-white p-3 shadow-xl ${align === "left" ? "left-0" : "right-0"} ${placement === "top" ? "bottom-full mb-1" : "top-full mt-1"}`}
+          style={
+            floating
+              ? {
+                  top: floatingPosition.top,
+                  left: floatingPosition.left,
+                  transform:
+                    placement === "top" ? "translateY(-100%)" : undefined,
+                }
+              : undefined
+          }
+          className={`${floating ? "fixed z-[2100]" : `absolute z-40 ${align === "left" ? "left-0" : "right-0"} ${placement === "top" ? "bottom-full mb-1" : "top-full mt-1"}`} w-[300px] rounded-xl border border-brand-100 bg-white p-3 shadow-xl`}
         >
-          <div className="mb-3 rounded-lg bg-brand-50 px-3 py-2 text-center">
-            <p className="text-xs text-brand-500">{selectedLabel}</p>
-            <p className="mt-0.5 text-sm font-semibold text-brand-700">
-              {value ? formatKoreanDate(value) : "날짜를 선택하세요"}
-            </p>
-          </div>
-          <div className="mb-2 flex items-center justify-between">
+          <div className="mb-2 grid grid-cols-[32px_minmax(0,1fr)_minmax(0,0.75fr)_32px] items-center gap-1.5">
             <button
               type="button"
               onClick={() => setVisibleMonth(new Date(year, month - 1, 1))}
-              className="rounded-md px-2 py-1 text-gray-500 hover:bg-gray-100"
+              className="flex h-8 items-center justify-center text-xl font-bold leading-none text-brand-600 transition-colors hover:text-brand-700 active:text-brand-800"
               aria-label="이전 달"
             >
               ‹
             </button>
-            <strong className="text-sm text-gray-800">
-              {year}년 {month + 1}월
-            </strong>
+            <Dropdown controlledValue={year}>
+              <Dropdown.Trigger compact>{year}년</Dropdown.Trigger>
+              <Dropdown.Content compact neutral maxHeightClass="max-h-52">
+                {yearOptions.map((option) => (
+                  <Dropdown.Item
+                    key={option.value}
+                    option={option}
+                    compact
+                    neutral
+                    onSelect={(selected: DropdownOption) =>
+                      setVisibleMonth(
+                        new Date(Number(selected.value), month, 1),
+                      )
+                    }
+                  />
+                ))}
+              </Dropdown.Content>
+            </Dropdown>
+            <Dropdown controlledValue={month}>
+              <Dropdown.Trigger compact>{month + 1}월</Dropdown.Trigger>
+              <Dropdown.Content compact neutral maxHeightClass="max-h-52">
+                {monthOptions.map((option) => (
+                  <Dropdown.Item
+                    key={option.value}
+                    option={option}
+                    compact
+                    neutral
+                    onSelect={(selected: DropdownOption) =>
+                      setVisibleMonth(new Date(year, Number(selected.value), 1))
+                    }
+                  />
+                ))}
+              </Dropdown.Content>
+            </Dropdown>
             <button
               type="button"
               onClick={() => setVisibleMonth(new Date(year, month + 1, 1))}
-              className="rounded-md px-2 py-1 text-gray-500 hover:bg-gray-100"
+              className="flex h-8 items-center justify-center text-xl font-bold leading-none text-brand-600 transition-colors hover:text-brand-700 active:text-brand-800"
               aria-label="다음 달"
             >
               ›

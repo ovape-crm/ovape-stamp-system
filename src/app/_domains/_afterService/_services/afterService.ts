@@ -17,6 +17,9 @@ export const createAfterService = async ({
   customerNote = '',
   isLoanerDeviceIssued = false,
   receivedNote = '',
+  statusNote = '',
+  status = AfterServiceStatusEnum.RECEIVED.value,
+  intake,
 }: {
   customerId: string | null;
   itemType: string;
@@ -27,6 +30,27 @@ export const createAfterService = async ({
   customerNote?: string;
   isLoanerDeviceIssued?: boolean;
   receivedNote?: string;
+  statusNote?: string;
+  status?: AfterServiceStatusEnumType['value'];
+  intake?: {
+    customerPurchaseDate?: string;
+    customerReceivedDate?: string;
+    supplierName?: string;
+    hasAfterServiceCost: boolean;
+    afterServicePaymentMethod?: 'card' | 'transfer' | 'cash';
+    afterServiceCostAmount: number;
+    afterServiceCostMemo?: string;
+    isRentalIssued: boolean;
+    rentalDate?: string;
+    rentalNote?: string;
+    isExchangeIssued: boolean;
+    exchangeDate?: string;
+    exchangeItemId?: string;
+    exchangeItemName?: string;
+    exchangeItemCategoryName?: string;
+    exchangeQuantity: number;
+    exchangeNote?: string;
+  };
 }) => {
   const {
     data: { session },
@@ -51,7 +75,28 @@ export const createAfterService = async ({
       shop_note: shopNote,
       customer_note: customerNote,
       is_loaner_device_issued: isLoanerDeviceIssued,
-      status: AfterServiceStatusEnum.RECEIVED.value,
+      status,
+      customer_purchase_date: intake?.customerPurchaseDate || null,
+      customer_received_date: intake?.customerReceivedDate || null,
+      supplier_name: intake?.supplierName || null,
+      has_after_service_cost: intake?.hasAfterServiceCost ?? false,
+      after_service_payment_method: intake?.afterServicePaymentMethod ?? null,
+      after_service_cost_amount: intake?.hasAfterServiceCost
+        ? intake.afterServiceCostAmount
+        : null,
+      after_service_cost_memo: intake?.afterServiceCostMemo || null,
+      is_rental_issued: intake?.isRentalIssued ?? false,
+      rental_date: intake?.rentalDate || null,
+      rental_note: intake?.rentalNote || null,
+      is_exchange_issued: intake?.isExchangeIssued ?? false,
+      exchange_date: intake?.exchangeDate || null,
+      exchange_item_id: intake?.exchangeItemId || null,
+      exchange_item_name: intake?.exchangeItemName || null,
+      exchange_item_category_name: intake?.exchangeItemCategoryName || null,
+      exchange_quantity: intake?.isExchangeIssued
+        ? intake.exchangeQuantity
+        : null,
+      exchange_note: intake?.exchangeNote || null,
     })
     .select()
     .single();
@@ -64,6 +109,15 @@ export const createAfterService = async ({
     'after-service-received',
     receivedNote
   );
+
+  if (status !== AfterServiceStatusEnum.RECEIVED.value) {
+    await createAfterServiceLog(
+      customerId ? String(customerId) : null,
+      data.id,
+      `after-service-${status}`,
+      statusNote
+    );
+  }
 
   return data;
 };
@@ -307,6 +361,7 @@ export const updateAfterService = async (
     shopNote,
     customerNote,
     isLoanerDeviceIssued,
+    intake,
   }: {
     customerId: string | null;
     itemType: string;
@@ -316,6 +371,25 @@ export const updateAfterService = async (
     shopNote?: string;
     customerNote?: string;
     isLoanerDeviceIssued?: boolean;
+    intake?: {
+      customerPurchaseDate?: string;
+      customerReceivedDate?: string;
+      supplierName?: string;
+      hasAfterServiceCost: boolean;
+      afterServicePaymentMethod?: 'card' | 'transfer' | 'cash';
+      afterServiceCostAmount: number;
+      afterServiceCostMemo?: string;
+      isRentalIssued: boolean;
+      rentalDate?: string;
+      rentalNote?: string;
+      isExchangeIssued: boolean;
+      exchangeDate?: string;
+      exchangeItemId?: string;
+      exchangeItemName?: string;
+      exchangeItemCategoryName?: string;
+      exchangeQuantity: number;
+      exchangeNote?: string;
+    };
   }
 ) => {
   const {
@@ -342,6 +416,27 @@ export const updateAfterService = async (
       shop_note: shopNote || null,
       customer_note: customerNote || null,
       is_loaner_device_issued: isLoanerDeviceIssued ?? false,
+      customer_purchase_date: intake?.customerPurchaseDate || null,
+      customer_received_date: intake?.customerReceivedDate || null,
+      supplier_name: intake?.supplierName || null,
+      has_after_service_cost: intake?.hasAfterServiceCost ?? false,
+      after_service_payment_method: intake?.afterServicePaymentMethod ?? null,
+      after_service_cost_amount: intake?.hasAfterServiceCost
+        ? intake.afterServiceCostAmount
+        : null,
+      after_service_cost_memo: intake?.afterServiceCostMemo || null,
+      is_rental_issued: intake?.isRentalIssued ?? false,
+      rental_date: intake?.rentalDate || null,
+      rental_note: intake?.rentalNote || null,
+      is_exchange_issued: intake?.isExchangeIssued ?? false,
+      exchange_date: intake?.exchangeDate || null,
+      exchange_item_id: intake?.exchangeItemId || null,
+      exchange_item_name: intake?.exchangeItemName || null,
+      exchange_item_category_name: intake?.exchangeItemCategoryName || null,
+      exchange_quantity: intake?.isExchangeIssued
+        ? intake.exchangeQuantity
+        : null,
+      exchange_note: intake?.exchangeNote || null,
     })
     .eq('id', id)
     .select()

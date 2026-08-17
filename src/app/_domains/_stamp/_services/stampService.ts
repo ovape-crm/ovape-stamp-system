@@ -37,6 +37,8 @@ export type StampLogItem = {
 
 export type StampLogMeta = {
   clientRequestId?: string;
+  afterServiceId?: number;
+  afterServiceOperation?: "cost" | "exchange";
   storeName?: StoreTypeEnumType["value"];
   totalAmount?: number;
   extraNote?: string;

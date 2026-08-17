@@ -16,5 +16,7 @@ export const itemKeys = {
   lists: () => [...itemKeys.all(), 'list'] as const,
   list: (filters?: ItemFilters) =>
     [...itemKeys.lists(), filters ?? null] as const,
+  search: (keyword: string) =>
+    [...itemKeys.all(), 'search', keyword] as const,
   categories: () => [...itemKeys.all(), 'categories'] as const,
 };

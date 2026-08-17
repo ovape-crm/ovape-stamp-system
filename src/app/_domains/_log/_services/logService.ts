@@ -167,6 +167,53 @@ export const getLogsByCustomer = async (
   return data;
 };
 
+export const getAfterServiceStampLog = async (
+  afterServiceId: number,
+  operation: "cost" | "exchange",
+) => {
+  const { data, error } = await supabase
+    .from("logs")
+    .select("*")
+    .eq("category", LogCategoryEnum.STAMP.value)
+    .eq("after_service_id", afterServiceId)
+    .contains("jsonb", { afterServiceOperation: operation })
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+};
+
+/** A/S 교환 수정용: 재고 이동을 다시 실행하지 않고 출고 이력 내용만 변경한다. */
+export const updateStampLogHistoryOnly = async (
+  logId: string,
+  note: string,
+  paymentType: PaymentTypeEnumType["value"],
+  logMeta: StampLogMeta,
+) => {
+  const { data: existing, error: fetchError } = await supabase
+    .from("logs")
+    .select("jsonb")
+    .eq("id", logId)
+    .single();
+  if (fetchError) throw fetchError;
+
+  const currentJsonb =
+    (existing?.jsonb as Record<string, unknown> | null) ?? {};
+  const nextJsonb = {
+    ...currentJsonb,
+    ...logMeta,
+    paymentType,
+  };
+  const { error } = await supabase
+    .from("logs")
+    .update({
+      note,
+      jsonb: nextJsonb,
+      after_service_id: logMeta.afterServiceId ?? null,
+    })
+    .eq("id", logId);
+  if (error) throw error;
+};
+
 export const createAfterServiceLog = async (
   customerId: string | null,
   afterServiceId: number,
