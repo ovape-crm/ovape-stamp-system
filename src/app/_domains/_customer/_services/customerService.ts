@@ -7,7 +7,7 @@ import { getUpdateLogNote } from "@/app/_utils/utils";
 export interface SearchParams {
   target?: "all" | "name" | "phone";
   keyword?: string;
-  sortBy?: "recent_usage" | "name" | "stamp" | "created_at";
+  sortBy?: "recent_usage" | "name" | "stamp" | "created_at" | "all";
   sortOrder?: "asc" | "desc";
 }
 
@@ -192,11 +192,13 @@ export const getCustomers = async (
     query = query
       .order("created_at", { ascending: sortOrder === "asc" })
       .order("id", { ascending: true });
-  } else {
-    // 기본: 이름 가나다 순
+  } else if (sortBy === "name") {
     query = query
       .order("name", { ascending: sortOrder === "asc" })
       .order("id", { ascending: true });
+  } else {
+    // 전체 고객은 별도의 정렬 기준 없이 안정적인 ID 순서로 조회합니다.
+    query = query.order("id", { ascending: true });
   }
 
   // 페이지네이션 적용

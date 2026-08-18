@@ -15,10 +15,10 @@ interface CustomerListProps {
   hasMore?: boolean;
   isLoadingMore?: boolean;
   totalCount?: number;
-  sortBy?: "recent_usage" | "name" | "stamp" | "created_at";
+  sortBy?: "recent_usage" | "name" | "stamp" | "created_at" | "all";
   sortOrder?: "asc" | "desc";
   onSortChange?: (
-    sortBy: "recent_usage" | "name" | "stamp" | "created_at",
+    sortBy: "recent_usage" | "name" | "stamp" | "created_at" | "all",
   ) => void;
   headerActions?: React.ReactNode;
 }
@@ -107,6 +107,16 @@ const CustomerList = ({
                 }`}
               >
                 등록일 순
+              </button>
+              <button
+                onClick={() => onSortChange("all")}
+                className={`whitespace-nowrap px-2 py-1 text-xs rounded border transition-colors cursor-pointer ${
+                  sortBy === "all"
+                    ? "bg-brand-100 border-brand-300 text-brand-700 font-medium"
+                    : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                전체
               </button>
             </div>
           )}

@@ -1,7 +1,7 @@
 export type CustomerListParams = {
   target?: "all" | "name" | "phone";
   keyword?: string;
-  sortBy?: "recent_usage" | "name" | "stamp" | "created_at";
+  sortBy?: "recent_usage" | "name" | "stamp" | "created_at" | "all";
   sortOrder?: "asc" | "desc";
 };
 

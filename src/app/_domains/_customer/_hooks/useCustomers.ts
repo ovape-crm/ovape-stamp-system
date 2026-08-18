@@ -15,7 +15,7 @@ export const useCustomers = (initialParams?: SearchParams) => {
     initialParams || {},
   );
   const [sortBy, setSortBy] = useState<
-    "recent_usage" | "name" | "stamp" | "created_at"
+    "recent_usage" | "name" | "stamp" | "created_at" | "all"
   >("recent_usage");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
@@ -71,9 +71,15 @@ export const useCustomers = (initialParams?: SearchParams) => {
 
   const search = (target: string, keyword: string) => {
     setSearchParams({ target: target as SearchParams["target"], keyword });
+    if (keyword.trim()) {
+      setSortBy("all");
+      setSortOrder("desc");
+    }
   };
 
-  const setSort = (by: "recent_usage" | "name" | "stamp" | "created_at") => {
+  const setSort = (
+    by: "recent_usage" | "name" | "stamp" | "created_at" | "all",
+  ) => {
     setSortBy(by);
     setSortOrder(by === "name" ? "asc" : "desc");
   };
