@@ -45,11 +45,7 @@ const StampHistoryItem = ({
       log.jsonb.reservationDate.trim()),
   );
   const customerMode = log.customers?.name
-    ? getCustomerMode(
-        log.customers.name,
-        log.customers.phone,
-        log.customers.is_stamp_eligible ?? true,
-      )
+    ? getCustomerMode(log.customers.name, log.customers.phone)
     : "normal";
   const specialCustomerLabel =
     customerMode === "x"
