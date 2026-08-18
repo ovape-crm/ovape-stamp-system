@@ -1,7 +1,7 @@
 import { CustomerType } from "@/app/_domains/_customer/_types/customer.types";
 import supabase from "@/libs/supabaseClient";
 import { createLog } from "@/app/_domains/_log/_services/logService";
-import { LogCategoryEnum } from "@/app/_enums/enums";
+import { LogCategoryEnum, PaymentTypeEnum } from "@/app/_enums/enums";
 import { getUpdateLogNote } from "@/app/_utils/utils";
 
 export interface SearchParams {
@@ -140,20 +140,51 @@ export const getCustomers = async (
   if (sortBy === "recent_usage") {
     const { data: usageLogs, error: logError } = await supabase
       .from("logs")
-      .select("customer_id, created_at")
+      .select("customer_id, created_at, jsonb")
       .eq("category", LogCategoryEnum.STAMP.value)
       .not("customer_id", "is", null)
       .order("created_at", { ascending: false })
-      .limit(40);
+      .limit(30);
 
     if (logError) throw logError;
 
+    const excludedPaymentTypes = new Set<string>([
+      PaymentTypeEnum.REMARK.value,
+      PaymentTypeEnum.SHIPMENT_REMARK.value,
+    ]);
     const recentCustomerIds = Array.from(
       new Set(
-        (usageLogs ?? []).map((log) => String(log.customer_id)),
+        (usageLogs ?? [])
+          .filter((log) => {
+            const jsonb =
+              log.jsonb && typeof log.jsonb === "object"
+                ? (log.jsonb as Record<string, unknown>)
+                : {};
+            const paymentType = String(jsonb.paymentType ?? "");
+            if (excludedPaymentTypes.has(paymentType)) return false;
+
+            const splitPaymentTotal = Array.isArray(jsonb.payments)
+              ? jsonb.payments.reduce((total, payment) => {
+                  if (!payment || typeof payment !== "object") return total;
+                  const amount = Number(
+                    (payment as Record<string, unknown>).amount ?? 0,
+                  );
+                  return Number.isFinite(amount) ? total + amount : total;
+                }, 0)
+              : 0;
+            const totalAmount = Number(jsonb.totalAmount ?? 0);
+            const paidAmount =
+              splitPaymentTotal > 0
+                ? splitPaymentTotal
+                : Number.isFinite(totalAmount)
+                  ? totalAmount
+                  : 0;
+            return paidAmount >= 1;
+          })
+          .map((log) => String(log.customer_id)),
       ),
-    ).slice(0, 5);
-    if (!recentCustomerIds.length || offset > 0) return [];
+    );
+    if (!recentCustomerIds.length) return [];
 
     const { data: recentCustomers, error: customerError } = await query.in(
       "id",
@@ -164,11 +195,12 @@ export const getCustomers = async (
     const orderByCustomerId = new Map(
       recentCustomerIds.map((customerId, index) => [customerId, index]),
     );
-    return [...recentCustomers].sort(
+    const sortedCustomers = [...recentCustomers].sort(
       (left, right) =>
         (orderByCustomerId.get(String(left.id)) ?? Number.MAX_SAFE_INTEGER) -
         (orderByCustomerId.get(String(right.id)) ?? Number.MAX_SAFE_INTEGER),
     );
+    return sortedCustomers.slice(from, to + 1);
   } else if (sortBy === "stamp") {
     // 스탬프 많은 순/적은 순은 클라이언트에서 정렬해야 함 (관계형 데이터이므로)
     // 페이지네이션 없이 모든 데이터 가져오기
