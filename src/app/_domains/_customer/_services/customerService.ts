@@ -215,7 +215,7 @@ export const getCustomers = async (
       const countDifference =
         sortOrder === "desc" ? bCount - aCount : aCount - bCount;
       if (countDifference !== 0) return countDifference;
-      return Number(a.id) - Number(b.id);
+      return String(a.id).localeCompare(String(b.id));
     });
 
     // 정렬 후 페이지네이션 적용
