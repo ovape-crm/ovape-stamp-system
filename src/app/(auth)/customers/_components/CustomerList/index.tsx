@@ -50,8 +50,8 @@ const CustomerList = ({
 
   return (
     <div className="mb-10">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3 sm:flex-nowrap">
-        <div className="flex items-center justify-start gap-3">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3 lg:flex-nowrap">
+        <div className="flex min-w-0 flex-wrap items-center justify-start gap-3">
           <div className="text-xs text-gray-600 sm:text-sm">
             <span className="font-semibold text-brand-600">
               {customers.length}
@@ -67,7 +67,7 @@ const CustomerList = ({
             )}
           </div>
           {onSortChange && (
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               <button
                 onClick={() => onSortChange("recent_usage")}
                 className={`whitespace-nowrap px-2 py-1 text-xs rounded border transition-colors cursor-pointer ${
@@ -122,16 +122,16 @@ const CustomerList = ({
           )}
         </div>
         {headerActions && (
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+          <div className="flex w-full shrink-0 flex-wrap items-center justify-start gap-2 sm:justify-end lg:w-auto">
             {headerActions}
           </div>
         )}
       </div>
       <div className="bg-white rounded-lg shadow-sm border border-brand-100 overflow-hidden overflow-x-auto">
-        <table className="w-full min-w-[840px] table-auto border-collapse [&_th]:border [&_th]:border-brand-200 [&_td]:border [&_td]:border-gray-200">
+        <table className="w-full min-w-[720px] table-auto border-collapse lg:min-w-[840px] [&_th]:border [&_th]:border-brand-200 [&_th]:sm:px-3 [&_th]:lg:px-6 [&_td]:border [&_td]:border-gray-200 [&_td]:sm:px-3 [&_td]:lg:px-6">
           <thead className="bg-gradient-to-r from-brand-50 to-brand-100">
             <tr>
-              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
+              <th className="px-3 py-2 text-left text-xs font-semibold text-brand-700 whitespace-nowrap sm:py-3 sm:text-sm lg:px-6">
                 No
               </th>
               <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">

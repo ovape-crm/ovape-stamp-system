@@ -54,6 +54,16 @@ export const useCustomers = (initialParams?: SearchParams) => {
       return { items: items as CustomerType[], totalCount: undefined };
     },
     getNextPageParam: (lastPage, allPages) => {
+      const previousCustomerIds = new Set(
+        allPages
+          .slice(0, -1)
+          .flatMap((page) => page.items.map((customer) => String(customer.id))),
+      );
+      const hasNewCustomer = lastPage.items.some(
+        (customer) => !previousCustomerIds.has(String(customer.id)),
+      );
+      if (allPages.length > 1 && !hasNewCustomer) return undefined;
+
       const loadedCount = allPages.reduce(
         (sum, page) => sum + page.items.length,
         0,
