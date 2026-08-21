@@ -10,7 +10,6 @@ export type ItemType = {
   category_id: string | null;
   item_code: string;
   item_name: string;
-  purchase_price: number | null;
   selling_price: number | null;
   liquid_type: string | null;
   liquid_flavor: string | null;

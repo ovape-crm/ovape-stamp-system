@@ -8,7 +8,6 @@ export type ItemFilters = {
   searchConditions?: SearchCondition[];
   searchKeyword?: string;
   isUse?: boolean;
-  excludePurchasePrice?: boolean;
 };
 
 export const itemKeys = {

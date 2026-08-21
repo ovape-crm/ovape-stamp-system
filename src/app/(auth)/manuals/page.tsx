@@ -2,6 +2,7 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import toast from 'react-hot-toast';
 import Button from '@/app/_components/Button';
 import { useModal } from '@/app/_contexts/ModalContext';
@@ -174,6 +175,9 @@ const ManualsPage = () => {
 
           {isAdmin && (
             <div className="flex justify-end gap-2">
+              <Link href="/manuals/placement-settings" className="inline-flex min-h-10 items-center justify-center rounded-lg border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 shadow-sm transition hover:border-brand-300 hover:text-brand-700">
+                공용 모달 배치 설정
+              </Link>
               <Button size="sm" variant="gray" onClick={handleOpenCategoryManage}>
                 카테고리 관리
               </Button>

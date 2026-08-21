@@ -26,7 +26,6 @@ export const useItems = (
         searchConditions: filters?.searchConditions,
         searchKeyword: filters?.searchKeyword,
         isUse: filters?.isUse,
-        excludePurchasePrice: filters?.excludePurchasePrice,
       };
       if (pageParam === 0) {
         const [items, totalCount] = await Promise.all([

@@ -8,15 +8,29 @@ import { useUser } from "@/app/_contexts/UserContext";
 import Loading from "@/app/_components/Loading";
 import Button from "@/app/_components/Button";
 import supabase from "@/libs/supabaseClient";
+import type { OssRole } from "@/app/_domains/_user/_utils/userRole";
 
 type SwitchAccount = {
   id: string;
-  name: string;
+  name: string | null;
   email: string;
-  oss_role: "staff" | "admin";
+  oss_role: OssRole;
 };
 
 const hiddenSwitchAccountNames = new Set(["윤동호", "이대양"]);
+const accountRoleOrder: Record<SwitchAccount["oss_role"], number> = {
+  master: 0,
+  admin: 1,
+  staff: 2,
+};
+const accountRoleLabel: Record<SwitchAccount["oss_role"], string> = {
+  master: "MASTER",
+  admin: "ADMIN",
+  staff: "STAFF",
+};
+const getAccountDisplayName = (account: SwitchAccount) =>
+  account.name?.trim() ||
+  (account.oss_role === "master" ? "마스터" : account.email.split("@")[0]);
 
 const UserInfo = () => {
   const { user, isLoading, refreshUser, logout } = useUser();
@@ -54,7 +68,7 @@ const UserInfo = () => {
     const { data, error } = await supabase
       .from("users")
       .select("id, name, email, oss_role")
-      .in("oss_role", ["staff", "admin"])
+      .in("oss_role", ["staff", "admin", "master"])
       .order("oss_role")
       .order("name");
     setIsAccountsLoading(false);
@@ -63,9 +77,18 @@ const UserInfo = () => {
       return;
     }
     setAccounts(
-      ((data ?? []) as SwitchAccount[]).filter(
-        (account) => !hiddenSwitchAccountNames.has(account.name.trim()),
-      ),
+      ((data ?? []) as SwitchAccount[])
+        .filter((account) =>
+          !hiddenSwitchAccountNames.has(account.name?.trim() ?? ""),
+        )
+        .sort(
+          (a, b) =>
+            accountRoleOrder[a.oss_role] - accountRoleOrder[b.oss_role] ||
+            getAccountDisplayName(a).localeCompare(
+              getAccountDisplayName(b),
+              "ko-KR",
+            ),
+        ),
     );
   };
 
@@ -99,7 +122,7 @@ const UserInfo = () => {
     setIsSwitching(false);
     setSelectedAccount(null);
     setPassword("");
-    toast.success(`${selectedAccount.name} 계정으로 전환했습니다.`);
+    toast.success(`${getAccountDisplayName(selectedAccount)} 계정으로 전환했습니다.`);
     router.refresh();
   };
 
@@ -129,14 +152,16 @@ const UserInfo = () => {
               >
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-semibold text-gray-900">
-                    {account.name}
+                    {getAccountDisplayName(account)}
                   </span>
                   <span className="block truncate text-xs text-gray-500">
                     {account.email}
                   </span>
                 </span>
                 <span className="ml-3 shrink-0 text-[11px] font-semibold uppercase text-brand-600">
-                  {isCurrent ? "현재" : account.oss_role}
+                  {isCurrent
+                    ? `현재 · ${accountRoleLabel[account.oss_role]}`
+                    : accountRoleLabel[account.oss_role]}
                 </span>
               </button>
             );
@@ -216,7 +241,7 @@ const UserInfo = () => {
               <header className="border-b border-gray-100 px-5 py-4">
                 <h2 className="text-lg font-bold text-gray-950">계정 전환</h2>
                 <p className="mt-1 text-sm text-gray-500">
-                  {selectedAccount.name} · {selectedAccount.email}
+                  {getAccountDisplayName(selectedAccount)} · {selectedAccount.email}
                 </p>
               </header>
               <div className="p-5">

@@ -9,11 +9,13 @@ import Button from "@/app/_components/Button";
 import Loading from "@/app/_components/Loading";
 import ManualHelpButton from "@/app/_components/ManualHelpButton";
 import { useUser } from "@/app/_contexts/UserContext";
+import { hasAdminAccess } from "@/app/_domains/_user/_utils/userRole";
 import { manualHelpKeys } from "@/app/_domains/_manual/_queryKeys/manualHelpKeys";
 import {
   deleteManualHelpBinding,
   getPageManualHelpBindings,
   ManualHelpDisplayMode,
+  ManualHelpAnchor,
   ManualHelpPosition,
   PageManualHelpBinding,
   savePlacedManualHelpBinding,
@@ -74,6 +76,32 @@ const getElementSelector = (element: HTMLElement) => {
     }
   }
 
+  // 공용 모달처럼 같은 문구의 컨트롤이 반복되는 화면에서는 모달 루트를
+  // 기준으로 한 구조 경로를 사용한다. 클래스명 대신 태그 순서만 사용해
+  // 스타일 변경에는 영향을 받지 않도록 한다.
+  const modalRoot = element.closest<HTMLElement>("#modal-root");
+  if (modalRoot) {
+    const segments: string[] = [];
+    let current: HTMLElement | null = element;
+    while (current && current !== modalRoot) {
+      const parent: HTMLElement | null = current.parentElement;
+      if (!parent) break;
+      const tagName = current.tagName.toLowerCase();
+      const sameTagSiblings = Array.from(parent.children).filter(
+        (sibling) => sibling.tagName === current?.tagName,
+      );
+      const index = sameTagSiblings.indexOf(current) + 1;
+      segments.unshift(
+        sameTagSiblings.length > 1 ? `${tagName}:nth-of-type(${index})` : tagName,
+      );
+      current = parent;
+    }
+    if (current === modalRoot && segments.length) {
+      const selector = `#modal-root > ${segments.join(" > ")}`;
+      if (document.querySelectorAll(selector).length === 1) return selector;
+    }
+  }
+
   return null;
 };
 
@@ -96,9 +124,12 @@ const getTargetLabel = (element: HTMLElement) =>
 
 const ManualPlacementManager = () => {
   const pathname = usePathname();
+  const bindingPagePath = pathname === "/manuals/placement-settings"
+    ? "common:outbound-modal"
+    : pathname;
   const queryClient = useQueryClient();
   const { user } = useUser();
-  const isAdmin = user?.oss_role === "admin";
+  const isAdmin = hasAdminAccess(user?.oss_role);
   const [isPlacementMode, setIsPlacementMode] = useState(false);
   const [target, setTarget] = useState<PlacementTarget | null>(null);
   const [keyword, setKeyword] = useState("");
@@ -107,6 +138,10 @@ const ManualPlacementManager = () => {
     useState<ManualHelpDisplayMode>("help_button");
   const [position, setPosition] =
     useState<ManualHelpPosition>("inside_right");
+  const [anchor, setAnchor] = useState<ManualHelpAnchor>("middle_right");
+  const [offsetX, setOffsetX] = useState(0);
+  const [offsetY, setOffsetY] = useState(0);
+  const [buttonSize, setButtonSize] = useState(24);
   const [isSaving, setIsSaving] = useState(false);
   const [mounts, setMounts] = useState<HelpMount[]>([]);
   const mountMapRef = useRef(new Map<string, HTMLSpanElement>());
@@ -114,8 +149,8 @@ const ManualPlacementManager = () => {
   const deferredKeyword = useDeferredValue(keyword);
 
   const pageBindingsQuery = useQuery({
-    queryKey: manualHelpKeys.page(pathname),
-    queryFn: () => getPageManualHelpBindings(pathname),
+    queryKey: manualHelpKeys.page(bindingPagePath),
+    queryFn: () => getPageManualHelpBindings(bindingPagePath),
     retry: false,
   });
   const optionsQuery = useQuery({
@@ -144,14 +179,16 @@ const ManualPlacementManager = () => {
         if (!mount || !placementElement) continue;
         const rect = placementElement.getBoundingClientRect();
         mount.style.display = rect.width || rect.height ? "inline-flex" : "none";
-        const coordinates =
-          binding.position === "outside_right"
-            ? { left: rect.right + 4, top: rect.top + rect.height / 2 - 12 }
-            : binding.position === "outside_left"
-              ? { left: rect.left - 28, top: rect.top + rect.height / 2 - 12 }
-              : binding.position === "top_right"
-                ? { left: rect.right - 20, top: rect.top - 10 }
-                : { left: rect.right - 28, top: rect.top + rect.height / 2 - 12 };
+        const [vertical, horizontal] = binding.anchor.split("_") as [
+          "top" | "middle" | "bottom",
+          "left" | "center" | "right",
+        ];
+        const anchorX = horizontal === "left" ? rect.left : horizontal === "center" ? rect.left + rect.width / 2 : rect.right;
+        const anchorY = vertical === "top" ? rect.top : vertical === "middle" ? rect.top + rect.height / 2 : rect.bottom;
+        const coordinates = {
+          left: anchorX - binding.buttonSize / 2 + binding.offsetX,
+          top: anchorY - binding.buttonSize / 2 + binding.offsetY,
+        };
         mount.style.left = `${Math.max(4, Math.min(coordinates.left, window.innerWidth - 28))}px`;
         mount.style.top = `${Math.max(4, coordinates.top)}px`;
       }
@@ -280,6 +317,10 @@ const ManualPlacementManager = () => {
       setSelectedManualId(existing?.manualId ?? "");
       setDisplayMode(existing?.displayMode ?? "help_button");
       setPosition(existing?.position ?? "inside_right");
+      setAnchor(existing?.anchor ?? "middle_right");
+      setOffsetX(existing?.offsetX ?? 0);
+      setOffsetY(existing?.offsetY ?? 0);
+      setButtonSize(existing?.buttonSize ?? 24);
       setKeyword("");
       clearHighlight();
     };
@@ -298,27 +339,36 @@ const ManualPlacementManager = () => {
   }, [pathname]);
 
   const refresh = () =>
-    queryClient.invalidateQueries({ queryKey: manualHelpKeys.page(pathname) });
+    queryClient.invalidateQueries({ queryKey: manualHelpKeys.page(bindingPagePath) });
 
   const handleSave = async () => {
     if (!target || !selectedManualId) return;
     try {
       setIsSaving(true);
       await savePlacedManualHelpBinding({
-        locationKey: `${pathname}::${target.selector}`,
+        locationKey: selectedBinding?.locationKey ?? `${bindingPagePath}::${target.selector}`,
         manualId: selectedManualId,
-        pagePath: pathname,
+        pagePath: selectedBinding?.pagePath ?? bindingPagePath,
         targetSelector: target.selector,
         targetLabel: target.label,
         displayMode,
         position,
+        anchor,
+        offsetX,
+        offsetY,
+        buttonSize,
       });
       await refresh();
       setTarget(null);
       toast.success("매뉴얼을 배치했습니다.");
     } catch (error) {
       console.error("Failed to place manual:", error);
-      toast.error("매뉴얼을 배치하지 못했습니다.");
+      const message = error instanceof Error
+        ? error.message
+        : error && typeof error === "object" && "message" in error
+          ? String(error.message)
+          : "알 수 없는 오류";
+      toast.error(`매뉴얼을 배치하지 못했습니다: ${message}`);
     } finally {
       setIsSaving(false);
     }
@@ -340,6 +390,20 @@ const ManualPlacementManager = () => {
     }
   };
 
+  const applyPositionPreset = (nextPosition: ManualHelpPosition) => {
+    setPosition(nextPosition);
+    const presets: Record<ManualHelpPosition, { anchor: ManualHelpAnchor; x: number; y: number }> = {
+      inside_right: { anchor: "middle_right", x: -16, y: 0 },
+      outside_right: { anchor: "middle_right", x: 16, y: 0 },
+      outside_left: { anchor: "middle_left", x: -16, y: 0 },
+      top_right: { anchor: "top_right", x: 0, y: -12 },
+    };
+    const preset = presets[nextPosition];
+    setAnchor(preset.anchor);
+    setOffsetX(preset.x);
+    setOffsetY(preset.y);
+  };
+
   return (
     <>
       {mounts.map(({ binding, element }) =>
@@ -347,6 +411,7 @@ const ManualPlacementManager = () => {
           <ManualHelpButton
             locationKey={binding.locationKey}
             ariaLabel={`${binding.targetLabel} 매뉴얼 보기`}
+            buttonSize={binding.buttonSize}
             onPlacementEdit={
               isPlacementMode
                 ? () => {
@@ -357,6 +422,10 @@ const ManualPlacementManager = () => {
                     setSelectedManualId(binding.manualId);
                     setDisplayMode(binding.displayMode);
                     setPosition(binding.position);
+                    setAnchor(binding.anchor);
+                    setOffsetX(binding.offsetX);
+                    setOffsetY(binding.offsetY);
+                    setButtonSize(binding.buttonSize);
                     setKeyword("");
                   }
                 : undefined
@@ -447,12 +516,89 @@ const ManualPlacementManager = () => {
                         type="button"
                         size="sm"
                         variant={position === value ? "primary" : "gray"}
-                        onClick={() => setPosition(value)}
+                        onClick={() => applyPositionPreset(value)}
                       >
                         {label}
                       </Button>
                     ))}
                   </div>
+                </div>
+
+                <div>
+                  <p className="mb-2 text-sm font-semibold text-gray-700">정밀 위치</p>
+                  <div className="mb-3 rounded-xl border border-gray-200 bg-[linear-gradient(45deg,#f9fafb_25%,transparent_25%),linear-gradient(-45deg,#f9fafb_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#f9fafb_75%),linear-gradient(-45deg,transparent_75%,#f9fafb_75%)] bg-[length:16px_16px] bg-[position:0_0,0_8px,8px_-8px,-8px_0px] p-5">
+                    <p className="mb-3 text-center text-xs font-semibold text-gray-500">실시간 위치 예시</p>
+                    <div className="relative mx-auto h-24 w-full max-w-[300px] rounded-xl border-2 border-dashed border-gray-300 bg-white shadow-sm">
+                      <span className="absolute inset-0 flex items-center justify-center px-10 text-center text-xs font-medium text-gray-400">선택한 버튼 또는 입력칸</span>
+                      {(() => {
+                        const [vertical, horizontal] = anchor.split("_") as ["top" | "middle" | "bottom", "left" | "center" | "right"];
+                        return (
+                          <span
+                            className="absolute z-10 flex items-center justify-center rounded-full border border-brand-200 bg-brand-50 font-extrabold leading-none text-brand-600 shadow-md ring-1 ring-white"
+                            style={{
+                              width: buttonSize,
+                              height: buttonSize,
+                              fontSize: Math.max(11, Math.round(buttonSize * 0.54)),
+                              left: `calc(${horizontal === "left" ? "0%" : horizontal === "center" ? "50%" : "100%"} - ${buttonSize / 2}px + ${offsetX}px)`,
+                              top: `calc(${vertical === "top" ? "0%" : vertical === "middle" ? "50%" : "100%"} - ${buttonSize / 2}px + ${offsetY}px)`,
+                            }}
+                          >?</span>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-[132px_1fr] gap-4 rounded-xl border border-gray-200 bg-gray-50/70 p-3">
+                    <div className="grid grid-cols-3 gap-1" aria-label="매뉴얼 버튼 기준점">
+                      {([
+                        "top_left", "top_center", "top_right",
+                        "middle_left", "middle_center", "middle_right",
+                        "bottom_left", "bottom_center", "bottom_right",
+                      ] as ManualHelpAnchor[]).map((value) => (
+                        <button
+                          key={value}
+                          type="button"
+                          aria-label={`${value} 기준점`}
+                          onClick={() => setAnchor(value)}
+                          className={`flex h-10 items-center justify-center rounded-lg border transition ${anchor === value ? "border-brand-500 bg-brand-500 text-white" : "border-gray-300 bg-white text-gray-500 hover:border-brand-300"}`}
+                        >
+                          <span className="h-2 w-2 rounded-full bg-current" />
+                        </button>
+                      ))}
+                    </div>
+                    <div className="space-y-3">
+                      {([['X', offsetX, setOffsetX], ['Y', offsetY, setOffsetY]] as const).map(([label, value, setter]) => (
+                        <label key={label} className="grid grid-cols-[20px_1fr_28px] items-center gap-2 text-sm text-gray-700">
+                          <span className="font-semibold">{label}</span>
+                          <input
+                            type="range"
+                            min={-100}
+                            max={100}
+                            step={1}
+                            value={value}
+                            onChange={(event) => setter(Number(event.target.value))}
+                            className="w-full cursor-pointer accent-brand-500"
+                          />
+                          <input
+                            type="number"
+                            min={-500}
+                            max={500}
+                            value={value}
+                            onChange={(event) => setter(Math.max(-500, Math.min(500, Number(event.target.value) || 0)))}
+                            className="h-8 w-14 rounded-md border border-gray-300 bg-white px-1 text-center text-xs outline-none focus:border-brand-500"
+                          />
+                        </label>
+                      ))}
+                      <button type="button" onClick={() => { setOffsetX(0); setOffsetY(0); }} className="text-xs font-semibold text-brand-600 hover:text-brand-700">
+                        미세 조정 초기화
+                      </button>
+                    </div>
+                  </div>
+                  <label className="mt-3 grid grid-cols-[64px_1fr_58px] items-center gap-2 rounded-xl border border-gray-200 bg-gray-50/70 p-3 text-sm text-gray-700">
+                    <span className="font-semibold">? 크기</span>
+                    <input type="range" min={16} max={48} step={1} value={buttonSize} onChange={(event) => setButtonSize(Number(event.target.value))} className="w-full cursor-pointer accent-brand-500" />
+                    <span className="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-center text-xs font-semibold">{buttonSize}px</span>
+                  </label>
+                  <p className="mt-2 text-xs text-gray-500">기준점을 선택한 뒤 X/Y 값을 1px 단위로 조절할 수 있습니다.</p>
                 </div>
 
                 <div>

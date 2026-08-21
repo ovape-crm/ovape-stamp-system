@@ -1,5 +1,6 @@
 import supabase from '@/libs/supabaseClient';
 import { ManualType } from '../_types/manual.types';
+import { hasAdminAccess, type OssRole } from '../../_user/_utils/userRole';
 
 const SELECT_QUERY = '*, manual_sub_categories(*, manual_top_categories(*))';
 
@@ -15,6 +16,10 @@ export type ManualHelpPosition =
   | 'outside_right'
   | 'outside_left'
   | 'top_right';
+export type ManualHelpAnchor =
+  | 'top_left' | 'top_center' | 'top_right'
+  | 'middle_left' | 'middle_center' | 'middle_right'
+  | 'bottom_left' | 'bottom_center' | 'bottom_right';
 
 export type PageManualHelpBinding = ManualHelpBinding & {
   pagePath: string;
@@ -22,6 +27,28 @@ export type PageManualHelpBinding = ManualHelpBinding & {
   targetLabel: string;
   displayMode: ManualHelpDisplayMode;
   position: ManualHelpPosition;
+  anchor: ManualHelpAnchor;
+  offsetX: number;
+  offsetY: number;
+  buttonSize: number;
+};
+
+type StoredPlacementMeta = {
+  label?: string;
+  anchor?: ManualHelpAnchor;
+  offsetX?: number;
+  offsetY?: number;
+  buttonSize?: number;
+};
+
+const parseStoredPlacementMeta = (value: string | null): StoredPlacementMeta => {
+  if (!value?.startsWith('{')) return { label: value ?? '선택한 요소' };
+  try {
+    const parsed = JSON.parse(value) as StoredPlacementMeta;
+    return parsed && typeof parsed === 'object' ? parsed : { label: '선택한 요소' };
+  } catch {
+    return { label: value };
+  }
 };
 
 export const getCurrentUserIsAdmin = async (): Promise<boolean> => {
@@ -37,7 +64,7 @@ export const getCurrentUserIsAdmin = async (): Promise<boolean> => {
     .eq('id', session.user.id)
     .maybeSingle();
   if (error) throw error;
-  return data?.oss_role === 'admin';
+  return hasAdminAccess(data?.oss_role as OssRole | undefined);
 };
 
 export const getManualHelpBinding = async (
@@ -70,10 +97,13 @@ export const getManualHelpBinding = async (
 export const getPageManualHelpBindings = async (
   pagePath: string,
 ): Promise<PageManualHelpBinding[]> => {
+  const pagePaths = pagePath === 'common:outbound-modal'
+    ? [pagePath]
+    : [pagePath, 'common:outbound-modal'];
   const { data: bindings, error: bindingError } = await supabase
     .from('manual_help_bindings')
     .select('location_key, manual_id, page_path, target_selector, target_label, display_mode, position')
-    .eq('page_path', pagePath);
+    .in('page_path', pagePaths);
   if (bindingError) throw bindingError;
   if (!bindings?.length) return [];
 
@@ -92,15 +122,20 @@ export const getPageManualHelpBindings = async (
   return bindings.flatMap((binding) => {
     const manual = manualsById.get(binding.manual_id);
     if (!manual || !binding.page_path || !binding.target_selector) return [];
+    const placementMeta = parseStoredPlacementMeta(binding.target_label);
     return [{
       locationKey: binding.location_key,
       manualId: binding.manual_id,
       manual,
       pagePath: binding.page_path,
       targetSelector: binding.target_selector,
-      targetLabel: binding.target_label ?? '선택한 요소',
+      targetLabel: placementMeta.label ?? '선택한 요소',
       displayMode: binding.display_mode as ManualHelpDisplayMode,
       position: (binding.position ?? 'inside_right') as ManualHelpPosition,
+      anchor: placementMeta.anchor ?? 'middle_right',
+      offsetX: placementMeta.offsetX ?? 0,
+      offsetY: placementMeta.offsetY ?? 0,
+      buttonSize: placementMeta.buttonSize ?? 24,
     }];
   });
 };
@@ -143,6 +178,10 @@ export const savePlacedManualHelpBinding = async ({
   targetLabel,
   displayMode,
   position,
+  anchor,
+  offsetX,
+  offsetY,
+  buttonSize,
 }: Omit<PageManualHelpBinding, 'manual'>): Promise<void> => {
   const { error } = await supabase.from('manual_help_bindings').upsert(
     {
@@ -150,7 +189,13 @@ export const savePlacedManualHelpBinding = async ({
       manual_id: manualId,
       page_path: pagePath,
       target_selector: targetSelector,
-      target_label: targetLabel,
+      target_label: JSON.stringify({
+        label: targetLabel,
+        anchor,
+        offsetX,
+        offsetY,
+        buttonSize,
+      } satisfies StoredPlacementMeta),
       display_mode: displayMode,
       position,
       updated_at: new Date().toISOString(),

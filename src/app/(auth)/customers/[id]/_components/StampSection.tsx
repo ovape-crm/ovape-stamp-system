@@ -59,6 +59,50 @@ const getRequestErrorMessage = (error: unknown) => {
   return "출고 처리에 실패했습니다.";
 };
 
+const RegularCustomerOutboundCheck = ({
+  name,
+  phone,
+  onCancel,
+  onConfirm,
+}: {
+  name: string;
+  phone: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) => {
+  const [checked, setChecked] = useState(false);
+
+  return (
+    <div className="flex flex-col gap-5" role="dialog" aria-modal="true" aria-labelledby="outbound-customer-check-title">
+      <div>
+        <h2 id="outbound-customer-check-title" className="text-base font-semibold text-gray-900">출고 대상 고객 확인</h2>
+        <p className="mt-1 text-sm text-gray-500">고객님께 직접 확인한 정보와 아래 내용이 같은지 확인해 주세요.</p>
+      </div>
+
+      <dl className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50/70">
+        <div className="grid grid-cols-[100px_minmax(0,1fr)] border-b border-gray-200 px-4 py-3 text-sm">
+          <dt className="font-medium text-gray-600">고객명</dt>
+          <dd className="break-words font-semibold text-gray-900">{name}</dd>
+        </div>
+        <div className="grid grid-cols-[100px_minmax(0,1fr)] px-4 py-3 text-sm">
+          <dt className="font-medium text-gray-600">핸드폰번호</dt>
+          <dd className="break-words font-semibold text-gray-900">{phone}</dd>
+        </div>
+      </dl>
+
+      <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 transition hover:border-brand-300 hover:bg-brand-50/40">
+        <span className="min-w-0 flex-1 text-sm font-medium leading-6 text-gray-800">위의 정보가 맞는지 고객님께 확인해주세요.</span>
+        <input type="checkbox" checked={checked} onChange={(event) => setChecked(event.target.checked)} className="h-5 w-5 shrink-0 cursor-pointer accent-brand-500" />
+      </label>
+
+      <div className="flex justify-end gap-2 border-t border-gray-200 pt-4">
+        <Button type="button" size="sm" variant="gray" onClick={onCancel}>취소</Button>
+        <Button type="button" size="sm" onClick={onConfirm} disabled={!checked}>추가 폼으로 이동</Button>
+      </div>
+    </div>
+  );
+};
+
 const StampSection = ({
   stampCount,
   target,
@@ -79,7 +123,7 @@ const StampSection = ({
   );
   const isSpecialCustomer = customerMode !== "normal";
   const isRegularNonAccrualCustomer =
-    customerMode === "x" &&
+    customerMode === "normal" &&
     target.is_stamp_eligible === false &&
     !(target.name.trim() === "X" && target.phone.trim() === "X");
   const specialAccountLabel =
@@ -89,7 +133,7 @@ const StampSection = ({
         ? "재고조정"
         : `미적립 ${target.gender === "female" ? "여자" : "남자"} 고객`;
 
-  const openOutboundModal = () =>
+  const openOutboundForm = () =>
     open({
       content: (
         <StampConfirmModal
@@ -141,6 +185,25 @@ const StampSection = ({
       options: { dismissOnBackdrop: false, size: "max-w-xl" },
     });
 
+  const openOutboundModal = () => {
+    if (customerMode !== "normal") {
+      openOutboundForm();
+      return;
+    }
+
+    open({
+      content: (
+        <RegularCustomerOutboundCheck
+          name={target.name}
+          phone={target.phone}
+          onCancel={close}
+          onConfirm={openOutboundForm}
+        />
+      ),
+      options: { dismissOnBackdrop: false, dismissOnEsc: true, size: "max-w-md" },
+    });
+  };
+
   // 출고/예약 이력 목록 캐시를 무효화 (이력 페이지 + 고객 상세의 출고/예약 탭 모두 반영)
   const invalidateLogLists = () => {
     queryClient.invalidateQueries({ queryKey: logKeys.lists() });
@@ -163,7 +226,7 @@ const StampSection = ({
         ? shouldAddStampForSelectedCustomer
           ? amount
           : 0
-        : customerMode === "x"
+        : target.is_stamp_eligible === false || customerMode === "x"
           ? 0
           : amount;
       await addStamp(
@@ -226,7 +289,7 @@ const StampSection = ({
         ? shouldAddStampForSelectedCustomer
           ? amount
           : 0
-        : customerMode === "x"
+        : target.is_stamp_eligible === false || customerMode === "x"
           ? 0
           : amount;
       await addReservationStamp(

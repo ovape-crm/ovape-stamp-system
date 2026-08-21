@@ -5,7 +5,6 @@ export type BulkItemRow = {
   itemName: string;
   itemCode: string;
   categoryName: string;
-  purchasePrice: number | null;
   sellingPrice: number | null;
   liquidType: string;
   liquidFlavor: string;
@@ -36,7 +35,6 @@ export const replaceItemsInBulk = async (rows: BulkItemRow[]): Promise<{ inserte
       item_name: normalizeBulkItemName(row.itemName),
       item_code: row.itemCode.trim(),
       category_name: row.categoryName.trim(),
-      purchase_price: row.purchasePrice,
       selling_price: row.sellingPrice,
       liquid_type: row.liquidType.trim() || null,
       liquid_flavor: row.liquidFlavor.trim() || null,

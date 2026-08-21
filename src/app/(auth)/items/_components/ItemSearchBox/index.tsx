@@ -27,6 +27,7 @@ const searchTargetOptions = [
   { label: '품목 명', value: 'item_name' },
   { label: '액상 종류', value: 'liquid_type' },
   { label: '액상 맛', value: 'liquid_flavor' },
+  { label: '비고', value: 'note' },
 ];
 
 const getTargetLabel = (value: string) =>

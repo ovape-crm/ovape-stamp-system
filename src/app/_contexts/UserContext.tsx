@@ -15,6 +15,7 @@ import supabase, {
 } from "@/libs/supabaseClient";
 import Loading from "@/app/_components/Loading";
 import { UserType } from "@/app/_domains/_user/_types/user.types";
+import { hasAdminAccess, resolveOssRole } from "@/app/_domains/_user/_utils/userRole";
 
 interface UserContextType {
   user: UserType | null;
@@ -80,8 +81,12 @@ export const UserProvider = ({
         return;
       }
 
-      setUser(userData);
-      setIsAdmin(userData.oss_role === "admin");
+      const resolvedUser = {
+        ...userData,
+        oss_role: resolveOssRole(userData.email, userData.oss_role),
+      } as UserType;
+      setUser(resolvedUser);
+      setIsAdmin(hasAdminAccess(resolvedUser.oss_role));
     } catch (error) {
       if (isInvalidRefreshTokenError(error)) {
         await clearLocalSupabaseSession();

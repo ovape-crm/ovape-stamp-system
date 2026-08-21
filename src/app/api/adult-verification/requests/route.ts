@@ -6,6 +6,7 @@ import {
 } from "@/app/_domains/_adultVerification/server";
 import { shortenVerificationUrl } from "@/app/_domains/_adultVerification/shortenVerificationUrl";
 import { createSupabaseAdmin } from "@/libs/supabaseAdmin";
+import { hasAdminAccess, type OssRole } from "@/app/_domains/_user/_utils/userRole";
 
 export async function GET(request: NextRequest) {
   try {
@@ -99,7 +100,7 @@ export async function DELETE(request: NextRequest) {
     if (!staff) {
       return NextResponse.json({ message: "로그인이 필요합니다." }, { status: 401 });
     }
-    if (staff.oss_role !== "admin") {
+    if (!hasAdminAccess(staff.oss_role as OssRole)) {
       return NextResponse.json({ message: "관리자만 인증 요청을 삭제할 수 있습니다." }, { status: 403 });
     }
 

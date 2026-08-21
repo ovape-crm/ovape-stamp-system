@@ -116,11 +116,6 @@ const ItemList = ({
               <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
                 품목 명
               </th>
-              {isAdmin && (
-                <th className="px-3 sm:px-6 py-2 sm:py-3 text-right text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
-                  매입단가
-                </th>
-              )}
               <th className="px-3 sm:px-6 py-2 sm:py-3 text-right text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
                 매출단가
               </th>
@@ -142,7 +137,7 @@ const ItemList = ({
             {items.length === 0 ? (
               <tr>
                 <td
-                  colSpan={isAdmin ? 12 : 11}
+                  colSpan={11}
                   className="px-3 sm:px-6 py-10 text-center text-gray-500 text-xs sm:text-sm"
                 >
                   품목 데이터가 없습니다.
@@ -218,13 +213,6 @@ const ItemList = ({
                   <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-900 whitespace-nowrap font-medium">
                     {item.item_name}
                   </td>
-                  {isAdmin && (
-                    <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 whitespace-nowrap text-right">
-                      {item.purchase_price != null
-                        ? item.purchase_price.toLocaleString() + '원'
-                        : <span className="text-gray-400">-</span>}
-                    </td>
-                  )}
                   <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 whitespace-nowrap text-right">
                     {item.selling_price != null
                       ? item.selling_price.toLocaleString() + '원'

@@ -954,7 +954,6 @@ export default function StampLogForm({
       category_id: null,
       item_code: "",
       item_name: line.itemName,
-      purchase_price: null,
       selling_price: line.unitPrice,
       liquid_type: null,
       liquid_flavor: null,

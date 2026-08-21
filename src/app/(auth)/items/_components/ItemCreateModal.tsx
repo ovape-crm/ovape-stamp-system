@@ -21,10 +21,6 @@ const schema = z.object({
     .trim()
     .min(1, { message: '품목 명을 입력하세요.' })
     .max(200),
-  purchasePrice: z
-    .number({ error: '숫자를 입력하세요.' })
-    .nullable()
-    .optional(),
   sellingPrice: z.number({ error: '숫자를 입력하세요.' }).nullable().optional(),
   liquidType: z.string().trim().max(100).optional(),
   liquidFlavor: z.string().trim().max(100).optional(),
@@ -62,7 +58,6 @@ const ItemCreateModal = ({
           categoryId: editItem.category_id ? String(editItem.category_id) : '',
           itemCode: editItem.item_code,
           itemName: editItem.item_name,
-          purchasePrice: editItem.purchase_price,
           sellingPrice: editItem.selling_price,
           liquidType: editItem.liquid_type ?? '',
           liquidFlavor: editItem.liquid_flavor ?? '',
@@ -73,7 +68,6 @@ const ItemCreateModal = ({
           categoryId: '',
           itemCode: '',
           itemName: '',
-          purchasePrice: null,
           sellingPrice: null,
           liquidType: '',
           liquidFlavor: '',
@@ -89,7 +83,6 @@ const ItemCreateModal = ({
 
   return (
     <form onSubmit={handleSubmit(async (values) => {
-      console.log('submit values:', values);
       try {
         setIsSubmitting(true);
         await onSubmit(values);
@@ -100,8 +93,6 @@ const ItemCreateModal = ({
       } finally {
         setIsSubmitting(false);
       }
-    }, (errors) => {
-      console.log('validation errors:', errors);
     })} className="flex flex-col gap-4">
       <h2 className="text-base font-semibold text-gray-900">
         {isEdit ? '품목 수정' : '품목 추가'}
@@ -197,21 +188,7 @@ const ItemCreateModal = ({
         </div>
 
         {/* 단가 */}
-        <div className="flex gap-3">
-          <div className="flex flex-col gap-1 flex-1">
-            <label className="text-sm font-medium text-gray-700">
-              매입단가
-            </label>
-            <input
-              {...register('purchasePrice', {
-                setValueAs: (v) => (v === '' ? null : Number(v)),
-              })}
-              type="number"
-              placeholder="0"
-              className="px-3 py-2 text-sm border border-brand-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-300"
-            />
-          </div>
-          <div className="flex flex-col gap-1 flex-1">
+        <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-gray-700">
               매출단가
             </label>
@@ -223,7 +200,6 @@ const ItemCreateModal = ({
               placeholder="0"
               className="px-3 py-2 text-sm border border-brand-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-300"
             />
-          </div>
         </div>
 
         {/* 액상 */}

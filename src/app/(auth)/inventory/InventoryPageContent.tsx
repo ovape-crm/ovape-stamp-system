@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import Button from "@/app/_components/Button";
 import { Dropdown, DropdownOption } from "@/app/_components/Dropdown";
@@ -19,6 +19,7 @@ import { useUser } from "@/app/_contexts/UserContext";
 import { formatPhoneNumber } from "@/app/_utils/utils";
 import {
   getInventoryMovements,
+  getInventoryMovementCount,
   getInventoryOverview,
   initializeInventory,
   addInitialInventoryEntries,
@@ -266,12 +267,6 @@ export function InventoryPageContent({
     queryKey: inventoryKeys.overview,
     queryFn: getInventoryOverview,
   });
-  const movementsQuery = useQuery({
-    queryKey: inventoryKeys.movements,
-    queryFn: () => getInventoryMovements(200),
-    enabled: Boolean(overviewQuery.data?.initializedAt),
-  });
-
   const refresh = async () => {
     await Promise.all([
       queryClient.refetchQueries({
@@ -508,8 +503,6 @@ export function InventoryPageContent({
         />
       ) : (
         <MovementHistory
-          movements={movementsQuery.data ?? []}
-          loading={movementsQuery.isPending}
           isAdmin={isAdmin}
           onSaved={refresh}
           onOpenPurchaseOrder={(orderId) => {
@@ -6754,14 +6747,10 @@ function SupplierManageOverlay({
 }
 
 function MovementHistory({
-  movements,
-  loading,
   isAdmin,
   onSaved,
   onOpenPurchaseOrder,
 }: {
-  movements: Awaited<ReturnType<typeof getInventoryMovements>>;
-  loading: boolean;
   isAdmin: boolean;
   onSaved: () => Promise<void>;
   onOpenPurchaseOrder: (orderId: string) => void;
@@ -6769,9 +6758,12 @@ function MovementHistory({
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [dateMode, setDateMode] = useState<"today" | "custom">("today");
+  const [movementGroup, setMovementGroup] = useState<
+    "all" | "out" | "in" | "correction"
+  >("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [visibleCount, setVisibleCount] = useState(10);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [movementToReverse, setMovementToReverse] = useState<
     (typeof movements)[number] | null
   >(null);
@@ -6781,6 +6773,41 @@ function MovementHistory({
     return new Date(date.getTime() - offset).toISOString().slice(0, 10);
   };
   const today = localDate(new Date().toISOString());
+  const queryStartDate = dateMode === "today" ? today : startDate || undefined;
+  const queryEndDate = dateMode === "today" ? today : endDate || startDate || undefined;
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 400);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+  const movementQueryFilters = {
+    startDate: queryStartDate,
+    endDate: queryEndDate,
+    itemName: debouncedSearch || undefined,
+    movementGroup: movementGroup === "all" ? undefined : movementGroup,
+  };
+  const movementsQuery = useInfiniteQuery({
+    queryKey: [
+      ...inventoryKeys.movements,
+      movementQueryFilters,
+    ],
+    queryFn: ({ pageParam }) =>
+      getInventoryMovements({
+        ...movementQueryFilters,
+        limit: 20,
+        offset: pageParam,
+      }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, pages) =>
+      lastPage.length < 20 ? undefined : pages.reduce((sum, page) => sum + page.length, 0),
+    enabled: dateMode === "today" || Boolean(startDate),
+  });
+  const movementCountQuery = useQuery({
+    queryKey: [...inventoryKeys.movements, "count", movementQueryFilters],
+    queryFn: () => getInventoryMovementCount(movementQueryFilters),
+    enabled: dateMode === "today" || Boolean(startDate),
+  });
+  const movements = movementsQuery.data?.pages.flat() ?? [];
+  const loading = movementsQuery.isPending;
   const reversedIds = new Set(
     movements.map((movement) => movement.reversed_movement_id).filter(Boolean),
   );
@@ -6893,28 +6920,11 @@ function MovementHistory({
   ]);
   const getDetailMemo = (note: string | null) =>
     note && !automaticNotes.has(note.trim()) ? note : "-";
-  const dateFilteredMovements = movements.filter((movement) => {
-    const date = localDate(movement.created_at);
-    return dateMode === "today"
-      ? date === today
-      : Boolean(startDate) &&
-          (endDate ? date >= startDate && date <= endDate : date === startDate);
-  });
-  const filtered = dateFilteredMovements.filter((movement) => {
-    const keyword = search.trim().toLocaleLowerCase("ko-KR");
-    return [movement.item_name, movement.counterparty_name ?? ""]
-      .join(" ")
-      .toLocaleLowerCase("ko-KR")
-      .includes(keyword);
-  });
-  const periodMovementQuantity = dateFilteredMovements.reduce(
+  const periodMovementQuantity = movements.reduce(
     (total, movement) => total + Math.abs(movement.quantity_delta),
     0,
   );
-  const visibleMovements = filtered.slice(0, visibleCount);
-  useEffect(() => {
-    setVisibleCount(10);
-  }, [search, dateMode, startDate, endDate]);
+  const visibleMovements = movements;
   const reverseMutation = useMutation({
     mutationFn: (movement: (typeof movements)[number]) => {
       if (
@@ -6988,6 +6998,40 @@ function MovementHistory({
               />
             </div>
           )}
+          <div className="flex w-full flex-col rounded-xl border border-gray-200 bg-gray-50/70 p-2.5 sm:w-[120px] sm:shrink-0">
+            <p className="mb-1 text-xs font-semibold text-gray-600">구분</p>
+            <Dropdown controlledValue={movementGroup}>
+              <Dropdown.Trigger compact>
+                {(
+                  {
+                    all: "전체",
+                    out: "출고",
+                    in: "입고",
+                    correction: "정정·취소",
+                  } as const
+                )[movementGroup]}
+              </Dropdown.Trigger>
+              <Dropdown.Content compact>
+                {[
+                  { value: "all", label: "전체" },
+                  { value: "out", label: "출고" },
+                  { value: "in", label: "입고" },
+                  { value: "correction", label: "정정·취소" },
+                ].map((option) => (
+                  <Dropdown.Item
+                    key={option.value}
+                    option={option}
+                    compact
+                    onSelect={(selected: DropdownOption) =>
+                      setMovementGroup(
+                        selected.value as "all" | "out" | "in" | "correction",
+                      )
+                    }
+                  />
+                ))}
+              </Dropdown.Content>
+            </Dropdown>
+          </div>
           <div className="h-px w-full bg-gray-200 lg:h-auto lg:w-px lg:self-stretch" />
           <div className="w-full rounded-xl border border-gray-200 bg-gray-50/70 p-3 sm:w-[260px] sm:shrink-0">
             <label className="block w-full">
@@ -7030,11 +7074,9 @@ function MovementHistory({
           </div>
         </div>
       </section>
-      <div className="text-xs text-gray-600 sm:text-sm">
-        변동 수량 :{" "}
-        <span className="font-semibold text-brand-600">
-          {periodMovementQuantity.toLocaleString()}개
-        </span>
+      <div className="mb-3 flex items-center justify-start gap-3 text-xs text-gray-600 sm:text-sm">
+        <span><b className="font-semibold text-brand-600">{movements.length.toLocaleString()}</b>/{(movementCountQuery.data ?? 0).toLocaleString()}</span>
+        <span>표시 변동 수량 <b className="font-semibold text-brand-600">{periodMovementQuantity.toLocaleString()}개</b></span>
       </div>
       <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
         {loading ? (
@@ -7155,14 +7197,16 @@ function MovementHistory({
             </table>
           </div>
         )}
-        {visibleCount < filtered.length && (
+        {movementsQuery.hasNextPage &&
+          movements.length < (movementCountQuery.data ?? movements.length) && (
           <div className="mt-4 flex justify-center">
             <button
               type="button"
-              onClick={() => setVisibleCount((current) => current + 10)}
+              onClick={() => movementsQuery.fetchNextPage()}
+              disabled={movementsQuery.isFetchingNextPage}
               className="min-h-10 rounded-lg border border-gray-300 bg-white px-5 text-sm font-semibold text-gray-700 shadow-sm hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
             >
-              더 불러오기
+              {movementsQuery.isFetchingNextPage ? "불러오는 중..." : "더 불러오기"}
             </button>
           </div>
         )}

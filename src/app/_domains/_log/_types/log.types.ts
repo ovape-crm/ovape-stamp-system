@@ -3,7 +3,7 @@ import { LogCategoryEnumType } from "@/app/_enums/enums";
 export type LogActorUserInfo = {
   name: string;
   email: string;
-  oss_role?: "staff" | "admin";
+  oss_role?: "staff" | "admin" | "master";
 };
 
 export type LogBaseType = {
