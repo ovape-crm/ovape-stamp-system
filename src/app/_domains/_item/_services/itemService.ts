@@ -28,7 +28,6 @@ type ItemFiltersParam = {
   searchConditions?: { searchTarget: string; searchKeyword: string }[];
   searchKeyword?: string;
   isUse?: boolean;
-  excludePurchasePrice?: boolean;
 };
 
 const buildQuery = (filters?: ItemFiltersParam) => {
@@ -138,9 +137,6 @@ export const getItems = async (
         }));
     }
   }
-  if (filters?.excludePurchasePrice) {
-    return items.map((item) => ({ ...item, purchase_price: null }));
-  }
   return items;
 };
 
@@ -225,7 +221,6 @@ export const createItem = async (values: {
   categoryId: string | null;
   itemCode: string;
   itemName: string;
-  purchasePrice: number | null;
   sellingPrice: number | null;
   liquidType: string;
   liquidFlavor: string;
@@ -237,7 +232,6 @@ export const createItem = async (values: {
     category_id: values.categoryId,
     item_code: values.itemCode,
     item_name: itemName,
-    purchase_price: values.purchasePrice,
     selling_price: values.sellingPrice,
     liquid_type: values.liquidType || null,
     liquid_flavor: values.liquidFlavor || null,
@@ -254,7 +248,6 @@ export const updateItem = async (
     categoryId: string | null;
     itemCode: string;
     itemName: string;
-    purchasePrice: number | null;
     sellingPrice: number | null;
     liquidType: string;
     liquidFlavor: string;
@@ -264,23 +257,58 @@ export const updateItem = async (
 ): Promise<void> => {
   const itemName = normalizeItemName(values.itemName);
   await ensureUniqueItemName(itemName, id);
-  const { error } = await supabase
-    .from("items")
-    .update({
-      category_id: values.categoryId,
-      item_code: values.itemCode,
-      item_name: itemName,
-      purchase_price: values.purchasePrice,
-      selling_price: values.sellingPrice,
-      liquid_type: values.liquidType || null,
-      liquid_flavor: values.liquidFlavor || null,
-      note: values.note || null,
-      is_use: values.isUse,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", id);
+  const { data, error } = await supabase.rpc("save_items_bulk", {
+    p_items: [
+      {
+        id,
+        category_id: values.categoryId,
+        item_code: values.itemCode.trim(),
+        item_name: itemName,
+        selling_price: values.sellingPrice,
+        liquid_type: values.liquidType.trim() || null,
+        liquid_flavor: values.liquidFlavor.trim() || null,
+        note: values.note.trim() || null,
+        is_use: values.isUse,
+      },
+    ],
+  });
 
   if (error) throw error;
+  if (data !== 1) throw new Error("품목이 수정되지 않았습니다. 권한과 품목 정보를 확인해 주세요.");
+};
+
+export type BulkItemUpdate = {
+  id: string;
+  categoryId: string | null;
+  itemCode: string;
+  itemName: string;
+  sellingPrice: number | null;
+  liquidType: string;
+  liquidFlavor: string;
+  note: string;
+  isUse: boolean;
+};
+
+export const updateItemsInBulk = async (items: BulkItemUpdate[]) => {
+  if (!items.length) return 0;
+  const { data, error } = await supabase.rpc("save_items_bulk", {
+    p_items: items.map((item) => ({
+      id: item.id,
+      category_id: item.categoryId,
+      item_code: item.itemCode.trim(),
+      item_name: normalizeItemName(item.itemName),
+      selling_price: item.sellingPrice,
+      liquid_type: item.liquidType.trim() || null,
+      liquid_flavor: item.liquidFlavor.trim() || null,
+      note: item.note.trim() || null,
+      is_use: item.isUse,
+    })),
+  });
+  if (error) throw error;
+  if (data !== items.length) {
+    throw new Error("일부 품목이 수정되지 않아 전체 저장을 취소했습니다.");
+  }
+  return data as number;
 };
 
 export const deleteItem = async (id: string): Promise<void> => {

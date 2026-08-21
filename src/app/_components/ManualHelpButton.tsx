@@ -21,11 +21,13 @@ const ManualHelpButton = ({
   ariaLabel,
   className = '',
   onPlacementEdit,
+  buttonSize = 24,
 }: {
   locationKey: string;
   ariaLabel: string;
   className?: string;
   onPlacementEdit?: () => void;
+  buttonSize?: number;
 }) => {
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
@@ -113,9 +115,10 @@ const ManualHelpButton = ({
           }
           setIsOpen(true);
         }}
-        className={`group flex h-6 w-6 items-center justify-center rounded-full border border-brand-200 bg-brand-50 text-brand-600 shadow-sm ring-1 ring-white transition-all duration-150 hover:border-brand-400 hover:bg-brand-500 hover:text-white hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 focus-visible:ring-offset-1 active:scale-95 ${className}`}
+        style={{ width: buttonSize, height: buttonSize }}
+        className={`group flex shrink-0 items-center justify-center rounded-full border border-brand-200 bg-brand-50 text-brand-600 shadow-sm ring-1 ring-white transition-all duration-150 hover:border-brand-400 hover:bg-brand-500 hover:text-white hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 focus-visible:ring-offset-1 active:scale-95 ${className}`}
       >
-        <span className="text-[13px] font-extrabold leading-none">?</span>
+        <span style={{ fontSize: Math.max(11, Math.round(buttonSize * 0.54)) }} className="font-extrabold leading-none">?</span>
       </button>
 
       {isOpen &&

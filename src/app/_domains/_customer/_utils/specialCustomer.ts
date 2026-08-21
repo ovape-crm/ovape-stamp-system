@@ -5,13 +5,13 @@ export const getCustomerMode = (
   phone?: string | null,
   isStampEligible = true,
 ): CustomerMode => {
+  void isStampEligible;
   const normalizedName = name.trim();
   const normalizedPhone = phone?.trim();
 
   if (normalizedName === "시연용") return "demo";
   if (normalizedName === "재고조정") return "adjustment";
   if (normalizedName === "X" && normalizedPhone === "X") return "x";
-  if (!isStampEligible) return "x";
   return "normal";
 };
 

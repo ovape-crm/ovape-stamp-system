@@ -25,7 +25,7 @@ export const getAuthenticatedStaff = async (authorization: string | null) => {
     .from("users")
     .select("id, name, oss_role")
     .eq("id", data.user.id)
-    .in("oss_role", ["staff", "admin"])
+    .in("oss_role", ["staff", "admin", "master"])
     .maybeSingle();
 
   return staff ?? null;

@@ -13,6 +13,7 @@ import {
 } from "@/app/_domains/_log/_types/log.types";
 import supabase from "@/libs/supabaseClient";
 import { getCurrentWorkerName } from "@/app/_domains/_workJournal/_utils/currentWorker";
+import { hasAdminAccess, type OssRole } from "@/app/_domains/_user/_utils/userRole";
 
 const resolveCurrentWorkerName = async () => {
   const {
@@ -24,7 +25,7 @@ const resolveCurrentWorkerName = async () => {
       .select("oss_role")
       .eq("id", session.user.id)
       .maybeSingle();
-    if (currentUser?.oss_role === "admin") return "관리자";
+    if (hasAdminAccess(currentUser?.oss_role as OssRole | undefined)) return currentUser?.oss_role === "master" ? "마스터" : "관리자";
   }
 
   const storedWorkerName = getCurrentWorkerName();

@@ -129,17 +129,54 @@ export const saveInventoryTrackingSettings = async (
   if (error) throw error;
 };
 
-export const getInventoryMovements = async (
-  limit = 100,
-): Promise<InventoryMovement[]> => {
-  const { data, error } = await supabase
-    .from("inventory_movements")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  if (error) throw error;
+export type InventoryMovementQuery = {
+  startDate?: string;
+  endDate?: string;
+  itemName?: string;
+  movementGroup?: "out" | "in" | "correction";
+  limit?: number;
+  offset?: number;
+};
 
-  const movements = (data ?? []) as InventoryMovement[];
+export const getInventoryMovementCount = async (options: InventoryMovementQuery = {}) => {
+  let query = supabase.from("inventory_movements").select("id", { count: "exact", head: true });
+  if (options.startDate) query = query.gte("created_at", `${options.startDate}T00:00:00+09:00`);
+  if (options.endDate) query = query.lte("created_at", `${options.endDate}T23:59:59.999+09:00`);
+  if (options.itemName?.trim()) query = query.ilike("item_name", `%${options.itemName.trim()}%`);
+  if (options.movementGroup === "out") query = query.lt("quantity_delta", 0);
+  if (options.movementGroup === "in") query = query.gt("quantity_delta", 0);
+  if (options.movementGroup === "correction") query = query.in("movement_type", ["outbound_edit", "outbound_cancel", "reversal"]);
+  const { count, error } = await query;
+  if (error) throw error;
+  return count ?? 0;
+};
+
+export const getInventoryMovements = async (
+  options: InventoryMovementQuery = {},
+): Promise<InventoryMovement[]> => {
+  const pageSize = 1000;
+  const movements: InventoryMovement[] = [];
+  const requestedLimit = options.limit ?? Number.POSITIVE_INFINITY;
+  const initialOffset = options.offset ?? 0;
+  for (let from = initialOffset; movements.length < requestedLimit; from += pageSize) {
+    let query = supabase
+      .from("inventory_movements")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false });
+    if (options.startDate) query = query.gte("created_at", `${options.startDate}T00:00:00+09:00`);
+    if (options.endDate) query = query.lte("created_at", `${options.endDate}T23:59:59.999+09:00`);
+    if (options.itemName?.trim()) query = query.ilike("item_name", `%${options.itemName.trim()}%`);
+    if (options.movementGroup === "out") query = query.lt("quantity_delta", 0);
+    if (options.movementGroup === "in") query = query.gt("quantity_delta", 0);
+    if (options.movementGroup === "correction") query = query.in("movement_type", ["outbound_edit", "outbound_cancel", "reversal"]);
+    const to = Math.min(from + pageSize - 1, from + requestedLimit - movements.length - 1);
+    const { data, error } = await query.range(from, to);
+    if (error) throw error;
+    const page = (data ?? []) as InventoryMovement[];
+    movements.push(...page);
+    if (page.length < pageSize || movements.length >= requestedLimit) break;
+  }
   const outboundLogIds = [
     ...new Set(
       movements

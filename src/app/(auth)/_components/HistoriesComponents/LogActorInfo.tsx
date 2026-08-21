@@ -20,8 +20,8 @@ const LogActorInfo = ({
   const modifiedAt =
     typeof jsonb?.modifiedAt === "string" ? jsonb.modifiedAt : updated_at;
   const userDisplay =
-    users?.oss_role === "admin"
-      ? "관리자"
+    users?.oss_role === "master" || users?.oss_role === "admin"
+      ? users.oss_role === "master" ? "마스터" : "관리자"
       : createdWorkerName || users?.name || users?.email || "알 수 없음";
 
   const storedModificationHistory = Array.isArray(jsonb?.modificationHistory)

@@ -215,8 +215,9 @@ export default function StampConfirmModal({
   const usesStandardSalesFlow =
     customerMode === "normal" || customerMode === "x";
   const effectiveFormCustomerMode = selectedCustomer ? "normal" : customerMode;
-  const canSelectedCustomerAccrueStamp =
-    selectedCustomer?.is_stamp_eligible !== false;
+  const canSelectedCustomerAccrueStamp = selectedCustomer
+    ? selectedCustomer.is_stamp_eligible !== false
+    : target.is_stamp_eligible !== false;
 
   useEffect(() => {
     const hasSearchableName =
@@ -384,6 +385,9 @@ export default function StampConfirmModal({
           ...(mode === "add" ? { clientRequestId: requestIdRef.current } : {}),
           reservationDate: reservationTag ? reservationDate.trim() : undefined,
         };
+        const submittedAmount = canSelectedCustomerAccrueStamp
+          ? stampLog.amount
+          : 0;
         if (mode === "edit") {
           if (!onEditSubmit) return;
           await onEditSubmit({
@@ -391,13 +395,13 @@ export default function StampConfirmModal({
             paymentType: stampLog.paymentType,
             storeName: stampLog.storeName,
             logMeta: nextLogMeta,
-            amount: stampLog.amount,
+            amount: submittedAmount,
           });
         } else {
           await onConfirm(
             nextNote,
             stampLog.paymentType,
-            stampLog.amount,
+            submittedAmount,
             nextLogMeta,
             undefined,
             isReservation,

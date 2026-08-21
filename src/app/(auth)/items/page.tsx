@@ -25,7 +25,7 @@ import DeleteConfirmModal from "@/app/(auth)/_components/DeleteConfirmModal";
 import toast from "react-hot-toast";
 import { useUser } from "@/app/_contexts/UserContext";
 import Loading from "@/app/_components/Loading";
-import ItemBulkReplaceModal from "./_components/ItemBulkReplaceModal";
+import ItemBulkEditModal from "./_components/ItemBulkEditModal";
 import OutboundMemoRuleManageModal from "./_components/OutboundMemoRuleManageModal";
 
 const ItemsPage = () => {
@@ -44,17 +44,13 @@ const ItemsPage = () => {
     setFilters(newFilters);
   };
 
-  const effectiveFilters = useMemo<ItemFilters>(
-    () => (isAdmin ? filters : { ...filters, excludePurchasePrice: true }),
-    [isAdmin, filters],
-  );
+  const effectiveFilters = useMemo<ItemFilters>(() => filters, [filters]);
 
   const handleItemSubmit = async (values: FormValues) => {
     await createItem({
       categoryId: values.categoryId || null,
       itemCode: values.itemCode,
       itemName: values.itemName,
-      purchasePrice: values.purchasePrice ?? null,
       sellingPrice: values.sellingPrice ?? null,
       liquidType: values.liquidType ?? "",
       liquidFlavor: values.liquidFlavor ?? "",
@@ -76,7 +72,6 @@ const ItemsPage = () => {
               categoryId: values.categoryId || null,
               itemCode: values.itemCode,
               itemName: values.itemName,
-              purchasePrice: values.purchasePrice ?? null,
               sellingPrice: values.sellingPrice ?? null,
               liquidType: values.liquidType ?? "",
               liquidFlavor: values.liquidFlavor ?? "",
@@ -113,12 +108,12 @@ const ItemsPage = () => {
     });
   };
 
-  const handleOpenBulkReplace = async () => {
+  const handleOpenBulkEdit = async () => {
     try {
       const items = await getAllItemsForBulk();
       open({
         content: (
-          <ItemBulkReplaceModal
+          <ItemBulkEditModal
             items={items}
             categories={categories}
             onClose={close}
@@ -184,9 +179,9 @@ const ItemsPage = () => {
                   <Button
                     size="sm"
                     variant="secondary"
-                    onClick={handleOpenBulkReplace}
+                    onClick={handleOpenBulkEdit}
                   >
-                    품목 일괄 교체
+                    품목 일괄 편집
                   </Button>
                   <Button
                     size="sm"
