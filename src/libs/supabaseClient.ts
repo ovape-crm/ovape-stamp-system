@@ -7,7 +7,12 @@ if (!supabaseUrl || !supabaseKey) {
   throw new Error('Missing Supabase environment variables');
 }
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+const projectRef = new URL(supabaseUrl).hostname.split('.')[0];
+const authStorageKey = `sb-${projectRef}-auth-token`;
+
+const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: { storageKey: authStorageKey },
+});
 
 export const isInvalidRefreshTokenError = (error: unknown) => {
   const message =
@@ -24,6 +29,13 @@ export const isInvalidRefreshTokenError = (error: unknown) => {
 };
 
 export const clearLocalSupabaseSession = async () => {
+  // Remove the persisted token first. Calling signOut while an invalid refresh
+  // token is still stored makes Supabase try that token again and emits the
+  // AuthApiError that this recovery path is meant to handle.
+  if (typeof window !== 'undefined') {
+    window.localStorage.removeItem(authStorageKey);
+  }
+
   await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
 };
 

@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import Button from "@/app/_components/Button";
 import Loading from "@/app/_components/Loading";
+import InboundCostAnalyzer from "./InboundCostAnalyzer";
 import {
   deleteSettlementHistoricalPurchase,
   getHistoricalPurchaseSuppliers,
@@ -1138,6 +1139,9 @@ export default function SettlementCostDataManager() {
               className={`${fieldClass} sm:max-w-sm`}
             />
           </div>
+          {(costMode === "historical" || costMode === "opening_20260722") && (
+            <InboundCostAnalyzer items={costsQuery.data ?? []} />
+          )}
           {(costMode === "historical" || costMode === "opening_20260722") && (
             <section className="rounded-xl border border-gray-200 bg-gray-50/70 p-3">
               <div className="flex flex-wrap items-center justify-between gap-3">

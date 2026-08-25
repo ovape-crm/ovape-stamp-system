@@ -22,6 +22,8 @@ const getKoreaRange = (startDate: string, endDate: string) => ({
 });
 
 const PAGE_SIZE = 1000;
+const LIVE_SALES_START_DATE = "2026-06-01";
+const HISTORICAL_SALES_END_DATE = "2026-05-31";
 const LIVE_PURCHASE_START_DATE = "2026-07-22";
 const HISTORICAL_PURCHASE_END_DATE = "2026-07-21";
 const PURCHASE_NOTE_MARKER = /^\[\[tax_invoice:(.*?)\]\]\r?\n?/;
@@ -29,6 +31,14 @@ const PURCHASE_INVOICE_LABELS: Record<string, string> = {
   tax_invoice: "세금계산서",
   cash_receipt: "현금영수증",
   x: "X",
+};
+const HISTORICAL_EXPENSE_LABELS: Record<string, string> = {
+  demo: "시연용",
+  service: "서비스",
+  coupon_redemption: "쿠폰 사용",
+  operating_expense: "관리비",
+  historical_exchange_unspecified: "교환 손실 (26년 1월~5월)",
+  delivery_expense: "고객 배달비용",
 };
 
 const fetchPaged = async <T>(
@@ -53,9 +63,7 @@ type PurchaseReceiptLineSummary = {
   id: string;
   quantity: number | null;
   inventory_purchase_order_lines:
-    | PurchaseSourceLine
-    | PurchaseSourceLine[]
-    | null;
+    PurchaseSourceLine | PurchaseSourceLine[] | null;
 };
 type PurchaseReceiptForAllocation = {
   id: string;
@@ -65,20 +73,15 @@ type PurchaseReceiptForAllocation = {
 type PurchaseOrderSummary = {
   note: string | null;
   inventory_suppliers:
-    | { name: string | null }
-    | { name: string | null }[]
-    | null;
+    { name: string | null } | { name: string | null }[] | null;
   inventory_purchase_order_adjustments:
-    | { kind: "discount" | "payment"; amount: number | null }[]
-    | null;
+    { kind: "discount" | "payment"; amount: number | null }[] | null;
   inventory_purchase_receipts: PurchaseReceiptForAllocation[] | null;
 };
 type PurchaseReceiptSummary = PurchaseReceiptForAllocation & {
   arrived_on: string;
   inventory_purchase_orders:
-    | PurchaseOrderSummary
-    | PurchaseOrderSummary[]
-    | null;
+    PurchaseOrderSummary | PurchaseOrderSummary[] | null;
 };
 
 const getOne = <T>(value: T | T[] | null | undefined): T | null =>
@@ -100,29 +103,74 @@ export const getSettlementSummary = async (
   startDate: string,
   endDate: string,
 ): Promise<SettlementSummary> => {
-  const range = getKoreaRange(startDate, endDate);
+  const liveSalesStart =
+    startDate > LIVE_SALES_START_DATE ? startDate : LIVE_SALES_START_DATE;
+  const historicalSalesEnd =
+    endDate < HISTORICAL_SALES_END_DATE ? endDate : HISTORICAL_SALES_END_DATE;
+  const liveSalesRange = getKoreaRange(liveSalesStart, endDate);
   const livePurchaseStart =
-    startDate > LIVE_PURCHASE_START_DATE
-      ? startDate
-      : LIVE_PURCHASE_START_DATE;
+    startDate > LIVE_PURCHASE_START_DATE ? startDate : LIVE_PURCHASE_START_DATE;
   const historicalPurchaseEnd =
     endDate < HISTORICAL_PURCHASE_END_DATE
       ? endDate
       : HISTORICAL_PURCHASE_END_DATE;
-  const [logs, receipts, historicalPurchases, receiptUnitPrices] =
-    await Promise.all([
-    fetchPaged<{ jsonb: unknown }>(async (from, to) => {
-      const { data, error } = await supabase
-        .from("logs")
-        .select("jsonb")
-        .eq("category", "stamp")
-        .gte("created_at", range.start)
-        .lt("created_at", range.end)
-        .order("created_at")
-        .order("id")
-        .range(from, to);
-      return { data: data as { jsonb: unknown }[] | null, error };
-    }),
+  const [
+    logs,
+    historicalSales,
+    receipts,
+    historicalPurchases,
+    receiptUnitPrices,
+  ] = await Promise.all([
+    liveSalesStart <= endDate
+      ? fetchPaged<{ jsonb: unknown }>(async (from, to) => {
+          const { data, error } = await supabase
+            .from("logs")
+            .select("jsonb")
+            .eq("category", "stamp")
+            .gte("created_at", liveSalesRange.start)
+            .lt("created_at", liveSalesRange.end)
+            .order("created_at")
+            .order("id")
+            .range(from, to);
+          return { data: data as { jsonb: unknown }[] | null, error };
+        })
+      : Promise.resolve([] as { jsonb: unknown }[]),
+    startDate <= historicalSalesEnd
+      ? fetchPaged<{
+          store: "ovape" | "eguvape";
+          payment_type: string | null;
+          sales_amount: number | null;
+          purchase_cost: number | null;
+        }>(async (from, to) => {
+          const { data, error } = await supabase
+            .from("settlement_historical_transactions")
+            .select("store, payment_type, sales_amount, purchase_cost")
+            .eq("classification", "payment_sale")
+            .gte("business_date", startDate)
+            .lte("business_date", historicalSalesEnd)
+            .order("business_date")
+            .order("id")
+            .range(from, to);
+          return {
+            data: data as
+              | {
+                  store: "ovape" | "eguvape";
+                  payment_type: string | null;
+                  sales_amount: number | null;
+                  purchase_cost: number | null;
+                }[]
+              | null,
+            error,
+          };
+        })
+      : Promise.resolve(
+          [] as {
+            store: "ovape" | "eguvape";
+            payment_type: string | null;
+            sales_amount: number | null;
+            purchase_cost: number | null;
+          }[],
+        ),
     livePurchaseStart <= endDate
       ? fetchPaged<PurchaseReceiptSummary>(async (from, to) => {
           const { data, error } = await supabase
@@ -164,44 +212,38 @@ export const getSettlementSummary = async (
           invoice_type: string;
           total_amount: number | null;
           inventory_suppliers:
-            | { name: string | null }
-            | { name: string | null }[]
-            | null;
-        }>(
-          async (from, to) => {
-            const { data, error } = await supabase
-              .from("settlement_historical_purchases")
-              .select("store, invoice_type, total_amount, inventory_suppliers(name)")
-              .gte("order_date", startDate)
-              .lte("order_date", historicalPurchaseEnd)
-              .order("order_date")
-              .order("id")
-              .range(from, to);
-            return {
-              data: data as
-                | {
-                    store: string;
-                    invoice_type: string;
-                    total_amount: number | null;
-                    inventory_suppliers:
-                      | { name: string | null }
-                      | { name: string | null }[]
-                      | null;
-                  }[]
-                | null,
-              error,
-            };
-          },
-        )
+            { name: string | null } | { name: string | null }[] | null;
+        }>(async (from, to) => {
+          const { data, error } = await supabase
+            .from("settlement_historical_purchases")
+            .select(
+              "store, invoice_type, total_amount, inventory_suppliers(name)",
+            )
+            .gte("order_date", startDate)
+            .lte("order_date", historicalPurchaseEnd)
+            .order("order_date")
+            .order("id")
+            .range(from, to);
+          return {
+            data: data as
+              | {
+                  store: string;
+                  invoice_type: string;
+                  total_amount: number | null;
+                  inventory_suppliers:
+                    { name: string | null } | { name: string | null }[] | null;
+                }[]
+              | null,
+            error,
+          };
+        })
       : Promise.resolve(
           [] as {
             store: string;
             invoice_type: string;
             total_amount: number | null;
             inventory_suppliers:
-              | { name: string | null }
-              | { name: string | null }[]
-              | null;
+              { name: string | null } | { name: string | null }[] | null;
           }[],
         ),
     livePurchaseStart <= endDate
@@ -251,6 +293,15 @@ export const getSettlementSummary = async (
       );
     }
   }
+  for (const row of historicalSales) {
+    const paymentType = String(row.payment_type ?? "");
+    addPayment(
+      row.store === "eguvape" && !paymentType.startsWith("egu_")
+        ? `egu_${paymentType}`
+        : paymentType,
+      Number(row.sales_amount ?? 0),
+    );
+  }
 
   const purchases: Record<string, number> = {};
   const addPurchase = (label: string, amount: number) => {
@@ -279,14 +330,15 @@ export const getSettlementSummary = async (
       (total, item) => total + item.gross,
       0,
     );
-    const netAdjustment = (order.inventory_purchase_order_adjustments ?? [])
-      .reduce(
-        (total, adjustment) =>
-          total +
-          (adjustment.kind === "discount" ? -1 : 1) *
-            Number(adjustment.amount ?? 0),
-        0,
-      );
+    const netAdjustment = (
+      order.inventory_purchase_order_adjustments ?? []
+    ).reduce(
+      (total, adjustment) =>
+        total +
+        (adjustment.kind === "discount" ? -1 : 1) *
+          Number(adjustment.amount ?? 0),
+      0,
+    );
     const receiptIndex = activeOrderReceipts.findIndex(
       (item) => item.id === receipt.id,
     );
@@ -296,13 +348,14 @@ export const getSettlementSummary = async (
     const adjustmentShare =
       totalOrderGross > 0 && receiptIndex >= 0
         ? Math.round(
-            (netAdjustment * (previousGross + receiptGross)) /
-              totalOrderGross,
+            (netAdjustment * (previousGross + receiptGross)) / totalOrderGross,
           ) - Math.round((netAdjustment * previousGross) / totalOrderGross)
         : 0;
     const amount = receiptGross + adjustmentShare;
     const marker =
-      String(order.note ?? "").match(PURCHASE_NOTE_MARKER)?.[1]?.trim() ?? "";
+      String(order.note ?? "")
+        .match(PURCHASE_NOTE_MARKER)?.[1]
+        ?.trim() ?? "";
     const supplierName = getOne(order.inventory_suppliers)?.name?.trim();
     addPurchase(
       marker && marker !== "X"
@@ -330,7 +383,15 @@ export const getSettlementSummary = async (
     );
   }
 
-  return { sales, purchases };
+  const soldItemCost =
+    endDate <= HISTORICAL_SALES_END_DATE
+      ? historicalSales.reduce(
+          (total, row) => total + Number(row.purchase_cost ?? 0),
+          0,
+        )
+      : null;
+
+  return { sales, purchases, soldItemCost };
 };
 
 export const getSettlementExpenses = async (
@@ -369,7 +430,50 @@ export const getSettlementExpenseOccurrences = async (
   startDate: string,
   endDate: string,
 ): Promise<SettlementExpenseOccurrence[]> => {
-  const expenses = await getSettlementExpenses(startDate, endDate);
+  const historicalEnd =
+    endDate < HISTORICAL_SALES_END_DATE ? endDate : HISTORICAL_SALES_END_DATE;
+  const [expenses, historicalExpenses] = await Promise.all([
+    getSettlementExpenses(startDate, endDate),
+    startDate <= historicalEnd
+      ? fetchPaged<{
+          id: string;
+          business_date: string;
+          store: "ovape" | "eguvape";
+          raw_type: string;
+          memo: string | null;
+          purchase_cost: number | null;
+          classification: string;
+          created_at: string;
+        }>(async (from, to) => {
+          const { data, error } = await supabase
+            .from("settlement_historical_transactions")
+            .select(
+              "id, business_date, store, raw_type, memo, purchase_cost, classification, created_at",
+            )
+            .neq("classification", "payment_sale")
+            .gte("business_date", startDate)
+            .lte("business_date", historicalEnd)
+            .order("business_date", { ascending: false })
+            .order("id")
+            .range(from, to);
+          return {
+            data: data as
+              | {
+                  id: string;
+                  business_date: string;
+                  store: "ovape" | "eguvape";
+                  raw_type: string;
+                  memo: string | null;
+                  purchase_cost: number | null;
+                  classification: string;
+                  created_at: string;
+                }[]
+              | null,
+            error,
+          };
+        })
+      : Promise.resolve([]),
+  ]);
   const occurrences: SettlementExpenseOccurrence[] = [];
   for (const expense of expenses) {
     if (!expense.is_recurring) {
@@ -402,9 +506,28 @@ export const getSettlementExpenseOccurrences = async (
       cursor.setMonth(cursor.getMonth() + 1);
     }
   }
-  return occurrences.sort((left, right) =>
-    right.occurrence_date.localeCompare(left.occurrence_date) ||
-    right.created_at.localeCompare(left.created_at),
+  for (const expense of historicalExpenses) {
+    occurrences.push({
+      id: `historical-${expense.id}`,
+      expense_date: expense.business_date,
+      occurrence_date: expense.business_date,
+      category:
+        HISTORICAL_EXPENSE_LABELS[expense.classification] ?? expense.raw_type,
+      category_id: null,
+      amount: Number(expense.purchase_cost ?? 0),
+      store: expense.store,
+      is_recurring: false,
+      recurrence_day: null,
+      recurrence_end_date: null,
+      recurrence_cancelled_on: null,
+      note: expense.memo,
+      created_at: expense.created_at,
+    });
+  }
+  return occurrences.sort(
+    (left, right) =>
+      right.occurrence_date.localeCompare(left.occurrence_date) ||
+      right.created_at.localeCompare(left.created_at),
   );
 };
 
@@ -568,9 +691,7 @@ export const getSettlementCostItems = async (): Promise<
     const isBefore = log.created_at < "2026-07-21T15:00:00+00:00";
     const jsonb = (log.jsonb ?? {}) as Record<string, unknown>;
     if (jsonb.afterServiceOperation === "cost") continue;
-    const items = Array.isArray(
-      jsonb.items,
-    )
+    const items = Array.isArray(jsonb.items)
       ? (jsonb.items as Array<Record<string, unknown>>)
       : [];
     for (const item of items) {
@@ -589,7 +710,9 @@ export const getSettlementCostItems = async (): Promise<
       const id = currentItem?.item_id ?? exactTrackedItem?.item_id ?? null;
       const quantity = Number(item.quantity ?? 0);
       const action = String(item.inventoryAction ?? "").trim();
-      const remark = String(item.remark ?? "").normalize("NFC").trim();
+      const remark = String(item.remark ?? "")
+        .normalize("NFC")
+        .trim();
       const isNormalOutbound = action === "" || action === "out";
       const isNonSaleRemark =
         /^(?:서비스|시연용|교환입고|교환출고|A\/S 교환출고|재고조정-(?:입고|출고))(?:$|[,\s(])/.test(

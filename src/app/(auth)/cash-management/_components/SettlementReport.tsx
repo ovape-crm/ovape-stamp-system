@@ -59,8 +59,7 @@ const storeLabels: Record<SettlementStore, string> = {
 
 export default function SettlementReport() {
   const today = getTodayInKorea();
-  const [periodMode, setPeriodMode] =
-    useState<SettlementPeriodMode>("month");
+  const [periodMode, setPeriodMode] = useState<SettlementPeriodMode>("month");
   const [settlementMonth, setSettlementMonth] = useState(
     getCurrentMonthInKorea,
   );
@@ -90,21 +89,35 @@ export default function SettlementReport() {
     enabled: rangeValid,
   });
   const expensesQuery = useQuery({
-    queryKey: ["settlement-expense-occurrences", selectedRange.start, selectedRange.end],
-    queryFn: () => getSettlementExpenseOccurrences(selectedRange.start, selectedRange.end),
+    queryKey: [
+      "settlement-expense-occurrences",
+      selectedRange.start,
+      selectedRange.end,
+    ],
+    queryFn: () =>
+      getSettlementExpenseOccurrences(selectedRange.start, selectedRange.end),
     enabled: rangeValid,
   });
-  const ovapeSales = Object.values(summaryQuery.data?.sales.ovape ?? {}).reduce((a, b) => a + b, 0);
-  const eguvapeSales = Object.values(summaryQuery.data?.sales.eguvape ?? {}).reduce((a, b) => a + b, 0);
+  const ovapeSales = Object.values(summaryQuery.data?.sales.ovape ?? {}).reduce(
+    (a, b) => a + b,
+    0,
+  );
+  const eguvapeSales = Object.values(
+    summaryQuery.data?.sales.eguvape ?? {},
+  ).reduce((a, b) => a + b, 0);
   const totalSales = ovapeSales + eguvapeSales;
-  const totalPurchases = Object.values(summaryQuery.data?.purchases ?? {}).reduce((a, b) => a + b, 0);
+  const totalPurchases = Object.values(
+    summaryQuery.data?.purchases ?? {},
+  ).reduce((a, b) => a + b, 0);
   const purchaseRows = Object.entries(summaryQuery.data?.purchases ?? {}).sort(
     ([left], [right]) => {
       const leftIndex = preferredPurchaseOrder.indexOf(left);
       const rightIndex = preferredPurchaseOrder.indexOf(right);
       if (leftIndex >= 0 || rightIndex >= 0) {
-        return (leftIndex < 0 ? preferredPurchaseOrder.length : leftIndex) -
-          (rightIndex < 0 ? preferredPurchaseOrder.length : rightIndex);
+        return (
+          (leftIndex < 0 ? preferredPurchaseOrder.length : leftIndex) -
+          (rightIndex < 0 ? preferredPurchaseOrder.length : rightIndex)
+        );
       }
       return left.localeCompare(right, "ko-KR");
     },
@@ -127,8 +140,7 @@ export default function SettlementReport() {
               </span>
             </div>
             <p className="mt-1 text-sm text-gray-500">
-              선택한 기간의 결제 매출, 매입, 재고 변동을 한곳에서
-              정산합니다.
+              선택한 기간의 결제 매출, 매입, 재고 변동을 한곳에서 정산합니다.
             </p>
           </div>
         </div>
@@ -192,34 +204,71 @@ export default function SettlementReport() {
         </div>
       </section>
 
-      {(summaryQuery.isPending || expensesQuery.isPending) && <Loading size="sm" text="정산 금액을 불러오는 중..." />}
+      {(summaryQuery.isPending || expensesQuery.isPending) && (
+        <Loading size="sm" text="정산 금액을 불러오는 중..." />
+      )}
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          { label: "전체 매출", value: totalSales, description: "오베이프와 이구베이프 결제 매출" },
-          { label: "기간 매입액", value: totalPurchases, description: "해당 기간에 입고된 상품 금액" },
-          { label: "판매품목 매출원가", value: null, description: "원가 산정 방식 확정 후 연결" },
-          { label: "기타비용", value: totalExpenses, description: "직접 등록한 운영 비용" },
+          {
+            label: "전체 매출",
+            value: totalSales,
+            description: "오베이프와 이구베이프 결제 매출",
+          },
+          {
+            label: "기간 매입액",
+            value: totalPurchases,
+            description: "해당 기간에 입고된 상품 금액",
+          },
+          {
+            label: "판매품목 매출원가",
+            value: summaryQuery.data?.soldItemCost ?? null,
+            description:
+              summaryQuery.data?.soldItemCost == null
+                ? "원가 산정 방식 확정 후 연결"
+                : "결제 판매 건의 품목별 매입가 합계",
+          },
+          {
+            label: "기타비용",
+            value: totalExpenses,
+            description: "직접 등록한 운영 비용",
+          },
         ].map((item) => (
           <div
             key={item.label}
             className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
           >
             <p className="text-sm font-semibold text-gray-700">{item.label}</p>
-            <p className="mt-3 text-2xl font-bold text-gray-900">{item.value == null ? "—" : formatWon(item.value)}</p>
+            <p className="mt-3 text-2xl font-bold text-gray-900">
+              {item.value == null ? "—" : formatWon(item.value)}
+            </p>
             <p className="mt-1 text-xs text-gray-500">{item.description}</p>
           </div>
         ))}
       </section>
 
       <section className="grid gap-4 lg:grid-cols-3">
-        <SalesCard title="오베이프 매출" payments={summaryQuery.data?.sales.ovape} total={ovapeSales} />
-        <SalesCard title="이구베이프 매출" payments={summaryQuery.data?.sales.eguvape} total={eguvapeSales} />
+        <SalesCard
+          title="오베이프 매출"
+          payments={summaryQuery.data?.sales.ovape}
+          total={ovapeSales}
+        />
+        <SalesCard
+          title="이구베이프 매출"
+          payments={summaryQuery.data?.sales.eguvape}
+          total={eguvapeSales}
+        />
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-          <h2 className="border-b border-gray-200 bg-gray-50/70 px-4 py-3 text-sm font-bold text-gray-900">기간 매입액</h2>
+          <h2 className="border-b border-gray-200 bg-gray-50/70 px-4 py-3 text-sm font-bold text-gray-900">
+            기간 매입액
+          </h2>
           <div className="divide-y divide-gray-100 px-4">
-            {purchaseRows.map(([label, value]) => <AmountRow key={label} label={label} value={value} />)}
-            {!purchaseRows.length && <AmountRow label="매입 내역 없음" value={0} />}
+            {purchaseRows.map(([label, value]) => (
+              <AmountRow key={label} label={label} value={value} />
+            ))}
+            {!purchaseRows.length && (
+              <AmountRow label="매입 내역 없음" value={0} />
+            )}
             <AmountRow label="합계" value={totalPurchases} strong />
           </div>
         </div>
@@ -245,29 +294,51 @@ export default function SettlementReport() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {expenseOccurrences.map((expense) => (
-                <tr key={`${expense.id}-${expense.occurrence_date}`} className="text-gray-700">
-                  <td className="whitespace-nowrap px-4 py-3">{expense.occurrence_date}</td>
+                <tr
+                  key={`${expense.id}-${expense.occurrence_date}`}
+                  className="text-gray-700"
+                >
+                  <td className="whitespace-nowrap px-4 py-3">
+                    {expense.occurrence_date}
+                  </td>
                   <td className="px-4 py-3 font-semibold text-gray-900">
                     {expense.category}
                     {expense.is_recurring && (
-                      <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500">반복</span>
+                      <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500">
+                        반복
+                      </span>
                     )}
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3">{storeLabels[expense.store]}</td>
-                  <td className="max-w-[320px] px-4 py-3 text-gray-500">{expense.note || "—"}</td>
-                  <td className="whitespace-nowrap px-4 py-3 text-right font-semibold text-gray-900">{formatWon(expense.amount)}</td>
+                  <td className="whitespace-nowrap px-4 py-3">
+                    {storeLabels[expense.store]}
+                  </td>
+                  <td className="max-w-[320px] px-4 py-3 text-gray-500">
+                    {expense.note || "—"}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-right font-semibold text-gray-900">
+                    {formatWon(expense.amount)}
+                  </td>
                 </tr>
               ))}
               {!expenseOccurrences.length && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-400">선택한 기간의 기타비용 내역이 없습니다.</td>
+                  <td
+                    colSpan={5}
+                    className="px-4 py-10 text-center text-sm text-gray-400"
+                  >
+                    선택한 기간의 기타비용 내역이 없습니다.
+                  </td>
                 </tr>
               )}
             </tbody>
             <tfoot className="border-t border-gray-200 bg-gray-50/70">
               <tr className="font-bold text-gray-900">
-                <td colSpan={4} className="px-4 py-3">합계</td>
-                <td className="whitespace-nowrap px-4 py-3 text-right">{formatWon(totalExpenses)}</td>
+                <td colSpan={4} className="px-4 py-3">
+                  합계
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-right">
+                  {formatWon(totalExpenses)}
+                </td>
               </tr>
             </tfoot>
           </table>
@@ -279,9 +350,9 @@ export default function SettlementReport() {
           재고조정은 정산 금액에서 제외됩니다.
         </p>
         <p className="mt-1 text-sm text-gray-500">
-          고객에게 받은 A/S 택배비는 매출에 포함되며, 택배사에 실제로
-          지급한 금액과 실제 재고손실만 기타비용에 등록합니다. 판매품목
-          매출원가는 원가 산정 기준을 확정한 뒤 별도로 연결합니다.
+          고객에게 받은 A/S 택배비는 매출에 포함되며, 택배사에 실제로 지급한
+          금액과 실제 재고손실만 기타비용에 등록합니다. 판매품목 매출원가는 원가
+          산정 기준을 확정한 뒤 별도로 연결합니다.
         </p>
       </section>
     </div>
@@ -313,6 +384,41 @@ const DateField = ({
   </label>
 );
 
-const AmountRow = ({ label, value, strong = false }: { label: string; value: number; strong?: boolean }) => <div className={`flex items-center justify-between gap-3 py-3 text-sm ${strong ? "font-bold text-gray-900" : "text-gray-600"}`}><span>{label}</span><span className="font-semibold">{formatWon(value)}</span></div>;
+const AmountRow = ({
+  label,
+  value,
+  strong = false,
+}: {
+  label: string;
+  value: number;
+  strong?: boolean;
+}) => (
+  <div
+    className={`flex items-center justify-between gap-3 py-3 text-sm ${strong ? "font-bold text-gray-900" : "text-gray-600"}`}
+  >
+    <span>{label}</span>
+    <span className="font-semibold">{formatWon(value)}</span>
+  </div>
+);
 
-const SalesCard = ({ title, payments, total }: { title: string; payments?: Record<string, number>; total: number }) => <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"><h2 className="border-b border-gray-200 bg-gray-50/70 px-4 py-3 text-sm font-bold text-gray-900">{title}</h2><div className="divide-y divide-gray-100 px-4">{paymentRows.map(([key, label]) => <AmountRow key={key} label={label} value={payments?.[key] ?? 0} />)}<AmountRow label="합계" value={total} strong /></div></div>;
+const SalesCard = ({
+  title,
+  payments,
+  total,
+}: {
+  title: string;
+  payments?: Record<string, number>;
+  total: number;
+}) => (
+  <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+    <h2 className="border-b border-gray-200 bg-gray-50/70 px-4 py-3 text-sm font-bold text-gray-900">
+      {title}
+    </h2>
+    <div className="divide-y divide-gray-100 px-4">
+      {paymentRows.map(([key, label]) => (
+        <AmountRow key={key} label={label} value={payments?.[key] ?? 0} />
+      ))}
+      <AmountRow label="합계" value={total} strong />
+    </div>
+  </div>
+);
