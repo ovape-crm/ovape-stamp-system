@@ -82,6 +82,13 @@ const AfterServicesPage = () => {
   // AS 생성 핸들러
   // ========================================================================
   const handleAfterServiceSubmit = async (values: {
+    caseType: "customer_as" | "vendor_exchange" | "store_product_as";
+    supplierId: string;
+    costAllocations: Array<{
+      sourceReceiptLineId: string | null;
+      unitPrice: number;
+      quantity: number;
+    }>;
     customerId: string;
     itemType: string;
     itemName: string;
@@ -145,6 +152,8 @@ const AfterServicesPage = () => {
         shopNote: values.shopNote,
         customerNote: values.customerNote,
         isLoanerDeviceIssued: values.isLoanerDeviceIssued,
+        caseType: values.caseType,
+        supplierId: values.caseType === "customer_as" ? undefined : values.supplierId,
         status: values.isExchangeIssued
           ? AfterServiceStatusEnum.EXCHANGE.value
           : values.isRentalIssued
@@ -285,7 +294,11 @@ const AfterServicesPage = () => {
       }
       console.error("AS 등록 실패:", err);
       toast.error(
-        err instanceof Error ? err.message : "AS 등록에 실패했습니다.",
+        err instanceof Error && err.message.includes("INSUFFICIENT_INVENTORY")
+          ? "현재 재고보다 많이 출고할 수 없습니다."
+          : err instanceof Error
+            ? err.message
+            : "AS 등록에 실패했습니다.",
       );
     } finally {
       setIsSubmitting(false);

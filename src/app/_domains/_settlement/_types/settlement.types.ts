@@ -20,11 +20,15 @@ export type SettlementExpenseCategory = {
   name: string;
 };
 
+export type SettlementExpenseOccurrence = SettlementExpense & {
+  occurrence_date: string;
+};
+
 export type StorePaymentSales = Record<string, number>;
 
 export type SettlementSummary = {
   sales: { ovape: StorePaymentSales; eguvape: StorePaymentSales };
-  purchases: { ovape: number; eguvape: number; other: number };
+  purchases: Record<string, number>;
 };
 
 export type SettlementCostBasisType = "historical" | "opening_20260722";

@@ -73,12 +73,19 @@ const parseBulkPurchases = (
     return { rows: [] as BulkPurchaseRow[], errors: [] as string[] };
   const headers = lines[0].map(normalizeHeader);
   const indexOf = (...names: string[]) =>
-    headers.findIndex((header) => names.includes(header));
+    headers.findIndex((header) =>
+      names.some(
+        (name) =>
+          header === name ||
+          header.startsWith(name) ||
+          header.replaceAll(/[^가-힣a-zA-Z0-9]/g, "") === name,
+      ),
+    );
   const indexes = {
     supplier: indexOf("도매처", "거래처"),
     date: indexOf("주문날짜"),
-    kind: indexOf("종류"),
-    amount: indexOf("금액"),
+    kind: indexOf("종류", "제품명"),
+    amount: indexOf("금액", "총매입", "총매입가", "총매입액", "매입금액"),
     issuance: indexOf("발행종류"),
   };
   const missingHeaders = [
@@ -131,7 +138,7 @@ const parseBulkPurchases = (
     const allowedKinds = ["매입", "도매처할인", "도매택배비", "적립금사용"];
     const rowErrors = [
       !supplier ? `등록되지 않은 거래처: ${supplierName || "빈 값"}` : "",
-      !orderDate || orderDate < "2026-06-01" || orderDate > "2026-07-21"
+      !orderDate || orderDate < "2026-01-01" || orderDate > "2026-07-21"
         ? "주문날짜 오류"
         : "",
       !allowedKinds.includes(kind) ? `종류 오류: ${kind || "빈 값"}` : "",
@@ -692,8 +699,8 @@ export default function SettlementCostDataManager() {
             {bulkPasteOpen && (
               <div className="mt-3 space-y-3 border-t border-gray-200 pt-3">
                 <p className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs leading-5 text-gray-600">
-                  필수 열: <strong>거래처</strong>, <strong>주문날짜</strong>,{" "}
-                  <strong>종류</strong>, <strong>금액</strong>,{" "}
+                  필수 열: <strong>거래처(또는 도매처)</strong>, <strong>주문날짜</strong>,{" "}
+                  <strong>종류(또는 제품명)</strong>, <strong>금액(또는 총 매입)</strong>,{" "}
                   <strong>발행 종류</strong>
                   <br />
                   종류 값: 매입/도매처할인/도매택배비/적립금사용 · 발행 종류 값:

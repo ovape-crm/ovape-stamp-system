@@ -36,6 +36,9 @@ type AfterServiceDetailType = {
   repair_receipt_match_type?: 'match' | 'mismatch' | null;
   repair_receipt_note?: string | null;
   repair_receipt_arrived_on?: string | null;
+  service_case_type?: 'customer_as' | 'vendor_exchange' | 'store_product_as';
+  outbound_supplier_id?: string | null;
+  outbound_processed_at?: string | null;
   status: string;
   created_at: string;
   updated_at?: string;

@@ -6,6 +6,7 @@ import {
 import {
   SettlementExpense,
   SettlementExpenseCategory,
+  SettlementExpenseOccurrence,
   SettlementCostBasisType,
   SettlementHistoricalPurchase,
   SettlementSoldItem,
@@ -24,14 +25,11 @@ const PAGE_SIZE = 1000;
 const LIVE_PURCHASE_START_DATE = "2026-07-22";
 const HISTORICAL_PURCHASE_END_DATE = "2026-07-21";
 const PURCHASE_NOTE_MARKER = /^\[\[tax_invoice:(.*?)\]\]\r?\n?/;
-const OVAPE_PURCHASE_MARKERS = new Set([
-  "오베이프 세금계산서",
-  "오베이프 현금영수증",
-]);
-const EGUVAPE_PURCHASE_MARKERS = new Set([
-  "이구베이프 세금계산서",
-  "이구베이프 현금영수증",
-]);
+const PURCHASE_INVOICE_LABELS: Record<string, string> = {
+  tax_invoice: "세금계산서",
+  cash_receipt: "현금영수증",
+  x: "X",
+};
 
 const fetchPaged = async <T>(
   getPage: (
@@ -66,6 +64,10 @@ type PurchaseReceiptForAllocation = {
 };
 type PurchaseOrderSummary = {
   note: string | null;
+  inventory_suppliers:
+    | { name: string | null }
+    | { name: string | null }[]
+    | null;
   inventory_purchase_order_adjustments:
     | { kind: "discount" | "payment"; amount: number | null }[]
     | null;
@@ -129,6 +131,7 @@ export const getSettlementSummary = async (
               `id, arrived_on, reversed_at,
               inventory_purchase_orders(
                 note,
+                inventory_suppliers(name),
                 inventory_purchase_order_adjustments(kind, amount),
                 inventory_purchase_receipts(
                   id, reversed_at,
@@ -156,11 +159,19 @@ export const getSettlementSummary = async (
         })
       : Promise.resolve([] as PurchaseReceiptSummary[]),
     startDate <= historicalPurchaseEnd
-      ? fetchPaged<{ store: string; total_amount: number | null }>(
+      ? fetchPaged<{
+          store: string;
+          invoice_type: string;
+          total_amount: number | null;
+          inventory_suppliers:
+            | { name: string | null }
+            | { name: string | null }[]
+            | null;
+        }>(
           async (from, to) => {
             const { data, error } = await supabase
               .from("settlement_historical_purchases")
-              .select("store, total_amount")
+              .select("store, invoice_type, total_amount, inventory_suppliers(name)")
               .gte("order_date", startDate)
               .lte("order_date", historicalPurchaseEnd)
               .order("order_date")
@@ -168,14 +179,30 @@ export const getSettlementSummary = async (
               .range(from, to);
             return {
               data: data as
-                | { store: string; total_amount: number | null }[]
+                | {
+                    store: string;
+                    invoice_type: string;
+                    total_amount: number | null;
+                    inventory_suppliers:
+                      | { name: string | null }
+                      | { name: string | null }[]
+                      | null;
+                  }[]
                 | null,
               error,
             };
           },
         )
       : Promise.resolve(
-          [] as { store: string; total_amount: number | null }[],
+          [] as {
+            store: string;
+            invoice_type: string;
+            total_amount: number | null;
+            inventory_suppliers:
+              | { name: string | null }
+              | { name: string | null }[]
+              | null;
+          }[],
         ),
     livePurchaseStart <= endDate
       ? (async () => {
@@ -225,7 +252,10 @@ export const getSettlementSummary = async (
     }
   }
 
-  const purchases = { ovape: 0, eguvape: 0, other: 0 };
+  const purchases: Record<string, number> = {};
+  const addPurchase = (label: string, amount: number) => {
+    purchases[label] = (purchases[label] ?? 0) + amount;
+  };
   for (const receipt of receipts) {
     const order = getOne(receipt.inventory_purchase_orders);
     const receiptGross = getPurchaseReceiptGross(
@@ -273,15 +303,31 @@ export const getSettlementSummary = async (
     const amount = receiptGross + adjustmentShare;
     const marker =
       String(order.note ?? "").match(PURCHASE_NOTE_MARKER)?.[1]?.trim() ?? "";
-    if (OVAPE_PURCHASE_MARKERS.has(marker)) purchases.ovape += amount;
-    else if (EGUVAPE_PURCHASE_MARKERS.has(marker)) purchases.eguvape += amount;
-    else purchases.other += amount;
+    const supplierName = getOne(order.inventory_suppliers)?.name?.trim();
+    addPurchase(
+      marker && marker !== "X"
+        ? marker
+        : `${supplierName || "매입처 미지정"} · ${marker || "발행 종류 미지정"}`,
+      amount,
+    );
   }
   for (const purchase of historicalPurchases) {
     const amount = Number(purchase.total_amount ?? 0);
-    if (purchase.store === "ovape") purchases.ovape += amount;
-    else if (purchase.store === "eguvape") purchases.eguvape += amount;
-    else purchases.other += amount;
+    const storeLabel =
+      purchase.store === "ovape"
+        ? "오베이프"
+        : purchase.store === "eguvape"
+          ? "이구베이프"
+          : "";
+    const supplierName = getOne(purchase.inventory_suppliers)?.name?.trim();
+    const invoiceLabel =
+      PURCHASE_INVOICE_LABELS[purchase.invoice_type] ?? purchase.invoice_type;
+    addPurchase(
+      storeLabel && purchase.invoice_type !== "x"
+        ? `${storeLabel} ${invoiceLabel}`
+        : `${supplierName || storeLabel || "매입처 미지정"} · ${invoiceLabel}`,
+      amount,
+    );
   }
 
   return { sales, purchases };
@@ -315,12 +361,20 @@ export const getSettlementExpenseTotal = async (
   startDate: string,
   endDate: string,
 ) => {
+  const occurrences = await getSettlementExpenseOccurrences(startDate, endDate);
+  return occurrences.reduce((total, expense) => total + expense.amount, 0);
+};
+
+export const getSettlementExpenseOccurrences = async (
+  startDate: string,
+  endDate: string,
+): Promise<SettlementExpenseOccurrence[]> => {
   const expenses = await getSettlementExpenses(startDate, endDate);
-  let total = 0;
+  const occurrences: SettlementExpenseOccurrence[] = [];
   for (const expense of expenses) {
     if (!expense.is_recurring) {
       if (expense.expense_date >= startDate && expense.expense_date <= endDate)
-        total += expense.amount;
+        occurrences.push({ ...expense, occurrence_date: expense.expense_date });
       continue;
     }
     const day =
@@ -344,11 +398,14 @@ export const getSettlementExpenseTotal = async (
         (!recurrenceEnd || occurrence <= recurrenceEnd) &&
         (!cancelledOn || occurrence < cancelledOn)
       )
-        total += expense.amount;
+        occurrences.push({ ...expense, occurrence_date: occurrence });
       cursor.setMonth(cursor.getMonth() + 1);
     }
   }
-  return total;
+  return occurrences.sort((left, right) =>
+    right.occurrence_date.localeCompare(left.occurrence_date) ||
+    right.created_at.localeCompare(left.created_at),
+  );
 };
 
 export const getSettlementExpenseCategories = async () => {
@@ -365,6 +422,17 @@ export const createSettlementExpenseCategory = async (name: string) => {
   const { error } = await supabase
     .from("settlement_expense_categories")
     .insert({ name: name.trim() });
+  if (error) throw error;
+};
+
+export const renameSettlementExpenseCategory = async (values: {
+  id: string;
+  name: string;
+}) => {
+  const { error } = await supabase.rpc("rename_settlement_expense_category", {
+    p_category_id: values.id,
+    p_name: values.name.trim(),
+  });
   if (error) throw error;
 };
 
