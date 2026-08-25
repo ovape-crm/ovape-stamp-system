@@ -116,7 +116,7 @@ const AfterServicesPage = () => {
           !values.exchangeItemId ||
           !values.exchangeItemName)
       ) {
-        throw new Error("교환 출고에 필요한 고객과 품목 정보를 확인해 주세요.");
+        throw new Error("A/S 교환출고에 필요한 고객과 품목 정보를 확인해 주세요.");
       }
       if (
         values.hasAfterServiceCost &&
@@ -184,8 +184,8 @@ const AfterServicesPage = () => {
 
       if (values.isExchangeIssued) {
         const exchangeRemark = values.exchangeNote?.trim()
-          ? `교환출고,${values.exchangeNote.trim()}`
-          : "교환출고";
+          ? `A/S 교환출고,${values.exchangeNote.trim()}`
+          : "A/S 교환출고";
         const exchangeLineText = `${values.exchangeItemName} ${values.exchangeQuantity}개 (${exchangeRemark})`;
         const exchangeDate = values.exchangeDate?.replaceAll("-", "/") ?? "";
 
@@ -210,7 +210,7 @@ const AfterServicesPage = () => {
                 amount: 0,
                 remark: exchangeRemark,
                 lineText: exchangeLineText,
-                inventoryAction: "exchange_out",
+                inventoryAction: "as_exchange_out",
               },
             ],
           },
@@ -353,6 +353,7 @@ const AfterServicesPage = () => {
         <div className="flex justify-end">
           <Button
             size="sm"
+            className="min-w-20 sm:min-w-24"
             onClick={() => {
               setIsSubmitting(false);
               open({

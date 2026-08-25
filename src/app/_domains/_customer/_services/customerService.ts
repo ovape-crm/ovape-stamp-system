@@ -11,6 +11,51 @@ export interface SearchParams {
   sortOrder?: "asc" | "desc";
 }
 
+const getSegmentedPhoneSearchFilter = (keyword: string) => {
+  const trimmedKeyword = keyword.trim();
+  if (!/^\d+$/.test(trimmedKeyword)) return null;
+
+  if (trimmedKeyword.length >= 5) {
+    return `phone.like.%${trimmedKeyword}%`;
+  }
+
+  const phoneLength = 11;
+  const segmentStarts = [3, 7];
+  const segmentLength = 4;
+  const patterns = segmentStarts.flatMap((segmentStart) =>
+    Array.from(
+      { length: segmentLength - trimmedKeyword.length + 1 },
+      (_, offset) => {
+        const matchStart = segmentStart + offset;
+        return `${"_".repeat(matchStart)}${trimmedKeyword}${"_".repeat(
+          phoneLength - matchStart - trimmedKeyword.length,
+        )}`;
+      },
+    ),
+  );
+
+  return patterns.map((pattern) => `phone.like.${pattern}`).join(",");
+};
+
+const applyCustomerSearch = <T extends { or: (filter: string) => T; ilike: (column: string, pattern: string) => T }>(
+  query: T,
+  params?: SearchParams,
+) => {
+  const keyword = params?.keyword?.trim();
+  if (!keyword) return query;
+
+  const phoneFilter = getSegmentedPhoneSearchFilter(keyword);
+  if (phoneFilter) return query.or(phoneFilter);
+
+  if (params?.target === "name") {
+    return query.ilike("name", `%${keyword}%`);
+  }
+  if (params?.target === "phone") {
+    return query.ilike("phone", `%${keyword}%`);
+  }
+  return query.or(`name.ilike.%${keyword}%,phone.ilike.%${keyword}%`);
+};
+
 export type CustomerQuickLink = Pick<
   CustomerType,
   "id" | "name" | "phone" | "gender"
@@ -79,18 +124,7 @@ export const getCustomersCount = async (
     .not("name", "in", '("시연용","재고조정")')
     .or("name.neq.X,phone.neq.X");
 
-  // 검색 조건 추가
-  if (params?.keyword) {
-    const { target, keyword } = params;
-
-    if (target === "name") {
-      query = query.ilike("name", `%${keyword}%`);
-    } else if (target === "phone") {
-      query = query.ilike("phone", `%${keyword}%`);
-    } else if (target === "all") {
-      query = query.or(`name.ilike.%${keyword}%,phone.ilike.%${keyword}%`);
-    }
-  }
+  query = applyCustomerSearch(query, params);
 
   const { count, error } = await query;
 
@@ -120,18 +154,7 @@ export const getCustomers = async (
     .not("name", "in", '("시연용","재고조정")')
     .or("name.neq.X,phone.neq.X");
 
-  // 검색 조건 추가
-  if (params?.keyword) {
-    const { target, keyword } = params;
-
-    if (target === "name") {
-      query = query.ilike("name", `%${keyword}%`);
-    } else if (target === "phone") {
-      query = query.ilike("phone", `%${keyword}%`);
-    } else if (target === "all") {
-      query = query.or(`name.ilike.%${keyword}%,phone.ilike.%${keyword}%`);
-    }
-  }
+  query = applyCustomerSearch(query, params);
 
   // 정렬 처리
   const sortBy = params?.sortBy || "recent_usage";

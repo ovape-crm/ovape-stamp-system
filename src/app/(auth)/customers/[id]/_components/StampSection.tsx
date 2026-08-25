@@ -126,6 +126,8 @@ const StampSection = ({
     customerMode === "normal" &&
     target.is_stamp_eligible === false &&
     !(target.name.trim() === "X" && target.phone.trim() === "X");
+  const shouldHideStampStatus =
+    isSpecialCustomer || isRegularNonAccrualCustomer;
   const specialAccountLabel =
     customerMode === "demo"
       ? "시연용 처리"
@@ -372,7 +374,7 @@ const StampSection = ({
 
   return (
     <section className="flex-1 h-full bg-gradient-to-br from-brand-50 to-brand-100 rounded-lg shadow-sm border border-brand-200 p-6">
-      {isSpecialCustomer ? (
+      {shouldHideStampStatus ? (
         <div className="flex h-full min-h-[280px] flex-col items-center">
           <div className="flex min-h-0 flex-1 items-center justify-center py-2">
             <Image

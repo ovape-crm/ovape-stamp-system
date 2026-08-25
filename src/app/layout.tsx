@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { ModalProvider } from "./_contexts/ModalContext";
 import QueryProvider from "./_contexts/QueryProvider";
 import { Toaster } from "react-hot-toast";
 
@@ -43,9 +42,7 @@ export default function RootLayout({
             },
           }}
         />
-        <QueryProvider>
-          <ModalProvider>{children}</ModalProvider>
-        </QueryProvider>
+        <QueryProvider>{children}</QueryProvider>
       </body>
     </html>
   );

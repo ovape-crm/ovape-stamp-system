@@ -215,6 +215,31 @@ const useCopy = () => {
     return textToCopy;
   };
 
+  const writeClipboardText = async (text: string) => {
+    if (document.hasFocus() && navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return;
+      } catch {
+        // 브라우저가 포커스/권한 문제로 거부하면 레거시 복사 방식으로 재시도합니다.
+      }
+    }
+
+    window.focus();
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.left = "-9999px";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    const copied = document.execCommand("copy");
+    textarea.remove();
+    if (!copied) throw new Error("Clipboard copy was rejected");
+  };
+
   const copyLogToClipboard = async (
     log: LogBaseType,
     targetUser: {
@@ -225,13 +250,13 @@ const useCopy = () => {
     paymentTypeLabelOverride?: string,
   ) => {
     try {
-      await navigator.clipboard.writeText(
+      await writeClipboardText(
         buildLogClipboardText(log, targetUser, paymentTypeLabelOverride),
       );
       toast.success("클립보드에 복사되었습니다!");
     } catch (err) {
       toast.error("복사에 실패했습니다.");
-      console.error("Failed to copy:", err);
+      console.warn("Failed to copy:", err);
     }
   };
 
@@ -257,11 +282,11 @@ const useCopy = () => {
       .join("\n");
 
     try {
-      await navigator.clipboard.writeText(textToCopy);
+      await writeClipboardText(textToCopy);
       toast.success(`${logs.length}건을 클립보드에 복사했습니다.`);
     } catch (err) {
       toast.error("복사에 실패했습니다.");
-      console.error("Failed to copy logs:", err);
+      console.warn("Failed to copy logs:", err);
     }
   };
 

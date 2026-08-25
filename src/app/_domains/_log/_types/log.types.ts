@@ -21,6 +21,10 @@ export type LogBaseType = {
 
 export type LogWorkerSnapshot = {
   createdWorkerName?: string;
+  reservationCreatedWorkerName?: string;
+  reservationCreatedAt?: string;
+  confirmedWorkerName?: string;
+  confirmedAt?: string;
   modifiedWorkerName?: string;
   modifiedAt?: string;
   modificationHistory?: Array<{

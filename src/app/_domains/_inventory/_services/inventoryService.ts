@@ -44,7 +44,7 @@ export const getInventoryOverview = async (): Promise<{
       .single(),
     supabase
       .from("items")
-      .select("item_name, item_code, is_use, item_categories(name)")
+      .select("id, item_name, item_code, is_use, item_categories(name)")
       .order("item_name"),
     supabase
       .from("inventory_balances")
@@ -90,6 +90,7 @@ export const getInventoryOverview = async (): Promise<{
       (trackingMode === "inherit" &&
         !untrackedCategories.has(category?.name ?? ""));
     return {
+      item_id: item.id,
       item_name: itemName,
       item_code: item.item_code,
       category_name: category?.name ?? null,
@@ -103,6 +104,7 @@ export const getInventoryOverview = async (): Promise<{
 
   for (const balance of balances.values()) {
     items.push({
+      item_id: null,
       item_name: balance.item_name,
       item_code: "",
       category_name: null,
@@ -136,6 +138,7 @@ export type InventoryMovementQuery = {
   movementGroup?: "out" | "in" | "correction";
   limit?: number;
   offset?: number;
+  includeUnitPrices?: boolean;
 };
 
 export const getInventoryMovementCount = async (options: InventoryMovementQuery = {}) => {
@@ -161,7 +164,9 @@ export const getInventoryMovements = async (
   for (let from = initialOffset; movements.length < requestedLimit; from += pageSize) {
     let query = supabase
       .from("inventory_movements")
-      .select("*")
+      .select(
+        "id, item_name, movement_type, quantity_delta, quantity_after, reference_type, reference_id, reversed_movement_id, note, created_by, created_at, counterparty_name, counterparty_id, inventory_action, item_remark",
+      )
       .order("created_at", { ascending: false })
       .order("id", { ascending: false });
     if (options.startDate) query = query.gte("created_at", `${options.startDate}T00:00:00+09:00`);
@@ -173,9 +178,23 @@ export const getInventoryMovements = async (
     const to = Math.min(from + pageSize - 1, from + requestedLimit - movements.length - 1);
     const { data, error } = await query.range(from, to);
     if (error) throw error;
-    const page = (data ?? []) as InventoryMovement[];
+    const page = (data ?? []).map((movement) => ({
+      ...movement,
+      unit_price: null,
+    })) as unknown as InventoryMovement[];
     movements.push(...page);
     if (page.length < pageSize || movements.length >= requestedLimit) break;
+  }
+  if (options.includeUnitPrices && movements.length) {
+    const { data, error } = await supabase.rpc(
+      "get_inventory_movement_unit_prices",
+      { p_movement_ids: movements.map((movement) => movement.id) },
+    );
+    if (error) throw error;
+    const prices = (data ?? {}) as Record<string, number | null>;
+    movements.forEach((movement) => {
+      movement.unit_price = prices[movement.id] ?? null;
+    });
   }
   const outboundLogIds = [
     ...new Set(
@@ -394,34 +413,59 @@ export const saveInventorySupplier = async (
   if (error) throw error;
   return savedId as string;
 };
-export const getPurchaseOrders = async (
-  isAdmin = false,
+const attachPurchaseOrderUnitPrices = async (
+  orders: PurchaseOrder[],
+  isMaster: boolean,
 ): Promise<PurchaseOrder[]> => {
-  const lineColumns = isAdmin
-    ? "*"
-    : "id, item_name, ordered_quantity, received_quantity, pending_quantity, note, quantity_check_note, quantity_checked_at, handling_type, handling_note, customer_id, reservation_log_id";
+  if (!isMaster) return orders;
+  const lineIds = orders.flatMap((order) =>
+    order.inventory_purchase_order_lines.map((line) => line.id),
+  );
+  if (!lineIds.length) return orders;
+  const { data, error } = await supabase.rpc(
+    "get_inventory_purchase_order_unit_prices",
+    { p_line_ids: lineIds },
+  );
+  if (error) throw error;
+  const prices = (data ?? {}) as Record<string, number | null>;
+  return orders.map((order) => ({
+    ...order,
+    inventory_purchase_order_lines: order.inventory_purchase_order_lines.map(
+      (line) => ({ ...line, unit_price: prices[line.id] ?? null }),
+    ),
+  }));
+};
+
+export const getPurchaseOrders = async (
+  isMaster = false,
+): Promise<PurchaseOrder[]> => {
+  const lineColumns =
+    "id, order_id, item_name, ordered_quantity, received_quantity, pending_quantity, note, quantity_checked_by, quantity_check_note, quantity_checked_at, handling_type, handling_note, customer_id, reservation_log_id, after_service_id, inbound_type";
   const { data, error } = await supabase
     .from("inventory_purchase_orders")
     .select(
-      `*, inventory_suppliers(name), inventory_purchase_order_lines(${lineColumns}, customers(name, phone)), inventory_purchase_receipts(id, arrived_on, note, created_at, reversed_at, inventory_purchase_receipt_lines(id, order_line_id, item_name, quantity, note, quantity_check_note)), inventory_purchase_order_adjustments(id, category_id, category_name, kind, amount, note)`,
+      `*, inventory_suppliers(name), inventory_purchase_order_lines(${lineColumns}, customers(name, phone)), inventory_purchase_receipts(id, after_service_id, arrived_on, note, created_at, reversed_at, inventory_purchase_receipt_lines(id, order_line_id, item_name, quantity, note, quantity_check_note)), inventory_purchase_order_adjustments(id, category_id, category_name, kind, amount, note)`,
     )
     .order("created_at", { ascending: false });
-  if (!error) return (data ?? []) as unknown as PurchaseOrder[];
+  if (!error)
+    return attachPurchaseOrderUnitPrices(
+      (data ?? []) as unknown as PurchaseOrder[],
+      isMaster,
+    );
 
   // Some environments can already have the handling columns while optional
   // adjustment / receipt-note migrations are still pending. Keep the saved
   // handling state instead of falling all the way back to `none`.
-  const compatibleLineColumns = isAdmin
-    ? "*"
-    : "id, item_name, ordered_quantity, received_quantity, pending_quantity, note, quantity_checked_at, handling_type, handling_note, customer_id, reservation_log_id";
+  const compatibleLineColumns =
+    "id, order_id, item_name, ordered_quantity, received_quantity, pending_quantity, note, quantity_checked_at, handling_type, handling_note, customer_id, reservation_log_id, after_service_id, inbound_type";
   const { data: compatibleData, error: compatibleError } = await supabase
     .from("inventory_purchase_orders")
     .select(
-      `*, inventory_suppliers(name), inventory_purchase_order_lines(${compatibleLineColumns}, customers(name, phone)), inventory_purchase_receipts(id, arrived_on, note, created_at, reversed_at, inventory_purchase_receipt_lines(id, order_line_id, item_name, quantity, note))`,
+      `*, inventory_suppliers(name), inventory_purchase_order_lines(${compatibleLineColumns}, customers(name, phone)), inventory_purchase_receipts(id, after_service_id, arrived_on, note, created_at, reversed_at, inventory_purchase_receipt_lines(id, order_line_id, item_name, quantity, note))`,
     )
     .order("created_at", { ascending: false });
   if (!compatibleError) {
-    return (compatibleData ?? []).map((order) => ({
+    const compatibleOrders = (compatibleData ?? []).map((order) => ({
       ...order,
       inventory_purchase_order_adjustments: [],
       inventory_purchase_receipts: order.inventory_purchase_receipts.map(
@@ -440,20 +484,20 @@ export const getPurchaseOrders = async (
         }),
       ),
     })) as unknown as PurchaseOrder[];
+    return attachPurchaseOrderUnitPrices(compatibleOrders, isMaster);
   }
 
   // 신규 메모 열을 아직 적용하지 않은 DB에서도 입고 목록은 계속 표시한다.
-  const legacyLineColumns = isAdmin
-    ? "*"
-    : "id, item_name, ordered_quantity, received_quantity, pending_quantity, note, quantity_checked_at";
+  const legacyLineColumns =
+    "id, order_id, item_name, ordered_quantity, received_quantity, pending_quantity, note, quantity_checked_at";
   const { data: legacyData, error: legacyError } = await supabase
     .from("inventory_purchase_orders")
     .select(
-      `*, inventory_suppliers(name), inventory_purchase_order_lines(${legacyLineColumns}), inventory_purchase_receipts(id, arrived_on, note, created_at, reversed_at, inventory_purchase_receipt_lines(id, order_line_id, item_name, quantity))`,
+      `*, inventory_suppliers(name), inventory_purchase_order_lines(${legacyLineColumns}), inventory_purchase_receipts(id, after_service_id, arrived_on, note, created_at, reversed_at, inventory_purchase_receipt_lines(id, order_line_id, item_name, quantity))`,
     )
     .order("created_at", { ascending: false });
   if (legacyError) throw legacyError;
-  return (legacyData ?? []).map((order) => ({
+  const legacyOrders = (legacyData ?? []).map((order) => ({
     ...order,
     inventory_purchase_order_adjustments: [],
     inventory_purchase_order_lines: order.inventory_purchase_order_lines.map(
@@ -483,6 +527,7 @@ export const getPurchaseOrders = async (
       }),
     ),
   })) as unknown as PurchaseOrder[];
+  return attachPurchaseOrderUnitPrices(legacyOrders, isMaster);
 };
 
 export const getPurchaseAdjustmentCategories = async (
@@ -556,7 +601,13 @@ export const updatePurchaseOrderDetails = async (values: {
     ordered_quantity: number;
     unit_price: number | null;
     note: string;
-    handling_type: "none" | "demo" | "reservation" | "customer" | "memo";
+    handling_type:
+      | "none"
+      | "demo"
+      | "reservation"
+      | "customer"
+      | "memo"
+      | "as_exchange_in";
     handling_note: string | null;
     customer_id: string | null;
     reservation_log_id: string | null;
@@ -589,7 +640,13 @@ export const createPurchaseOrder = async (
     quantity: number;
     unit_price: number | null;
     note: string;
-    handling_type: "none" | "demo" | "reservation" | "customer" | "memo";
+    handling_type:
+      | "none"
+      | "demo"
+      | "reservation"
+      | "customer"
+      | "memo"
+      | "as_exchange_in";
     handling_note: string | null;
     customer_id: string | null;
     reservation_log_id: string | null;

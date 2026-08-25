@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useDeferredValue, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Controller, Resolver, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import Button from '@/app/_components/Button';
@@ -10,10 +11,18 @@ import {
   AfterServiceStatusEnumType,
 } from '@/app/_enums/enums';
 import { Dropdown, DropdownOption } from '@/app/_components/Dropdown';
+import { searchItemOptions } from '@/app/_domains/_item/_services/itemService';
 
-type FormValues = {
+export type StatusUpdateFormValues = {
   status: AfterServiceStatusEnumType['value'];
   note: string;
+  repairReceipt?: {
+    arrivedOn: string;
+    itemName: string;
+    quantity: number;
+    matchType: 'match' | 'mismatch';
+    memo: string;
+  };
 };
 
 const getTodayDateValue = () => {
@@ -62,8 +71,13 @@ const safeResolver = (schema: z.ZodTypeAny) => async (data: unknown) => {
 interface StatusUpdateModalProps {
   currentStatus: string;
   isInventoryProcessed: boolean;
+  supplierName?: string | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  originalItemName: string;
+  originalQuantity: number;
   rentalItemSummary?: string;
-  onSubmit: (values: FormValues) => Promise<void> | void;
+  onSubmit: (values: StatusUpdateFormValues) => Promise<void> | void;
   onCancel: () => void;
   isSubmitting: boolean;
 }
@@ -71,6 +85,11 @@ interface StatusUpdateModalProps {
 const StatusUpdateModal = ({
   currentStatus,
   isInventoryProcessed,
+  supplierName,
+  customerName,
+  customerPhone,
+  originalItemName,
+  originalQuantity,
   rentalItemSummary,
   onSubmit,
   onCancel,
@@ -83,15 +102,28 @@ const StatusUpdateModal = ({
   const [isCustomerContactConfirmed, setIsCustomerContactConfirmed] =
     useState(false);
   const [isRentalReturnConfirmed, setIsRentalReturnConfirmed] = useState(false);
+  const [receiptItemName, setReceiptItemName] = useState(originalItemName);
+  const [receiptQuantity, setReceiptQuantity] = useState(
+    String(originalQuantity),
+  );
+  const [receiptMatchType, setReceiptMatchType] = useState<
+    '' | 'match' | 'mismatch'
+  >('');
+  const deferredReceiptItemName = useDeferredValue(receiptItemName.trim());
+  const receiptItemsQuery = useQuery({
+    queryKey: ['as-repair-receipt-items', deferredReceiptItemName],
+    queryFn: () => searchItemOptions(deferredReceiptItemName, 12),
+    enabled: deferredReceiptItemName.length > 0,
+  });
   const {
     register,
     handleSubmit,
     formState: { errors },
     control,
     watch,
-  } = useForm<FormValues>({
+  } = useForm<StatusUpdateFormValues>({
     mode: 'onChange',
-    resolver: safeResolver(schema) as Resolver<FormValues, unknown>,
+    resolver: safeResolver(schema) as Resolver<StatusUpdateFormValues, unknown>,
     defaultValues: {
       status: undefined,
       note: '',
@@ -116,7 +148,7 @@ const StatusUpdateModal = ({
       if (
         opt.value === AfterServiceStatusEnum.REPAIR_RETURNED_COMPLETED.value
       ) {
-        return isInventoryProcessed;
+        return true;
       }
       if (opt.value === AfterServiceStatusEnum.CUSTOMER_RECEIVED.value) {
         return !isInventoryProcessed;
@@ -163,6 +195,24 @@ const StatusUpdateModal = ({
   const selectedStatusMemoGuide = getStatusMemoGuide(selectedStatus || '');
   const requiresInventoryReceiptConfirmation =
     selectedStatus === AfterServiceStatusEnum.REPAIR_RETURNED_COMPLETED.value;
+  const normalizedSupplierName = supplierName?.trim() ?? '';
+  const hasRegisteredSupplier =
+    normalizedSupplierName.length > 0 &&
+    !['나중에 선택', '나중에선택', '나중에 수정', '나중에수정'].includes(
+      normalizedSupplierName,
+    );
+  const parsedReceiptQuantity = Number(receiptQuantity);
+  const receiptValuesDiffer =
+    receiptItemName.trim() !== originalItemName.trim() ||
+    parsedReceiptQuantity !== originalQuantity;
+  const isRepairReceiptValid =
+    !requiresInventoryReceiptConfirmation ||
+    (hasRegisteredSupplier &&
+      receiptItemName.trim().length > 0 &&
+      Number.isInteger(parsedReceiptQuantity) &&
+      parsedReceiptQuantity > 0 &&
+      ((receiptValuesDiffer && receiptMatchType === 'mismatch') ||
+        (!receiptValuesDiffer && receiptMatchType === 'match')));
   const requiresCustomerContactConfirmation =
     selectedStatus === AfterServiceStatusEnum.REPAIR_RETURNED.value;
   const requiresRentalReturnConfirmation =
@@ -222,13 +272,13 @@ const StatusUpdateModal = ({
         return null;
     }
   })();
-  const handleStatusSubmit = (values: FormValues) => {
+  const handleStatusSubmit = (values: StatusUpdateFormValues) => {
     if (structuredStatusConfig) {
       if (
         !statusDate ||
         (structuredStatusConfig.memoRequired && !statusMemo.trim()) ||
         (requiresInventoryReceiptConfirmation &&
-          !isInventoryReceiptConfirmed) ||
+          (!isInventoryReceiptConfirmed || !isRepairReceiptValid)) ||
         (requiresCustomerContactConfirmation &&
           !isCustomerContactConfirmed) ||
         (requiresRentalReturnConfirmation && !isRentalReturnConfirmed)
@@ -244,6 +294,15 @@ const StatusUpdateModal = ({
         ]
           .filter(Boolean)
           .join('\n'),
+        repairReceipt: requiresInventoryReceiptConfirmation
+          ? {
+              arrivedOn: statusDate,
+              itemName: receiptItemName.trim(),
+              quantity: parsedReceiptQuantity,
+              matchType: receiptMatchType as 'match' | 'mismatch',
+              memo: statusMemo.trim(),
+            }
+          : undefined,
       });
     }
     return onSubmit(values);
@@ -297,6 +356,9 @@ const StatusUpdateModal = ({
                         setIsInventoryReceiptConfirmed(false);
                         setIsCustomerContactConfirmed(false);
                         setIsRentalReturnConfirmed(false);
+                        setReceiptItemName(originalItemName);
+                        setReceiptQuantity(String(originalQuantity));
+                        setReceiptMatchType('');
                       }}
                     />
                   ))}
@@ -326,20 +388,99 @@ const StatusUpdateModal = ({
               />
             </div>
             {requiresInventoryReceiptConfirmation && (
-              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 bg-gray-50/70 p-3 text-sm text-gray-700">
-                <span className="min-w-0 flex-1">
-                  입고 대기에 해당 거래처를 찾아 품목을 입고처리 해주세요.
-                </span>
-                <input
-                  type="checkbox"
-                  checked={isInventoryReceiptConfirmed}
-                  onChange={(event) =>
-                    setIsInventoryReceiptConfirmed(event.target.checked)
-                  }
-                  className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-brand-500"
-                  disabled={isSubmitting}
-                />
-              </label>
+              <div className="space-y-3 rounded-xl border border-gray-200 bg-gray-50/70 p-4">
+                {!hasRegisteredSupplier ? (
+                  <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
+                    거래처가 선택되어 있지 않습니다.
+                  </p>
+                ) : (
+                  <>
+                    <div className="grid gap-2 text-sm sm:grid-cols-2">
+                      <p className="rounded-lg border border-gray-200 bg-white px-3 py-2">
+                        <span className="text-xs font-semibold text-gray-500">거래처명</span>
+                        <span className="mt-1 block font-semibold text-gray-900">{normalizedSupplierName}</span>
+                      </p>
+                      <p className="rounded-lg border border-gray-200 bg-white px-3 py-2">
+                        <span className="text-xs font-semibold text-gray-500">고객</span>
+                        <span className="mt-1 block font-semibold text-gray-900">
+                          {[customerName, customerPhone].filter(Boolean).join(' · ') || '고객 정보 없음'}
+                        </span>
+                      </p>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_110px]">
+                      <label className="text-sm font-medium text-gray-700">
+                        품목명 <span className="text-rose-600">*</span>
+                        <input
+                          list="as-repair-receipt-item-options"
+                          value={receiptItemName}
+                          onChange={(event) => {
+                            setReceiptItemName(event.target.value);
+                            setReceiptMatchType('');
+                          }}
+                          className="mt-1 h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                          disabled={isSubmitting}
+                        />
+                        <datalist id="as-repair-receipt-item-options">
+                          {(receiptItemsQuery.data ?? []).map((item) => (
+                            <option key={item.id} value={item.item_name} />
+                          ))}
+                        </datalist>
+                      </label>
+                      <label className="text-sm font-medium text-gray-700">
+                        수량 <span className="text-rose-600">*</span>
+                        <input
+                          type="number"
+                          min={1}
+                          inputMode="numeric"
+                          value={receiptQuantity}
+                          onChange={(event) => {
+                            setReceiptQuantity(event.target.value);
+                            setReceiptMatchType('');
+                          }}
+                          className="mt-1 h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-right text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                          disabled={isSubmitting}
+                        />
+                      </label>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {([
+                        ['match', '제품·수량 일치'],
+                        ['mismatch', '제품·수량 불일치'],
+                      ] as const).map(([value, label]) => {
+                        const disabled =
+                          isSubmitting ||
+                          (value === 'match' && receiptValuesDiffer) ||
+                          (value === 'mismatch' && !receiptValuesDiffer);
+                        return (
+                          <label
+                            key={value}
+                            className={`flex min-h-11 items-center justify-center gap-2 rounded-lg border px-3 text-center text-sm font-semibold transition ${disabled ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400' : receiptMatchType === value ? 'cursor-pointer border-brand-400 bg-brand-50 text-brand-700' : 'cursor-pointer border-gray-300 bg-white text-gray-700 hover:border-brand-300'}`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={receiptMatchType === value}
+                              onChange={() => setReceiptMatchType(value)}
+                              disabled={disabled}
+                              className="h-4 w-4 accent-brand-500"
+                            />
+                            {label}
+                          </label>
+                        );
+                      })}
+                    </div>
+                    <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-gray-200 bg-white p-3 text-sm text-gray-700">
+                      <span className="min-w-0 flex-1 font-semibold">A/S 교환입고 처리</span>
+                      <input
+                        type="checkbox"
+                        checked={isInventoryReceiptConfirmed}
+                        onChange={(event) => setIsInventoryReceiptConfirmed(event.target.checked)}
+                        className="h-4 w-4 shrink-0 cursor-pointer accent-brand-500"
+                        disabled={isSubmitting || !isRepairReceiptValid}
+                      />
+                    </label>
+                  </>
+                )}
+              </div>
             )}
             {requiresCustomerContactConfirmation && (
               <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 bg-gray-50/70 p-3 text-sm text-gray-700">
@@ -433,7 +574,7 @@ const StatusUpdateModal = ({
               structuredStatusConfig?.memoRequired && !statusMemo.trim()
             ) ||
             (requiresInventoryReceiptConfirmation &&
-              !isInventoryReceiptConfirmed) ||
+              (!isInventoryReceiptConfirmed || !isRepairReceiptValid)) ||
             (requiresCustomerContactConfirmation &&
               !isCustomerContactConfirmed) ||
             (requiresRentalReturnConfirmation && !isRentalReturnConfirmed)

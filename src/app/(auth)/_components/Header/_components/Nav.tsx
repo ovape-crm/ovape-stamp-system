@@ -64,13 +64,14 @@ const defaultMenuItems: MenuItem[] = [
     sort_order: 0,
   },
   { href: "/reports", label: "보고서", group_key: "store", sort_order: 1 },
+  { href: "/settlement", label: "정산", group_key: "store", sort_order: 2 },
   {
     href: "/work-journal",
     label: "근무일지",
     group_key: "store",
-    sort_order: 2,
+    sort_order: 3,
   },
-  { href: "/manuals", label: "매뉴얼", group_key: "store", sort_order: 3 },
+  { href: "/manuals", label: "매뉴얼", group_key: "store", sort_order: 4 },
 ];
 
 type NavProps = {
@@ -80,7 +81,8 @@ type NavProps = {
 
 const Nav = ({ orientation = "horizontal", onNavigate }: NavProps) => {
   const pathname = usePathname();
-  const { isAdmin } = useUser();
+  const { isAdmin, user } = useUser();
+  const isMaster = user?.oss_role === "master";
   const { isLocked, step: staffOpeningStep } = useStaffOpening();
   const [menuItems, setMenuItems] = useState(defaultMenuItems);
   const [openGroup, setOpenGroup] = useState<GroupKey | null>(null);
@@ -136,12 +138,13 @@ const Nav = ({ orientation = "horizontal", onNavigate }: NavProps) => {
       menuItems.filter(
         (item) =>
           (isAdmin || item.href !== "/items") &&
+          (isMaster || item.href !== "/settlement") &&
           (!isLocked ||
             item.href === "/work-journal" ||
             item.href === "/cash-management" ||
             (staffOpeningStep === "checklist" && item.href === "/reports")),
       ),
-    [isAdmin, isLocked, menuItems, staffOpeningStep],
+    [isAdmin, isLocked, isMaster, menuItems, staffOpeningStep],
   );
   const groupedItems = useMemo(
     () =>

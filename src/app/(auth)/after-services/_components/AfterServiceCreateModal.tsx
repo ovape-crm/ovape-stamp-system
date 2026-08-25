@@ -676,7 +676,7 @@ export default function AfterServiceCreateModal({
               )}
               <div>
                 <span className="text-sm font-medium text-gray-600">
-                  교환 여부:
+                  A/S 교환출고:
                 </span>
                 <p className="text-base font-semibold text-gray-900">
                   {formData.isExchangeIssued ? "예" : "아니오"}
@@ -1406,7 +1406,7 @@ export default function AfterServiceCreateModal({
               />
             </div>
             <div className="min-w-0 border-l border-gray-200 pl-3">
-              <span className="mb-2 block text-sm font-medium">교환 여부</span>
+              <span className="mb-2 block text-sm font-medium">A/S 교환출고</span>
               <Controller
                 name="isExchangeIssued"
                 control={control}

@@ -11,12 +11,16 @@ import {
 } from "@/app/_enums/enums";
 import {
   getCouponUsageNote,
+  getStampsByCustomer,
   type StampLogMeta,
 } from "@/app/_domains/_stamp/_services/stampService";
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useModal } from "@/app/_contexts/ModalContext";
-import StampLogForm, { StampLogValue } from "./StampLogForm";
+import StampLogForm, {
+  type StampLogFormInitialValue,
+  type StampLogValue,
+} from "./StampLogForm";
 import TargetCustomerCard from "./TargetCustomerCard";
 import { getCustomerMode } from "@/app/_domains/_customer/_utils/specialCustomer";
 import {
@@ -42,6 +46,7 @@ const getShipmentTypeLabel = (
   if (item.inventoryAction === "adjustment_out") return "재고조정-출고";
   if (item.inventoryAction === "exchange_in") return "교환입고";
   if (item.inventoryAction === "exchange_out") return "교환출고";
+  if (item.inventoryAction === "as_exchange_out") return "A/S 교환출고";
   if (item.remark?.startsWith("시연용")) return "시연용";
   if (typeof item.adjustedUnitPrice === "number") return "가격조정";
   if (item.remark?.startsWith("서비스")) return "서비스";
@@ -56,6 +61,7 @@ const getShipmentTypeClassName = (
   if (type === "서비스") return "bg-sky-50 text-sky-700";
   if (type === "교환입고") return "bg-emerald-50 text-emerald-700";
   if (type === "교환출고") return "bg-amber-50 text-amber-700";
+  if (type === "A/S 교환출고") return "bg-rose-50 text-rose-700";
   if (type === "가격조정") return "bg-violet-50 text-violet-700";
   return "bg-gray-100 text-gray-600";
 };
@@ -67,7 +73,7 @@ const getItemDisplayMemo = (
   if (!remark) return "";
 
   const typedMemo = remark.match(
-    /^(?:서비스|교환입고|교환출고)(?:,(.*)|\((.*)\))$/,
+    /^(?:서비스|교환입고|교환출고|A\/S 교환출고)(?:,(.*)|\((.*)\))$/,
   );
   const displayMemo = typedMemo?.[1] ?? typedMemo?.[2];
   if (displayMemo) return displayMemo.trim();
@@ -76,6 +82,7 @@ const getItemDisplayMemo = (
     remark === "서비스" ||
     remark === "교환입고" ||
     remark === "교환출고" ||
+    remark === "A/S 교환출고" ||
     remark === "가격 조정" ||
     remark === "가격조정"
   ) {
@@ -188,6 +195,12 @@ export default function StampConfirmModal({
   >([]);
   const [selectedCustomer, setSelectedCustomer] =
     useState<ExistingCustomerMatch | null>(null);
+  const [selectedCustomerStampCount, setSelectedCustomerStampCount] =
+    useState(0);
+  const [customerChangeFormInitialValue, setCustomerChangeFormInitialValue] =
+    useState<StampLogFormInitialValue>();
+  const [stampLogFormRevision, setStampLogFormRevision] = useState(0);
+  const [hasConfirmedXCustomer, setHasConfirmedXCustomer] = useState(false);
   const [pendingCustomer, setPendingCustomer] =
     useState<ExistingCustomerMatch | null>(null);
   const [
@@ -218,6 +231,9 @@ export default function StampConfirmModal({
   const canSelectedCustomerAccrueStamp = selectedCustomer
     ? selectedCustomer.is_stamp_eligible !== false
     : target.is_stamp_eligible !== false;
+  const shouldAccrueStamp =
+    canSelectedCustomerAccrueStamp &&
+    (!selectedCustomer || shouldAddStampForSelectedCustomer);
 
   useEffect(() => {
     const hasSearchableName =
@@ -254,6 +270,54 @@ export default function StampConfirmModal({
       window.clearTimeout(timer);
     };
   }, [mode, isAnonymousXCustomer, xCustomerName, xPhoneLastDigits]);
+
+  useEffect(() => {
+    if (!selectedCustomer) {
+      setSelectedCustomerStampCount(0);
+      return;
+    }
+
+    let isActive = true;
+    setSelectedCustomerStampCount(0);
+
+    void getStampsByCustomer(selectedCustomer.id)
+      .then((stamps) => {
+        if (!isActive) return;
+        const nextCount = Number(stamps[0]?.count ?? 0);
+        setSelectedCustomerStampCount(
+          Number.isFinite(nextCount) ? Math.max(0, nextCount) : 0,
+        );
+      })
+      .catch(() => {
+        if (!isActive) return;
+        setSelectedCustomerStampCount(0);
+        toast.error("선택 고객의 스탬프 수를 불러오지 못했습니다.");
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [selectedCustomer]);
+
+  const applySelectedCustomer = (
+    customer: ExistingCustomerMatch,
+    addStamp: boolean,
+  ) => {
+    setCustomerChangeFormInitialValue({
+      paymentType: stampLog?.paymentType,
+      storeName: stampLog?.storeName ?? StoreTypeEnum.OVAPE.value,
+      amount: addStamp ? Math.max(1, stampLog?.amount ?? 0) : 0,
+      logMeta: stampLog?.logMeta,
+    });
+    setStampLogFormRevision((revision) => revision + 1);
+    setSelectedCustomer(customer);
+    setShouldAddStampForSelectedCustomer(addStamp);
+    setHasConfirmedXCustomer(false);
+    setPendingCustomer(null);
+    setShipmentTiming("");
+    setReservationDate("");
+    setAddStep(1);
+  };
 
   // 출고 이력 추가(mode === 'add') 전용 스텝 상태
   const [addStep, setAddStep] = useState<1 | 2 | 3>(
@@ -385,9 +449,7 @@ export default function StampConfirmModal({
           ...(mode === "add" ? { clientRequestId: requestIdRef.current } : {}),
           reservationDate: reservationTag ? reservationDate.trim() : undefined,
         };
-        const submittedAmount = canSelectedCustomerAccrueStamp
-          ? stampLog.amount
-          : 0;
+        const submittedAmount = shouldAccrueStamp ? stampLog.amount : 0;
         if (mode === "edit") {
           if (!onEditSubmit) return;
           await onEditSubmit({
@@ -481,52 +543,71 @@ export default function StampConfirmModal({
         <p className="flex items-center justify-center whitespace-nowrap border-r border-gray-200 px-2 text-center text-sm font-semibold text-gray-800">
           고객 정보
         </p>
-        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_90px] items-center gap-1 p-1.5">
-          <Button
-            type="button"
-            size="xs"
-            variant={isCustomerInfoDeclined ? "primary" : "gray"}
-            className="order-3 h-8 w-full whitespace-nowrap px-2"
-            onClick={() => {
-              setXCustomerName(isCustomerInfoDeclined ? "" : "X");
-              setXPhoneLastDigits(isCustomerInfoDeclined ? "" : "X");
-              setSelectedCustomer(null);
-            }}
-          >
-            둘 다 제공 X
-          </Button>
-          <label className="order-1 min-w-0">
-            <input
-              type="text"
-              aria-label="이름"
-              value={xCustomerName}
-              disabled={isCustomerInfoDeclined}
-              onChange={(event) => {
-                setXCustomerName(event.target.value);
+        <div className="grid min-w-0 grid-cols-2 items-center gap-1 p-1.5">
+          <div className="grid min-w-0 grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-1">
+            <label className="min-w-0">
+              <input
+                type="text"
+                aria-label="이름"
+                value={xCustomerName}
+                onChange={(event) => {
+                  setXCustomerName(event.target.value);
+                  setSelectedCustomer(null);
+                  setHasConfirmedXCustomer(false);
+                }}
+                placeholder="이름 입력"
+                className="h-8 w-full rounded-lg border border-gray-300 bg-white px-2 text-xs font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
+              />
+            </label>
+            <Button
+              type="button"
+              size="xs"
+              variant={xCustomerName === "X" ? "primary" : "gray"}
+              className="h-8 w-full px-1"
+              onClick={() => {
+                setXCustomerName(xCustomerName === "X" ? "" : "X");
                 setSelectedCustomer(null);
+                setHasConfirmedXCustomer(false);
               }}
-              placeholder="이름 / 미제공 X"
-              className="h-8 w-full rounded-lg border border-gray-300 bg-white px-2 text-xs font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
-            />
-          </label>
-          <label className="order-2 min-w-0">
-            <input
-              type="text"
-              aria-label="핸드폰 뒷번호"
-              maxLength={4}
-              value={xPhoneLastDigits}
-              disabled={isCustomerInfoDeclined}
-              onChange={(event) => {
-                const value = event.target.value.toUpperCase();
-                setXPhoneLastDigits(
-                  value === "X" ? "X" : value.replace(/\D/g, "").slice(0, 4),
-                );
+            >
+              이름 X
+            </Button>
+          </div>
+          <div className="grid min-w-0 grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-1">
+            <label className="min-w-0">
+              <input
+                type="text"
+                aria-label="핸드폰 뒷번호"
+                maxLength={4}
+                value={xPhoneLastDigits}
+                onChange={(event) => {
+                  const value = event.target.value.toUpperCase();
+                  setXPhoneLastDigits(
+                    value === "X"
+                      ? "X"
+                      : value.replace(/\D/g, "").slice(0, 4),
+                  );
+                  setSelectedCustomer(null);
+                  setHasConfirmedXCustomer(false);
+                }}
+                placeholder="뒷번호 입력"
+                className="h-8 w-full rounded-lg border border-gray-300 bg-white px-2 text-xs font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
+              />
+            </label>
+            <Button
+              type="button"
+              size="xs"
+              variant={xPhoneLastDigits === "X" ? "primary" : "gray"}
+              className="h-8 w-full px-1"
+              onClick={() => {
+                setXPhoneLastDigits(xPhoneLastDigits === "X" ? "" : "X");
                 setSelectedCustomer(null);
+                setHasConfirmedXCustomer(false);
               }}
-              placeholder="뒷번호 / 미제공 X"
-              className="h-8 w-full rounded-lg border border-gray-300 bg-white px-2 text-xs font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
-            />
-          </label>
+            >
+              번호 X
+            </Button>
+          </div>
         </div>
       </div>
       {isSearchingCustomer && (
@@ -535,30 +616,46 @@ export default function StampConfirmModal({
         </p>
       )}
       {!isSearchingCustomer && customerMatches.length > 0 && (
-        <div className="mx-2 mb-2 mt-1 space-y-1.5 border-t border-gray-200 pt-2">
-          <p className="text-xs font-semibold text-brand-700">
-            일치하는 기존 고객이 있습니다.
-          </p>
+        <div className="mx-2 mb-2 mt-1 space-y-2">
           {customerMatches.map((customer) => (
             <div
               key={customer.id}
-              className="flex items-center justify-between gap-2 rounded-lg bg-white px-2.5 py-2 text-xs"
+              className="flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50/40 px-3 py-2.5 text-xs"
             >
-              <span className="min-w-0 truncate font-medium text-gray-700">
-                {customer.name} · {customer.phone}
-              </span>
-              <Button
-                type="button"
-                size="xs"
-                variant={
-                  selectedCustomer?.id === customer.id ? "primary" : "gray"
-                }
-                onClick={() => setPendingCustomer(customer)}
-              >
-                {selectedCustomer?.id === customer.id
-                  ? "변경됨"
-                  : "이 고객으로 변경"}
-              </Button>
+              <div className="min-w-0">
+                <p className="truncate font-medium text-gray-700">
+                  {customer.name} · {customer.phone}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <Button
+                  type="button"
+                  size="xs"
+                  variant={hasConfirmedXCustomer ? "gray" : "primary"}
+                  onClick={() => {
+                    setHasConfirmedXCustomer(false);
+                    setPendingCustomer(customer);
+                  }}
+                >
+                  고객변경
+                </Button>
+                {xCustomerName.trim().length > 0 &&
+                  (xPhoneLastDigits === "X" ||
+                    /^\d{4}$/.test(xPhoneLastDigits)) && (
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant={hasConfirmedXCustomer ? "primary" : "gray"}
+                      onClick={() => {
+                        setSelectedCustomer(null);
+                        setShouldAddStampForSelectedCustomer(false);
+                        setHasConfirmedXCustomer(true);
+                      }}
+                    >
+                      X 고객 계속
+                    </Button>
+                  )}
+              </div>
             </div>
           ))}
         </div>
@@ -639,10 +736,12 @@ export default function StampConfirmModal({
       {stepIndicator}
 
       {/* 대상 고객: 모든 스텝에서 고정 노출 */}
-      {customerMode !== "demo" &&
-        customerMode !== "adjustment" &&
-        customerMode !== "x" &&
-        ((mode !== "add" && mode !== "edit") || addStep === 1) && (
+      {effectiveFormCustomerMode !== "demo" &&
+        effectiveFormCustomerMode !== "adjustment" &&
+        effectiveFormCustomerMode !== "x" &&
+        (selectedCustomer ||
+          (mode !== "add" && mode !== "edit") ||
+          addStep === 1) && (
           <TargetCustomerCard
             name={selectedCustomer?.name ?? target.name}
             phone={selectedCustomer?.phone ?? target.phone}
@@ -653,7 +752,7 @@ export default function StampConfirmModal({
           />
         )}
 
-      {mode === "add" && customerMode === "x" && (
+      {mode === "add" && customerMode === "x" && !selectedCustomer && (
         <div className="mb-1 flex shrink-0 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-gray-50/70 px-4 py-2.5 text-sm font-semibold text-gray-700">
           <span className="h-2 w-2 shrink-0 rounded-full bg-brand-500" />
           <span>
@@ -676,6 +775,7 @@ export default function StampConfirmModal({
 
       <div className="min-h-0 flex-1 overflow-y-auto pr-1">
         <StampLogForm
+          key={`stamp-log-form-${stampLogFormRevision}`}
           initialValue={
             mode === "edit"
               ? {
@@ -684,7 +784,7 @@ export default function StampConfirmModal({
                   amount: getStampAmountFromAction(initialAction),
                   logMeta: initialLogMeta,
                 }
-              : undefined
+              : customerChangeFormInitialValue
           }
           isEditMode={mode === "edit"}
           layout="split"
@@ -695,27 +795,33 @@ export default function StampConfirmModal({
             requiresXCustomerInfo ? xCustomerInfoFields : undefined
           }
           stepOneReservationSlot={
-            customerMode === "x" ? undefined : reservationToggle
+            effectiveFormCustomerMode === "x"
+              ? undefined
+              : reservationToggle
           }
           hasSelectedShipmentTiming={
-            customerMode === "x" || hasSelectedShipmentTiming
+            effectiveFormCustomerMode === "x" || hasSelectedShipmentTiming
           }
           xCustomerName={xCustomerName}
           xPhoneLastDigits={xPhoneLastDigits}
           customerMode={effectiveFormCustomerMode}
-          hideRemoteDeliveryMethods={mode === "add" && customerMode === "x"}
+          hideRemoteDeliveryMethods={
+            mode === "add" && effectiveFormCustomerMode === "x"
+          }
           isStampAmountEditable={
             effectiveFormCustomerMode !== "x" &&
-            canSelectedCustomerAccrueStamp &&
+            shouldAccrueStamp &&
             (mode !== "edit" || isStampAmountEditable)
           }
-          currentStampCount={stampCount}
-          customerAddress={target.address}
-          compactStepOneSpacing={customerMode === "normal"}
+          currentStampCount={
+            selectedCustomer ? selectedCustomerStampCount : stampCount
+          }
+          customerAddress={selectedCustomer?.address ?? target.address}
+          compactStepOneSpacing={effectiveFormCustomerMode === "normal"}
           customerSummary={
-            customerMode === "demo" ||
-            customerMode === "adjustment" ||
-            customerMode === "x"
+            effectiveFormCustomerMode === "demo" ||
+            effectiveFormCustomerMode === "adjustment" ||
+            effectiveFormCustomerMode === "x"
               ? undefined
               : {
                   name: selectedCustomer?.name ?? target.name,
@@ -1146,15 +1252,20 @@ export default function StampConfirmModal({
                   addStep === 1
                     ? !formValidity.hasCompletedBasicSequence ||
                       (usesStandardSalesFlow &&
-                        customerMode !== "x" &&
+                        effectiveFormCustomerMode !== "x" &&
                         !hasSelectedShipmentTiming)
-                    : !formValidity.hasItems || !hasValidSplitPaymentAmounts
+                    : !formValidity.hasItems ||
+                      !hasValidSplitPaymentAmounts ||
+                      (requiresXCustomerInfo &&
+                        (isSearchingCustomer ||
+                          (customerMatches.length > 0 &&
+                            !hasConfirmedXCustomer)))
                 }
                 onClick={() => {
                   if (
                     addStep === 1 &&
                     usesStandardSalesFlow &&
-                    customerMode !== "x" &&
+                    effectiveFormCustomerMode !== "x" &&
                     !hasSelectedShipmentTiming
                   ) {
                     toast.error("즉시 출고 또는 예약 출고를 선택해 주세요.");
@@ -1175,8 +1286,19 @@ export default function StampConfirmModal({
                     (!xCustomerName.trim() || !hasValidXPhoneLastDigits)
                   ) {
                     toast.error(
-                      "이름과 뒷번호를 입력해 주세요.\n미제공 정보만 X를 입력하거나\n‘둘 다 제공 X’를 선택할 수 있습니다.",
+                      "이름과 뒷번호를 입력해 주세요.\n미제공 정보에는 X를 입력할 수 있습니다.",
                       { style: { whiteSpace: "pre-line" } },
+                    );
+                    return;
+                  }
+                  if (
+                    addStep === 2 &&
+                    requiresXCustomerInfo &&
+                    (isSearchingCustomer ||
+                      (customerMatches.length > 0 && !hasConfirmedXCustomer))
+                  ) {
+                    toast.error(
+                      "일치 고객으로 변경하거나 X 고객으로 계속을 선택해 주세요.",
                     );
                     return;
                   }
@@ -1247,33 +1369,30 @@ export default function StampConfirmModal({
               <Button
                 type="button"
                 variant="gray"
+                className="flex w-full items-center justify-center text-center"
                 onClick={() => setPendingCustomer(null)}
               >
                 취소
               </Button>
               <Button
                 type="button"
-                variant="gray"
+                variant="tertiary"
+                className="flex w-full items-center justify-center text-center"
                 onClick={() => {
-                  setSelectedCustomer(pendingCustomer);
-                  setShouldAddStampForSelectedCustomer(false);
-                  setPendingCustomer(null);
-                  setAddStep(2);
+                  applySelectedCustomer(pendingCustomer, false);
                 }}
               >
-                미적립
+                변경/미적립
               </Button>
               {pendingCustomer.is_stamp_eligible !== false && (
                 <Button
                   type="button"
+                  className="flex w-full items-center justify-center text-center"
                   onClick={() => {
-                    setSelectedCustomer(pendingCustomer);
-                    setShouldAddStampForSelectedCustomer(true);
-                    setPendingCustomer(null);
-                    setAddStep(1);
+                    applySelectedCustomer(pendingCustomer, true);
                   }}
                 >
-                  적립
+                  변경/적립
                 </Button>
               )}
             </div>

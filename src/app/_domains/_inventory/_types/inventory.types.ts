@@ -1,6 +1,7 @@
 export type InventoryStatus = "normal" | "out" | "negative";
 
 export type InventoryItem = {
+  item_id?: number | null;
   item_name: string;
   item_code: string;
   category_name: string | null;
@@ -43,6 +44,8 @@ export type InventoryMovement = {
     | "out"
     | "exchange_in"
     | "exchange_out"
+    | "as_exchange_in"
+    | "as_exchange_out"
     | "adjustment_in"
     | "adjustment_out"
     | null;
@@ -76,14 +79,23 @@ export type PurchaseOrderLine = {
   note: string | null;
   quantity_check_note: string | null;
   quantity_checked_at: string | null;
-  handling_type: "none" | "demo" | "reservation" | "customer" | "memo";
+  handling_type:
+    | "none"
+    | "demo"
+    | "reservation"
+    | "customer"
+    | "memo"
+    | "as_exchange_in";
   handling_note: string | null;
   customer_id: string | null;
   customers?: { name: string; phone: string } | null;
   reservation_log_id: string | null;
+  after_service_id?: string | null;
+  inbound_type?: "purchase" | "as_exchange_in";
 };
 export type PurchaseReceipt = {
   id: string;
+  after_service_id?: string | null;
   arrived_on: string;
   note: string | null;
   created_at: string;

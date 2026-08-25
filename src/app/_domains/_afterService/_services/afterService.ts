@@ -347,6 +347,29 @@ export const updateAfterServiceStatus = async (
   return afterService;
 };
 
+export const processAfterServiceRepairReceipt = async (values: {
+  afterServiceId: string;
+  arrivedOn: string;
+  itemName: string;
+  quantity: number;
+  matchType: 'match' | 'mismatch';
+  memo: string;
+}) => {
+  const { data, error } = await supabase.rpc(
+    'process_after_service_repair_receipt',
+    {
+      p_after_service_id: Number(values.afterServiceId),
+      p_arrived_on: values.arrivedOn,
+      p_item_name: values.itemName,
+      p_quantity: values.quantity,
+      p_match_type: values.matchType,
+      p_memo: values.memo || null,
+    },
+  );
+  if (error) throw error;
+  return data as string;
+};
+
 /**
  * AS 정보 업데이트
  */

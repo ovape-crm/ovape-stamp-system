@@ -77,7 +77,7 @@ begin
     select 1
     from public.users
     where users.id = auth.uid()
-      and users.oss_role = 'admin'
+      and users.oss_role in ('admin', 'master')
   ) into current_user_is_admin;
 
   if not current_user_is_admin then
@@ -133,7 +133,7 @@ create policy "admins can delete work journals"
   to authenticated using (
     exists (
       select 1 from public.users
-      where users.id = auth.uid() and users.oss_role = 'admin'
+      where users.id = auth.uid() and users.oss_role in ('admin', 'master')
     )
   );
 
@@ -179,7 +179,7 @@ create policy "admins can insert workers"
     created_by = auth.uid()
     and exists (
       select 1 from public.users
-      where users.id = auth.uid() and users.oss_role = 'admin'
+      where users.id = auth.uid() and users.oss_role in ('admin', 'master')
     )
   );
 
@@ -193,13 +193,13 @@ create policy "admins can update workers"
   using (
     exists (
       select 1 from public.users
-      where users.id = auth.uid() and users.oss_role = 'admin'
+      where users.id = auth.uid() and users.oss_role in ('admin', 'master')
     )
   )
   with check (
     exists (
       select 1 from public.users
-      where users.id = auth.uid() and users.oss_role = 'admin'
+      where users.id = auth.uid() and users.oss_role in ('admin', 'master')
     )
   );
 
@@ -281,7 +281,7 @@ create policy "admins can read worker private details"
   to authenticated using (
     exists (
       select 1 from public.users
-      where users.id = auth.uid() and users.oss_role = 'admin'
+      where users.id = auth.uid() and users.oss_role in ('admin', 'master')
     )
   );
 
@@ -292,7 +292,7 @@ create policy "admins can insert worker private details"
   to authenticated with check (
     exists (
       select 1 from public.users
-      where users.id = auth.uid() and users.oss_role = 'admin'
+      where users.id = auth.uid() and users.oss_role in ('admin', 'master')
     )
   );
 
@@ -304,13 +304,13 @@ create policy "admins can update worker private details"
   using (
     exists (
       select 1 from public.users
-      where users.id = auth.uid() and users.oss_role = 'admin'
+      where users.id = auth.uid() and users.oss_role in ('admin', 'master')
     )
   )
   with check (
     exists (
       select 1 from public.users
-      where users.id = auth.uid() and users.oss_role = 'admin'
+      where users.id = auth.uid() and users.oss_role in ('admin', 'master')
     )
   );
 
