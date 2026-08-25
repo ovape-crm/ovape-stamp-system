@@ -29,6 +29,7 @@ export type StorePaymentSales = Record<string, number>;
 export type SettlementSummary = {
   sales: { ovape: StorePaymentSales; eguvape: StorePaymentSales };
   purchases: Record<string, number>;
+  soldItemCost: number | null;
 };
 
 export type SettlementCostBasisType = "historical" | "opening_20260722";

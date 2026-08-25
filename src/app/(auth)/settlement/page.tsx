@@ -7,8 +7,9 @@ import { useUser } from "@/app/_contexts/UserContext";
 import SettlementReport from "../cash-management/_components/SettlementReport";
 import SettlementExpenseManager from "./_components/SettlementExpenseManager";
 import SettlementCostDataManager from "./_components/SettlementCostDataManager";
+import HistoricalTransactionImporter from "./_components/HistoricalTransactionImporter";
 
-type SettlementTab = "report" | "expenses" | "costs";
+type SettlementTab = "report" | "expenses" | "costs" | "historical-import";
 
 export default function SettlementPage() {
   const router = useRouter();
@@ -35,6 +36,7 @@ export default function SettlementPage() {
           ["report", "정산보고서"],
           ["expenses", "기타비용 관리"],
           ["costs", "원가·과거자료 관리"],
+          ["historical-import", "과거 정산 자료"],
         ] as const).map(([tab, label]) => (
           <button
             key={tab}
@@ -48,7 +50,7 @@ export default function SettlementPage() {
           </button>
         ))}
       </div>
-      {activeTab === "report" ? <SettlementReport /> : activeTab === "expenses" ? <SettlementExpenseManager /> : <SettlementCostDataManager />}
+      {activeTab === "report" ? <SettlementReport /> : activeTab === "expenses" ? <SettlementExpenseManager /> : activeTab === "costs" ? <SettlementCostDataManager /> : <HistoricalTransactionImporter />}
     </main>
   );
 }
