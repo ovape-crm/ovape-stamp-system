@@ -48,6 +48,15 @@ const isGeneratedExchangeCompletionNote = (line: string) => {
 
 const schema = z
   .object({
+    caseType: z.enum(["customer_as", "vendor_exchange", "store_product_as"]),
+    supplierId: z.string(),
+    costAllocations: z.array(
+      z.object({
+        sourceReceiptLineId: z.string().nullable(),
+        unitPrice: z.number().min(0),
+        quantity: z.number().min(1),
+      }),
+    ),
     customerId: z.string().trim(),
     itemId: z.string().optional(),
     itemType: z.string().trim().min(1, { message: "품목 종류를 선택하세요." }),
@@ -110,6 +119,15 @@ const schema = z
       .optional(),
   })
   .superRefine((values, context) => {
+    if (values.caseType !== "customer_as") {
+      if (!values.supplierId) {
+        context.addIssue({
+          code: "custom",
+          path: ["supplierId"],
+          message: "거래처를 정확히 선택하세요.",
+        });
+      }
+    }
     if (values.hasAfterServiceCost && !values.afterServicePaymentMethod) {
       context.addIssue({
         code: "custom",
@@ -282,6 +300,9 @@ export default function AfterServiceCreateModal({
     mode: "onChange",
     resolver: zodResolver(schema),
     defaultValues: {
+      caseType: "customer_as",
+      supplierId: "",
+      costAllocations: [],
       customerId: initialData?.customerId || "",
       itemId: "",
       itemType: initialData?.itemType || "",
@@ -310,6 +331,7 @@ export default function AfterServiceCreateModal({
   });
 
   const itemNameKeyword = watch("itemName");
+  const caseType = watch("caseType") ?? "customer_as";
   const selectedItemId = watch("itemId") ?? "";
   const selectedItemType = watch("itemType");
   const selectedQuantity = watch("quantity");
@@ -450,6 +472,9 @@ export default function AfterServiceCreateModal({
       }
 
       reset({
+        caseType: "customer_as",
+        supplierId: "",
+        costAllocations: [],
         customerId: customerId || "",
         itemId: "",
         itemType: initialData.itemType,
@@ -559,6 +584,7 @@ export default function AfterServiceCreateModal({
       );
       if (!selectedSupplierId && exactSupplier) {
         setSelectedSupplierId(exactSupplier.id);
+        setValue("supplierId", exactSupplier.id);
         setSupplierSearch(exactSupplier.name);
       }
 
@@ -823,13 +849,53 @@ export default function AfterServiceCreateModal({
           className="space-y-3"
           style={{ display: currentStep === 1 ? "block" : "none" }}
         >
+          {mode === "create" && (
+            <div className="rounded-xl border border-gray-200 bg-gray-50/70 p-3">
+              <span className="mb-2 block text-sm font-semibold text-gray-800">
+                접수 유형
+              </span>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {(
+                  [
+                    ["store_product_as", "매장제품 A/S 출고"],
+                    ["vendor_exchange", "업체 교환출고"],
+                    ["customer_as", "고객 A/S 추가"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => {
+                      setValue("caseType", value, { shouldValidate: true });
+                      setValue("costAllocations", [], {
+                        shouldValidate: true,
+                      });
+                      if (value !== "customer_as") {
+                        setSelectedCustomerId(null);
+                        setSelectedCustomerInfo(null);
+                        setValue("customerId", "");
+                        setValue("hasAfterServiceCost", false);
+                        setValue("isRentalIssued", false);
+                        setValue("isExchangeIssued", false);
+                      }
+                    }}
+                    className={`min-h-11 cursor-pointer rounded-lg border px-3 py-2 text-sm font-semibold transition ${caseType === value ? "border-brand-500 bg-brand-500 text-white" : "border-gray-300 bg-white text-gray-700 hover:border-brand-300"}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {/* 고객 검색 */}
-          <CustomerSelector
-            value={selectedCustomerId}
-            onChange={handleCustomerChange}
-            error={errors.customerId?.message}
-            initialCustomer={selectedCustomerInfo}
-          />
+          {caseType === "customer_as" && (
+            <CustomerSelector
+              value={selectedCustomerId}
+              onChange={handleCustomerChange}
+              error={errors.customerId?.message}
+              initialCustomer={selectedCustomerInfo}
+            />
+          )}
 
           {/* 품목 관리에서 기기/제품 검색 */}
           <div className="relative">
@@ -963,6 +1029,11 @@ export default function AfterServiceCreateModal({
               </p>
             )}
           </div>
+          {caseType !== "customer_as" && itemNameKeyword.trim() && (
+            <p className="rounded-lg border border-gray-200 bg-gray-50/70 px-3 py-2 text-xs text-gray-600">
+              접수 후 마스터가 출고를 확정하면 기존 매입 이력에서 원가가 자동 배분됩니다.
+            </p>
+          )}
         </section>
 
         <section
@@ -1057,24 +1128,27 @@ export default function AfterServiceCreateModal({
                   <label className="block text-sm font-medium text-gray-800">
                     도매처 <span className="text-rose-600">*</span>
                   </label>
-                  <button
-                    type="button"
-                    aria-pressed={selectedSupplierId === "later"}
-                    onClick={() => {
-                      const isSelected = selectedSupplierId === "later";
-                      setSelectedSupplierId(isSelected ? null : "later");
-                      setSupplierSearch(isSelected ? "" : "나중에 수정");
-                      setIsSupplierPickerOpen(false);
-                      setReceivedInfoError("");
-                    }}
-                    className={`flex h-6 items-center justify-center rounded-md px-2 text-xs font-semibold transition-colors ${
-                      selectedSupplierId === "later"
-                        ? "bg-brand-500 text-white"
-                        : "border border-gray-300 bg-white text-gray-500 hover:bg-gray-50"
-                    }`}
-                  >
-                    나중에 수정
-                  </button>
+                  {caseType === "customer_as" && (
+                    <button
+                      type="button"
+                      aria-pressed={selectedSupplierId === "later"}
+                      onClick={() => {
+                        const isSelected = selectedSupplierId === "later";
+                        setSelectedSupplierId(isSelected ? null : "later");
+                        setValue("supplierId", "");
+                        setSupplierSearch(isSelected ? "" : "나중에 수정");
+                        setIsSupplierPickerOpen(false);
+                        setReceivedInfoError("");
+                      }}
+                      className={`flex h-6 items-center justify-center rounded-md px-2 text-xs font-semibold transition-colors ${
+                        selectedSupplierId === "later"
+                          ? "bg-brand-500 text-white"
+                          : "border border-gray-300 bg-white text-gray-500 hover:bg-gray-50"
+                      }`}
+                    >
+                      나중에 수정
+                    </button>
+                  )}
                 </div>
                 <div className="relative mt-1">
                   <svg
@@ -1102,6 +1176,7 @@ export default function AfterServiceCreateModal({
                     onChange={(event) => {
                       setSupplierSearch(event.target.value);
                       setSelectedSupplierId(null);
+                      setValue("supplierId", "");
                       setIsSupplierPickerOpen(true);
                       setReceivedInfoError("");
                     }}
@@ -1125,6 +1200,7 @@ export default function AfterServiceCreateModal({
                             event.preventDefault();
                             setSupplierSearch(supplier.name);
                             setSelectedSupplierId(supplier.id);
+                            setValue("supplierId", supplier.id);
                             setIsSupplierPickerOpen(false);
                             setReceivedInfoError("");
                           }}
@@ -1139,6 +1215,11 @@ export default function AfterServiceCreateModal({
                       </p>
                     )}
                   </div>
+                )}
+                {errors.supplierId && (
+                  <p className="mt-1 text-xs text-rose-600">
+                    {errors.supplierId.message}
+                  </p>
                 )}
               </div>
 
@@ -1858,7 +1939,9 @@ export default function AfterServiceCreateModal({
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
             <h3 className="text-lg font-semibold mb-4">AS 삭제 확인</h3>
             <p className="text-gray-600 mb-6">
-              정말로 이 AS를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+              연결된 교환출고 및 교환입고가 함께 취소됩니다. 반영된 재고는
+              원상복구되며 재고 취소 이력은 남습니다. 이 작업은 되돌릴 수
+              없습니다.
             </p>
             <div className="flex justify-end gap-3">
               <Button

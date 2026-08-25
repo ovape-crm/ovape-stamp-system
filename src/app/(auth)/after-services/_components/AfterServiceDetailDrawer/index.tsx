@@ -1,75 +1,77 @@
-'use client';
+"use client";
 
-import Drawer from '@/app/_components/Drawer';
+import Drawer from "@/app/_components/Drawer";
 import {
   updateAfterServiceStatus,
+  processAfterServiceRepairIntake,
   processAfterServiceRepairReceipt,
+  processInventoryServiceInbound,
+  getInventoryServiceProgress,
+  confirmInventoryServiceOutbound,
   updateAfterService,
   deleteAfterService,
-} from '@/app/_domains/_afterService/_services/afterService';
-import { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useModal } from '@/app/_contexts/ModalContext';
-import { useUser } from '@/app/_contexts/UserContext';
-import Loading from '@/app/_components/Loading';
-import toast from 'react-hot-toast';
-import AfterServiceLogList from './AfterServiceLogList';
-import CustomerInfoCard from './CustomerInfoCard';
-import ASInfoCard from './ASInfoCard';
-import StatusBox from './StatusBox';
-import SymptomCard from './SymptomCard';
-import NoteCard from './NoteCard';
-import UpdatedDate from './UpdatedDate';
-import StatusUpdateModal, {
-  StatusUpdateFormValues,
-} from './StatusUpdateModal';
-import AfterServiceCreateModal from '../AfterServiceCreateModal';
+} from "@/app/_domains/_afterService/_services/afterService";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useModal } from "@/app/_contexts/ModalContext";
+import { useUser } from "@/app/_contexts/UserContext";
+import Loading from "@/app/_components/Loading";
+import toast from "react-hot-toast";
+import AfterServiceLogList from "./AfterServiceLogList";
+import CustomerInfoCard from "./CustomerInfoCard";
+import ASInfoCard from "./ASInfoCard";
+import StatusBox from "./StatusBox";
+import SymptomCard from "./SymptomCard";
+import NoteCard from "./NoteCard";
+import UpdatedDate from "./UpdatedDate";
+import StatusUpdateModal, { StatusUpdateFormValues } from "./StatusUpdateModal";
+import AfterServiceCreateModal from "../AfterServiceCreateModal";
 import {
   AfterServiceStatusEnum,
   PaymentTypeEnum,
   StoreTypeEnum,
-} from '@/app/_enums/enums';
-import Button from '@/app/_components/Button';
-import { useAfterService } from '@/app/_domains/_afterService/_hooks/useAfterService';
-import { afterServiceKeys } from '@/app/_domains/_afterService/_queryKeys/afterServiceKeys';
-import { logKeys } from '@/app/_domains/_log/_queryKeys/logKeys';
+} from "@/app/_enums/enums";
+import Button from "@/app/_components/Button";
+import { useAfterService } from "@/app/_domains/_afterService/_hooks/useAfterService";
+import { afterServiceKeys } from "@/app/_domains/_afterService/_queryKeys/afterServiceKeys";
+import { logKeys } from "@/app/_domains/_log/_queryKeys/logKeys";
 import {
   deleteLog,
   getAfterServiceStampLog,
   getLogsByAfterServiceId,
   updateStampLogHistoryOnly,
   updateLogNote,
-} from '@/app/_domains/_log/_services/logService';
-import { addStamp } from '@/app/_domains/_stamp/_services/stampService';
-import { searchItemOptions } from '@/app/_domains/_item/_services/itemService';
+} from "@/app/_domains/_log/_services/logService";
+import { addStamp } from "@/app/_domains/_stamp/_services/stampService";
+import { searchItemOptions } from "@/app/_domains/_item/_services/itemService";
 
 const getLogValue = (note: string, ...labels: string[]) => {
   for (const label of labels) {
     const value = note
-      .split('\n')
+      .split("\n")
       .find((line) => line.trim().startsWith(`${label} :`))
-      ?.split(' :')
+      ?.split(" :")
       .slice(1)
-      .join(' :')
+      .join(" :")
       .trim();
     if (value) return value;
   }
-  return '';
+  return "";
 };
 
 const toInputDate = (value: string) => {
-  if (value === 'X') return 'X';
+  if (value === "X") return "X";
   const parts = value.match(/(\d{2,4})\D+(\d{1,2})\D+(\d{1,2})/);
-  if (!parts) return '';
+  if (!parts) return "";
   const year = parts[1].length === 2 ? `20${parts[1]}` : parts[1];
-  return `${year}-${parts[2].padStart(2, '0')}-${parts[3].padStart(2, '0')}`;
+  return `${year}-${parts[2].padStart(2, "0")}-${parts[3].padStart(2, "0")}`;
 };
 
 const isGeneratedExchangeCompletionNote = (line: string) => {
   const value = line.trim();
   return (
-    value === '교환완료' ||
-    value === '동일제품,수량 교환완료' ||
+    value === "교환완료" ||
+    value === "동일제품,수량 교환완료" ||
     /^.+\s+\d+개(?:\s+\(.+\))?\s+교환완료$/.test(value)
   );
 };
@@ -87,7 +89,8 @@ const AfterServiceDetailDrawer = ({
 }) => {
   const queryClient = useQueryClient();
   const { open, close } = useModal();
-  const { isAdmin } = useUser();
+  const { user } = useUser();
+  const isMaster = user?.oss_role === "master";
   const {
     afterService: afterServiceDetail,
     isLoading,
@@ -97,7 +100,7 @@ const AfterServiceDetailDrawer = ({
   const { data: logs = [], isPending: areLogsLoading } = useQuery({
     queryKey: [
       ...logKeys.byAfterService(numericAfterServiceId),
-      'edit-initial-data',
+      "edit-initial-data",
     ],
     queryFn: () => getLogsByAfterServiceId(numericAfterServiceId, 100, 0),
     enabled: numericAfterServiceId > 0,
@@ -105,6 +108,36 @@ const AfterServiceDetailDrawer = ({
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isConfirmingOutbound, setIsConfirmingOutbound] = useState(false);
+  const isInventoryServiceCase =
+    afterServiceDetail?.service_case_type === "vendor_exchange" ||
+    afterServiceDetail?.service_case_type === "store_product_as";
+  const inventoryServiceProgressQuery = useQuery({
+    queryKey: ["after-service-inventory-progress", numericAfterServiceId],
+    queryFn: () => getInventoryServiceProgress(numericAfterServiceId),
+    enabled: numericAfterServiceId > 0 && isInventoryServiceCase,
+  });
+  const handleConfirmInventoryOutbound = async () => {
+    if (!afterServiceDetail || !isMaster) return;
+    try {
+      setIsConfirmingOutbound(true);
+      await confirmInventoryServiceOutbound(Number(afterServiceDetail.id));
+      invalidateAfterServiceQueries();
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      toast.success("A/S 출고가 확정되었습니다.");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "";
+      if (message.includes("PURCHASE_COST_HISTORY_INSUFFICIENT")) {
+        toast.error("자동 배분할 기존 매입 이력 수량이 부족합니다.");
+      } else if (message.includes("INSUFFICIENT_INVENTORY")) {
+        toast.error("현재 재고보다 많이 출고할 수 없습니다.");
+      } else {
+        toast.error(message || "A/S 출고 확정에 실패했습니다.");
+      }
+    } finally {
+      setIsConfirmingOutbound(false);
+    }
+  };
 
   const invalidateAfterServiceQueries = () => {
     queryClient.invalidateQueries({ queryKey: afterServiceKeys.lists() });
@@ -116,6 +149,9 @@ const AfterServiceDetailDrawer = ({
       queryClient.invalidateQueries({
         queryKey: logKeys.byAfterService(Number(afterServiceId)),
       });
+      queryClient.invalidateQueries({
+        queryKey: ["after-service-inventory-progress", Number(afterServiceId)],
+      });
     }
   };
 
@@ -125,15 +161,34 @@ const AfterServiceDetailDrawer = ({
     try {
       setIsUpdatingStatus(true);
       if (
-        values.status ===
-        AfterServiceStatusEnum.REPAIR_RETURNED_COMPLETED.value
+        values.status === AfterServiceStatusEnum.REPAIR_RETURNED_COMPLETED.value
       ) {
         if (!values.repairReceipt) {
-          throw new Error('A/S 교환입고 정보를 확인해 주세요.');
+          throw new Error("A/S 교환입고 정보를 확인해 주세요.");
         }
-        await processAfterServiceRepairReceipt({
+        if (isInventoryServiceCase) {
+          await processInventoryServiceInbound({
+            afterServiceId,
+            arrivedOn: values.repairReceipt.arrivedOn,
+            itemName: values.repairReceipt.itemName,
+            quantity: values.repairReceipt.quantity,
+            memo: values.repairReceipt.memo,
+          });
+        } else {
+          await processAfterServiceRepairReceipt({
+            afterServiceId,
+            ...values.repairReceipt,
+          });
+        }
+      } else if (
+        values.status === AfterServiceStatusEnum.SENT_FOR_REPAIR.value
+      ) {
+        if (!values.repairIntakeExpense) {
+          throw new Error("A/S 수리 접수 정보를 확인해 주세요.");
+        }
+        await processAfterServiceRepairIntake({
           afterServiceId,
-          ...values.repairReceipt,
+          ...values.repairIntakeExpense,
         });
       } else {
         await updateAfterServiceStatus(
@@ -144,21 +199,37 @@ const AfterServiceDetailDrawer = ({
       }
 
       invalidateAfterServiceQueries();
+      if (values.repairIntakeExpense?.hasStoreCost) {
+        queryClient.invalidateQueries({ queryKey: ["settlement-expenses"] });
+        queryClient.invalidateQueries({
+          queryKey: ["settlement-expense-total"],
+        });
+      }
       close();
-      toast.success('상태가 업데이트되었습니다.');
+      toast.success("상태가 업데이트되었습니다.");
     } catch (err) {
-      console.error('Failed to update status:', err);
-      const message = err instanceof Error ? err.message : '';
-      if (message.includes('SUPPLIER_REQUIRED')) {
-        toast.error('거래처가 선택되어 있지 않습니다.');
-      } else if (message.includes('SUPPLIER_NOT_FOUND')) {
-        toast.error('등록된 거래처 정보를 찾을 수 없습니다.');
-      } else if (message.includes('AFTER_SERVICE_RECEIPT_ALREADY_EXISTS')) {
-        toast.error('이미 A/S 교환입고 처리된 건입니다.');
-      } else if (message.includes('ITEM_NOT_FOUND')) {
-        toast.error('품목 관리에 등록된 정확한 품목명을 선택해 주세요.');
+      console.error("Failed to update status:", err);
+      const message = err instanceof Error ? err.message : "";
+      if (message.includes("SUPPLIER_REQUIRED")) {
+        toast.error("거래처가 선택되어 있지 않습니다.");
+      } else if (message.includes("SUPPLIER_NOT_FOUND")) {
+        toast.error("등록된 거래처 정보를 찾을 수 없습니다.");
+      } else if (message.includes("AFTER_SERVICE_RECEIPT_ALREADY_EXISTS")) {
+        toast.error("이미 A/S 교환입고 처리된 건입니다.");
+      } else if (message.includes("ITEM_NOT_FOUND")) {
+        toast.error("품목 관리에 등록된 정확한 품목명을 선택해 주세요.");
+      } else if (message.includes("AFTER_SERVICE_RECEIVED_DATE_REQUIRED")) {
+        toast.error("수리 접수일을 확인해 주세요.");
+      } else if (message.includes("STORE_REPAIR_COST_REQUIRED")) {
+        toast.error("매장 접수비용 금액을 확인해 주세요.");
+      } else if (message.includes("SERVICE_INBOUND_QUANTITY_EXCEEDED")) {
+        toast.error("남은 출고 수량보다 많이 입고할 수 없습니다.");
+      } else if (message.includes("SERVICE_INBOUND_ITEM_MISMATCH")) {
+        toast.error("출고한 품목과 같은 품목만 입고할 수 있습니다.");
       } else {
-        toast.error(message || '상태 업데이트에 실패했습니다. 다시 시도해 주세요.');
+        toast.error(
+          message || "상태 업데이트에 실패했습니다. 다시 시도해 주세요.",
+        );
       }
     } finally {
       setIsUpdatingStatus(false);
@@ -167,13 +238,15 @@ const AfterServiceDetailDrawer = ({
 
   const handleStatusEdit = () => {
     if (!afterServiceDetail) return;
+    if (isInventoryServiceCase && !afterServiceDetail.outbound_processed_at) {
+      toast.error("마스터의 출고 확정 후 상태를 변경할 수 있습니다.");
+      return;
+    }
 
-    const rentalLog = logs.find(
-      (log) => log.action === 'after-service-rental',
-    );
+    const rentalLog = logs.find((log) => log.action === "after-service-rental");
     const rentalItemSummary =
       afterServiceDetail.rental_note ??
-      getLogValue(rentalLog?.note ?? '', '대여메모');
+      getLogValue(rentalLog?.note ?? "", "대여메모");
 
     open({
       content: (
@@ -187,6 +260,8 @@ const AfterServiceDetailDrawer = ({
           customerPhone={afterServiceDetail.customers?.phone}
           originalItemName={afterServiceDetail.item_name}
           originalQuantity={afterServiceDetail.quantity}
+          serviceCaseType={afterServiceDetail.service_case_type}
+          serviceProgress={inventoryServiceProgressQuery.data}
           rentalItemSummary={rentalItemSummary || undefined}
           onSubmit={handleStatusUpdate}
           onCancel={close}
@@ -203,7 +278,7 @@ const AfterServiceDetailDrawer = ({
     try {
       setIsDeleting(true);
       await deleteAfterService(afterServiceId);
-      toast.success('AS가 삭제되었습니다.');
+      toast.success("AS가 삭제되었습니다.");
       close();
       queryClient.invalidateQueries({ queryKey: afterServiceKeys.lists() });
       queryClient.invalidateQueries({ queryKey: afterServiceKeys.stats() });
@@ -211,8 +286,18 @@ const AfterServiceDetailDrawer = ({
         onDelete();
       }
     } catch (err) {
-      console.error('Failed to delete AS:', err);
-      toast.error('AS 삭제에 실패했습니다. 다시 시도해 주세요.');
+      console.error("Failed to delete AS:", err);
+      const message = err instanceof Error ? err.message : "";
+      if (
+        message.includes("ADMIN_REQUIRED") ||
+        message.includes("MASTER_REQUIRED")
+      ) {
+        toast.error("마스터만 A/S를 삭제할 수 있습니다.");
+      } else if (message.includes("AFTER_SERVICE_NOT_FOUND")) {
+        toast.error("이미 삭제되었거나 존재하지 않는 A/S입니다.");
+      } else {
+        toast.error(message || "AS 삭제에 실패했습니다. 다시 시도해 주세요.");
+      }
     } finally {
       setIsDeleting(false);
     }
@@ -222,41 +307,41 @@ const AfterServiceDetailDrawer = ({
     if (!afterServiceDetail || areLogsLoading) return;
 
     const receivedLog = logs.find(
-      (log) => log.action === 'after-service-received',
+      (log) => log.action === "after-service-received",
     );
-    const rentalLog = logs.find(
-      (log) => log.action === 'after-service-rental',
-    );
+    const rentalLog = logs.find((log) => log.action === "after-service-rental");
     const exchangeLog = logs.find(
-      (log) => log.action === 'after-service-exchange',
+      (log) => log.action === "after-service-exchange",
     );
-    const receivedNote = receivedLog?.note ?? '';
-    const rentalNote = rentalLog?.note ?? '';
-    const exchangeNote = exchangeLog?.note ?? '';
-    const costText = getLogValue(receivedNote, 'A/S 비용');
-    const paymentText = getLogValue(receivedNote, '결제방식');
-    const parsedCost = Number(costText.replaceAll(',', '').replace('원', ''));
+    const receivedNote = receivedLog?.note ?? "";
+    const rentalNote = rentalLog?.note ?? "";
+    const exchangeNote = exchangeLog?.note ?? "";
+    const costText = getLogValue(receivedNote, "A/S 비용");
+    const paymentText = getLogValue(receivedNote, "결제방식");
+    const parsedCost = Number(costText.replaceAll(",", "").replace("원", ""));
     const isRental =
       Boolean(rentalLog) ||
       afterServiceDetail.status === AfterServiceStatusEnum.RENTAL.value;
     const isExchange =
       Boolean(exchangeLog) ||
       afterServiceDetail.status === AfterServiceStatusEnum.EXCHANGE.value;
-    const editableShopNote = (afterServiceDetail.shop_note ?? '')
-      .split('\n')
-      .filter((line) => !line.startsWith('대여 :') && line !== '교환완료')
-      .join('\n');
-    const editableCustomerNote = (afterServiceDetail.customer_note ?? '')
-      .split('\n')
+    const editableShopNote = (afterServiceDetail.shop_note ?? "")
+      .split("\n")
+      .filter((line) => !line.startsWith("대여 :") && line !== "교환완료")
+      .join("\n");
+    const editableCustomerNote = (afterServiceDetail.customer_note ?? "")
+      .split("\n")
       .filter((line) => !isGeneratedExchangeCompletionNote(line))
-      .join('\n');
+      .join("\n");
 
     open({
       content: (
         <AfterServiceCreateModal
           mode="edit"
           initialData={{
-            customerId: afterServiceDetail.customer_id ? String(afterServiceDetail.customer_id) : null,
+            customerId: afterServiceDetail.customer_id
+              ? String(afterServiceDetail.customer_id)
+              : null,
             customerName: afterServiceDetail.customers?.name || null,
             customerPhone: afterServiceDetail.customers?.phone || null,
             itemType: afterServiceDetail.item_type,
@@ -269,66 +354,64 @@ const AfterServiceDetailDrawer = ({
               afterServiceDetail.is_loaner_device_issued ?? false,
             purchaseDate: toInputDate(
               afterServiceDetail.customer_purchase_date ??
-                getLogValue(receivedNote, '고객구매일', '고객 구매일'),
+                getLogValue(receivedNote, "고객구매일", "고객 구매일"),
             ),
             receivedDate: toInputDate(
               afterServiceDetail.customer_received_date ??
-                getLogValue(receivedNote, '고객접수일', '고객 접수일'),
+                getLogValue(receivedNote, "고객접수일", "고객 접수일"),
             ),
             supplierName:
               afterServiceDetail.supplier_name ??
-              getLogValue(receivedNote, '도매처'),
+              getLogValue(receivedNote, "도매처"),
             hasAfterServiceCost:
               afterServiceDetail.has_after_service_cost ??
-              (costText !== '' && costText !== 'X'),
+              (costText !== "" && costText !== "X"),
             afterServicePaymentMethod:
               afterServiceDetail.after_service_payment_method ??
-              (paymentText === '카드'
-                ? 'card'
-                : paymentText === '이체'
-                  ? 'transfer'
-                  : paymentText === '현금'
-                    ? 'cash'
+              (paymentText === "카드"
+                ? "card"
+                : paymentText === "이체"
+                  ? "transfer"
+                  : paymentText === "현금"
+                    ? "cash"
                     : undefined),
             afterServiceCostAmount:
               afterServiceDetail.after_service_cost_amount ??
               (Number.isFinite(parsedCost)
                 ? parsedCost
-                : paymentText === '카드'
+                : paymentText === "카드"
                   ? 6600
                   : 6000),
             afterServiceCostMemo:
               afterServiceDetail.after_service_cost_memo ??
-              getLogValue(receivedNote, '가격조정 메모'),
-            isRentalIssued:
-              afterServiceDetail.is_rental_issued ?? isRental,
+              getLogValue(receivedNote, "가격조정 메모"),
+            isRentalIssued: afterServiceDetail.is_rental_issued ?? isRental,
             rentalDate: toInputDate(
               afterServiceDetail.rental_date ??
-                getLogValue(rentalNote, '대여일'),
+                getLogValue(rentalNote, "대여일"),
             ),
             rentalNote:
               afterServiceDetail.rental_note ??
-              getLogValue(rentalNote, '대여메모'),
+              getLogValue(rentalNote, "대여메모"),
             isExchangeIssued:
               afterServiceDetail.is_exchange_issued ?? isExchange,
             exchangeDate: toInputDate(
               afterServiceDetail.exchange_date ??
-                getLogValue(exchangeNote, '교환일'),
+                getLogValue(exchangeNote, "교환일"),
             ),
-            exchangeItemId:
-              afterServiceDetail.exchange_item_id ?? undefined,
+            exchangeItemId: afterServiceDetail.exchange_item_id ?? undefined,
             exchangeItemName:
               afterServiceDetail.exchange_item_name ??
-              getLogValue(exchangeNote, '교환품목'),
+              getLogValue(exchangeNote, "교환품목"),
             exchangeItemCategoryName:
               afterServiceDetail.exchange_item_category_name ?? undefined,
             exchangeQuantity:
               afterServiceDetail.exchange_quantity ??
-              (Number(getLogValue(exchangeNote, '수량').replace('개', '')) ||
+              (Number(getLogValue(exchangeNote, "수량").replace("개", "")) ||
                 1),
             exchangeNote:
               afterServiceDetail.exchange_note ??
-              getLogValue(exchangeNote, '교환메모'),
+              getLogValue(exchangeNote, "교환메모"),
           }}
           onSubmit={async (values) => {
             if (!afterServiceId) return;
@@ -345,20 +428,19 @@ const AfterServiceDetailDrawer = ({
                 isLoanerDeviceIssued: values.isLoanerDeviceIssued,
                 intake: {
                   customerPurchaseDate: getLogValue(
-                    values.receivedNote ?? '',
-                    '고객구매일',
+                    values.receivedNote ?? "",
+                    "고객구매일",
                   ),
                   customerReceivedDate: getLogValue(
-                    values.receivedNote ?? '',
-                    '고객접수일',
+                    values.receivedNote ?? "",
+                    "고객접수일",
                   ),
                   supplierName: getLogValue(
-                    values.receivedNote ?? '',
-                    '도매처',
+                    values.receivedNote ?? "",
+                    "도매처",
                   ),
                   hasAfterServiceCost: values.hasAfterServiceCost,
-                  afterServicePaymentMethod:
-                    values.afterServicePaymentMethod,
+                  afterServicePaymentMethod: values.afterServicePaymentMethod,
                   afterServiceCostAmount: values.afterServiceCostAmount,
                   afterServiceCostMemo: values.afterServiceCostMemo,
                   isRentalIssued: values.isRentalIssued,
@@ -368,8 +450,7 @@ const AfterServiceDetailDrawer = ({
                   exchangeDate: values.exchangeDate,
                   exchangeItemId: values.exchangeItemId,
                   exchangeItemName: values.exchangeItemName,
-                  exchangeItemCategoryName:
-                    values.exchangeItemCategoryName,
+                  exchangeItemCategoryName: values.exchangeItemCategoryName,
                   exchangeQuantity: values.exchangeQuantity,
                   exchangeNote: values.exchangeNote,
                 },
@@ -382,7 +463,7 @@ const AfterServiceDetailDrawer = ({
                 await updateAfterServiceStatus(
                   afterServiceId,
                   AfterServiceStatusEnum.EXCHANGE.value,
-                  `교환일 : ${values.exchangeDate?.replaceAll('-', '/') ?? ''}\n교환품목 : ${values.exchangeItemName ?? ''}\n수량 : ${values.exchangeQuantity}개\n교환메모 : ${values.exchangeNote?.trim() ?? ''}`,
+                  `교환일 : ${values.exchangeDate?.replaceAll("-", "/") ?? ""}\n교환품목 : ${values.exchangeItemName ?? ""}\n수량 : ${values.exchangeQuantity}개\n교환메모 : ${values.exchangeNote?.trim() ?? ""}`,
                 );
               } else if (
                 values.isRentalIssued &&
@@ -391,7 +472,7 @@ const AfterServiceDetailDrawer = ({
                 await updateAfterServiceStatus(
                   afterServiceId,
                   AfterServiceStatusEnum.RENTAL.value,
-                  `대여일 : ${values.rentalDate?.replaceAll('-', '/') ?? ''}\n대여메모 : ${values.rentalNote?.trim() ?? ''}`,
+                  `대여일 : ${values.rentalDate?.replaceAll("-", "/") ?? ""}\n대여메모 : ${values.rentalNote?.trim() ?? ""}`,
                 );
               } else if (
                 afterServiceDetail.status ===
@@ -401,7 +482,7 @@ const AfterServiceDetailDrawer = ({
                 await updateAfterServiceStatus(
                   afterServiceId,
                   AfterServiceStatusEnum.RECEIVED.value,
-                  '교환 처리 해제',
+                  "교환 처리 해제",
                 );
               } else if (
                 afterServiceDetail.status ===
@@ -411,20 +492,20 @@ const AfterServiceDetailDrawer = ({
                 await updateAfterServiceStatus(
                   afterServiceId,
                   AfterServiceStatusEnum.RECEIVED.value,
-                  '대여 처리 해제',
+                  "대여 처리 해제",
                 );
               }
 
               if (receivedLog) {
                 await updateLogNote(
                   receivedLog.id,
-                  values.receivedNote?.trim() ?? '',
+                  values.receivedNote?.trim() ?? "",
                 );
               }
               if (rentalLog && values.isRentalIssued) {
                 await updateLogNote(
                   rentalLog.id,
-                  `대여일 : ${values.rentalDate?.replaceAll('-', '/') ?? ''}\n대여메모 : ${values.rentalNote?.trim() ?? ''}`,
+                  `대여일 : ${values.rentalDate?.replaceAll("-", "/") ?? ""}\n대여메모 : ${values.rentalNote?.trim() ?? ""}`,
                 );
               }
               if (
@@ -433,7 +514,7 @@ const AfterServiceDetailDrawer = ({
               ) {
                 const linkedExchangeLog = await getAfterServiceStampLog(
                   numericAfterServiceId,
-                  'exchange',
+                  "exchange",
                 );
                 if (linkedExchangeLog) {
                   await deleteLog(String(linkedExchangeLog.id));
@@ -443,22 +524,22 @@ const AfterServiceDetailDrawer = ({
                 if (exchangeLog) {
                   await updateLogNote(
                     exchangeLog.id,
-                    `교환일 : ${values.exchangeDate?.replaceAll('-', '/') ?? ''}\n교환품목 : ${values.exchangeItemName ?? ''}\n수량 : ${values.exchangeQuantity}개\n교환메모 : ${values.exchangeNote?.trim() ?? ''}`,
+                    `교환일 : ${values.exchangeDate?.replaceAll("-", "/") ?? ""}\n교환품목 : ${values.exchangeItemName ?? ""}\n수량 : ${values.exchangeQuantity}개\n교환메모 : ${values.exchangeNote?.trim() ?? ""}`,
                   );
                 }
 
                 if (values.customerId) {
                   const linkedExchangeLog = await getAfterServiceStampLog(
                     numericAfterServiceId,
-                    'exchange',
+                    "exchange",
                   );
                   const exchangeOutboundLog = linkedExchangeLog;
 
                   const exchangeDateValue =
-                    values.exchangeDate?.replaceAll('-', '/') ?? '';
+                    values.exchangeDate?.replaceAll("-", "/") ?? "";
                   const exchangeRemark = values.exchangeNote?.trim()
                     ? `A/S 교환출고,${values.exchangeNote.trim()}`
-                    : 'A/S 교환출고';
+                    : "A/S 교환출고";
                   const exchangeLineText = `${values.exchangeItemName} ${values.exchangeQuantity}개 (${exchangeRemark})`;
 
                   if (exchangeOutboundLog) {
@@ -467,12 +548,12 @@ const AfterServiceDetailDrawer = ({
                         itemId: string;
                         itemName: string;
                         itemCategoryName?: string | null;
-                        inventoryAction?: 'exchange_out' | 'as_exchange_out';
+                        inventoryAction?: "exchange_out" | "as_exchange_out";
                       }>
                     ).find(
                       (item) =>
-                        item.inventoryAction === 'exchange_out' ||
-                        item.inventoryAction === 'as_exchange_out',
+                        item.inventoryAction === "exchange_out" ||
+                        item.inventoryAction === "as_exchange_out",
                     )!;
                     await updateStampLogHistoryOnly(
                       String(exchangeOutboundLog.id),
@@ -480,16 +561,17 @@ const AfterServiceDetailDrawer = ({
                       PaymentTypeEnum.SHIPMENT_REMARK.value,
                       {
                         afterServiceId: numericAfterServiceId,
-                        afterServiceOperation: 'exchange',
+                        afterServiceOperation: "exchange",
                         storeName: StoreTypeEnum.OVAPE.value,
                         totalAmount: 0,
                         extraNote: `A/S 교환 · ${exchangeDateValue}`,
                         items: [
                           {
                             itemId:
-                              values.exchangeItemId === 'existing'
+                              values.exchangeItemId === "existing"
                                 ? existingItem.itemId
-                                : (values.exchangeItemId ?? existingItem.itemId),
+                                : (values.exchangeItemId ??
+                                  existingItem.itemId),
                             itemName:
                               values.exchangeItemName ?? existingItem.itemName,
                             itemCategoryName:
@@ -501,7 +583,7 @@ const AfterServiceDetailDrawer = ({
                             amount: 0,
                             remark: exchangeRemark,
                             lineText: exchangeLineText,
-                            inventoryAction: 'as_exchange_out',
+                            inventoryAction: "as_exchange_out",
                           },
                         ],
                       },
@@ -514,14 +596,14 @@ const AfterServiceDetailDrawer = ({
                       PaymentTypeEnum.SHIPMENT_REMARK.value,
                       {
                         afterServiceId: numericAfterServiceId,
-                        afterServiceOperation: 'exchange',
+                        afterServiceOperation: "exchange",
                         storeName: StoreTypeEnum.OVAPE.value,
                         totalAmount: 0,
                         extraNote: `A/S 교환 · ${exchangeDateValue}`,
                         items: [
                           {
-                            itemId: values.exchangeItemId ?? '',
-                            itemName: values.exchangeItemName ?? '',
+                            itemId: values.exchangeItemId ?? "",
+                            itemName: values.exchangeItemName ?? "",
                             itemCategoryName:
                               values.exchangeItemCategoryName ?? null,
                             quantity: values.exchangeQuantity,
@@ -529,7 +611,7 @@ const AfterServiceDetailDrawer = ({
                             amount: 0,
                             remark: exchangeRemark,
                             lineText: exchangeLineText,
-                            inventoryAction: 'as_exchange_out',
+                            inventoryAction: "as_exchange_out",
                           },
                         ],
                       },
@@ -544,7 +626,7 @@ const AfterServiceDetailDrawer = ({
               ) {
                 const linkedCostLog = await getAfterServiceStampLog(
                   numericAfterServiceId,
-                  'cost',
+                  "cost",
                 );
                 if (linkedCostLog) {
                   await deleteLog(String(linkedCostLog.id));
@@ -558,7 +640,7 @@ const AfterServiceDetailDrawer = ({
               ) {
                 const linkedCostLog = await getAfterServiceStampLog(
                   numericAfterServiceId,
-                  'cost',
+                  "cost",
                 );
                 const costLog = linkedCostLog;
 
@@ -570,14 +652,14 @@ const AfterServiceDetailDrawer = ({
                 const adjustmentMemo = values.afterServiceCostMemo?.trim();
                 const remark = adjustmentMemo
                   ? `가격조정,${adjustmentMemo}`
-                  : '';
-                const lineText = `A/S 비용 1개${remark ? ` (${remark})` : ''}`;
+                  : "";
+                const lineText = `A/S 비용 1개${remark ? ` (${remark})` : ""}`;
                 const purchaseDate =
                   values.receivedNote
-                    ?.split('\n')
-                    .find((line) => line.startsWith('고객구매일 :'))
-                    ?.replace('고객구매일 :', '')
-                    .trim() || 'X';
+                    ?.split("\n")
+                    .find((line) => line.startsWith("고객구매일 :"))
+                    ?.replace("고객구매일 :", "")
+                    .trim() || "X";
                 const outboundNote = `고객 구매일 ${purchaseDate},${values.itemName} ${values.quantity}개 A/S 비용`;
 
                 if (costLog) {
@@ -587,14 +669,14 @@ const AfterServiceDetailDrawer = ({
                       itemName: string;
                       itemCategoryName?: string | null;
                     }>
-                  ).find((item) => item.itemName === 'A/S 비용')!;
+                  ).find((item) => item.itemName === "A/S 비용")!;
                   await updateStampLogHistoryOnly(
                     String(costLog.id),
                     outboundNote,
                     paymentType.value,
                     {
                       afterServiceId: numericAfterServiceId,
-                      afterServiceOperation: 'cost',
+                      afterServiceOperation: "cost",
                       storeName: StoreTypeEnum.OVAPE.value,
                       totalAmount: values.afterServiceCostAmount,
                       extraNote: outboundNote,
@@ -606,18 +688,21 @@ const AfterServiceDetailDrawer = ({
                           amount: values.afterServiceCostAmount,
                           remark,
                           lineText,
-                          inventoryAction: 'out',
+                          inventoryAction: "out",
                         },
                       ],
                     },
                   );
                 } else if (!afterServiceDetail.has_after_service_cost) {
-                  const costItems = await searchItemOptions('A/S 비용');
+                  const costItems = await searchItemOptions("A/S 비용");
                   const costItem = costItems.find(
-                    (item) => item.item_name.normalize('NFC').trim() === 'A/S 비용',
+                    (item) =>
+                      item.item_name.normalize("NFC").trim() === "A/S 비용",
                   );
                   if (!costItem) {
-                    throw new Error('품목 관리에서 "A/S 비용" 품목을 찾을 수 없습니다.');
+                    throw new Error(
+                      '품목 관리에서 "A/S 비용" 품목을 찾을 수 없습니다.',
+                    );
                   }
                   await addStamp(
                     values.customerId,
@@ -626,7 +711,7 @@ const AfterServiceDetailDrawer = ({
                     paymentType.value,
                     {
                       afterServiceId: numericAfterServiceId,
-                      afterServiceOperation: 'cost',
+                      afterServiceOperation: "cost",
                       storeName: StoreTypeEnum.OVAPE.value,
                       totalAmount: values.afterServiceCostAmount,
                       extraNote: outboundNote,
@@ -641,19 +726,19 @@ const AfterServiceDetailDrawer = ({
                           amount: values.afterServiceCostAmount,
                           remark,
                           lineText,
-                          inventoryAction: 'out',
+                          inventoryAction: "out",
                         },
                       ],
                     },
                   );
                 }
               }
-              toast.success('AS 정보가 수정되었습니다.');
+              toast.success("AS 정보가 수정되었습니다.");
               close();
               invalidateAfterServiceQueries();
             } catch (err) {
-              console.error('Failed to update AS:', err);
-              toast.error('AS 수정에 실패했습니다. 다시 시도해 주세요.');
+              console.error("Failed to update AS:", err);
+              toast.error("AS 수정에 실패했습니다. 다시 시도해 주세요.");
             } finally {
               setIsUpdating(false);
             }
@@ -661,7 +746,7 @@ const AfterServiceDetailDrawer = ({
           onDelete={handleDelete}
           onCancel={close}
           isSubmitting={isUpdating || isDeleting}
-          isAdmin={isAdmin}
+          isAdmin={isMaster}
         />
       ),
       options: { dismissOnBackdrop: false, dismissOnEsc: true },
@@ -752,6 +837,20 @@ const AfterServiceDetailDrawer = ({
                     customerPhone={afterServiceDetail.customers?.phone}
                   />
                 </div>
+
+                {isInventoryServiceCase && !afterServiceDetail.outbound_processed_at && (
+                  <div className="mb-4 flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-amber-800">출고 승인 대기</p>
+                      <p className="mt-0.5 text-xs text-amber-700">마스터가 확정하면 기존 매입 이력에서 원가를 자동 배분하고 재고를 차감합니다.</p>
+                    </div>
+                    {isMaster && (
+                      <Button size="sm" onClick={handleConfirmInventoryOutbound} disabled={isConfirmingOutbound}>
+                        {isConfirmingOutbound ? "확정 중..." : "출고 확정"}
+                      </Button>
+                    )}
+                  </div>
+                )}
 
                 {/* 증상 카드 */}
                 <SymptomCard symptom={afterServiceDetail.symptom} />

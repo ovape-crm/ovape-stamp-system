@@ -1879,7 +1879,9 @@ function ReceiptManager({
   const committedRows = rows.slice(0, -1);
   const validRows = committedRows.filter(
     (row) =>
-      items.some((item) => item.item_name === row.itemName) &&
+      row.itemName.trim().length > 0 &&
+      (Boolean(editingPurchaseOrder) ||
+        items.some((item) => item.item_name === row.itemName)) &&
       Number(row.quantity) > 0 &&
       (!isMaster ||
         (row.unitPrice !== "" &&
@@ -2067,6 +2069,7 @@ function ReceiptManager({
   };
 
   const openCreate = () => {
+    if (!isMaster) return;
     setEditingPurchaseOrder(null);
     setSupplierId("");
     setSupplierSearch("");
@@ -4172,9 +4175,11 @@ function PurchaseOrderList({
                 거래 항목 관리
               </Button>
             )}
-            <Button size="sm" onClick={onCreate}>
-              입고 예정 등록
-            </Button>
+            {isMaster && (
+              <Button size="sm" onClick={onCreate}>
+                입고 예정 등록
+              </Button>
+            )}
           </div>
         ) : (
           <span className="px-3 text-sm text-gray-500">

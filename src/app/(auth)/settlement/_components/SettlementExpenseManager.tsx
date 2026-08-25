@@ -13,6 +13,7 @@ import {
   deleteSettlementExpense,
   getSettlementExpenseCategories,
   getSettlementExpenses,
+  renameSettlementExpenseCategory,
   updateSettlementExpense,
 } from "@/app/_domains/_settlement/_services/settlementService";
 import { SettlementStore } from "@/app/_domains/_settlement/_types/settlement.types";
@@ -34,6 +35,8 @@ export default function SettlementExpenseManager() {
   const [expenseDate, setExpenseDate] = useState(currentDate);
   const [categoryId, setCategoryId] = useState("");
   const [newCategory, setNewCategory] = useState("");
+  const [editingCategoryId, setEditingCategoryId] = useState("");
+  const [editingCategoryName, setEditingCategoryName] = useState("");
   const [amount, setAmount] = useState("");
   const [store, setStore] = useState<SettlementStore>("ovape");
   const [isRecurring, setIsRecurring] = useState(false);
@@ -51,6 +54,20 @@ export default function SettlementExpenseManager() {
     mutationFn: createSettlementExpenseCategory,
     onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ["settlement-expense-categories"] }); setNewCategory(""); toast.success("비용 카테고리가 생성되었습니다."); },
     onError: () => toast.error("카테고리 생성에 실패했습니다."),
+  });
+  const renameCategoryMutation = useMutation({
+    mutationFn: renameSettlementExpenseCategory,
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["settlement-expense-categories"] }),
+        queryClient.invalidateQueries({ queryKey: ["settlement-expenses"] }),
+        queryClient.invalidateQueries({ queryKey: ["settlement-expense-occurrences"] }),
+      ]);
+      setEditingCategoryId("");
+      setEditingCategoryName("");
+      toast.success("카테고리 이름이 수정되었습니다.");
+    },
+    onError: () => toast.error("카테고리 이름 수정에 실패했습니다."),
   });
   const createMutation = useMutation({
     mutationFn: createSettlementExpense,
@@ -118,6 +135,33 @@ export default function SettlementExpenseManager() {
         <div className="mt-4 flex flex-col gap-2 rounded-xl border border-gray-200 bg-gray-50/70 p-3 sm:flex-row sm:items-end">
           <Field label="비용 카테고리 생성" className="sm:w-[280px]"><input value={newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder="새 카테고리 이름" className={fieldClass} /></Field>
           <Button type="button" variant="gray" onClick={() => { if (!newCategory.trim()) return toast.error("카테고리 이름을 입력해 주세요."); categoryMutation.mutate(newCategory); }} disabled={categoryMutation.isPending}>카테고리 생성</Button>
+        </div>
+        <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50/70 p-3">
+          <p className="mb-2 text-xs font-semibold text-gray-600">등록된 카테고리 관리</p>
+          <div className="space-y-2">
+            {(categoriesQuery.data ?? []).map((category) => (
+              <div key={category.id} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white p-2">
+                {editingCategoryId === category.id ? (
+                  <input
+                    value={editingCategoryName}
+                    onChange={(event) => setEditingCategoryName(event.target.value)}
+                    className={`${fieldClass} min-w-0 flex-1`}
+                    autoFocus
+                  />
+                ) : (
+                  <span className="min-w-0 flex-1 px-2 text-sm font-semibold text-gray-800">{category.name}</span>
+                )}
+                {editingCategoryId === category.id ? (
+                  <>
+                    <Button type="button" size="xs" variant="gray" onClick={() => { setEditingCategoryId(""); setEditingCategoryName(""); }}>취소</Button>
+                    <Button type="button" size="xs" disabled={!editingCategoryName.trim() || renameCategoryMutation.isPending} onClick={() => renameCategoryMutation.mutate({ id: category.id, name: editingCategoryName })}>저장</Button>
+                  </>
+                ) : (
+                  <Button type="button" size="xs" variant="gray" onClick={() => { setEditingCategoryId(category.id); setEditingCategoryName(category.name); }}>이름 수정</Button>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
         {editingId && <div className="mt-3 flex items-center justify-between rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-700"><span className="font-semibold">비용 항목을 수정하는 중입니다.{isRecurring ? " 반복 규칙 전체에 적용됩니다." : ""}</span><button type="button" onClick={cancelEditing} className="cursor-pointer font-semibold hover:underline">수정 취소</button></div>}
         <form onSubmit={submit} className="mt-3 grid gap-3 rounded-xl border border-gray-200 bg-gray-50/70 p-3 sm:grid-cols-2 lg:grid-cols-4">

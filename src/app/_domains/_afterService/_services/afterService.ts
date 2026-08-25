@@ -19,6 +19,8 @@ export const createAfterService = async ({
   receivedNote = '',
   statusNote = '',
   status = AfterServiceStatusEnum.RECEIVED.value,
+  caseType = 'customer_as',
+  supplierId,
   intake,
 }: {
   customerId: string | null;
@@ -32,6 +34,8 @@ export const createAfterService = async ({
   receivedNote?: string;
   statusNote?: string;
   status?: AfterServiceStatusEnumType['value'];
+  caseType?: 'customer_as' | 'vendor_exchange' | 'store_product_as';
+  supplierId?: string;
   intake?: {
     customerPurchaseDate?: string;
     customerReceivedDate?: string;
@@ -76,6 +80,8 @@ export const createAfterService = async ({
       customer_note: customerNote,
       is_loaner_device_issued: isLoanerDeviceIssued,
       status,
+      service_case_type: caseType,
+      outbound_supplier_id: supplierId || null,
       customer_purchase_date: intake?.customerPurchaseDate || null,
       customer_received_date: intake?.customerReceivedDate || null,
       supplier_name: intake?.supplierName || null,
@@ -370,6 +376,106 @@ export const processAfterServiceRepairReceipt = async (values: {
   return data as string;
 };
 
+export const processAfterServiceRepairIntake = async (values: {
+  afterServiceId: string;
+  receivedOn: string;
+  memo: string;
+  hasStoreCost: boolean;
+  storeCostAmount: number | null;
+}) => {
+  const { error } = await supabase.rpc('process_after_service_repair_intake', {
+    p_after_service_id: Number(values.afterServiceId),
+    p_received_on: values.receivedOn,
+    p_memo: values.memo || null,
+    p_has_store_cost: values.hasStoreCost,
+    p_store_cost_amount: values.storeCostAmount,
+  });
+  if (error) throw error;
+};
+
+export type ItemPurchaseCostOption = {
+  source_receipt_line_id: string;
+  arrived_on: string;
+  supplier_name: string;
+  unit_price: number;
+  received_quantity: number;
+};
+
+export const getItemPurchaseCostOptions = async (itemName: string) => {
+  const { data, error } = await supabase.rpc('get_item_purchase_cost_options', {
+    p_item_name: itemName,
+  });
+  if (error) throw error;
+  return (data ?? []) as ItemPurchaseCostOption[];
+};
+
+export const processInventoryServiceOutbound = async (values: {
+  afterServiceId: number;
+  caseType: 'vendor_exchange' | 'store_product_as';
+  supplierId: string;
+  allocations: Array<{
+    sourceReceiptLineId: string | null;
+    unitPrice: number;
+    quantity: number;
+  }>;
+}) => {
+  const { error } = await supabase.rpc('process_inventory_service_outbound', {
+    p_after_service_id: values.afterServiceId,
+    p_case_type: values.caseType,
+    p_supplier_id: values.supplierId,
+    p_allocations: values.allocations,
+  });
+  if (error) throw error;
+};
+
+export const confirmInventoryServiceOutbound = async (afterServiceId: number) => {
+  const { error } = await supabase.rpc(
+    'confirm_inventory_service_outbound',
+    { p_after_service_id: afterServiceId },
+  );
+  if (error) throw error;
+};
+
+export type InventoryServiceProgress = {
+  outbound_quantity: number;
+  received_quantity: number;
+  remaining_quantity: number;
+};
+
+export const getInventoryServiceProgress = async (afterServiceId: number) => {
+  const { data, error } = await supabase.rpc(
+    'get_inventory_service_progress',
+    { p_after_service_id: afterServiceId },
+  );
+  if (error) throw error;
+  return ((data ?? [])[0] ?? {
+    outbound_quantity: 0,
+    received_quantity: 0,
+    remaining_quantity: 0,
+  }) as InventoryServiceProgress;
+};
+
+export const processInventoryServiceInbound = async (values: {
+  afterServiceId: string;
+  arrivedOn: string;
+  itemName: string;
+  quantity: number;
+  memo: string;
+}) => {
+  const { data, error } = await supabase.rpc(
+    'process_inventory_service_inbound',
+    {
+      p_after_service_id: Number(values.afterServiceId),
+      p_arrived_on: values.arrivedOn,
+      p_item_name: values.itemName,
+      p_quantity: values.quantity,
+      p_memo: values.memo || null,
+    },
+  );
+  if (error) throw error;
+  return data as string;
+};
+
 /**
  * AS 정보 업데이트
  */
@@ -527,7 +633,10 @@ export const updateAfterService = async (
  * AS 삭제
  */
 export const deleteAfterService = async (id: string) => {
-  const { error } = await supabase.from('after_services').delete().eq('id', id);
+  const { error } = await supabase.rpc(
+    'delete_after_service_with_inventory_cleanup',
+    { p_after_service_id: Number(id) },
+  );
 
   if (error) throw error;
 };

@@ -4,9 +4,10 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Loading from "@/app/_components/Loading";
 import {
-  getSettlementExpenseTotal,
+  getSettlementExpenseOccurrences,
   getSettlementSummary,
 } from "@/app/_domains/_settlement/_services/settlementService";
+import { SettlementStore } from "@/app/_domains/_settlement/_types/settlement.types";
 
 const getCurrentMonthInKorea = () =>
   new Intl.DateTimeFormat("en-CA", {
@@ -42,6 +43,20 @@ const paymentRows = [
 
 const formatWon = (amount: number) => `${amount.toLocaleString("ko-KR")}원`;
 
+const preferredPurchaseOrder = [
+  "오베이프 세금계산서",
+  "오베이프 현금영수증",
+  "이구베이프 세금계산서",
+  "이구베이프 현금영수증",
+];
+
+const storeLabels: Record<SettlementStore, string> = {
+  ovape: "오베이프",
+  eguvape: "이구베이프",
+  common: "공통",
+  other: "기타",
+};
+
 export default function SettlementReport() {
   const today = getTodayInKorea();
   const [periodMode, setPeriodMode] =
@@ -75,15 +90,30 @@ export default function SettlementReport() {
     enabled: rangeValid,
   });
   const expensesQuery = useQuery({
-    queryKey: ["settlement-expense-total", selectedRange.start, selectedRange.end],
-    queryFn: () => getSettlementExpenseTotal(selectedRange.start, selectedRange.end),
+    queryKey: ["settlement-expense-occurrences", selectedRange.start, selectedRange.end],
+    queryFn: () => getSettlementExpenseOccurrences(selectedRange.start, selectedRange.end),
     enabled: rangeValid,
   });
   const ovapeSales = Object.values(summaryQuery.data?.sales.ovape ?? {}).reduce((a, b) => a + b, 0);
   const eguvapeSales = Object.values(summaryQuery.data?.sales.eguvape ?? {}).reduce((a, b) => a + b, 0);
   const totalSales = ovapeSales + eguvapeSales;
   const totalPurchases = Object.values(summaryQuery.data?.purchases ?? {}).reduce((a, b) => a + b, 0);
-  const totalExpenses = expensesQuery.data ?? 0;
+  const purchaseRows = Object.entries(summaryQuery.data?.purchases ?? {}).sort(
+    ([left], [right]) => {
+      const leftIndex = preferredPurchaseOrder.indexOf(left);
+      const rightIndex = preferredPurchaseOrder.indexOf(right);
+      if (leftIndex >= 0 || rightIndex >= 0) {
+        return (leftIndex < 0 ? preferredPurchaseOrder.length : leftIndex) -
+          (rightIndex < 0 ? preferredPurchaseOrder.length : rightIndex);
+      }
+      return left.localeCompare(right, "ko-KR");
+    },
+  );
+  const expenseOccurrences = expensesQuery.data ?? [];
+  const totalExpenses = expenseOccurrences.reduce(
+    (total, expense) => total + expense.amount,
+    0,
+  );
 
   return (
     <div className="space-y-4">
@@ -188,9 +218,59 @@ export default function SettlementReport() {
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
           <h2 className="border-b border-gray-200 bg-gray-50/70 px-4 py-3 text-sm font-bold text-gray-900">기간 매입액</h2>
           <div className="divide-y divide-gray-100 px-4">
-            {[["오베이프", summaryQuery.data?.purchases.ovape ?? 0], ["이구베이프", summaryQuery.data?.purchases.eguvape ?? 0], ["그 외", summaryQuery.data?.purchases.other ?? 0]].map(([label, value]) => <AmountRow key={String(label)} label={String(label)} value={Number(value)} />)}
+            {purchaseRows.map(([label, value]) => <AmountRow key={label} label={label} value={value} />)}
+            {!purchaseRows.length && <AmountRow label="매입 내역 없음" value={0} />}
             <AmountRow label="합계" value={totalPurchases} strong />
           </div>
+        </div>
+      </section>
+
+      <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="flex items-center justify-between gap-3 border-b border-gray-200 bg-gray-50/70 px-4 py-3">
+          <h2 className="text-sm font-bold text-gray-900">기타비용 상세내역</h2>
+          <span className="text-xs font-semibold text-gray-500">
+            {expenseOccurrences.length.toLocaleString("ko-KR")}건
+          </span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-[720px] w-full text-sm">
+            <thead className="border-b border-gray-200 bg-white text-left text-xs font-semibold text-gray-500">
+              <tr>
+                <th className="px-4 py-2.5">반영일</th>
+                <th className="px-4 py-2.5">항목</th>
+                <th className="px-4 py-2.5">매장</th>
+                <th className="px-4 py-2.5">메모</th>
+                <th className="px-4 py-2.5 text-right">금액</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {expenseOccurrences.map((expense) => (
+                <tr key={`${expense.id}-${expense.occurrence_date}`} className="text-gray-700">
+                  <td className="whitespace-nowrap px-4 py-3">{expense.occurrence_date}</td>
+                  <td className="px-4 py-3 font-semibold text-gray-900">
+                    {expense.category}
+                    {expense.is_recurring && (
+                      <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500">반복</span>
+                    )}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3">{storeLabels[expense.store]}</td>
+                  <td className="max-w-[320px] px-4 py-3 text-gray-500">{expense.note || "—"}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-right font-semibold text-gray-900">{formatWon(expense.amount)}</td>
+                </tr>
+              ))}
+              {!expenseOccurrences.length && (
+                <tr>
+                  <td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-400">선택한 기간의 기타비용 내역이 없습니다.</td>
+                </tr>
+              )}
+            </tbody>
+            <tfoot className="border-t border-gray-200 bg-gray-50/70">
+              <tr className="font-bold text-gray-900">
+                <td colSpan={4} className="px-4 py-3">합계</td>
+                <td className="whitespace-nowrap px-4 py-3 text-right">{formatWon(totalExpenses)}</td>
+              </tr>
+            </tfoot>
+          </table>
         </div>
       </section>
 
