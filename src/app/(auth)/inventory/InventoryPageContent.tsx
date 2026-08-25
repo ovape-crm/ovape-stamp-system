@@ -2,7 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import Button from "@/app/_components/Button";
 import { Dropdown, DropdownOption } from "@/app/_components/Dropdown";
@@ -77,18 +82,24 @@ type ReceiptRow = {
   quantity: string;
   unitPrice: string;
   note: string;
-  handlingType: "none" | "demo" | "reservation" | "customer" | "memo";
+  handlingType:
+    | "none"
+    | "demo"
+    | "reservation"
+    | "customer"
+    | "memo"
+    | "as_exchange_in";
   handlingNote: string;
   customerId: string;
   customerName: string;
   reservationLogId: string;
 };
 
-const createEmptyReceiptRow = (id: number, isAdmin: boolean): ReceiptRow => ({
+const createEmptyReceiptRow = (id: number): ReceiptRow => ({
   id,
   itemName: "",
   quantity: "1",
-  unitPrice: isAdmin ? "0" : "",
+  unitPrice: "",
   note: "",
   handlingType: "none",
   handlingNote: "",
@@ -102,6 +113,7 @@ const PURCHASE_HANDLING_OPTIONS = [
   { value: "demo", label: "시연용 처리" },
   { value: "reservation", label: "예약 연결" },
   { value: "customer", label: "고객 연결" },
+  { value: "as_exchange_in", label: "A/S 교환입고" },
   { value: "memo", label: "메모입력" },
 ] as const;
 
@@ -179,7 +191,8 @@ export function InventoryPageContent({
 }: {
   initialSection?: "stock" | "receive";
 }) {
-  const { isAdmin } = useUser();
+  const { isAdmin, user } = useUser();
+  const isMaster = user?.oss_role === "master";
   const pageRouter = useRouter();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>(
@@ -498,12 +511,14 @@ export function InventoryPageContent({
         <ReceiptManager
           items={items.filter((item) => item.is_use)}
           isAdmin={isAdmin}
+          isMaster={isMaster}
           onSaved={refresh}
           focusOrderId={purchaseOrderTarget}
         />
       ) : (
         <MovementHistory
           isAdmin={isAdmin}
+          isMaster={isMaster}
           onSaved={refresh}
           onOpenPurchaseOrder={(orderId) => {
             pageRouter.push(`/inventory/receive#order-${orderId}`);
@@ -1644,18 +1659,20 @@ function QuantityEditControl({
 function ReceiptManager({
   items: allItems,
   isAdmin,
+  isMaster,
   onSaved,
   focusOrderId,
 }: {
   items: InventoryItem[];
   isAdmin: boolean;
+  isMaster: boolean;
   onSaved: () => Promise<void>;
   focusOrderId?: string | null;
 }) {
   const items = allItems.filter((item) => item.is_tracked);
   const [nextId, setNextId] = useState(2);
   const [rows, setRows] = useState<ReceiptRow[]>([
-    createEmptyReceiptRow(1, isAdmin),
+    createEmptyReceiptRow(1),
   ]);
   const [note, setNote] = useState("");
   const [supplierId, setSupplierId] = useState("");
@@ -1727,7 +1744,7 @@ function ReceiptManager({
   });
   const ordersQuery = useQuery({
     queryKey: [...inventoryKeys.purchaseOrders, isAdmin],
-    queryFn: () => getPurchaseOrders(isAdmin),
+    queryFn: () => getPurchaseOrders(isMaster),
   });
   const adjustmentCategoriesQuery = useQuery({
     queryKey: inventoryKeys.purchaseAdjustmentCategories,
@@ -1736,6 +1753,19 @@ function ReceiptManager({
   });
   const receiveMutation = useMutation({
     mutationFn: async () => {
+      const candidateRows = rows
+        .slice(0, -1)
+        .filter((row) => row.itemName && Number(row.quantity) > 0);
+      if (
+        isMaster &&
+        candidateRows.some(
+          (row) =>
+            row.unitPrice === "" ||
+            !Number.isInteger(Number(row.unitPrice)) ||
+            Number(row.unitPrice) < 0,
+        )
+      )
+        throw new Error("모든 품목의 입고 단가를 입력해 주세요.");
       const normalizedLines = rows
         .slice(0, -1)
         .filter((row) => row.itemName && Number(row.quantity) > 0)
@@ -1743,7 +1773,8 @@ function ReceiptManager({
           id: row.id,
           item_name: row.itemName,
           quantity: Number(row.quantity),
-          unit_price: row.unitPrice ? Number(row.unitPrice) : null,
+          unit_price:
+            row.unitPrice === "" ? null : Math.floor(Number(row.unitPrice)),
           note: row.note,
           handling_type: row.handlingType,
           handling_note: row.handlingNote.trim() || null,
@@ -1808,7 +1839,7 @@ function ReceiptManager({
           ? "입고 예정 내용을 수정했습니다."
           : "입고 예정으로 등록했습니다.",
       );
-      setRows([createEmptyReceiptRow(nextId, isAdmin)]);
+      setRows([createEmptyReceiptRow(nextId)]);
       setNextId((id) => id + 1);
       setNote("");
       setAdjustments([]);
@@ -1832,7 +1863,8 @@ function ReceiptManager({
     enabled:
       createOpen &&
       (draftRow?.handlingType === "reservation" ||
-        draftRow?.handlingType === "customer") &&
+        draftRow?.handlingType === "customer" ||
+        draftRow?.handlingType === "as_exchange_in") &&
       !draftRow?.customerId &&
       reservationCustomerSearch.trim().length > 0,
   });
@@ -1848,8 +1880,21 @@ function ReceiptManager({
   const validRows = committedRows.filter(
     (row) =>
       items.some((item) => item.item_name === row.itemName) &&
-      Number(row.quantity) > 0,
+      Number(row.quantity) > 0 &&
+      (!isMaster ||
+        (row.unitPrice !== "" &&
+          Number.isInteger(Number(row.unitPrice)) &&
+          Number(row.unitPrice) >= 0)),
   );
+  const hasMissingUnitPrices =
+    isMaster &&
+    committedRows.some(
+      (row) =>
+        row.itemName &&
+        (row.unitPrice === "" ||
+          !Number.isInteger(Number(row.unitPrice)) ||
+          Number(row.unitPrice) < 0),
+    );
   const hasDuplicateItems =
     new Set(validRows.map((row) => row.itemName)).size !== validRows.length;
   const hasInvalidAdjustments = adjustments.some(
@@ -1892,7 +1937,7 @@ function ReceiptManager({
   const commitDraftRow = () => {
     setRows((current) => {
       if (!editingReceiptRow) {
-        return [...current, createEmptyReceiptRow(nextId, isAdmin)];
+        return [...current, createEmptyReceiptRow(nextId)];
       }
       const draft = current[current.length - 1];
       return [
@@ -1901,7 +1946,7 @@ function ReceiptManager({
           .map((row) =>
             row.id === editingReceiptRow.row.id ? { ...draft } : row,
           ),
-        createEmptyReceiptRow(nextId, isAdmin),
+        createEmptyReceiptRow(nextId),
       ];
     });
     setNextId((id) => id + 1);
@@ -1913,9 +1958,17 @@ function ReceiptManager({
     if (
       !draftRow ||
       !items.some((item) => item.item_name === draftRow.itemName) ||
-      Number(draftRow.quantity) < 1
+      Number(draftRow.quantity) < 1 ||
+      (isMaster &&
+        (draftRow.unitPrice === "" ||
+          !Number.isInteger(Number(draftRow.unitPrice)) ||
+          Number(draftRow.unitPrice) < 0))
     ) {
-      toast.error("품목명과 수량을 확인해 주세요.");
+      toast.error(
+        isMaster
+          ? "품목명·수량·입고 단가를 확인해 주세요."
+          : "품목명·수량을 확인해 주세요.",
+      );
       return;
     }
     if (
@@ -1935,7 +1988,11 @@ function ReceiptManager({
       toast.error("예약 고객과 예약 이력을 선택해 주세요.");
       return;
     }
-    if (draftRow.handlingType === "customer" && !draftRow.customerId) {
+    if (
+      (draftRow.handlingType === "customer" ||
+        draftRow.handlingType === "as_exchange_in") &&
+      !draftRow.customerId
+    ) {
       toast.error("연결할 고객을 선택해 주세요.");
       return;
     }
@@ -1984,7 +2041,7 @@ function ReceiptManager({
     if (!editingReceiptRow) return;
     setRows((current) => {
       const committed = current.slice(0, -1);
-      return [...committed, createEmptyReceiptRow(nextId, isAdmin)];
+      return [...committed, createEmptyReceiptRow(nextId)];
     });
     setNextId((id) => id + 1);
     setEditingReceiptRow(null);
@@ -2017,7 +2074,7 @@ function ReceiptManager({
     setTaxInvoiceStatus("");
     setTaxInvoiceSearch("");
     setTaxInvoicePickerOpen(false);
-    setRows([createEmptyReceiptRow(nextId, isAdmin)]);
+    setRows([createEmptyReceiptRow(nextId)]);
     setNextId((id) => id + 1);
     setNote("");
     setAdjustments([]);
@@ -2063,7 +2120,7 @@ function ReceiptManager({
           reservationLogId: line.reservation_log_id ?? "",
         };
       }),
-      createEmptyReceiptRow(nextId, isAdmin),
+      createEmptyReceiptRow(nextId),
     ]);
     setNextId((id) => id + 1);
     setAdjustments(
@@ -2434,6 +2491,35 @@ function ReceiptManager({
                                   </div>
                                 )}
                             </div>
+                            {isMaster && (
+                              <label className="mt-2 block max-w-[176px]">
+                                <span className="mb-1 block text-sm font-medium text-gray-700">
+                                  입고 단가{" "}
+                                  <span className="text-rose-600">*</span>
+                                </span>
+                                <input
+                                  type="number"
+                                  inputMode="numeric"
+                                  min={0}
+                                  required
+                                  value={row.unitPrice}
+                                  onChange={(event) =>
+                                    setRows((current) =>
+                                      current.map((item) =>
+                                        item.id === row.id
+                                          ? {
+                                              ...item,
+                                              unitPrice: event.target.value,
+                                            }
+                                          : item,
+                                      ),
+                                    )
+                                  }
+                                  placeholder="필수"
+                                  className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-right text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                                />
+                              </label>
+                            )}
                           </div>
                           <div>
                             <span className="mb-1 block text-sm font-medium text-gray-700">
@@ -2545,6 +2631,10 @@ function ReceiptManager({
                           <select
                             aria-label="처리 구분"
                             value={row.handlingType}
+                            disabled={
+                              !isMaster &&
+                              row.handlingType === "as_exchange_in"
+                            }
                             onChange={(event) => {
                               const handlingType = event.target
                                 .value as ReceiptRow["handlingType"];
@@ -2570,14 +2660,31 @@ function ReceiptManager({
                             }}
                             className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm font-semibold sm:hidden"
                           >
-                            {PURCHASE_HANDLING_OPTIONS.map((option) => (
-                              <option key={option.value} value={option.value}>
+                            {PURCHASE_HANDLING_OPTIONS.filter(
+                              (option) =>
+                                option.value !== "as_exchange_in" ||
+                                isMaster ||
+                                row.handlingType === "as_exchange_in",
+                            ).map((option) => (
+                              <option
+                                key={option.value}
+                                value={option.value}
+                                disabled={
+                                  !isMaster &&
+                                  row.handlingType === "as_exchange_in"
+                                }
+                              >
                                 {option.label}
                               </option>
                             ))}
                           </select>
-                          <div className="hidden grid-cols-5 gap-1.5 sm:grid">
-                            {PURCHASE_HANDLING_OPTIONS.map((option) => (
+                          <div className="hidden grid-cols-6 gap-1.5 sm:grid">
+                            {PURCHASE_HANDLING_OPTIONS.filter(
+                              (option) =>
+                                option.value !== "as_exchange_in" ||
+                                isMaster ||
+                                row.handlingType === "as_exchange_in",
+                            ).map((option) => (
                               <Button
                                 key={option.value}
                                 type="button"
@@ -2586,6 +2693,10 @@ function ReceiptManager({
                                   row.handlingType === option.value
                                     ? "primary"
                                     : "gray"
+                                }
+                                disabled={
+                                  !isMaster &&
+                                  row.handlingType === "as_exchange_in"
                                 }
                                 onClick={() => {
                                   setRows((current) =>
@@ -2648,7 +2759,8 @@ function ReceiptManager({
                           )}
 
                           {(row.handlingType === "reservation" ||
-                            row.handlingType === "customer") && (
+                            row.handlingType === "customer" ||
+                            row.handlingType === "as_exchange_in") && (
                             <div
                               className={`mt-3 grid gap-3 rounded-xl border border-gray-200 bg-white p-3 ${
                                 row.handlingType === "reservation"
@@ -2844,7 +2956,7 @@ function ReceiptManager({
                                   <th className="w-[7%] px-2 py-2 text-center">
                                     번호
                                   </th>
-                                  <th className="w-[43%] px-2 py-2 text-left">
+                                  <th className="w-[35%] px-2 py-2 text-left">
                                     품목명
                                   </th>
                                   <th className="w-[13%] px-2 py-2 text-center">
@@ -2856,7 +2968,12 @@ function ReceiptManager({
                                   <th className="w-[8%] px-2 py-2 text-center">
                                     수량
                                   </th>
-                                  <th className="w-[17%] px-3 py-2 text-center">
+                                  {isMaster && (
+                                    <th className="w-[12%] px-2 py-2 text-right">
+                                      입고 단가
+                                    </th>
+                                  )}
+                                  <th className="w-[13%] px-3 py-2 text-center">
                                     작업
                                   </th>
                                 </tr>
@@ -2923,6 +3040,14 @@ function ReceiptManager({
                                         {Number(row.quantity).toLocaleString()}
                                         개
                                       </td>
+                                      {isMaster && (
+                                        <td className="px-2 py-2 text-right font-semibold text-gray-800">
+                                          {Number(
+                                            row.unitPrice,
+                                          ).toLocaleString()}
+                                          원
+                                        </td>
+                                      )}
                                       <td className="px-3 py-2">
                                         <div className="flex items-center justify-center gap-1">
                                           <Button
@@ -3222,7 +3347,9 @@ function ReceiptManager({
                   disabled={
                     createStep === 1
                       ? !supplierId || !orderedOn || !taxInvoiceStatus
-                      : !validRows.length || hasInvalidAdjustments
+                      : !validRows.length ||
+                        hasMissingUnitPrices ||
+                        hasInvalidAdjustments
                   }
                 >
                   다음
@@ -3302,6 +3429,7 @@ function ReceiptManager({
         suppliers={suppliersQuery.data ?? []}
         loading={ordersQuery.isPending}
         isAdmin={isAdmin}
+        isMaster={isMaster}
         focusOrderId={focusOrderId}
         onCreate={openCreate}
         onEdit={openEditPurchaseOrder}
@@ -3418,25 +3546,24 @@ function ReceiptManager({
                 className="min-h-11 rounded-lg border border-gray-200 bg-white px-3 text-right text-sm"
                 placeholder="수량"
               />
-              {isAdmin && (
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  value={row.unitPrice}
-                  onChange={(event) =>
-                    setRows((current) =>
-                      current.map((item) =>
-                        item.id === row.id
-                          ? { ...item, unitPrice: event.target.value }
-                          : item,
-                      ),
-                    )
-                  }
-                  className="min-h-11 rounded-lg border border-gray-200 bg-white px-3 text-right text-sm"
-                  placeholder="입고 단가(선택)"
-                />
-              )}
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                required
+                value={row.unitPrice}
+                onChange={(event) =>
+                  setRows((current) =>
+                    current.map((item) =>
+                      item.id === row.id
+                        ? { ...item, unitPrice: event.target.value }
+                        : item,
+                    ),
+                  )
+                }
+                className="min-h-11 rounded-lg border border-gray-200 bg-white px-3 text-right text-sm"
+                placeholder="입고 단가(필수)"
+              />
               <input
                 value={row.note}
                 onChange={(event) =>
@@ -3472,7 +3599,7 @@ function ReceiptManager({
           onClick={() => {
             setRows((current) => [
               ...current,
-              createEmptyReceiptRow(nextId, isAdmin),
+              createEmptyReceiptRow(nextId),
             ]);
             setNextId((id) => id + 1);
           }}
@@ -3498,6 +3625,7 @@ function ReceiptManager({
               !supplierId ||
               !orderedOn ||
               !validRows.length ||
+              hasMissingUnitPrices ||
               hasDuplicateItems ||
               receiveMutation.isPending
             }
@@ -3513,6 +3641,7 @@ function ReceiptManager({
         suppliers={suppliersQuery.data ?? []}
         loading={ordersQuery.isPending}
         isAdmin={isAdmin}
+        isMaster={isMaster}
         onSaved={async () => {
           await Promise.all([ordersQuery.refetch(), onSaved()]);
         }}
@@ -3535,6 +3664,7 @@ function PurchaseOrderList({
   suppliers,
   loading,
   isAdmin,
+  isMaster,
   onSaved,
   focusOrderId,
   onCreate,
@@ -3544,6 +3674,7 @@ function PurchaseOrderList({
   suppliers: InventorySupplier[];
   loading: boolean;
   isAdmin: boolean;
+  isMaster: boolean;
   onSaved: () => Promise<void>;
   focusOrderId?: string | null;
   onCreate?: () => void;
@@ -4273,6 +4404,13 @@ function PurchaseOrderList({
         const showCompletedCumulativeDetails =
           sortedReceipts.filter((receipt) => !receipt.reversed_at).length > 1;
         const adjustments = order.inventory_purchase_order_adjustments ?? [];
+        const isAfterServiceOrder =
+          order.inventory_purchase_order_lines.some(
+            (line) => Boolean(line.after_service_id),
+          ) ||
+          order.inventory_purchase_receipts.some((receipt) =>
+            Boolean(receipt.after_service_id),
+          );
         return (
           <article
             id={`purchase-order-${order.id}`}
@@ -4324,7 +4462,8 @@ function PurchaseOrderList({
                           취소됨
                         </span>
                       ) : (
-                        isAdmin && (
+                        isAdmin &&
+                        !isAfterServiceOrder && (
                           <Button
                             size="xs"
                             variant="danger"
@@ -4403,7 +4542,7 @@ function PurchaseOrderList({
                         엑셀 복사
                       </Button>
                     )}
-                  {isAdmin && (
+                  {isAdmin && !isAfterServiceOrder && (
                     <>
                       <Button
                         size="xs"
@@ -4416,7 +4555,7 @@ function PurchaseOrderList({
                       </Button>
                     </>
                   )}
-                  {!open && isAdmin && (
+                  {!open && isAdmin && !isAfterServiceOrder && (
                     <Button
                       size="xs"
                       variant="danger"
@@ -5121,7 +5260,7 @@ function PurchaseOrderList({
                       <span>{receipt.arrived_on}</span>
                       {receipt.reversed_at ? (
                         <span className="text-rose-600">취소됨</span>
-                      ) : isAdmin ? (
+                      ) : isAdmin && !isAfterServiceOrder ? (
                         <Button
                           size="xs"
                           variant="danger"
@@ -5167,7 +5306,7 @@ function PurchaseOrderList({
         <PurchaseOrderEditOverlay
           order={editingOrder}
           suppliers={suppliers}
-          isAdmin={isAdmin}
+          isMaster={isMaster}
           onClose={() => setEditingOrder(null)}
           onSaved={async () => {
             setEditingOrder(null);
@@ -5207,13 +5346,13 @@ const formatPurchaseAdjustmentDate = (value: string) =>
 function PurchaseOrderEditOverlay({
   order,
   suppliers,
-  isAdmin,
+  isMaster,
   onClose,
   onSaved,
 }: {
   order: PurchaseOrder;
   suppliers: InventorySupplier[];
-  isAdmin: boolean;
+  isMaster: boolean;
   onClose: () => void;
   onSaved: () => Promise<void>;
 }) {
@@ -5255,10 +5394,13 @@ function PurchaseOrderEditOverlay({
         (line) =>
           !line.itemName.trim() ||
           !Number.isInteger(Number(line.orderedQuantity)) ||
-          Number(line.orderedQuantity) < Math.max(1, line.receivedQuantity),
+          Number(line.orderedQuantity) < Math.max(1, line.receivedQuantity) ||
+          (line.unitPrice !== "" &&
+            (!Number.isInteger(Number(line.unitPrice)) ||
+              Number(line.unitPrice) < 0)),
       )
     ) {
-      toast.error("품목명과 주문수량을 확인해 주세요.");
+      toast.error("품목명·주문수량·입고 단가를 확인해 주세요.");
       return;
     }
     if (
@@ -5280,11 +5422,7 @@ function PurchaseOrderEditOverlay({
           item_name: line.itemName.trim(),
           ordered_quantity: Number(line.orderedQuantity),
           unit_price:
-            isAdmin && line.unitPrice !== ""
-              ? Math.max(0, Math.floor(Number(line.unitPrice)))
-              : (order.inventory_purchase_order_lines.find(
-                  (item) => item.id === line.id,
-                )?.unit_price ?? null),
+            line.unitPrice === "" ? null : Math.floor(Number(line.unitPrice)),
           note: line.note.trim(),
           handling_type:
             order.inventory_purchase_order_lines.find(
@@ -5420,8 +5558,8 @@ function PurchaseOrderEditOverlay({
                     <th className="px-3 py-3 text-left">품목명</th>
                     <th className="w-28 px-3 py-3 text-right">주문수량</th>
                     <th className="w-28 px-3 py-3 text-right">입고수량</th>
-                    {isAdmin && (
-                      <th className="w-36 px-3 py-3 text-right">단가</th>
+                    {isMaster && (
+                      <th className="w-36 px-3 py-3 text-right">입고 단가</th>
                     )}
                     <th className="w-[280px] px-3 py-3 text-left">품목 메모</th>
                   </tr>
@@ -5473,11 +5611,12 @@ function PurchaseOrderEditOverlay({
                       <td className="p-2 text-right font-semibold text-gray-600">
                         {line.receivedQuantity.toLocaleString("ko-KR")}개
                       </td>
-                      {isAdmin && (
+                      {isMaster && (
                         <td className="p-2">
                           <input
                             type="number"
                             min="0"
+                            required
                             value={line.unitPrice}
                             onChange={(event) =>
                               setLines((current) =>
@@ -5488,6 +5627,7 @@ function PurchaseOrderEditOverlay({
                                 ),
                               )
                             }
+                            placeholder="필수"
                             className="h-10 w-full rounded-lg border border-gray-300 px-3 text-right outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                           />
                         </td>
@@ -6748,10 +6888,12 @@ function SupplierManageOverlay({
 
 function MovementHistory({
   isAdmin,
+  isMaster,
   onSaved,
   onOpenPurchaseOrder,
 }: {
   isAdmin: boolean;
+  isMaster: boolean;
   onSaved: () => Promise<void>;
   onOpenPurchaseOrder: (orderId: string) => void;
 }) {
@@ -6774,9 +6916,13 @@ function MovementHistory({
   };
   const today = localDate(new Date().toISOString());
   const queryStartDate = dateMode === "today" ? today : startDate || undefined;
-  const queryEndDate = dateMode === "today" ? today : endDate || startDate || undefined;
+  const queryEndDate =
+    dateMode === "today" ? today : endDate || startDate || undefined;
   useEffect(() => {
-    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 400);
+    const timer = window.setTimeout(
+      () => setDebouncedSearch(search.trim()),
+      400,
+    );
     return () => window.clearTimeout(timer);
   }, [search]);
   const movementQueryFilters = {
@@ -6786,19 +6932,19 @@ function MovementHistory({
     movementGroup: movementGroup === "all" ? undefined : movementGroup,
   };
   const movementsQuery = useInfiniteQuery({
-    queryKey: [
-      ...inventoryKeys.movements,
-      movementQueryFilters,
-    ],
+    queryKey: [...inventoryKeys.movements, movementQueryFilters, isMaster],
     queryFn: ({ pageParam }) =>
       getInventoryMovements({
         ...movementQueryFilters,
         limit: 20,
         offset: pageParam,
+        includeUnitPrices: isMaster,
       }),
     initialPageParam: 0,
     getNextPageParam: (lastPage, pages) =>
-      lastPage.length < 20 ? undefined : pages.reduce((sum, page) => sum + page.length, 0),
+      lastPage.length < 20
+        ? undefined
+        : pages.reduce((sum, page) => sum + page.length, 0),
     enabled: dateMode === "today" || Boolean(startDate),
   });
   const movementCountQuery = useQuery({
@@ -6841,6 +6987,12 @@ function MovementHistory({
       movement.item_remark?.trim().startsWith("시연용")
     ) {
       return "시연용 처리";
+    }
+    if (movement.inventory_action === "as_exchange_out") {
+      return `${movement.counterparty_name} A/S 교환출고`;
+    }
+    if (movement.inventory_action === "as_exchange_in") {
+      return `${movement.counterparty_name} A/S 교환입고`;
     }
     if (movement.inventory_action === "exchange_out") {
       return `${movement.counterparty_name} 교환출고`;
@@ -6903,6 +7055,10 @@ function MovementHistory({
     ) {
       return "출고/시연용";
     }
+    if (movement.inventory_action === "as_exchange_out")
+      return "출고/A/S 교환";
+    if (movement.inventory_action === "as_exchange_in")
+      return "입고/A/S 교환";
     if (movement.inventory_action === "exchange_out") return "출고/교환";
     if (
       movement.inventory_action === "exchange_in" ||
@@ -7002,14 +7158,16 @@ function MovementHistory({
             <p className="mb-1 text-xs font-semibold text-gray-600">구분</p>
             <Dropdown controlledValue={movementGroup}>
               <Dropdown.Trigger compact>
-                {(
-                  {
-                    all: "전체",
-                    out: "출고",
-                    in: "입고",
-                    correction: "정정·취소",
-                  } as const
-                )[movementGroup]}
+                {
+                  (
+                    {
+                      all: "전체",
+                      out: "출고",
+                      in: "입고",
+                      correction: "정정·취소",
+                    } as const
+                  )[movementGroup]
+                }
               </Dropdown.Trigger>
               <Dropdown.Content compact>
                 {[
@@ -7075,8 +7233,18 @@ function MovementHistory({
         </div>
       </section>
       <div className="mb-3 flex items-center justify-start gap-3 text-xs text-gray-600 sm:text-sm">
-        <span><b className="font-semibold text-brand-600">{movements.length.toLocaleString()}</b>/{(movementCountQuery.data ?? 0).toLocaleString()}</span>
-        <span>표시 변동 수량 <b className="font-semibold text-brand-600">{periodMovementQuantity.toLocaleString()}개</b></span>
+        <span>
+          <b className="font-semibold text-brand-600">
+            {movements.length.toLocaleString()}
+          </b>
+          /{(movementCountQuery.data ?? 0).toLocaleString()}
+        </span>
+        <span>
+          표시 변동 수량{" "}
+          <b className="font-semibold text-brand-600">
+            {periodMovementQuantity.toLocaleString()}개
+          </b>
+        </span>
       </div>
       <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
         {loading ? (
@@ -7096,7 +7264,9 @@ function MovementHistory({
                     "이동 경로",
                     "메모",
                     "관리",
-                  ].map((label) => (
+                  ]
+                    .filter((label) => isMaster || label !== "단가")
+                    .map((label) => (
                     <th
                       key={label}
                       className="border border-brand-200 px-3 py-3 text-left"
@@ -7128,11 +7298,13 @@ function MovementHistory({
                       <td className="border border-gray-200 px-3 py-3 text-right">
                         {movement.quantity_after}
                       </td>
-                      <td className="border border-gray-200 px-3 py-3 text-right">
-                        {movement.unit_price != null
-                          ? `${movement.unit_price.toLocaleString()}원`
-                          : "-"}
-                      </td>
+                      {isMaster && (
+                        <td className="border border-gray-200 px-3 py-3 text-right">
+                          {movement.unit_price != null
+                            ? `${movement.unit_price.toLocaleString()}원`
+                            : "-"}
+                        </td>
+                      )}
                       <td className="whitespace-nowrap border border-gray-200 px-3 py-3 font-medium">
                         {movement.counterparty_id ? (
                           <button
@@ -7170,6 +7342,7 @@ function MovementHistory({
                           movement.movement_type === "purchase_in" &&
                           movement.reference_type === "purchase_receipt" &&
                           movement.reference_id &&
+                          movement.inventory_action !== "as_exchange_in" &&
                           !reversedIds.has(movement.id) && (
                             <Button
                               size="xs"
@@ -7186,7 +7359,7 @@ function MovementHistory({
                 ) : (
                   <tr>
                     <td
-                      colSpan={9}
+                      colSpan={isMaster ? 9 : 8}
                       className="px-4 py-12 text-center text-gray-400"
                     >
                       조건에 맞는 재고 변동이 없습니다.
@@ -7199,17 +7372,19 @@ function MovementHistory({
         )}
         {movementsQuery.hasNextPage &&
           movements.length < (movementCountQuery.data ?? movements.length) && (
-          <div className="mt-4 flex justify-center">
-            <button
-              type="button"
-              onClick={() => movementsQuery.fetchNextPage()}
-              disabled={movementsQuery.isFetchingNextPage}
-              className="min-h-10 rounded-lg border border-gray-300 bg-white px-5 text-sm font-semibold text-gray-700 shadow-sm hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
-            >
-              {movementsQuery.isFetchingNextPage ? "불러오는 중..." : "더 불러오기"}
-            </button>
-          </div>
-        )}
+            <div className="mt-4 flex justify-center">
+              <button
+                type="button"
+                onClick={() => movementsQuery.fetchNextPage()}
+                disabled={movementsQuery.isFetchingNextPage}
+                className="min-h-10 rounded-lg border border-gray-300 bg-white px-5 text-sm font-semibold text-gray-700 shadow-sm hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
+              >
+                {movementsQuery.isFetchingNextPage
+                  ? "불러오는 중..."
+                  : "더 불러오기"}
+              </button>
+            </div>
+          )}
       </section>
       {movementToReverse && (
         <ConfirmOverlay

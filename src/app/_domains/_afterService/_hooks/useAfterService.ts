@@ -29,6 +29,13 @@ type AfterServiceDetailType = {
   exchange_item_category_name?: string | null;
   exchange_quantity?: number | null;
   exchange_note?: string | null;
+  repair_receipt_order_id?: string | null;
+  repair_receipt_id?: string | null;
+  repair_receipt_item_name?: string | null;
+  repair_receipt_quantity?: number | null;
+  repair_receipt_match_type?: 'match' | 'mismatch' | null;
+  repair_receipt_note?: string | null;
+  repair_receipt_arrived_on?: string | null;
   status: string;
   created_at: string;
   updated_at?: string;

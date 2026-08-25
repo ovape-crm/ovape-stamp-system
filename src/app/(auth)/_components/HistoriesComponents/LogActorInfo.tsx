@@ -19,6 +19,26 @@ const LogActorInfo = ({
       : "";
   const modifiedAt =
     typeof jsonb?.modifiedAt === "string" ? jsonb.modifiedAt : updated_at;
+  const reservationCreatedWorkerName =
+    typeof jsonb?.reservationCreatedWorkerName === "string"
+      ? jsonb.reservationCreatedWorkerName
+      : "";
+  const reservationCreatedAt =
+    typeof jsonb?.reservationCreatedAt === "string"
+      ? jsonb.reservationCreatedAt
+      : "";
+  const confirmedWorkerName =
+    typeof jsonb?.confirmedWorkerName === "string"
+      ? jsonb.confirmedWorkerName
+      : "";
+  const confirmedAt =
+    typeof jsonb?.confirmedAt === "string" ? jsonb.confirmedAt : "";
+  const hasReservationConfirmationActors = Boolean(
+    reservationCreatedWorkerName &&
+      reservationCreatedAt &&
+      confirmedWorkerName &&
+      confirmedAt,
+  );
   const userDisplay =
     users?.oss_role === "master" || users?.oss_role === "admin"
       ? users.oss_role === "master" ? "마스터" : "관리자"
@@ -57,11 +77,38 @@ const LogActorInfo = ({
 
   return (
     <div>
-      <div className="text-xs text-gray-500">
-        작업자 ·{" "}
-        <span className="font-medium text-gray-700">{userDisplay}</span>
-      </div>
-      <div className="mt-0.5 text-xs text-gray-400">{createdDateText}</div>
+      {hasReservationConfirmationActors ? (
+        <>
+          <div className="text-xs text-gray-500">
+            작업자 ·{" "}
+            <span className="font-medium text-gray-700">
+              {reservationCreatedWorkerName}
+            </span>
+          </div>
+          <div className="mt-0.5 text-xs text-gray-400">
+            {formatDate(reservationCreatedAt)}
+          </div>
+          <div className="mt-1 text-xs text-gray-500">
+            작업자 ·{" "}
+            <span className="font-medium text-gray-700">
+              {confirmedWorkerName}
+            </span>
+          </div>
+          <div className="mt-0.5 text-xs text-gray-400">
+            {formatDate(confirmedAt)}
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="text-xs text-gray-500">
+            작업자 ·{" "}
+            <span className="font-medium text-gray-700">{userDisplay}</span>
+          </div>
+          <div className="mt-0.5 text-xs text-gray-400">
+            {createdDateText}
+          </div>
+        </>
+      )}
       {modificationHistory.map((history, index) => (
         <div
           key={`${history.modifiedAt}-${history.workerName}-${index}`}

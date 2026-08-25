@@ -36,7 +36,11 @@ import ReportSnapshotView from "./_components/ReportSnapshotView";
 import StaffOpeningProgressBanner from "@/app/(auth)/_components/StaffOpeningProgressBanner";
 
 type CashManagementTab =
-  "save" | "history" | "report" | "reportLookup" | "checklist";
+  | "save"
+  | "history"
+  | "report"
+  | "reportLookup"
+  | "checklist";
 
 const getTodayInKorea = () =>
   new Intl.DateTimeFormat("en-CA", {
@@ -1078,6 +1082,7 @@ export default function CashManagementPage() {
       {isReportsPage && isAdmin && activeTab === "checklist" && (
         <ChecklistManagement />
       )}
+
     </main>
   );
 }

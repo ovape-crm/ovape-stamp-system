@@ -32,7 +32,12 @@ export type StampLogItem = {
   remark: string;
   lineText: string;
   inventoryAction?:
-    "out" | "exchange_in" | "exchange_out" | "adjustment_in" | "adjustment_out";
+    | "out"
+    | "exchange_in"
+    | "exchange_out"
+    | "as_exchange_out"
+    | "adjustment_in"
+    | "adjustment_out";
 };
 
 export type StampLogMeta = {
@@ -155,9 +160,16 @@ export const confirmReservationStamp = async (logId: string) => {
     throw new Error("출고 확정을 취소했습니다.");
   }
 
+  const confirmationWorker = await withCreatedWorker({});
   const { error: updateError } = await supabase.rpc(
-    "confirm_reservation_stamp_operation",
-    { p_log_id: String(logId) },
+    "confirm_reservation_stamp_operation_v2",
+    {
+      p_log_id: String(logId),
+      p_confirmed_worker_name:
+        typeof confirmationWorker.createdWorkerName === "string"
+          ? confirmationWorker.createdWorkerName
+          : null,
+    },
   );
   if (updateError) throw updateError;
 

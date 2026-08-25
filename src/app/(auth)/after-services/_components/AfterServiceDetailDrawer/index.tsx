@@ -3,6 +3,7 @@
 import Drawer from '@/app/_components/Drawer';
 import {
   updateAfterServiceStatus,
+  processAfterServiceRepairReceipt,
   updateAfterService,
   deleteAfterService,
 } from '@/app/_domains/_afterService/_services/afterService';
@@ -19,11 +20,12 @@ import StatusBox from './StatusBox';
 import SymptomCard from './SymptomCard';
 import NoteCard from './NoteCard';
 import UpdatedDate from './UpdatedDate';
-import StatusUpdateModal from './StatusUpdateModal';
+import StatusUpdateModal, {
+  StatusUpdateFormValues,
+} from './StatusUpdateModal';
 import AfterServiceCreateModal from '../AfterServiceCreateModal';
 import {
   AfterServiceStatusEnum,
-  AfterServiceStatusEnumType,
   PaymentTypeEnum,
   StoreTypeEnum,
 } from '@/app/_enums/enums';
@@ -117,26 +119,47 @@ const AfterServiceDetailDrawer = ({
     }
   };
 
-  const handleStatusUpdate = async (values: {
-    status: AfterServiceStatusEnumType['value'];
-    note: string;
-  }) => {
+  const handleStatusUpdate = async (values: StatusUpdateFormValues) => {
     if (!afterServiceId || !afterServiceDetail) return;
 
     try {
       setIsUpdatingStatus(true);
-      await updateAfterServiceStatus(
-        afterServiceId,
-        values.status,
-        values.note,
-      );
+      if (
+        values.status ===
+        AfterServiceStatusEnum.REPAIR_RETURNED_COMPLETED.value
+      ) {
+        if (!values.repairReceipt) {
+          throw new Error('A/S 교환입고 정보를 확인해 주세요.');
+        }
+        await processAfterServiceRepairReceipt({
+          afterServiceId,
+          ...values.repairReceipt,
+        });
+      } else {
+        await updateAfterServiceStatus(
+          afterServiceId,
+          values.status,
+          values.note,
+        );
+      }
 
       invalidateAfterServiceQueries();
       close();
       toast.success('상태가 업데이트되었습니다.');
     } catch (err) {
       console.error('Failed to update status:', err);
-      toast.error('상태 업데이트에 실패했습니다. 다시 시도해 주세요.');
+      const message = err instanceof Error ? err.message : '';
+      if (message.includes('SUPPLIER_REQUIRED')) {
+        toast.error('거래처가 선택되어 있지 않습니다.');
+      } else if (message.includes('SUPPLIER_NOT_FOUND')) {
+        toast.error('등록된 거래처 정보를 찾을 수 없습니다.');
+      } else if (message.includes('AFTER_SERVICE_RECEIPT_ALREADY_EXISTS')) {
+        toast.error('이미 A/S 교환입고 처리된 건입니다.');
+      } else if (message.includes('ITEM_NOT_FOUND')) {
+        toast.error('품목 관리에 등록된 정확한 품목명을 선택해 주세요.');
+      } else {
+        toast.error(message || '상태 업데이트에 실패했습니다. 다시 시도해 주세요.');
+      }
     } finally {
       setIsUpdatingStatus(false);
     }
@@ -159,6 +182,11 @@ const AfterServiceDetailDrawer = ({
           isInventoryProcessed={
             afterServiceDetail.is_loaner_device_issued ?? false
           }
+          supplierName={afterServiceDetail.supplier_name}
+          customerName={afterServiceDetail.customers?.name}
+          customerPhone={afterServiceDetail.customers?.phone}
+          originalItemName={afterServiceDetail.item_name}
+          originalQuantity={afterServiceDetail.quantity}
           rentalItemSummary={rentalItemSummary || undefined}
           onSubmit={handleStatusUpdate}
           onCancel={close}
@@ -429,8 +457,8 @@ const AfterServiceDetailDrawer = ({
                   const exchangeDateValue =
                     values.exchangeDate?.replaceAll('-', '/') ?? '';
                   const exchangeRemark = values.exchangeNote?.trim()
-                    ? `교환출고,${values.exchangeNote.trim()}`
-                    : '교환출고';
+                    ? `A/S 교환출고,${values.exchangeNote.trim()}`
+                    : 'A/S 교환출고';
                   const exchangeLineText = `${values.exchangeItemName} ${values.exchangeQuantity}개 (${exchangeRemark})`;
 
                   if (exchangeOutboundLog) {
@@ -439,10 +467,12 @@ const AfterServiceDetailDrawer = ({
                         itemId: string;
                         itemName: string;
                         itemCategoryName?: string | null;
-                        inventoryAction?: 'exchange_out';
+                        inventoryAction?: 'exchange_out' | 'as_exchange_out';
                       }>
                     ).find(
-                      (item) => item.inventoryAction === 'exchange_out',
+                      (item) =>
+                        item.inventoryAction === 'exchange_out' ||
+                        item.inventoryAction === 'as_exchange_out',
                     )!;
                     await updateStampLogHistoryOnly(
                       String(exchangeOutboundLog.id),
@@ -471,7 +501,7 @@ const AfterServiceDetailDrawer = ({
                             amount: 0,
                             remark: exchangeRemark,
                             lineText: exchangeLineText,
-                            inventoryAction: 'exchange_out',
+                            inventoryAction: 'as_exchange_out',
                           },
                         ],
                       },
@@ -499,7 +529,7 @@ const AfterServiceDetailDrawer = ({
                             amount: 0,
                             remark: exchangeRemark,
                             lineText: exchangeLineText,
-                            inventoryAction: 'exchange_out',
+                            inventoryAction: 'as_exchange_out',
                           },
                         ],
                       },

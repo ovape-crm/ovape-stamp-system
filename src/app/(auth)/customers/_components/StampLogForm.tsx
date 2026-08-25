@@ -26,6 +26,7 @@ import type {
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CustomerMode } from "@/app/_domains/_customer/_utils/specialCustomer";
 import { formatPhoneNumber } from "@/app/_utils/utils";
+import { useUser } from "@/app/_contexts/UserContext";
 
 const ovapePaymentTypes = [
   PaymentTypeEnum.CARD,
@@ -53,6 +54,7 @@ const remarkOptions = [
   { value: "service", name: "서비스" },
   { value: "exchange_in", name: "교환입고" },
   { value: "exchange_out", name: "교환출고" },
+  { value: "as_exchange_out", name: "A/S 교환출고" },
   { value: "custom", name: "메모입력" },
   { value: "price_adjust", name: "가격조정" },
 ] as const;
@@ -113,8 +115,12 @@ const parseSignedAmount = (value: string) => {
 const getOutboundRuleType = (
   remarkType: RemarkOptionValue,
 ): OutboundMemoRuleOutboundType => {
-  if (remarkType === "exchange_in" || remarkType === "exchange_out") {
-    return remarkType;
+  if (
+    remarkType === "exchange_in" ||
+    remarkType === "exchange_out" ||
+    remarkType === "as_exchange_out"
+  ) {
+    return remarkType === "as_exchange_out" ? "exchange_out" : remarkType;
   }
   if (remarkType === "service" || remarkType === "price_adjust") {
     return remarkType;
@@ -192,6 +198,7 @@ export default function StampLogForm({
     note?: string | null;
   };
 }) {
+  const { user } = useUser();
   const [paymentType, setPaymentType] = useState<
     PaymentTypeEnumType["value"] | ""
   >(initialValue?.paymentType ?? "");
@@ -374,7 +381,7 @@ export default function StampLogForm({
     customerMode === "demo" || customerMode === "adjustment";
   const usesStandardSalesFlow =
     customerMode === "normal" || customerMode === "x";
-  const visibleRemarkOptions =
+  const baseVisibleRemarkOptions =
     customerMode === "adjustment"
       ? ([
           { value: "adjustment_in", name: "재고조정-입고" },
@@ -383,6 +390,10 @@ export default function StampLogForm({
       : customerMode === "demo"
         ? ([{ value: "demo", name: "시연용" }] as const)
         : remarkOptions;
+  const visibleRemarkOptions = baseVisibleRemarkOptions.filter(
+    (option) =>
+      option.value !== "as_exchange_out" || user?.oss_role === "master",
+  );
   const getMemoRulesForItem = (
     item: ItemType | null,
     outboundType: OutboundMemoRuleOutboundType,
@@ -874,9 +885,15 @@ export default function StampLogForm({
     const adjustedPrice = parseSignedAmount(priceAdjustAmount);
     const priceAdjustmentMemo = priceAdjustMemo.trim() || "가격 조정";
     const isExchange =
-      remarkType === "exchange_in" || remarkType === "exchange_out";
+      remarkType === "exchange_in" ||
+      remarkType === "exchange_out" ||
+      remarkType === "as_exchange_out";
     const exchangeLabel =
-      remarkType === "exchange_in" ? "교환입고" : "교환출고";
+      remarkType === "exchange_in"
+        ? "교환입고"
+        : remarkType === "as_exchange_out"
+          ? "A/S 교환출고"
+          : "교환출고";
     const optionalOperationMemo = operationMemo.trim();
     const remark =
       customerMode === "demo"
@@ -931,6 +948,8 @@ export default function StampLogForm({
             ? "exchange_in"
             : remarkType === "exchange_out"
               ? "exchange_out"
+              : remarkType === "as_exchange_out"
+                ? "as_exchange_out"
               : remarkType === "adjustment_in"
                 ? "adjustment_in"
                 : remarkType === "adjustment_out"
@@ -1004,6 +1023,10 @@ export default function StampLogForm({
       setRemarkType("exchange_out");
       const match = line.remark?.match(/^교환출고(?:,(.*)|\((.*)\))$/);
       setExchangeMemo(match?.[1] ?? match?.[2] ?? "");
+    } else if (line.inventoryAction === "as_exchange_out") {
+      setRemarkType("as_exchange_out");
+      const match = line.remark?.match(/^A\/S 교환출고(?:,(.*)|\((.*)\))$/);
+      setExchangeMemo(match?.[1] ?? match?.[2] ?? "");
     } else if (customerMode === "demo" || line.remark?.startsWith("시연용")) {
       setRemarkType("demo");
       setOperationMemo(line.remark?.replace(/^시연용,?/, "").trim() ?? "");
@@ -1028,6 +1051,7 @@ export default function StampLogForm({
     if (line.inventoryAction === "adjustment_out") return "재고조정-출고";
     if (line.inventoryAction === "exchange_in") return "교환입고";
     if (line.inventoryAction === "exchange_out") return "교환출고";
+    if (line.inventoryAction === "as_exchange_out") return "A/S 교환출고";
     if (line.remark?.startsWith("시연용")) return "시연용";
     if (typeof line.adjustedUnitPrice === "number") return "가격조정";
     if (line.remark?.startsWith("서비스")) return "서비스";
@@ -1040,6 +1064,7 @@ export default function StampLogForm({
     if (type === "서비스") return "bg-sky-50 text-sky-700";
     if (type === "교환입고") return "bg-emerald-50 text-emerald-700";
     if (type === "교환출고") return "bg-amber-50 text-amber-700";
+    if (type === "A/S 교환출고") return "bg-rose-50 text-rose-700";
     if (type === "가격조정") return "bg-violet-50 text-violet-700";
     return "bg-gray-100 text-gray-600";
   };
@@ -1049,7 +1074,7 @@ export default function StampLogForm({
     if (!remark) return "";
 
     const typedMemo = remark.match(
-      /^(?:서비스|교환입고|교환출고|시연용)(?:,(.*)|\((.*)\))$/,
+      /^(?:서비스|교환입고|교환출고|A\/S 교환출고|시연용)(?:,(.*)|\((.*)\))$/,
     );
     const displayMemo = typedMemo?.[1] ?? typedMemo?.[2];
     if (displayMemo) return displayMemo.trim();
@@ -1058,6 +1083,7 @@ export default function StampLogForm({
       remark === "서비스" ||
       remark === "교환입고" ||
       remark === "교환출고" ||
+      remark === "A/S 교환출고" ||
       remark === "시연용" ||
       remark === "가격 조정" ||
       remark === "가격조정"
@@ -2021,7 +2047,9 @@ export default function StampLogForm({
           </div>
         )}
 
-        {(remarkType === "exchange_in" || remarkType === "exchange_out") && (
+        {(remarkType === "exchange_in" ||
+          remarkType === "exchange_out" ||
+          remarkType === "as_exchange_out") && (
           <input
             type="text"
             value={exchangeMemo}
