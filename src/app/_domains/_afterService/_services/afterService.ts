@@ -393,6 +393,45 @@ export const processAfterServiceRepairIntake = async (values: {
   if (error) throw error;
 };
 
+export type AfterServiceIntakeExpense = {
+  expense_date: string;
+  has_store_cost: boolean;
+  store_cost_amount: number;
+};
+
+export const getAfterServiceIntakeExpense = async (afterServiceId: string) => {
+  const { data, error } = await supabase.rpc(
+    'get_after_service_intake_expense',
+    { p_after_service_id: Number(afterServiceId) },
+  );
+  if (error) throw error;
+  return ((data ?? [])[0] ?? null) as AfterServiceIntakeExpense | null;
+};
+
+export const editAfterServiceStatusProcessing = async (values: {
+  afterServiceId: string;
+  logId?: string;
+  status: AfterServiceStatusEnumType['value'];
+  statusDate: string;
+  memo: string;
+  hasStoreCost: boolean;
+  storeCostAmount: number | null;
+}) => {
+  const { error } = await supabase.rpc(
+    'edit_after_service_status_processing_log',
+    {
+      p_after_service_id: Number(values.afterServiceId),
+      p_log_id: values.logId == null ? null : Number(values.logId),
+      p_status: values.status,
+      p_status_date: values.statusDate,
+      p_memo: values.memo || null,
+      p_has_store_cost: values.hasStoreCost,
+      p_store_cost_amount: values.storeCostAmount,
+    },
+  );
+  if (error) throw error;
+};
+
 export type ItemPurchaseCostOption = {
   source_receipt_line_id: string;
   arrived_on: string;
@@ -463,7 +502,7 @@ export const processInventoryServiceInbound = async (values: {
   memo: string;
 }) => {
   const { data, error } = await supabase.rpc(
-    'process_inventory_service_inbound',
+    'process_inventory_service_inbound_with_change',
     {
       p_after_service_id: Number(values.afterServiceId),
       p_arrived_on: values.arrivedOn,

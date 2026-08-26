@@ -6,9 +6,10 @@ import { getActionText } from '@/app/_utils/utils';
 interface StatusBoxProps {
   status: string;
   onEdit?: () => void;
+  onAdvance?: () => void;
 }
 
-const StatusBox = ({ status, onEdit }: StatusBoxProps) => {
+const StatusBox = ({ status, onEdit, onAdvance }: StatusBoxProps) => {
   const [isHovered, setIsHovered] = useState(false);
   const statusText = getActionText(`after-service-${status}`).text;
   const shouldBreakStatusLine = [
@@ -130,6 +131,18 @@ const StatusBox = ({ status, onEdit }: StatusBoxProps) => {
           </span>
         )}
       </div>
+      {onAdvance && (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onAdvance();
+          }}
+          className="mt-3 cursor-pointer rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-sm hover:border-brand-300 hover:text-brand-700"
+        >
+          다음 진행상황 처리
+        </button>
+      )}
     </div>
   );
 };

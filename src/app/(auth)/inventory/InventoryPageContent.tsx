@@ -36,6 +36,7 @@ import {
   saveInventorySupplier,
   getPurchaseOrders,
   createPurchaseOrder,
+  getLatestPurchaseUnitPrice,
   setPurchaseArrivalQuantity,
   updatePurchaseOrderQuantity,
   checkPurchaseArrivalQuantity,
@@ -113,7 +114,6 @@ const PURCHASE_HANDLING_OPTIONS = [
   { value: "demo", label: "시연용 처리" },
   { value: "reservation", label: "예약 연결" },
   { value: "customer", label: "고객 연결" },
-  { value: "as_exchange_in", label: "A/S 교환입고" },
   { value: "memo", label: "메모입력" },
 ] as const;
 
@@ -1675,6 +1675,7 @@ function ReceiptManager({
     createEmptyReceiptRow(1),
   ]);
   const [note, setNote] = useState("");
+  const [enteredTotalAmount, setEnteredTotalAmount] = useState("");
   const [supplierId, setSupplierId] = useState("");
   const [supplierSearch, setSupplierSearch] = useState("");
   const [supplierPickerOpen, setSupplierPickerOpen] = useState(false);
@@ -1815,6 +1816,8 @@ function ReceiptManager({
               note: receipt.note ?? "",
             }),
           ),
+          enteredTotalAmount:
+            enteredTotalAmount === "" ? null : Math.floor(Number(enteredTotalAmount)),
         });
         if (isAdmin) {
           await savePurchaseOrderAdjustments(
@@ -1831,6 +1834,7 @@ function ReceiptManager({
         mergePurchaseOrderNote(taxInvoiceStatus, note),
         normalizedLines,
         normalizedAdjustments,
+        enteredTotalAmount === "" ? null : Math.floor(Number(enteredTotalAmount)),
       );
     },
     onSuccess: async () => {
@@ -1842,6 +1846,7 @@ function ReceiptManager({
       setRows([createEmptyReceiptRow(nextId)]);
       setNextId((id) => id + 1);
       setNote("");
+      setEnteredTotalAmount("");
       setAdjustments([]);
       setReservationCustomerSearch("");
       setTaxInvoiceStatus("");
@@ -1905,6 +1910,15 @@ function ReceiptManager({
       !Number.isInteger(Number(row.amount)) ||
       Number(row.amount) < 0,
   );
+  const productTotal = validRows.reduce(
+    (total, row) => total + Number(row.quantity) * Number(row.unitPrice || 0),
+    0,
+  );
+  const discountTotal = adjustments.filter((row) => row.kind === "discount")
+    .reduce((total, row) => total + Number(row.amount || 0), 0);
+  const paymentTotal = adjustments.filter((row) => row.kind === "payment")
+    .reduce((total, row) => total + Number(row.amount || 0), 0);
+  const calculatedFinalAmount = productTotal - discountTotal + paymentTotal;
   const selectedSupplier = (suppliersQuery.data ?? []).find(
     (supplier) => supplier.id === supplierId,
   );
@@ -2080,6 +2094,7 @@ function ReceiptManager({
     setRows([createEmptyReceiptRow(nextId)]);
     setNextId((id) => id + 1);
     setNote("");
+    setEnteredTotalAmount("");
     setAdjustments([]);
     setReservationCustomerSearch("");
     setActiveItemRow(null);
@@ -2103,6 +2118,9 @@ function ReceiptManager({
     setTaxInvoiceSearch(parsedNote.taxInvoiceStatus);
     setTaxInvoicePickerOpen(false);
     setNote(parsedNote.note);
+    setEnteredTotalAmount(
+      order.entered_total_amount == null ? "" : String(order.entered_total_amount),
+    );
     setRows([
       ...order.inventory_purchase_order_lines.map((line) => {
         const legacyDemoSource = isLegacyDemoMemo(line.note) ? line.note : null;
@@ -2464,6 +2482,16 @@ function ReceiptManager({
                                           key={item.item_name}
                                           onPointerDown={(event) => {
                                             event.preventDefault();
+                                            void getLatestPurchaseUnitPrice(item.item_name)
+                                              .then((unitPrice) => {
+                                                if (unitPrice == null) return;
+                                                setRows((current) => current.map((currentRow) =>
+                                                  currentRow.id === row.id
+                                                    ? { ...currentRow, unitPrice: String(unitPrice) }
+                                                    : currentRow,
+                                                ));
+                                              })
+                                              .catch(() => undefined);
                                             setRows((current) =>
                                               current.map((currentRow) =>
                                                 currentRow.id === row.id
@@ -2663,12 +2691,7 @@ function ReceiptManager({
                             }}
                             className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm font-semibold sm:hidden"
                           >
-                            {PURCHASE_HANDLING_OPTIONS.filter(
-                              (option) =>
-                                option.value !== "as_exchange_in" ||
-                                isMaster ||
-                                row.handlingType === "as_exchange_in",
-                            ).map((option) => (
+                            {PURCHASE_HANDLING_OPTIONS.map((option) => (
                               <option
                                 key={option.value}
                                 value={option.value}
@@ -2682,12 +2705,7 @@ function ReceiptManager({
                             ))}
                           </select>
                           <div className="hidden grid-cols-6 gap-1.5 sm:grid">
-                            {PURCHASE_HANDLING_OPTIONS.filter(
-                              (option) =>
-                                option.value !== "as_exchange_in" ||
-                                isMaster ||
-                                row.handlingType === "as_exchange_in",
-                            ).map((option) => (
+                            {PURCHASE_HANDLING_OPTIONS.map((option) => (
                               <Button
                                 key={option.value}
                                 type="button"
@@ -3257,14 +3275,16 @@ function ReceiptManager({
                     </p>
                   </div>
                   <div className="overflow-hidden rounded-2xl border border-gray-200">
-                    <div className="grid grid-cols-[1fr_90px] bg-gray-50 px-4 py-3 text-xs font-semibold text-gray-500">
+                    <div className="grid grid-cols-[1fr_70px_110px_120px] bg-gray-50 px-4 py-3 text-xs font-semibold text-gray-500">
                       <span>품목명</span>
                       <span className="text-right">주문 수량</span>
+                      <span className="text-right">입고 단가</span>
+                      <span className="text-right">금액</span>
                     </div>
                     {validRows.map((row) => (
                       <div
                         key={row.id}
-                        className="grid grid-cols-[1fr_90px] border-t border-gray-100 px-4 py-3 text-sm"
+                        className="grid grid-cols-[1fr_70px_110px_120px] border-t border-gray-100 px-4 py-3 text-sm"
                       >
                         <div>
                           <p className="font-medium text-gray-900">
@@ -3290,6 +3310,20 @@ function ReceiptManager({
                         <span className="text-right font-bold">
                           {Number(row.quantity).toLocaleString()}개
                         </span>
+                        <span className="text-right font-medium">
+                          {Number(row.unitPrice || 0).toLocaleString()}원
+                        </span>
+                        <span className="text-right font-bold text-brand-700">
+                          {(Number(row.quantity) * Number(row.unitPrice || 0)).toLocaleString()}원
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-2 divide-x divide-gray-200 overflow-hidden rounded-xl border border-gray-200 text-center text-sm sm:grid-cols-5">
+                    {([["상품 합계", productTotal], ["할인", discountTotal], ["지불", paymentTotal], ["입력 최종 금액", enteredTotalAmount === "" ? calculatedFinalAmount : Number(enteredTotalAmount)], ["최종 금액", enteredTotalAmount === "" ? calculatedFinalAmount : Number(enteredTotalAmount)]] as const).map(([label, amount], index) => (
+                      <div key={label} className={`px-3 py-3 ${index === 4 ? "bg-brand-50 text-brand-700" : "bg-white"}`}>
+                        <p className="text-xs font-semibold text-gray-500">{label}</p>
+                        <p className="mt-1 font-bold">{amount.toLocaleString("ko-KR")}원</p>
                       </div>
                     ))}
                   </div>
@@ -3344,6 +3378,31 @@ function ReceiptManager({
               >
                 {createStep === 1 ? "취소" : "이전"}
               </Button>
+              {createStep >= 2 && (
+                <div className="hidden items-stretch divide-x divide-gray-200 overflow-hidden rounded-xl border border-gray-200 bg-white text-center sm:flex">
+                  {[
+                    ["상품 합계", productTotal, "text-gray-900"],
+                    ["할인", discountTotal, "text-blue-600"],
+                    ["지불", paymentTotal, "text-orange-600"],
+                  ].map(([label, amount, color]) => (
+                    <div key={String(label)} className="min-w-[110px] px-4 py-2">
+                      <p className="text-[11px] font-semibold text-gray-500">{label}</p>
+                      <p className={`mt-0.5 text-sm font-bold ${color}`}>{Number(amount).toLocaleString("ko-KR")}원</p>
+                    </div>
+                  ))}
+                  <div className="min-w-[190px] px-3 py-2">
+                    <p className="text-[11px] font-semibold text-brand-600">입력 최종 금액</p>
+                    <div className="mt-0.5 flex items-center gap-1">
+                      <input type="number" min="0" value={enteredTotalAmount} onChange={(event) => setEnteredTotalAmount(event.target.value)} placeholder={calculatedFinalAmount.toLocaleString("ko-KR")} className="h-7 min-w-0 w-full rounded border border-gray-300 px-2 text-right text-sm font-bold outline-none focus:border-brand-500" />
+                      <button type="button" onClick={() => setEnteredTotalAmount(String(calculatedFinalAmount))} className="shrink-0 cursor-pointer rounded border border-brand-200 px-2 py-1 text-[11px] font-bold text-brand-700 hover:bg-brand-50">일치</button>
+                    </div>
+                  </div>
+                  <div className="min-w-[105px] bg-brand-50 px-3 py-2">
+                    <p className="text-[11px] font-semibold text-brand-600">최종 금액</p>
+                    <p className="mt-0.5 text-sm font-bold text-brand-700">{(enteredTotalAmount === "" ? calculatedFinalAmount : Number(enteredTotalAmount)).toLocaleString("ko-KR")}원</p>
+                  </div>
+                </div>
+              )}
               {createStep < 3 ? (
                 <Button
                   onClick={() => setCreateStep((createStep + 1) as 2 | 3)}

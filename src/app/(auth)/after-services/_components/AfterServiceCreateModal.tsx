@@ -212,6 +212,7 @@ export default function AfterServiceCreateModal({
   isSubmitting,
   initialData,
   mode = "create",
+  initialStep = 1,
   onDelete,
   isAdmin = false,
 }: {
@@ -248,6 +249,7 @@ export default function AfterServiceCreateModal({
     exchangeNote?: string;
   };
   mode?: "create" | "edit";
+  initialStep?: 1 | 2 | 3;
   onDelete?: () => Promise<void> | void;
   isAdmin?: boolean;
 }) {
@@ -269,7 +271,7 @@ export default function AfterServiceCreateModal({
   const [showInventoryOverrideConfirm, setShowInventoryOverrideConfirm] =
     useState(false);
   const [showItemSuggestions, setShowItemSuggestions] = useState(false);
-  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(initialStep);
   const [purchaseDate, setPurchaseDate] = useState("");
   const [receivedDate, setReceivedDate] = useState(getLocalDateInputValue);
   const [supplierSearch, setSupplierSearch] = useState("");

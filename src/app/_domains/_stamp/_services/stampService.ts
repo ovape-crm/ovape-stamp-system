@@ -38,6 +38,43 @@ export type StampLogItem = {
     | "as_exchange_out"
     | "adjustment_in"
     | "adjustment_out";
+  costSourceSaleLogId?: string;
+  costSourceSaleLineIndex?: number;
+  adjustmentReason?: "correction" | "damage" | "loss" | "disposal";
+  adjustmentType?: "correction_in" | "correction_out" | "free_in" | "loss_out";
+  exchangeAdditionalAmount?: number;
+  adjustmentCostSourceReceiptLineId?: string;
+  adjustmentUnitCost?: number;
+};
+
+export type AdjustmentInCostOption = { source_receipt_line_id: string; arrived_on: string; supplier_name: string; received_quantity: number };
+export const getAdjustmentInCostOptions = async (itemName: string) => {
+  const { data, error } = await supabase.rpc("get_adjustment_in_cost_options", { p_item_name: itemName });
+  if (error) throw error;
+  return (data ?? []) as AdjustmentInCostOption[];
+};
+
+export type CustomerExchangeSaleOption = {
+  sale_log_id: number;
+  sale_line_index: number;
+  sold_at: string;
+  sold_quantity: number;
+  available_quantity: number;
+  sale_note: string | null;
+};
+
+export const getCustomerExchangeSaleOptions = async (values: {
+  customerName: string;
+  customerPhone: string;
+  itemName: string;
+}) => {
+  const { data, error } = await supabase.rpc("get_customer_exchange_sale_options", {
+    p_customer_name: values.customerName,
+    p_customer_phone: values.customerPhone,
+    p_item_name: values.itemName,
+  });
+  if (error) throw error;
+  return (data ?? []) as CustomerExchangeSaleOption[];
 };
 
 export type StampLogMeta = {

@@ -225,7 +225,9 @@ export default function SettlementReport() {
             value: summaryQuery.data?.soldItemCost ?? null,
             description:
               summaryQuery.data?.soldItemCost == null
-                ? "원가 산정 방식 확정 후 연결"
+                ? summaryQuery.data?.soldItemCostMissingQuantity
+                  ? `원가 누락 수량 ${summaryQuery.data.soldItemCostMissingQuantity.toLocaleString()}개를 확인해 주세요.`
+                  : "판매 원가를 불러오지 못했습니다."
                 : "결제 판매 건의 품목별 매입가 합계",
           },
           {
