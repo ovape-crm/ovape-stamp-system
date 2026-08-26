@@ -106,7 +106,7 @@ export default function SettlementExpenseManager() {
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const numericAmount = Number(amount);
-    if (!selectedCategory || !Number.isFinite(numericAmount) || numericAmount <= 0) return toast.error("항목과 금액을 확인해 주세요.");
+    if (!selectedCategory || !Number.isFinite(numericAmount) || numericAmount === 0) return toast.error("항목과 0원이 아닌 금액을 확인해 주세요.");
     const values = { expenseDate, categoryId: selectedCategory.id, category: selectedCategory.name, amount: Math.floor(numericAmount), store, isRecurring, recurrenceDay: isRecurring ? recurrenceDay : null, recurrenceEndDate, note };
     if (editingId) updateMutation.mutate({ id: editingId, values });
     else createMutation.mutate(values);

@@ -617,9 +617,10 @@ export const updatePurchaseOrderDetails = async (values: {
     arrived_on: string;
     note: string;
   }>;
+  enteredTotalAmount?: number | null;
 }): Promise<void> => {
   const { error } = await supabase.rpc(
-    "update_inventory_purchase_order_details",
+    "update_inventory_purchase_order_details_with_final_amount",
     {
       p_order_id: values.orderId,
       p_supplier_id: values.supplierId,
@@ -627,6 +628,7 @@ export const updatePurchaseOrderDetails = async (values: {
       p_note: values.note || null,
       p_lines: values.lines,
       p_receipts: values.receipts,
+      p_entered_total_amount: values.enteredTotalAmount ?? null,
     },
   );
   if (error) throw error;
@@ -658,19 +660,34 @@ export const createPurchaseOrder = async (
     amount: number;
     note: string | null;
   }> = [],
+  enteredTotalAmount: number | null = null,
 ) => {
   const { data, error } = await supabase.rpc(
-    "create_inventory_purchase_order",
+    "create_inventory_purchase_order_with_final_amount",
     {
       p_supplier_id: supplierId,
       p_ordered_on: orderedOn,
       p_note: note || null,
       p_lines: lines,
       p_adjustments: adjustments,
+      p_entered_total_amount: enteredTotalAmount,
     },
   );
   if (error) throw error;
   return data as string;
+};
+
+export const getLatestPurchaseUnitPrice = async (itemName: string) => {
+  const { data, error } = await supabase
+    .from("inventory_purchase_order_lines")
+    .select("unit_price")
+    .eq("item_name", itemName)
+    .not("unit_price", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.unit_price ?? null;
 };
 
 export type ReservationCustomer = {

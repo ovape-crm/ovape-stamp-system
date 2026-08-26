@@ -77,6 +77,14 @@ const safeResolver = (schema: z.ZodTypeAny) => async (data: unknown) => {
 
 interface StatusUpdateModalProps {
   currentStatus: string;
+  editMode?: boolean;
+  initialDate?: string;
+  initialMemo?: string;
+  initialHasStoreCost?: boolean;
+  initialStoreCostAmount?: number | null;
+  initialReceiptItemName?: string;
+  initialReceiptQuantity?: number;
+  initialReceiptMatchType?: "match" | "mismatch";
   isInventoryProcessed: boolean;
   supplierName?: string | null;
   customerName?: string | null;
@@ -93,6 +101,14 @@ interface StatusUpdateModalProps {
 
 const StatusUpdateModal = ({
   currentStatus,
+  editMode = false,
+  initialDate,
+  initialMemo = "",
+  initialHasStoreCost = false,
+  initialStoreCostAmount = null,
+  initialReceiptItemName,
+  initialReceiptQuantity,
+  initialReceiptMatchType,
   isInventoryProcessed,
   supplierName,
   customerName,
@@ -106,24 +122,37 @@ const StatusUpdateModal = ({
   onCancel,
   isSubmitting,
 }: StatusUpdateModalProps) => {
-  const [statusDate, setStatusDate] = useState(getTodayDateValue);
-  const [statusMemo, setStatusMemo] = useState("");
-  const [hasStoreRepairCost, setHasStoreRepairCost] = useState(false);
-  const [storeRepairCostAmount, setStoreRepairCostAmount] = useState("");
+  const [statusDate, setStatusDate] = useState(
+    initialDate || getTodayDateValue(),
+  );
+  const [statusMemo, setStatusMemo] = useState(initialMemo);
+  const [hasStoreRepairCost, setHasStoreRepairCost] = useState(
+    initialHasStoreCost,
+  );
+  const [storeRepairCostAmount, setStoreRepairCostAmount] = useState(
+    initialStoreCostAmount == null ? "" : String(initialStoreCostAmount),
+  );
   const [isInventoryReceiptConfirmed, setIsInventoryReceiptConfirmed] =
-    useState(false);
+    useState(editMode);
   const [isCustomerContactConfirmed, setIsCustomerContactConfirmed] =
-    useState(false);
-  const [isRentalReturnConfirmed, setIsRentalReturnConfirmed] = useState(false);
-  const [receiptItemName, setReceiptItemName] = useState(originalItemName);
+    useState(editMode);
+  const [isRentalReturnConfirmed, setIsRentalReturnConfirmed] =
+    useState(editMode);
+  const [receiptItemName, setReceiptItemName] = useState(
+    initialReceiptItemName || originalItemName,
+  );
   const [showReceiptItemSuggestions, setShowReceiptItemSuggestions] =
     useState(false);
   const [receiptQuantity, setReceiptQuantity] = useState(
-    String(serviceProgress?.remaining_quantity ?? originalQuantity),
+    String(
+      initialReceiptQuantity ??
+        serviceProgress?.remaining_quantity ??
+        originalQuantity,
+    ),
   );
   const [receiptMatchType, setReceiptMatchType] = useState<
     "" | "match" | "mismatch"
-  >("");
+  >(initialReceiptMatchType ?? (editMode ? "match" : ""));
   const deferredReceiptItemName = useDeferredValue(receiptItemName.trim());
   const receiptItemsQuery = useQuery({
     queryKey: ["as-repair-receipt-items", deferredReceiptItemName],
@@ -140,7 +169,9 @@ const StatusUpdateModal = ({
     mode: "onChange",
     resolver: safeResolver(schema) as Resolver<StatusUpdateFormValues, unknown>,
     defaultValues: {
-      status: undefined,
+      status: editMode
+        ? (currentStatus as AfterServiceStatusEnumType["value"])
+        : undefined,
       note: "",
     },
   });
@@ -163,7 +194,7 @@ const StatusUpdateModal = ({
       if (
         opt.value === AfterServiceStatusEnum.REPAIR_RETURNED_COMPLETED.value
       ) {
-        return true;
+        return isInventoryProcessed;
       }
       if (opt.value === AfterServiceStatusEnum.CUSTOMER_RECEIVED.value) {
         return !isInventoryProcessed;
@@ -175,7 +206,7 @@ const StatusUpdateModal = ({
       value: opt.value,
     }));
 
-  const selectedStatus = watch("status");
+  const selectedStatus = editMode ? currentStatus : watch("status");
   const currentStatusInfo = Object.values(AfterServiceStatusEnum).find(
     (opt) => opt.value === currentStatus,
   );
@@ -235,13 +266,12 @@ const StatusUpdateModal = ({
     parsedReceiptQuantity !== originalQuantity;
   const isRepairReceiptValid =
     !requiresInventoryReceiptConfirmation ||
+    editMode ||
     (hasRegisteredSupplier &&
       receiptItemName.trim().length > 0 &&
       Number.isInteger(parsedReceiptQuantity) &&
       parsedReceiptQuantity > 0 &&
-      (!isInventoryServiceCase ||
-        (receiptItemName.trim() === originalItemName.trim() &&
-          parsedReceiptQuantity <= maximumReceiptQuantity!)) &&
+      (!isInventoryServiceCase || parsedReceiptQuantity <= maximumReceiptQuantity!) &&
       (isInventoryServiceCase ||
         (receiptValuesDiffer && receiptMatchType === "mismatch") ||
         (!receiptValuesDiffer && receiptMatchType === "match")));
@@ -331,9 +361,7 @@ const StatusUpdateModal = ({
               arrivedOn: statusDate,
               itemName: receiptItemName.trim(),
               quantity: parsedReceiptQuantity,
-              matchType: isInventoryServiceCase
-                ? "match"
-                : (receiptMatchType as "match" | "mismatch"),
+              matchType: receiptValuesDiffer ? "mismatch" : "match",
               memo: statusMemo.trim(),
             }
           : undefined,
@@ -358,11 +386,15 @@ const StatusUpdateModal = ({
       className="w-full"
       noValidate
     >
-      <h2 className="text-lg font-semibold mb-3">상태 수정</h2>
+      <h2 className="text-lg font-semibold mb-3">
+        {editMode
+          ? `${currentStatusInfo?.name || currentStatus} 내용 수정`
+          : "진행상황 변경"}
+      </h2>
 
       <div className="space-y-3">
-        {/* 현재 상태 */}
-        <div>
+        {/* 새 진행상황 처리에서만 현재 상태와 변경할 상태를 표시합니다. */}
+        {!editMode && <div>
           <label className="block text-sm font-medium mb-1">현재 상태</label>
           <div className="flex w-full items-center justify-between gap-2 rounded-lg border border-brand-200 bg-white/70 px-3 py-1.5 text-left text-xs font-medium text-brand-700 shadow-sm sm:px-6 sm:py-2 sm:text-base">
             <span className="min-w-0 flex-1 truncate text-left">
@@ -370,10 +402,10 @@ const StatusUpdateModal = ({
             </span>
             <span className="h-4 w-4 shrink-0" aria-hidden="true" />
           </div>
-        </div>
+        </div>}
 
         {/* 상태 선택 */}
-        <div>
+        {!editMode && <div>
           <label className="block text-sm font-medium mb-1">
             변경할 상태 <span className="text-rose-600">*</span>
           </label>
@@ -418,7 +450,7 @@ const StatusUpdateModal = ({
               {errors.status.message}
             </p>
           )}
-        </div>
+        </div>}
 
         {selectedStatus &&
           (structuredStatusConfig ? (
@@ -497,7 +529,7 @@ const StatusUpdateModal = ({
                               autoComplete="off"
                               placeholder="품목명을 검색하세요"
                               className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-9 pr-10 text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-                              disabled={isSubmitting}
+                              disabled={isSubmitting || editMode}
                             />
                           </div>
                           {showReceiptItemSuggestions &&
@@ -547,7 +579,7 @@ const StatusUpdateModal = ({
                                 setReceiptMatchType("");
                               }}
                               className="h-10 w-[72px] rounded-lg border border-gray-300 bg-white px-2 text-center text-sm font-medium shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-                              disabled={isSubmitting}
+                              disabled={isSubmitting || editMode}
                             />
                             {([-1, 1] as const).map((delta) => (
                               <button
@@ -557,7 +589,7 @@ const StatusUpdateModal = ({
                                   delta < 0 ? "수량 감소" : "수량 증가"
                                 }
                                 disabled={
-                                  isSubmitting ||
+                                  isSubmitting || editMode ||
                                   (delta < 0 && parsedReceiptQuantity <= 1) ||
                                   (delta > 0 &&
                                     maximumReceiptQuantity !== null &&
@@ -596,7 +628,17 @@ const StatusUpdateModal = ({
                           )}
                         </label>
                       </div>
-                      {!isInventoryServiceCase && <div className="grid grid-cols-2 gap-2">
+                      {isInventoryServiceCase && !editMode && receiptValuesDiffer && (
+                        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                          실제 입고 품목·수량으로 재고를 처리합니다. 출고 원가는 이번 입고 수량만큼 이어받고, 남은 수량은 A/S 미입고로 유지됩니다.
+                        </p>
+                      )}
+                      {editMode && (
+                        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                          재고에 반영된 제품명과 수량은 직접 수정할 수 없습니다. 변경이 필요하면 입고 처리를 취소한 뒤 다시 처리해 주세요.
+                        </p>
+                      )}
+                      {!isInventoryServiceCase && !editMode && <div className="grid grid-cols-2 gap-2">
                         {(
                           [
                             ["match", "제품·수량 일치"],
@@ -778,7 +820,7 @@ const StatusUpdateModal = ({
           disabled={
             isSubmitting ||
             !selectedStatus ||
-            selectedStatus === currentStatus ||
+            (!editMode && selectedStatus === currentStatus) ||
             (Boolean(structuredStatusConfig) && !statusDate) ||
             Boolean(
               structuredStatusConfig?.memoRequired && !statusMemo.trim(),

@@ -8,6 +8,8 @@ import {
   processInventoryServiceInbound,
   getInventoryServiceProgress,
   confirmInventoryServiceOutbound,
+  editAfterServiceStatusProcessing,
+  getAfterServiceIntakeExpense,
   updateAfterService,
   deleteAfterService,
 } from "@/app/_domains/_afterService/_services/afterService";
@@ -44,6 +46,7 @@ import {
 } from "@/app/_domains/_log/_services/logService";
 import { addStamp } from "@/app/_domains/_stamp/_services/stampService";
 import { searchItemOptions } from "@/app/_domains/_item/_services/itemService";
+import { AfterServiceLogType } from "@/app/_domains/_log/_types/log.types";
 
 const getLogValue = (note: string, ...labels: string[]) => {
   for (const label of labels) {
@@ -116,6 +119,11 @@ const AfterServiceDetailDrawer = ({
     queryKey: ["after-service-inventory-progress", numericAfterServiceId],
     queryFn: () => getInventoryServiceProgress(numericAfterServiceId),
     enabled: numericAfterServiceId > 0 && isInventoryServiceCase,
+  });
+  const intakeExpenseQuery = useQuery({
+    queryKey: ["after-service-intake-expense", numericAfterServiceId],
+    queryFn: () => getAfterServiceIntakeExpense(String(numericAfterServiceId)),
+    enabled: numericAfterServiceId > 0,
   });
   const handleConfirmInventoryOutbound = async () => {
     if (!afterServiceDetail || !isMaster) return;
@@ -236,7 +244,7 @@ const AfterServiceDetailDrawer = ({
     }
   };
 
-  const handleStatusEdit = () => {
+  const handleStatusAdvance = () => {
     if (!afterServiceDetail) return;
     if (isInventoryServiceCase && !afterServiceDetail.outbound_processed_at) {
       toast.error("마스터의 출고 확정 후 상태를 변경할 수 있습니다.");
@@ -264,6 +272,133 @@ const AfterServiceDetailDrawer = ({
           serviceProgress={inventoryServiceProgressQuery.data}
           rentalItemSummary={rentalItemSummary || undefined}
           onSubmit={handleStatusUpdate}
+          onCancel={close}
+          isSubmitting={isUpdatingStatus}
+        />
+      ),
+      options: { dismissOnBackdrop: false, dismissOnEsc: true },
+    });
+  };
+
+  const handleCurrentStatusEdit = (targetLog?: AfterServiceLogType) => {
+    if (!afterServiceDetail) return;
+    const targetStatus = targetLog?.action.startsWith("after-service-")
+      ? targetLog.action.slice("after-service-".length)
+      : afterServiceDetail.status;
+    if (
+      new Set<string>([
+        AfterServiceStatusEnum.RECEIVED.value,
+        AfterServiceStatusEnum.EXCHANGE.value,
+        AfterServiceStatusEnum.RENTAL.value,
+      ]).has(targetStatus)
+    ) {
+      handleEdit(
+        targetStatus === AfterServiceStatusEnum.RECEIVED.value ? 2 : 3,
+      );
+      return;
+    }
+    if (
+      targetStatus ===
+        AfterServiceStatusEnum.SENT_FOR_REPAIR.value &&
+      intakeExpenseQuery.isPending
+    ) {
+      toast.error("접수비 정보를 불러오는 중입니다. 잠시 후 다시 시도해 주세요.");
+      return;
+    }
+    const statusLog =
+      targetLog ??
+      logs.find((log) => log.action === `after-service-${targetStatus}`);
+    const logLines = (statusLog?.note ?? "").split("\n");
+    const logDate = toInputDate(logLines[0] ?? "");
+    const initialDate =
+      targetStatus ===
+      AfterServiceStatusEnum.REPAIR_RETURNED_COMPLETED.value
+        ? afterServiceDetail.repair_receipt_arrived_on || logDate
+        : targetStatus ===
+            AfterServiceStatusEnum.SENT_FOR_REPAIR.value
+          ? intakeExpenseQuery.data?.expense_date || logDate
+          : logDate;
+    const initialMemo = logLines.slice(1).join("\n").trim();
+
+    open({
+      content: (
+        <StatusUpdateModal
+          editMode
+          currentStatus={targetStatus}
+          initialDate={initialDate || undefined}
+          initialMemo={
+            targetStatus ===
+            AfterServiceStatusEnum.REPAIR_RETURNED_COMPLETED.value
+              ? afterServiceDetail.repair_receipt_note || initialMemo
+              : initialMemo
+          }
+          initialHasStoreCost={Boolean(intakeExpenseQuery.data)}
+          initialStoreCostAmount={
+            intakeExpenseQuery.data?.store_cost_amount ?? null
+          }
+          initialReceiptItemName={
+            afterServiceDetail.repair_receipt_item_name || undefined
+          }
+          initialReceiptQuantity={
+            afterServiceDetail.repair_receipt_quantity || undefined
+          }
+          initialReceiptMatchType={
+            afterServiceDetail.repair_receipt_match_type || undefined
+          }
+          isInventoryProcessed={
+            afterServiceDetail.is_loaner_device_issued ?? false
+          }
+          supplierName={afterServiceDetail.supplier_name}
+          customerName={afterServiceDetail.customers?.name}
+          customerPhone={afterServiceDetail.customers?.phone}
+          originalItemName={afterServiceDetail.item_name}
+          originalQuantity={afterServiceDetail.quantity}
+          serviceCaseType={afterServiceDetail.service_case_type}
+          serviceProgress={inventoryServiceProgressQuery.data}
+          rentalItemSummary={afterServiceDetail.rental_note || undefined}
+          onSubmit={async (values) => {
+            const statusDate =
+              values.repairReceipt?.arrivedOn ||
+              values.repairIntakeExpense?.receivedOn ||
+              toInputDate(values.note.split("\n")[0] ?? "");
+            if (!statusDate) {
+              toast.error("처리일을 확인해 주세요.");
+              return;
+            }
+            try {
+              setIsUpdatingStatus(true);
+              await editAfterServiceStatusProcessing({
+                afterServiceId: String(afterServiceDetail.id),
+                logId: statusLog?.id,
+                status: values.status,
+                statusDate,
+                memo:
+                  values.repairReceipt?.memo ||
+                  values.repairIntakeExpense?.memo ||
+                  values.note.split("\n").slice(1).join("\n"),
+                hasStoreCost:
+                  values.repairIntakeExpense?.hasStoreCost ?? false,
+                storeCostAmount:
+                  values.repairIntakeExpense?.storeCostAmount ?? null,
+              });
+              invalidateAfterServiceQueries();
+              queryClient.invalidateQueries({
+                queryKey: ["after-service-intake-expense", numericAfterServiceId],
+              });
+              queryClient.invalidateQueries({ queryKey: ["settlement-expenses"] });
+              queryClient.invalidateQueries({
+                queryKey: ["settlement-expense-total"],
+              });
+              queryClient.invalidateQueries({ queryKey: ["inventory"] });
+              close();
+              toast.success("진행상황 내용이 수정되었습니다.");
+            } catch (err) {
+              const message = err instanceof Error ? err.message : "";
+              toast.error(message || "진행상황 수정에 실패했습니다.");
+            } finally {
+              setIsUpdatingStatus(false);
+            }
+          }}
           onCancel={close}
           isSubmitting={isUpdatingStatus}
         />
@@ -303,7 +438,7 @@ const AfterServiceDetailDrawer = ({
     }
   };
 
-  const handleEdit = () => {
+  const handleEdit = (initialStep: 1 | 2 | 3 = 1) => {
     if (!afterServiceDetail || areLogsLoading) return;
 
     const receivedLog = logs.find(
@@ -338,6 +473,7 @@ const AfterServiceDetailDrawer = ({
       content: (
         <AfterServiceCreateModal
           mode="edit"
+          initialStep={initialStep}
           initialData={{
             customerId: afterServiceDetail.customer_id
               ? String(afterServiceDetail.customer_id)
@@ -802,7 +938,7 @@ const AfterServiceDetailDrawer = ({
                     주요 정보
                   </h3>
                   <Button
-                    onClick={handleEdit}
+                    onClick={() => handleEdit()}
                     disabled={areLogsLoading}
                     variant="secondary"
                     size="sm"
@@ -827,7 +963,8 @@ const AfterServiceDetailDrawer = ({
                   {/* Status 박스 */}
                   <StatusBox
                     status={afterServiceDetail.status}
-                    onEdit={handleStatusEdit}
+                    onEdit={() => handleCurrentStatusEdit()}
+                    onAdvance={handleStatusAdvance}
                   />
 
                   {/* 고객 정보 섹션 */}
@@ -880,6 +1017,7 @@ const AfterServiceDetailDrawer = ({
               {/* AS 이력 */}
               <AfterServiceLogList
                 afterServiceId={Number(afterServiceDetail.id)}
+                onEditProcessing={handleCurrentStatusEdit}
               />
             </div>
           ) : null}

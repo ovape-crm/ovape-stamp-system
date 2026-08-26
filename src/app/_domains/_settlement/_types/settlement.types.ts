@@ -30,6 +30,12 @@ export type SettlementSummary = {
   sales: { ovape: StorePaymentSales; eguvape: StorePaymentSales };
   purchases: Record<string, number>;
   soldItemCost: number | null;
+  soldItemCostMissingQuantity: number;
+  soldItemCostMissingItems: {
+    itemName: string;
+    basisType: SettlementCostBasisType;
+    missingQuantity: number;
+  }[];
 };
 
 export type SettlementCostBasisType = "historical" | "opening_20260722";
@@ -65,4 +71,32 @@ export type SettlementHistoricalPurchase = {
   paid_amount: number;
   note: string | null;
   inventory_suppliers: { name: string } | null;
+};
+
+export type InventoryCostLedgerRow = {
+  id: string;
+  eventAt: string;
+  eventType: string;
+  itemName: string;
+  direction: "in" | "out";
+  quantity: number;
+  totalCost: number | null;
+  settlementEffect: string;
+  referenceType: string;
+  referenceId: string;
+  costStatus: "confirmed" | "pending" | null;
+  queueSequence: number | null;
+  sourceSummary: string;
+  metadata: Record<string, unknown>;
+};
+
+export type PendingInventoryCostLayer = {
+  id: string;
+  itemName: string;
+  quantity: number;
+  remainingQuantity: number;
+  eventAt: string;
+  eventType: string;
+  referenceType: string;
+  referenceId: string;
 };

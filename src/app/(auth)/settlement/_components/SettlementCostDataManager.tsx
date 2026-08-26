@@ -4,6 +4,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import Button from "@/app/_components/Button";
+import { Dropdown, DropdownOption } from "@/app/_components/Dropdown";
 import Loading from "@/app/_components/Loading";
 import InboundCostAnalyzer from "./InboundCostAnalyzer";
 import {
@@ -34,6 +35,14 @@ const invoiceOptions = [
   { value: "tax_invoice", label: "세금계산서" },
   { value: "cash_receipt", label: "현금영수증" },
   { value: "x", label: "X" },
+] as const;
+
+type CostSaveFilter = "all" | "saved" | "unsaved";
+
+const costSaveFilterOptions = [
+  { value: "all", label: "전체" },
+  { value: "saved", label: "저장된 원가" },
+  { value: "unsaved", label: "저장 안 된 원가" },
 ] as const;
 
 type BulkPurchaseRow = {
@@ -312,6 +321,8 @@ export default function SettlementCostDataManager() {
   const [costExcelOpen, setCostExcelOpen] = useState(false);
   const [costExcelPaste, setCostExcelPaste] = useState("");
   const [search, setSearch] = useState("");
+  const [costSaveFilter, setCostSaveFilter] =
+    useState<CostSaveFilter>("all");
   const [visibleCostCount, setVisibleCostCount] = useState(100);
   const purchasesKey = ["settlement-historical-purchases"];
   const costsKey = ["settlement-cost-items"];
@@ -469,13 +480,24 @@ export default function SettlementCostDataManager() {
   const filteredCosts = useMemo(
     () =>
       (costsQuery.data ?? []).filter(
-        (item) =>
-          item.itemName.toLowerCase().includes(search.toLowerCase()) &&
-          (costMode === "historical"
-            ? item.soldBeforeBaseline > 0
-            : item.openingQuantity > 0),
+        (item) => {
+          const stored =
+            costMode === "historical"
+              ? item.historicalSegments
+              : item.openingSegments;
+          return (
+            item.itemName.toLowerCase().includes(search.toLowerCase()) &&
+            (costMode === "historical"
+              ? item.soldBeforeBaseline > 0
+              : item.openingQuantity > 0) &&
+            (costSaveFilter === "all" ||
+              (costSaveFilter === "saved"
+                ? stored.length > 0
+                : stored.length === 0))
+          );
+        },
       ),
-    [costMode, costsQuery.data, search],
+    [costMode, costSaveFilter, costsQuery.data, search],
   );
   const getDraft = (
     key: string,
@@ -1132,6 +1154,33 @@ export default function SettlementCostDataManager() {
                 setCostMode(value as SettlementCostBasisType)
               }
             />
+            <div className="flex w-full flex-col rounded-xl border border-gray-200 bg-gray-50/70 p-2.5 sm:w-[120px] sm:shrink-0">
+              <p className="mb-1 text-xs font-semibold text-gray-600">
+                저장 상태
+              </p>
+              <Dropdown controlledValue={costSaveFilter}>
+                <Dropdown.Trigger compact>
+                  {
+                    costSaveFilterOptions.find(
+                      (option) => option.value === costSaveFilter,
+                    )?.label
+                  }
+                </Dropdown.Trigger>
+                <Dropdown.Content compact>
+                  {costSaveFilterOptions.map((option) => (
+                    <Dropdown.Item
+                      key={option.value}
+                      option={option}
+                      compact
+                      onSelect={(selected: DropdownOption) => {
+                        setCostSaveFilter(selected.value as CostSaveFilter);
+                        setVisibleCostCount(100);
+                      }}
+                    />
+                  ))}
+                </Dropdown.Content>
+              </Dropdown>
+            </div>
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}

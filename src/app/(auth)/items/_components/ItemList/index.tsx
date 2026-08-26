@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import Button from '@/app/_components/Button';
 import Loading from '@/app/_components/Loading';
 import {
@@ -29,6 +30,35 @@ const ItemList = ({
   const { items, isLoading, isLoadingMore, error, loadMore, hasMore, totalCount } =
     useItems(filters);
   const { open, close } = useModal();
+  type SortKey = 'category' | 'code' | 'name' | 'price' | 'liquidType' | 'liquidFlavor';
+  const [sort, setSort] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null);
+  const changeSort = (key: SortKey) => setSort((current) => {
+    if (!current || current.key !== key) return { key, direction: 'asc' };
+    if (current.direction === 'asc') return { key, direction: 'desc' };
+    return null;
+  });
+  const sortedItems = useMemo(() => {
+    if (!sort) return items;
+    return [...items].sort((a, b) => {
+      const [left, right] = {
+        category: [a.item_categories?.name ?? '', b.item_categories?.name ?? ''],
+        code: [a.item_code ?? '', b.item_code ?? ''],
+        name: [a.item_name ?? '', b.item_name ?? ''],
+        price: [a.selling_price ?? 0, b.selling_price ?? 0],
+        liquidType: [a.liquid_type ?? '', b.liquid_type ?? ''],
+        liquidFlavor: [a.liquid_flavor ?? '', b.liquid_flavor ?? ''],
+      }[sort.key];
+      const result = typeof left === 'number'
+        ? left - (right as number)
+        : String(left).localeCompare(String(right), 'ko-KR', { numeric: true, sensitivity: 'base' });
+      return sort.direction === 'asc' ? result : -result;
+    });
+  }, [items, sort]);
+  const sortHeading = (label: string, key: SortKey, className = '') => (
+    <button type="button" onClick={() => changeSort(key)} className={`inline-flex cursor-pointer items-center gap-1 ${className}`} title={`${label} 정렬: 오름차순 → 내림차순 → 기본순`}>
+      {label}<span aria-hidden="true" className={sort?.key === key ? 'text-brand-600' : 'text-gray-400'}>{sort?.key === key ? (sort.direction === 'asc' ? '↑' : '↓') : '↕'}</span>
+    </button>
+  );
 
   const openCategoryManage = () => {
     open({
@@ -80,7 +110,7 @@ const ItemList = ({
               </th>
               <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
                 <div className="flex items-center gap-1.5">
-                  <span>품목 종류</span>
+                  {sortHeading('품목 종류', 'category')}
                   {isAdmin && (
                     <button
                       onClick={openCategoryManage}
@@ -111,22 +141,22 @@ const ItemList = ({
                 </div>
               </th>
               <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
-                품목 코드
+                {sortHeading('품목 코드', 'code')}
               </th>
               <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
-                품목 명
+                {sortHeading('품목 명', 'name')}
               </th>
               <th className="px-3 sm:px-6 py-2 sm:py-3 text-right text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
-                매출단가
+                {sortHeading('매출단가', 'price')}
               </th>
               <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap max-w-48">
                 비고
               </th>
               <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
-                액상 종류
+                {sortHeading('액상 종류', 'liquidType')}
               </th>
               <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
-                액상 맛
+                {sortHeading('액상 맛', 'liquidFlavor')}
               </th>
               <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
                 시연대 위치
@@ -144,7 +174,7 @@ const ItemList = ({
                 </td>
               </tr>
             ) : (
-              items.map((item, index) => (
+              sortedItems.map((item, index) => (
                 <tr
                   key={`${item.id}-${index}`}
                   className="hover:bg-brand-50/50 transition-colors"

@@ -13,13 +13,21 @@ import {
   LogActorInfo,
   ChangeFields,
 } from '@/app/(auth)/_components/HistoriesComponents';
+import { AfterServiceStatusEnum } from '@/app/_enums/enums';
 
 const PAGE_SIZE = 10;
+const PROCESSING_LOG_ACTIONS = new Set(
+  Object.values(AfterServiceStatusEnum).map(
+    (status) => `after-service-${status.value}`,
+  ),
+);
 
 const AfterServiceLogList = ({
   afterServiceId,
+  onEditProcessing,
 }: {
   afterServiceId: number;
+  onEditProcessing: (log: AfterServiceLogType) => void;
 }) => {
   const { logs, isLoading, error, hasMore, loadMore, refresh } =
     useLogsByAfterServiceId(afterServiceId, PAGE_SIZE);
@@ -177,7 +185,13 @@ const AfterServiceLogList = ({
                           onNoteChange={setNoteDraft}
                           onSave={() => saveNote(log)}
                           onCancel={cancelEdit}
-                          onEdit={() => startEdit(log)}
+                          onEdit={() => {
+                            if (PROCESSING_LOG_ACTIONS.has(log.action)) {
+                              onEditProcessing(log);
+                              return;
+                            }
+                            startEdit(log);
+                          }}
                           isSaving={isSaving}
                         />
                       );

@@ -21,6 +21,7 @@ import type {
   CustomerCreateValues,
 } from "./_components/CustomerCreateModal";
 import { useRouter } from "next/navigation";
+import { useUser } from "@/app/_contexts/UserContext";
 
 const quickLinkDefinitions = [
   { key: "x-male", label: "X 남자" },
@@ -63,6 +64,7 @@ export default function CustomersPage() {
   const { open, close } = useModal();
   const queryClient = useQueryClient();
   const router = useRouter();
+  const { user } = useUser();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [quickLinks, setQuickLinks] = useState<CustomerQuickLink[]>([]);
   const [isQuickLinksLoading, setIsQuickLinksLoading] = useState(false);
@@ -215,7 +217,13 @@ export default function CustomersPage() {
             <div ref={quickLinksRef} className="relative flex items-center">
               {isQuickLinksOpen && (
                 <div className="absolute right-full top-1/2 z-30 mr-2 flex -translate-y-1/2 flex-nowrap items-center gap-2 whitespace-nowrap rounded-xl border border-gray-200 bg-white p-1.5 shadow-lg">
-                  {quickLinkDefinitions.map((definition) => {
+                  {quickLinkDefinitions
+                    .filter(
+                      (definition) =>
+                        definition.key !== "adjustment" ||
+                        user?.oss_role === "master",
+                    )
+                    .map((definition) => {
                     const customer = findQuickLink(definition.key);
                     return (
                       <Button
@@ -235,7 +243,7 @@ export default function CustomersPage() {
                           : definition.label}
                       </Button>
                     );
-                  })}
+                    })}
                 </div>
               )}
               <Button

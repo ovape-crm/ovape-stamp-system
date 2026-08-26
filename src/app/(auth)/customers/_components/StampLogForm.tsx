@@ -23,10 +23,13 @@ import type {
   StampLogItem,
   StampLogMeta,
 } from "@/app/_domains/_stamp/_services/stampService";
+import {
+  getAdjustmentInCostOptions,
+  getCustomerExchangeSaleOptions,
+} from "@/app/_domains/_stamp/_services/stampService";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CustomerMode } from "@/app/_domains/_customer/_utils/specialCustomer";
 import { formatPhoneNumber } from "@/app/_utils/utils";
-import { useUser } from "@/app/_contexts/UserContext";
 
 const ovapePaymentTypes = [
   PaymentTypeEnum.CARD,
@@ -54,7 +57,6 @@ const remarkOptions = [
   { value: "service", name: "서비스" },
   { value: "exchange_in", name: "교환입고" },
   { value: "exchange_out", name: "교환출고" },
-  { value: "as_exchange_out", name: "A/S 교환출고" },
   { value: "custom", name: "메모입력" },
   { value: "price_adjust", name: "가격조정" },
 ] as const;
@@ -62,8 +64,12 @@ const remarkOptions = [
 type RemarkOptionValue =
   | (typeof remarkOptions)[number]["value"]
   | "demo"
-  | "adjustment_in"
-  | "adjustment_out";
+  | "correction_in"
+  | "correction_out"
+  | "free_in"
+  | "loss_out"
+  // 과거 A/S 출고 이력 수정·표시용으로만 유지하며 신규 선택지에는 노출하지 않습니다.
+  | "as_exchange_out";
 
 const discountOptions = [
   { value: "special", name: "특별" },
@@ -198,7 +204,6 @@ export default function StampLogForm({
     note?: string | null;
   };
 }) {
-  const { user } = useUser();
   const [paymentType, setPaymentType] = useState<
     PaymentTypeEnumType["value"] | ""
   >(initialValue?.paymentType ?? "");
@@ -319,9 +324,16 @@ export default function StampLogForm({
   const [remarkType, setRemarkType] = useState<RemarkOptionValue>("");
   const [customRemark, setCustomRemark] = useState("");
   const [exchangeMemo, setExchangeMemo] = useState("");
+  const [exchangeSaleSource, setExchangeSaleSource] = useState("");
+  const [adjustmentCostSource, setAdjustmentCostSource] = useState("");
+  const [adjustmentUnitCost, setAdjustmentUnitCost] = useState("");
+  const [exchangeAdditionalAmount, setExchangeAdditionalAmount] = useState("");
   const [priceAdjustAmount, setPriceAdjustAmount] = useState("0");
   const [priceAdjustMemo, setPriceAdjustMemo] = useState("");
   const [operationMemo, setOperationMemo] = useState("");
+  const [adjustmentReason, setAdjustmentReason] = useState<
+    "correction" | "damage" | "loss" | "disposal"
+  >("correction");
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
   const [draftLines, setDraftLines] = useState<DraftStampLogLine[]>(
     () =>
@@ -331,6 +343,23 @@ export default function StampLogForm({
         id: `${item.itemId}-${index}`,
       })) ?? [],
   );
+  const exchangeSaleOptionsQuery = useQuery({
+    queryKey: ["customer-exchange-sale-options", customerSummary?.name, customerSummary?.phone, selectedItem?.item_name],
+    queryFn: () => getCustomerExchangeSaleOptions({
+      customerName: customerSummary?.name ?? "",
+      customerPhone: customerSummary?.phone ?? "",
+      itemName: selectedItem?.item_name ?? "",
+    }),
+    enabled: remarkType === "exchange_in" && Boolean(customerSummary?.name && customerSummary?.phone && selectedItem?.item_name),
+  });
+  const adjustmentCostOptionsQuery = useQuery({
+    queryKey: ["adjustment-in-cost-options", selectedItem?.item_name],
+    queryFn: () =>
+      getAdjustmentInCostOptions(selectedItem?.item_name ?? ""),
+    enabled:
+      (remarkType === "correction_in" || remarkType === "free_in") &&
+      Boolean(selectedItem?.item_name),
+  });
   const [discountType, setDiscountType] = useState<DiscountOptionValue | "">(
     () => {
       const initialDiscountType = initialValue?.logMeta?.discount?.type;
@@ -384,16 +413,21 @@ export default function StampLogForm({
   const baseVisibleRemarkOptions =
     customerMode === "adjustment"
       ? ([
-          { value: "adjustment_in", name: "재고조정-입고" },
-          { value: "adjustment_out", name: "재고조정-출고" },
+          { value: "correction_in", name: "재고조정-정정 입고" },
+          { value: "correction_out", name: "재고조정-정정 출고" },
+          { value: "free_in", name: "재고조정-무상 입고" },
+          { value: "loss_out", name: "재고조정-손실 출고" },
         ] as const)
       : customerMode === "demo"
         ? ([{ value: "demo", name: "시연용" }] as const)
         : remarkOptions;
-  const visibleRemarkOptions = baseVisibleRemarkOptions.filter(
-    (option) =>
-      option.value !== "as_exchange_out" || user?.oss_role === "master",
-  );
+  const visibleRemarkOptions =
+    customerMode === "x"
+      ? baseVisibleRemarkOptions.filter(
+          (option) =>
+            option.value !== "exchange_in" && option.value !== "exchange_out",
+        )
+      : baseVisibleRemarkOptions;
   const getMemoRulesForItem = (
     item: ItemType | null,
     outboundType: OutboundMemoRuleOutboundType,
@@ -609,9 +643,14 @@ export default function StampLogForm({
     setRemarkType(customerMode === "demo" ? "demo" : "");
     setCustomRemark("");
     setExchangeMemo("");
+    setExchangeSaleSource("");
+    setAdjustmentCostSource("");
+    setAdjustmentUnitCost("");
+    setExchangeAdditionalAmount("");
     setPriceAdjustAmount("0");
     setPriceAdjustMemo("");
     setOperationMemo("");
+    setAdjustmentReason("correction");
     setEditingLineId(null);
   };
 
@@ -707,6 +746,14 @@ export default function StampLogForm({
         remark: line.remark,
         lineText: line.lineText,
         inventoryAction: line.inventoryAction,
+        costSourceSaleLogId: line.costSourceSaleLogId,
+        costSourceSaleLineIndex: line.costSourceSaleLineIndex,
+        adjustmentCostSourceReceiptLineId:
+          line.adjustmentCostSourceReceiptLineId,
+        adjustmentUnitCost: line.adjustmentUnitCost,
+        adjustmentReason: line.adjustmentReason,
+        adjustmentType: line.adjustmentType,
+        exchangeAdditionalAmount: line.exchangeAdditionalAmount,
       })),
       couponUse:
         useCouponAfterShipment && couponBreathType
@@ -819,6 +866,7 @@ export default function StampLogForm({
 
   const handleItemSelect = (item: ItemType) => {
     setSelectedItem(item);
+    setExchangeSaleSource("");
     setItemSearch("");
     setShowItemResults(false);
     const matchedRules = getMemoRulesForItem(
@@ -853,6 +901,13 @@ export default function StampLogForm({
         ? "custom"
         : nextType,
     );
+    if (nextType === "loss_out" && adjustmentReason === "correction") {
+      setAdjustmentReason("damage");
+    }
+    if (nextType === "free_in") {
+      setAdjustmentUnitCost("0");
+      setAdjustmentCostSource("");
+    }
     if (matchedRules.length) {
       toast(matchedRules.map((rule) => rule.message).join("\n"), {
         icon: "📦",
@@ -862,6 +917,7 @@ export default function StampLogForm({
 
   const handleItemRemove = () => {
     setSelectedItem(null);
+    setExchangeSaleSource("");
     setItemSearch("");
     setShowItemResults(false);
   };
@@ -873,9 +929,34 @@ export default function StampLogForm({
       return;
     }
     if (
+      remarkType === "exchange_in" &&
+      (exchangeSaleOptionsQuery.data?.length ?? 0) > 0 &&
+      !exchangeSaleSource
+    ) {
+      toast.error("교환입고 제품의 기존 판매기록을 선택해 주세요.");
+      return;
+    }
+    if (
+      remarkType === "correction_in" &&
+      (adjustmentCostOptionsQuery.data?.length ?? 0) > 0 &&
+      !adjustmentCostSource &&
+      adjustmentUnitCost === ""
+    ) {
+      toast.error("재고조정 입고 제품의 매입기록을 선택해 주세요.");
+      return;
+    }
+    const parsedAdjustmentUnitCost = Number(adjustmentUnitCost);
+    if (
+      remarkType === "correction_in" &&
+      adjustmentUnitCost !== "" &&
+      (!Number.isInteger(parsedAdjustmentUnitCost) || parsedAdjustmentUnitCost < 0)
+    ) {
+      toast.error("재고조정 입고 원가를 확인해 주세요.");
+      return;
+    }
+    if (
       customerMode === "adjustment" &&
-      remarkType !== "adjustment_in" &&
-      remarkType !== "adjustment_out"
+      !["correction_in", "correction_out", "free_in", "loss_out"].includes(remarkType)
     ) {
       toast.error("재고조정-입고 또는 재고조정-출고를 선택해 주세요.");
       return;
@@ -899,11 +980,15 @@ export default function StampLogForm({
       customerMode === "demo"
         ? `시연용${optionalOperationMemo ? `,${optionalOperationMemo}` : ""}`
         : customerMode === "adjustment"
-          ? remarkType === "adjustment_in"
-            ? `재고조정-입고${optionalOperationMemo ? `,${optionalOperationMemo}` : ""}`
-            : remarkType === "adjustment_out"
-              ? `재고조정-출고${optionalOperationMemo ? `,${optionalOperationMemo}` : ""}`
-              : ""
+          ? remarkType === "correction_in"
+            ? `재고조정-정정 입고${optionalOperationMemo ? `,${optionalOperationMemo}` : ""}`
+            : remarkType === "correction_out"
+              ? `재고조정-정정 출고${optionalOperationMemo ? `,${optionalOperationMemo}` : ""}`
+              : remarkType === "free_in"
+                ? `재고조정-무상 입고${optionalOperationMemo ? `,${optionalOperationMemo}` : ""}`
+                : remarkType === "loss_out"
+                  ? `재고조정-손실 출고${optionalOperationMemo ? `,${optionalOperationMemo}` : ""}`
+                  : ""
           : isExchange
             ? `${exchangeLabel}${exchangeMemo.trim() ? `,${exchangeMemo.trim()}` : ""}`
             : remarkType === "service"
@@ -915,8 +1000,11 @@ export default function StampLogForm({
                   : "";
     const isFreeRemark =
       isNonSalesSpecialCustomer || remarkType === "service" || isExchange;
+    const parsedExchangeAdditionalAmount = Number(exchangeAdditionalAmount || 0);
     const lineAmount = isFreeRemark
-      ? 0
+      ? remarkType === "exchange_out" && Number.isFinite(parsedExchangeAdditionalAmount)
+        ? Math.max(0, Math.floor(parsedExchangeAdditionalAmount))
+        : 0
       : remarkType === "price_adjust"
         ? adjustedPrice * quantity
         : price * quantity;
@@ -941,6 +1029,32 @@ export default function StampLogForm({
       amount: lineAmount,
       remark,
       lineText,
+      costSourceSaleLogId: exchangeSaleSource.split(":")[0] || undefined,
+      costSourceSaleLineIndex: exchangeSaleSource
+        ? Number(exchangeSaleSource.split(":")[1])
+        : undefined,
+      adjustmentCostSourceReceiptLineId:
+        remarkType === "correction_in"
+          ? adjustmentCostSource || undefined
+          : undefined,
+      adjustmentUnitCost:
+        remarkType === "free_in"
+          ? 0
+          : remarkType === "correction_in" && adjustmentUnitCost !== ""
+            ? parsedAdjustmentUnitCost
+            : undefined,
+      adjustmentReason:
+        remarkType === "loss_out" ? adjustmentReason : remarkType === "correction_out" ? "correction" : undefined,
+      adjustmentType:
+        customerMode === "adjustment"
+          ? remarkType === "correction_in" || remarkType === "correction_out" || remarkType === "free_in" || remarkType === "loss_out"
+            ? remarkType
+            : undefined
+          : undefined,
+      exchangeAdditionalAmount:
+        remarkType === "exchange_out"
+          ? Math.max(0, Math.floor(parsedExchangeAdditionalAmount))
+          : undefined,
       inventoryAction:
         customerMode === "demo"
           ? "out"
@@ -950,9 +1064,9 @@ export default function StampLogForm({
               ? "exchange_out"
               : remarkType === "as_exchange_out"
                 ? "as_exchange_out"
-              : remarkType === "adjustment_in"
+              : remarkType === "correction_in" || remarkType === "free_in"
                 ? "adjustment_in"
-                : remarkType === "adjustment_out"
+                : remarkType === "correction_out" || remarkType === "loss_out"
                   ? "adjustment_out"
                   : "out",
     };
@@ -997,6 +1111,23 @@ export default function StampLogForm({
     setQuantity(line.quantity);
     setCustomRemark("");
     setExchangeMemo("");
+    setExchangeSaleSource(
+      line.costSourceSaleLogId && line.costSourceSaleLineIndex
+        ? `${line.costSourceSaleLogId}:${line.costSourceSaleLineIndex}`
+        : "",
+    );
+    setAdjustmentCostSource(
+      line.adjustmentCostSourceReceiptLineId ?? "",
+    );
+    setAdjustmentUnitCost(
+      line.adjustmentUnitCost == null ? "" : String(line.adjustmentUnitCost),
+    );
+    setExchangeAdditionalAmount(
+      line.exchangeAdditionalAmount == null
+        ? ""
+        : String(line.exchangeAdditionalAmount),
+    );
+    setAdjustmentReason(line.adjustmentReason ?? "correction");
     setPriceAdjustAmount(
       typeof line.adjustedUnitPrice === "number"
         ? String(line.adjustedUnitPrice)
@@ -1006,14 +1137,20 @@ export default function StampLogForm({
     setOperationMemo("");
 
     if (line.inventoryAction === "adjustment_in") {
-      setRemarkType("adjustment_in");
+      setRemarkType(
+        line.adjustmentType === "free_in" ? "free_in" : "correction_in",
+      );
       setOperationMemo(
-        line.remark?.replace(/^재고조정-입고,?/, "").trim() ?? "",
+        line.remark?.replace(/^재고조정-(?:정정|무상) 입고,?/, "").trim() ?? "",
       );
     } else if (line.inventoryAction === "adjustment_out") {
-      setRemarkType("adjustment_out");
+      setRemarkType(
+        line.adjustmentType === "loss_out" || line.adjustmentReason !== "correction"
+          ? "loss_out"
+          : "correction_out",
+      );
       setOperationMemo(
-        line.remark?.replace(/^재고조정-출고,?/, "").trim() ?? "",
+        line.remark?.replace(/^재고조정-(?:정정|손실) 출고,?/, "").trim() ?? "",
       );
     } else if (line.inventoryAction === "exchange_in") {
       setRemarkType("exchange_in");
@@ -1047,8 +1184,12 @@ export default function StampLogForm({
   };
 
   const getShipmentTypeLabel = (line: DraftStampLogLine) => {
-    if (line.inventoryAction === "adjustment_in") return "재고조정-입고";
-    if (line.inventoryAction === "adjustment_out") return "재고조정-출고";
+    if (line.adjustmentType === "free_in") return "재고조정-무상 입고";
+    if (line.adjustmentType === "correction_in") return "재고조정-정정 입고";
+    if (line.adjustmentType === "correction_out") return "재고조정-정정 출고";
+    if (line.adjustmentType === "loss_out") return "재고조정-손실 출고";
+    if (line.inventoryAction === "adjustment_in") return "재고조정-정정 입고";
+    if (line.inventoryAction === "adjustment_out") return "재고조정-정정 출고";
     if (line.inventoryAction === "exchange_in") return "교환입고";
     if (line.inventoryAction === "exchange_out") return "교환출고";
     if (line.inventoryAction === "as_exchange_out") return "A/S 교환출고";
@@ -1964,8 +2105,7 @@ export default function StampLogForm({
                   quantity < 1 ||
                   (isSelectedMemoRequired && !selectedRuleMemo.trim()) ||
                   (customerMode === "adjustment" &&
-                    remarkType !== "adjustment_in" &&
-                    remarkType !== "adjustment_out")
+                    !["correction_in", "correction_out", "free_in", "loss_out"].includes(remarkType))
                 }
               >
                 {editingLineId ? "수정" : "추가"}
@@ -1980,41 +2120,132 @@ export default function StampLogForm({
           remarkType === "" ? "lg:justify-center" : "lg:justify-start"
         }`}
       >
-        <div
-          className={
-            customerMode === "demo"
-              ? "grid grid-cols-[minmax(0,1fr)_minmax(0,5fr)] gap-1.5"
-              : customerMode === "adjustment"
-                ? "grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,4fr)] gap-1.5"
-                : "grid grid-cols-6 gap-1.5"
-          }
-        >
-          {visibleRemarkOptions.map((option) => (
-            <Button
-              key={option.value}
-              type="button"
-              size="xs"
-              variant={remarkType === option.value ? "primary" : "gray"}
-              className={isNonSalesSpecialCustomer ? "h-10 w-full" : ""}
-              onClick={() => handleRemarkTypeChange(option.value)}
-            >
-              {option.name}
-            </Button>
-          ))}
-          {isNonSalesSpecialCustomer && (
+        {customerMode === "adjustment" ? (
+          <section className="rounded-xl border border-gray-200 bg-gray-50/70 p-3">
+            <div className="grid grid-cols-4 gap-2">
+              {visibleRemarkOptions.map((option) => {
+                const isLoss = option.value === "loss_out";
+                const selected = remarkType === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => handleRemarkTypeChange(option.value)}
+                    className={`h-8 cursor-pointer rounded-lg border px-2 text-center transition ${selected ? isLoss ? "border-rose-500 bg-rose-500 text-white" : "border-brand-500 bg-brand-500 text-white" : "border-gray-300 bg-white text-gray-700 hover:border-brand-300"}`}
+                  >
+                    <span className="block text-xs font-semibold">{option.name.replace("재고조정-", "")}</span>
+                  </button>
+                );
+              })}
+            </div>
             <input
               type="text"
               value={operationMemo}
               onChange={(event) => setOperationMemo(event.target.value)}
-              className="h-10 min-w-0 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none transition placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-              placeholder={
-                customerMode === "demo"
-                  ? "시연용 품목 메모 (선택)"
-                  : "재고조정 품목 메모 (선택)"
-              }
+              className="mt-2 h-10 min-w-0 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none transition placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+              placeholder="재고조정 메모 (선택)"
             />
+          </section>
+        ) : (
+          <div className={customerMode === "demo" ? "grid grid-cols-[minmax(0,1fr)_minmax(0,5fr)] gap-1.5" : "grid grid-cols-6 gap-1.5"}>
+            {visibleRemarkOptions.map((option) => (
+              <Button
+                key={option.value}
+                type="button"
+                size="xs"
+                variant={remarkType === option.value ? "primary" : "gray"}
+                className={isNonSalesSpecialCustomer ? "h-10 w-full" : ""}
+                onClick={() => handleRemarkTypeChange(option.value)}
+              >
+                {option.name}
+              </Button>
+            ))}
+            {isNonSalesSpecialCustomer && (
+              <input
+                type="text"
+                value={operationMemo}
+                onChange={(event) => setOperationMemo(event.target.value)}
+                className="h-10 min-w-0 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none transition placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                placeholder="시연용 품목 메모 (선택)"
+              />
+            )}
+          </div>
+        )}
+        {customerMode === "adjustment" && remarkType === "loss_out" && (
+          <div className="rounded-xl border border-gray-200 bg-gray-50/70 p-3">
+            <p className="mb-2 text-xs font-semibold text-gray-700">손실 사유</p>
+            <div className="grid grid-cols-3 gap-2">
+              {([ ["damage", "파손"], ["loss", "분실"], ["disposal", "폐기"] ] as const).map(([value, label]) => (
+                <button key={value} type="button" onClick={() => setAdjustmentReason(value)} className={`min-h-10 cursor-pointer rounded-lg border px-2 text-xs font-semibold ${adjustmentReason === value ? "border-rose-500 bg-rose-500 text-white" : "border-gray-300 bg-white text-gray-600 hover:border-rose-300"}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {customerMode === "adjustment" &&
+          remarkType === "correction_in" &&
+          selectedItem && (
+            <div className="space-y-2 rounded-xl border border-gray-200 bg-gray-50/70 p-3">
+              <p className="text-xs font-semibold text-gray-700">
+                입고 원가 지정
+              </p>
+              <label className="block text-xs font-medium text-gray-600">
+                개당 원가 직접 입력
+                <div className="mt-1 flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="0"
+                    value={adjustmentUnitCost}
+                    onChange={(event) => {
+                      setAdjustmentUnitCost(event.target.value);
+                      if (event.target.value !== "") setAdjustmentCostSource("");
+                    }}
+                    placeholder="개당 원가"
+                    className="h-10 w-40 rounded-lg border border-gray-300 bg-white px-3 text-right text-sm font-medium shadow-sm outline-none hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                  />
+                  <span>원</span>
+                </div>
+              </label>
+              <div className="flex items-center gap-2 py-1 text-xs text-gray-400 before:h-px before:flex-1 before:bg-gray-200 after:h-px after:flex-1 after:bg-gray-200">
+                또는 기존 매입기록 선택
+              </div>
+              {adjustmentCostOptionsQuery.isPending ? (
+                <p className="text-xs text-gray-500">
+                  매입기록을 확인하는 중...
+                </p>
+              ) : (adjustmentCostOptionsQuery.data ?? []).length ? (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {(adjustmentCostOptionsQuery.data ?? []).map((option) => (
+                    <button
+                      key={option.source_receipt_line_id}
+                      type="button"
+                      onClick={() => {
+                        setAdjustmentCostSource(option.source_receipt_line_id);
+                        setAdjustmentUnitCost("");
+                      }}
+                      className={`cursor-pointer rounded-lg border px-3 py-2 text-left text-xs transition ${adjustmentCostSource === option.source_receipt_line_id ? "border-brand-500 bg-brand-50 text-brand-700" : "border-gray-200 bg-white text-gray-600 hover:border-brand-300"}`}
+                    >
+                      <span className="block font-semibold">
+                        {new Date(option.arrived_on).toLocaleDateString("ko-KR", {
+                          timeZone: "Asia/Seoul",
+                        })} 입고 · {option.supplier_name}
+                      </span>
+                      <span className="mt-1 block">
+                        입고 수량 {option.received_quantity}개
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                  일치하는 매입기록이 없습니다. 원가 미확정으로 등록되어
+                  master의 원가 누락 관리에 표시됩니다.
+                </p>
+              )}
+            </div>
           )}
-        </div>
 
         {selectedMemoMessages.length > 0 && (
           <div className="space-y-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
@@ -2059,6 +2290,62 @@ export default function StampLogForm({
               selectedMemoPlaceholder ?? "특이사항을 입력하세요. (선택)"
             }
           />
+        )}
+
+        {remarkType === "exchange_in" && selectedItem && (
+          <div className="space-y-2 rounded-xl border border-gray-200 bg-gray-50/70 p-3">
+            <p className="text-xs font-semibold text-gray-700">
+              기존 판매기록 선택
+            </p>
+            {exchangeSaleOptionsQuery.isPending ? (
+              <p className="text-xs text-gray-500">판매기록을 확인하는 중...</p>
+            ) : (exchangeSaleOptionsQuery.data ?? []).length ? (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {(exchangeSaleOptionsQuery.data ?? []).map((option) => {
+                  const value = `${option.sale_log_id}:${option.sale_line_index}`;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setExchangeSaleSource(value)}
+                      className={`cursor-pointer rounded-lg border px-3 py-2 text-left text-xs transition ${exchangeSaleSource === value ? "border-brand-500 bg-brand-50 text-brand-700" : "border-gray-200 bg-white text-gray-600 hover:border-brand-300"}`}
+                    >
+                      <span className="block font-semibold">
+                        {new Date(option.sold_at).toLocaleDateString("ko-KR", {
+                          timeZone: "Asia/Seoul",
+                        })} 판매
+                      </span>
+                      <span className="mt-1 block">
+                        판매 {option.sold_quantity}개 · 선택 가능 {option.available_quantity}개
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                판매이력 조회 X (특이사항 메모에 입력하세요)
+              </p>
+            )}
+          </div>
+        )}
+
+        {remarkType === "exchange_out" && (
+          <label className="block rounded-xl border border-gray-200 bg-gray-50/70 p-3 text-xs font-semibold text-gray-700">
+            실제 교환 추가결제액
+            <div className="mt-1 flex items-center gap-2">
+              <input
+                type="number"
+                min="0"
+                value={exchangeAdditionalAmount}
+                onChange={(event) => setExchangeAdditionalAmount(event.target.value)}
+                placeholder="없으면 0"
+                className="h-10 w-40 rounded-lg border border-gray-300 bg-white px-3 text-right text-sm shadow-sm outline-none hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+              />
+              <span className="text-sm text-gray-500">원</span>
+            </div>
+            <span className="mt-1 block font-normal text-gray-500">일반 구매 품목 금액과 합산되어 현재 선택한 결제방식 매출에 한 번만 반영됩니다.</span>
+          </label>
         )}
 
         {remarkType === "price_adjust" && (

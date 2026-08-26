@@ -132,6 +132,7 @@ export type PurchaseOrder = {
   status: "pending" | "partial" | "completed" | "closed" | "cancelled";
   note: string | null;
   closed_reason: string | null;
+  entered_total_amount?: number | null;
   created_at: string;
   inventory_suppliers: { name: string } | null;
   inventory_purchase_order_lines: PurchaseOrderLine[];

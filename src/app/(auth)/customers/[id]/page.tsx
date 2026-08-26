@@ -37,7 +37,7 @@ import { isSpecialCustomer as checkSpecialCustomer } from "@/app/_domains/_custo
 const PAGE_SIZE = 10;
 
 export default function CustomerDetailPage() {
-  const { isAdmin } = useUser();
+  const { isAdmin, user } = useUser();
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -182,6 +182,9 @@ export default function CustomerDetailPage() {
     customer.phone,
     customer.is_stamp_eligible ?? true,
   );
+  if (customer.name.trim() === "재고조정" && user?.oss_role !== "master") {
+    return <NotFoundView full={false} />;
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10">
