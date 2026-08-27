@@ -313,7 +313,9 @@ export const getSettlementSummary = async (
     LIVE_SALES_START_DATE <= endDate
       ? supabase
           .from("inventory_cost_events")
-          .select("id,event_at,item_name,quantity,total_cost,inventory_cost_allocations(quantity,unit_cost)")
+          .select(
+            "id,event_at,item_name,quantity,total_cost,inventory_cost_allocations(quantity,unit_cost)",
+          )
           .eq("event_type", "sale_out")
           .gte("event_at", liveSalesRange.start)
           .lt("event_at", liveSalesRange.end)
@@ -432,9 +434,12 @@ export const getSettlementSummary = async (
         : 0;
     const calculatedOrderAmount = totalOrderGross + netAdjustment;
     const orderAmount = order.entered_total_amount ?? calculatedOrderAmount;
-    const amount = totalOrderGross > 0
-      ? Math.round((orderAmount * (previousGross + receiptGross)) / totalOrderGross) - Math.round((orderAmount * previousGross) / totalOrderGross)
-      : receiptGross + adjustmentShare;
+    const amount =
+      totalOrderGross > 0
+        ? Math.round(
+            (orderAmount * (previousGross + receiptGross)) / totalOrderGross,
+          ) - Math.round((orderAmount * previousGross) / totalOrderGross)
+        : receiptGross + adjustmentShare;
     const marker =
       String(order.note ?? "")
         .match(PURCHASE_NOTE_MARKER)?.[1]
@@ -515,7 +520,9 @@ export const getSettlementSummary = async (
         : sourceName;
     const quantity = Number(item.quantity ?? 0);
     const action = String(item.inventoryAction ?? "").trim();
-    const remark = String(item.remark ?? "").normalize("NFC").trim();
+    const remark = String(item.remark ?? "")
+      .normalize("NFC")
+      .trim();
     const isNonSaleRemark =
       /^(?:서비스|시연용|교환입고|교환출고|A\/S 교환출고|재고조정-(?:입고|출고))(?:$|[,\s(])/.test(
         remark,
@@ -579,7 +586,11 @@ export const getSettlementSummary = async (
   let soldItemCostMissingQuantity = 0;
   const soldItemCostMissingItems = new Map<
     string,
-    { itemName: string; basisType: SettlementCostBasisType; missingQuantity: number }
+    {
+      itemName: string;
+      basisType: SettlementCostBasisType;
+      missingQuantity: number;
+    }
   >();
   const addMissingCost = (
     itemName: string,
@@ -618,11 +629,7 @@ export const getSettlementSummary = async (
         if (included) {
           liveSoldItemCost += consumed.cost;
           soldItemCostMissingQuantity += consumed.missingQuantity;
-          addMissingCost(
-            soldItem.name,
-            "historical",
-            consumed.missingQuantity,
-          );
+          addMissingCost(soldItem.name, "historical", consumed.missingQuantity);
         }
       } else {
         events.push({
@@ -639,7 +646,11 @@ export const getSettlementSummary = async (
   events.sort(
     (left, right) =>
       left.at.localeCompare(right.at) ||
-      (left.type === right.type ? left.id.localeCompare(right.id) : left.type === "receipt" ? -1 : 1),
+      (left.type === right.type
+        ? left.id.localeCompare(right.id)
+        : left.type === "receipt"
+          ? -1
+          : 1),
   );
   for (const event of events) {
     if (event.type === "receipt") {
@@ -655,11 +666,7 @@ export const getSettlementSummary = async (
     if (event.included) {
       liveSoldItemCost += consumed.cost;
       soldItemCostMissingQuantity += consumed.missingQuantity;
-      addMissingCost(
-        event.name,
-        "opening_20260722",
-        consumed.missingQuantity,
-      );
+      addMissingCost(event.name, "opening_20260722", consumed.missingQuantity);
     }
   }
   // 공통 원장이 생성된 6/1 이후 판매원가는 원장을 단일 기준으로 사용합니다.
@@ -669,15 +676,26 @@ export const getSettlementSummary = async (
   soldItemCostMissingItems.clear();
   let ledgerSoldItemCost = 0;
   for (const event of costLedgerSales) {
-    if (event.total_cost != null) ledgerSoldItemCost += Number(event.total_cost);
+    if (event.total_cost != null)
+      ledgerSoldItemCost += Number(event.total_cost);
     const pendingQuantity = (event.inventory_cost_allocations ?? []).reduce(
       (total, allocation) =>
-        total + (allocation.unit_cost == null ? Number(allocation.quantity) : 0),
+        total +
+        (allocation.unit_cost == null ? Number(allocation.quantity) : 0),
       0,
     );
-    const missingQuantity = pendingQuantity || (event.total_cost == null ? Number(event.quantity) : 0);
+    const missingQuantity =
+      pendingQuantity ||
+      (event.total_cost == null ? Number(event.quantity) : 0);
     soldItemCostMissingQuantity += missingQuantity;
-    addMissingCost(event.item_name, event.event_at < new Date(`${LIVE_PURCHASE_START_DATE}T00:00:00+09:00`).toISOString() ? "historical" : "opening_20260722", missingQuantity);
+    addMissingCost(
+      event.item_name,
+      event.event_at <
+        new Date(`${LIVE_PURCHASE_START_DATE}T00:00:00+09:00`).toISOString()
+        ? "historical"
+        : "opening_20260722",
+      missingQuantity,
+    );
   }
   const soldItemCost = soldItemCostMissingQuantity
     ? null
@@ -943,27 +961,77 @@ export const deleteSettlementExpense = async (id: string) => {
   if (error) throw error;
 };
 
-export const getInventoryCostLedger = async (): Promise<
-  InventoryCostLedgerRow[]
-> => {
-  const [{ data: events, error: eventsError }, { data: layers, error: layersError }, { data: allocations, error: allocationsError }] =
-    await Promise.all([
-      supabase
-        .from("inventory_cost_events")
-        .select("id,event_type,event_at,item_name,direction,quantity,total_cost,reference_type,reference_id,settlement_effect,metadata")
-        .order("event_at", { ascending: false })
-        .order("created_at", { ascending: false })
-        .limit(3000),
+export const getInventoryCostLedger = async (
+  startDate?: string,
+  endDate?: string,
+): Promise<InventoryCostLedgerRow[]> => {
+  const range = startDate
+    ? getKoreaRange(startDate, endDate || startDate)
+    : null;
+  const fetchedEvents = await fetchPaged(async (from, to) => {
+    let request = supabase
+      .from("inventory_cost_events")
+      .select(
+        "id,event_type,event_at,item_name,direction,quantity,total_cost,reference_type,reference_id,settlement_effect,metadata",
+      )
+      .order("event_at", { ascending: false })
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(from, to);
+    if (range)
+      request = request.gte("event_at", range.start).lt("event_at", range.end);
+    return request;
+  });
+  // 같은 처리 시각의 원장 기록은 페이지 경계에서 순서가 흔들릴 수 있다.
+  // ID를 마지막 정렬 기준으로 고정하고, 이미 받은 이벤트도 한 번 더 제거한다.
+  const events = [
+    ...new Map(
+      fetchedEvents.map((event) => [String(event.id), event]),
+    ).values(),
+  ].filter(
+    (event) =>
+      !(
+        event.event_type === "reconciliation_out" &&
+        (event.metadata as Record<string, unknown> | null)?.restoredAt
+      ),
+  );
+  const eventIds = events.map((event) => String(event.id));
+  const layers: Array<{
+    id: string;
+    source_event_id: string;
+    item_name: string;
+    unit_cost: number | null;
+    cost_status: "confirmed" | "pending";
+    queue_sequence: number;
+  }> = [];
+  const allocations: Array<{
+    outbound_event_id: string;
+    source_layer_id: string;
+    quantity: number;
+    unit_cost: number | null;
+  }> = [];
+  for (let index = 0; index < eventIds.length; index += 500) {
+    const ids = eventIds.slice(index, index + 500);
+    const [
+      { data: layerRows, error: layersError },
+      { data: allocationRows, error: allocationsError },
+    ] = await Promise.all([
       supabase
         .from("inventory_cost_layers")
-        .select("id,source_event_id,item_name,unit_cost,cost_status,queue_sequence"),
+        .select(
+          "id,source_event_id,item_name,unit_cost,cost_status,queue_sequence",
+        )
+        .in("source_event_id", ids),
       supabase
         .from("inventory_cost_allocations")
-        .select("outbound_event_id,source_layer_id,quantity,unit_cost"),
+        .select("outbound_event_id,source_layer_id,quantity,unit_cost")
+        .in("outbound_event_id", ids),
     ]);
-  if (eventsError) throw eventsError;
-  if (layersError) throw layersError;
-  if (allocationsError) throw allocationsError;
+    if (layersError) throw layersError;
+    if (allocationsError) throw allocationsError;
+    layers.push(...(layerRows ?? []));
+    allocations.push(...(allocationRows ?? []));
+  }
 
   const layersByEvent = new Map(
     (layers ?? []).map((layer) => [String(layer.source_event_id), layer]),
@@ -979,7 +1047,7 @@ export const getInventoryCostLedger = async (): Promise<
     allocationsByEvent.set(key, rows);
   }
 
-  return (events ?? []).map((event) => {
+  return events.map((event) => {
     const layer = layersByEvent.get(String(event.id));
     const eventAllocations = allocationsByEvent.get(String(event.id)) ?? [];
     return {
@@ -1016,7 +1084,9 @@ export const getPendingInventoryCostLayers = async (): Promise<
   const [pendingLayersResult, pendingAllocationsResult] = await Promise.all([
     supabase
       .from("inventory_cost_layers")
-      .select("id,source_event_id,item_name,original_quantity,remaining_quantity")
+      .select(
+        "id,source_event_id,item_name,original_quantity,remaining_quantity",
+      )
       .eq("cost_status", "pending")
       .order("created_at", { ascending: true }),
     supabase
@@ -1027,24 +1097,37 @@ export const getPendingInventoryCostLayers = async (): Promise<
   const { data: pendingLayers, error: layersError } = pendingLayersResult;
   if (layersError) throw layersError;
   if (pendingAllocationsResult.error) throw pendingAllocationsResult.error;
-  const unresolvedSourceIds = [...new Set(
-    (pendingAllocationsResult.data ?? []).map((row) => String(row.source_layer_id)),
-  )];
+  const unresolvedSourceIds = [
+    ...new Set(
+      (pendingAllocationsResult.data ?? []).map((row) =>
+        String(row.source_layer_id),
+      ),
+    ),
+  ];
   let allocatedSourceLayers: typeof pendingLayers = [];
   for (let index = 0; index < unresolvedSourceIds.length; index += 500) {
     const { data, error } = await supabase
       .from("inventory_cost_layers")
-      .select("id,source_event_id,item_name,original_quantity,remaining_quantity")
+      .select(
+        "id,source_event_id,item_name,original_quantity,remaining_quantity",
+      )
       .in("id", unresolvedSourceIds.slice(index, index + 500));
     if (error) throw error;
     allocatedSourceLayers = [...allocatedSourceLayers, ...(data ?? [])];
   }
-  const layers = [...new Map(
-    [...(pendingLayers ?? []), ...allocatedSourceLayers].map((layer) => [String(layer.id), layer]),
-  ).values()];
+  const layers = [
+    ...new Map(
+      [...(pendingLayers ?? []), ...allocatedSourceLayers].map((layer) => [
+        String(layer.id),
+        layer,
+      ]),
+    ).values(),
+  ];
   if (!layers?.length) return [];
 
-  const eventIds = [...new Set(layers.map((layer) => String(layer.source_event_id)))];
+  const eventIds = [
+    ...new Set(layers.map((layer) => String(layer.source_event_id))),
+  ];
   const events: Array<{
     id: string;
     event_at: string;
@@ -1064,16 +1147,18 @@ export const getPendingInventoryCostLayers = async (): Promise<
   return layers.flatMap((layer) => {
     const event = eventsById.get(String(layer.source_event_id));
     if (!event) return [];
-    return [{
-      id: String(layer.id),
-      itemName: String(layer.item_name),
-      quantity: Number(layer.original_quantity),
-      remainingQuantity: Number(layer.remaining_quantity),
-      eventAt: String(event.event_at),
-      eventType: String(event.event_type),
-      referenceType: String(event.reference_type),
-      referenceId: String(event.reference_id),
-    }];
+    return [
+      {
+        id: String(layer.id),
+        itemName: String(layer.item_name),
+        quantity: Number(layer.original_quantity),
+        remainingQuantity: Number(layer.remaining_quantity),
+        eventAt: String(event.event_at),
+        eventType: String(event.event_type),
+        referenceType: String(event.reference_type),
+        referenceId: String(event.reference_id),
+      },
+    ];
   });
 };
 
