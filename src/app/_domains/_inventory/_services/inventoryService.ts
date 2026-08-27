@@ -15,6 +15,7 @@ export const inventoryKeys = {
   all: ["inventory"] as const,
   overview: ["inventory", "overview"] as const,
   movements: ["inventory", "movements"] as const,
+  valuation: ["inventory", "valuation"] as const,
   suppliers: ["inventory", "suppliers"] as const,
   purchaseOrders: ["inventory", "purchase-orders"] as const,
   purchaseAdjustmentCategories: [
@@ -119,6 +120,146 @@ export const getInventoryOverview = async (): Promise<{
   return { initializedAt: settingsResult.data.initialized_at, items };
 };
 
+export type InventoryValuation = {
+  totalCost: number;
+  layerQuantity: number;
+  pendingQuantity: number;
+  items: Array<{
+    itemName: string;
+    layerQuantity: number;
+    confirmedQuantity: number;
+    pendingQuantity: number;
+    totalCost: number;
+  }>;
+};
+
+export type InventoryCostLayerCandidate = {
+  id: string;
+  itemName: string;
+  remainingQuantity: number;
+  unitCost: number | null;
+  costStatus: "confirmed" | "pending";
+  eventAt: string;
+  eventType: string;
+  referenceType: string;
+};
+
+// 마스터 전용 RLS가 적용된 FIFO 원가층 잔량으로 현재 보유 원가를 계산한다.
+export const getCurrentInventoryValuation = async (): Promise<InventoryValuation> => {
+  const { data, error } = await supabase
+    .from("inventory_cost_layers")
+    .select("item_name,remaining_quantity,unit_cost,cost_status")
+    .gt("remaining_quantity", 0);
+  if (error) throw error;
+
+  const values = new Map<string, InventoryValuation["items"][number]>();
+  for (const layer of data ?? []) {
+    const itemName = normalizeInventoryItemName(layer.item_name);
+    const current = values.get(itemName) ?? {
+      itemName,
+      layerQuantity: 0,
+      confirmedQuantity: 0,
+      pendingQuantity: 0,
+      totalCost: 0,
+    };
+    const quantity = Number(layer.remaining_quantity ?? 0);
+    current.layerQuantity += quantity;
+    if (layer.unit_cost == null || layer.cost_status === "pending") {
+      current.pendingQuantity += quantity;
+    } else {
+      current.confirmedQuantity += quantity;
+      current.totalCost += quantity * Number(layer.unit_cost);
+    }
+    values.set(itemName, current);
+  }
+  const items = [...values.values()].sort((left, right) =>
+    left.itemName.localeCompare(right.itemName, "ko-KR"),
+  );
+  return {
+    totalCost: items.reduce((total, item) => total + item.totalCost, 0),
+    layerQuantity: items.reduce((total, item) => total + item.layerQuantity, 0),
+    pendingQuantity: items.reduce((total, item) => total + item.pendingQuantity, 0),
+    items,
+  };
+};
+
+export const getCurrentInventoryCostLayers = async (): Promise<InventoryCostLayerCandidate[]> => {
+  const { data, error } = await supabase
+    .from("inventory_cost_layers")
+    .select("id,item_name,remaining_quantity,unit_cost,cost_status,inventory_cost_events!inner(event_at,event_type,reference_type)")
+    .gt("remaining_quantity", 0)
+    .order("queue_sequence");
+  if (error) throw error;
+  return (data ?? []).map((layer) => {
+    const event = Array.isArray(layer.inventory_cost_events)
+      ? layer.inventory_cost_events[0]
+      : layer.inventory_cost_events;
+    return {
+      id: String(layer.id),
+      itemName: normalizeInventoryItemName(layer.item_name),
+      remainingQuantity: Number(layer.remaining_quantity),
+      unitCost: layer.unit_cost == null ? null : Number(layer.unit_cost),
+      costStatus: layer.cost_status as "confirmed" | "pending",
+      eventAt: String(event?.event_at ?? ""),
+      eventType: String(event?.event_type ?? ""),
+      referenceType: String(event?.reference_type ?? ""),
+    };
+  });
+};
+
+export const addInventoryCostReconciliationLayer = async (values: {
+  itemName: string;
+  quantity: number;
+  unitCost: number;
+  eventDate: string;
+  queuePosition: "front" | "back";
+  note?: string;
+}) => {
+  const { error } = await supabase.rpc("add_inventory_cost_reconciliation_layer", {
+    p_item_name: normalizeInventoryItemName(values.itemName),
+    p_quantity: values.quantity,
+    p_unit_cost: values.unitCost,
+    p_event_at: `${values.eventDate}T00:00:00+09:00`,
+    p_queue_position: values.queuePosition,
+    p_note: values.note?.trim() || null,
+  });
+  if (error) throw error;
+};
+
+export const getInventoryPurchaseCostCandidates = async (itemName: string) => {
+  const { data, error } = await supabase.rpc("get_inventory_purchase_cost_candidates", {
+    p_item_name: normalizeInventoryItemName(itemName),
+  });
+  if (error) throw error;
+  const candidates: Array<{ arrivedOn: string; unitCost: number; supplierName: string | null }> = (data ?? []).map((row: {
+    arrived_on: string;
+    unit_cost: number;
+    supplier_name: string | null;
+  }) => ({
+    arrivedOn: String(row.arrived_on),
+    unitCost: Number(row.unit_cost),
+    supplierName: row.supplier_name == null ? null : String(row.supplier_name),
+  }));
+
+  return [...new Map(candidates.map((candidate) => [
+    `${candidate.arrivedOn}\u0000${candidate.unitCost}`,
+    candidate,
+  ])).values()];
+};
+
+export const consumeInventoryCostReconciliationLayer = async (values: {
+  layerId: string;
+  quantity: number;
+  note?: string;
+}) => {
+  const { error } = await supabase.rpc("consume_inventory_cost_reconciliation_layer", {
+    p_layer_id: values.layerId,
+    p_quantity: values.quantity,
+    p_note: values.note?.trim() || null,
+  });
+  if (error) throw error;
+};
+
 export const saveInventoryTrackingSettings = async (
   settings: InventoryTrackingSettings,
 ) => {
@@ -135,6 +276,7 @@ export type InventoryMovementQuery = {
   startDate?: string;
   endDate?: string;
   itemName?: string;
+  referenceId?: string;
   movementGroup?: "out" | "in" | "correction";
   limit?: number;
   offset?: number;
@@ -146,6 +288,7 @@ export const getInventoryMovementCount = async (options: InventoryMovementQuery 
   if (options.startDate) query = query.gte("created_at", `${options.startDate}T00:00:00+09:00`);
   if (options.endDate) query = query.lte("created_at", `${options.endDate}T23:59:59.999+09:00`);
   if (options.itemName?.trim()) query = query.ilike("item_name", `%${options.itemName.trim()}%`);
+  if (options.referenceId?.trim()) query = query.eq("reference_id", options.referenceId.trim());
   if (options.movementGroup === "out") query = query.lt("quantity_delta", 0);
   if (options.movementGroup === "in") query = query.gt("quantity_delta", 0);
   if (options.movementGroup === "correction") query = query.in("movement_type", ["outbound_edit", "outbound_cancel", "reversal"]);
@@ -172,6 +315,7 @@ export const getInventoryMovements = async (
     if (options.startDate) query = query.gte("created_at", `${options.startDate}T00:00:00+09:00`);
     if (options.endDate) query = query.lte("created_at", `${options.endDate}T23:59:59.999+09:00`);
     if (options.itemName?.trim()) query = query.ilike("item_name", `%${options.itemName.trim()}%`);
+    if (options.referenceId?.trim()) query = query.eq("reference_id", options.referenceId.trim());
     if (options.movementGroup === "out") query = query.lt("quantity_delta", 0);
     if (options.movementGroup === "in") query = query.gt("quantity_delta", 0);
     if (options.movementGroup === "correction") query = query.in("movement_type", ["outbound_edit", "outbound_cancel", "reversal"]);
@@ -190,7 +334,9 @@ export const getInventoryMovements = async (
       "get_inventory_movement_unit_prices",
       { p_movement_ids: movements.map((movement) => movement.id) },
     );
-    if (error) throw error;
+    // 단가 조회는 마스터 전용 보조 정보다. 이 조회가 실패해도 재고변동
+    // 목록 자체가 비어 보이지 않도록 수량 이력은 계속 반환한다.
+    if (error) return movements;
     const prices = (data ?? {}) as Record<string, number | null>;
     movements.forEach((movement) => {
       movement.unit_price = prices[movement.id] ?? null;
@@ -270,6 +416,8 @@ export const getInventoryMovements = async (
           "out",
           "exchange_in",
           "exchange_out",
+          "as_exchange_in",
+          "as_exchange_out",
           "adjustment_in",
           "adjustment_out",
         ].includes(action)
@@ -678,16 +826,12 @@ export const createPurchaseOrder = async (
 };
 
 export const getLatestPurchaseUnitPrice = async (itemName: string) => {
-  const { data, error } = await supabase
-    .from("inventory_purchase_order_lines")
-    .select("unit_price")
-    .eq("item_name", itemName)
-    .not("unit_price", "is", null)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const { data, error } = await supabase.rpc(
+    "get_latest_inventory_purchase_unit_price",
+    { p_item_name: itemName },
+  );
   if (error) throw error;
-  return data?.unit_price ?? null;
+  return data == null ? null : Number(data);
 };
 
 export type ReservationCustomer = {

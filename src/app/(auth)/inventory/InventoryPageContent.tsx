@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   useInfiniteQuery,
   useMutation,
@@ -26,6 +26,7 @@ import {
   getInventoryMovements,
   getInventoryMovementCount,
   getInventoryOverview,
+  getCurrentInventoryValuation,
   initializeInventory,
   addInitialInventoryEntries,
   resetInventoryForReinitialization,
@@ -194,9 +195,14 @@ export function InventoryPageContent({
   const { isAdmin, user } = useUser();
   const isMaster = user?.oss_role === "master";
   const pageRouter = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>(
-    initialSection === "receive" ? "receive" : "stock",
+    searchParams.get("tab") === "movements"
+      ? "movements"
+      : initialSection === "receive"
+        ? "receive"
+        : "stock",
   );
   const [inventorySection] = useState<"stock" | "receive">(initialSection);
   const [tabOrder, setTabOrder] = useState<Tab[]>(defaultTabOrder);
@@ -498,7 +504,7 @@ export function InventoryPageContent({
           onSaved={refresh}
         />
       ) : tab === "stock" ? (
-        <StockOverview items={items.filter((item) => item.is_tracked)} />
+        <StockOverview items={items} isMaster={isMaster} />
       ) : tab === "untracked" ? (
         <UntrackedOverview
           items={items.filter((item) => !item.is_tracked && item.is_use)}
@@ -520,6 +526,9 @@ export function InventoryPageContent({
           isAdmin={isAdmin}
           isMaster={isMaster}
           onSaved={refresh}
+          initialItemName={searchParams.get("item") ?? ""}
+          initialDate={searchParams.get("date") ?? ""}
+          initialReferenceId={searchParams.get("reference") ?? ""}
           onOpenPurchaseOrder={(orderId) => {
             pageRouter.push(`/inventory/receive#order-${orderId}`);
           }}
@@ -933,7 +942,13 @@ function InitialStockSetup({
   );
 }
 
-function StockOverview({ items }: { items: InventoryItem[] }) {
+function StockOverview({
+  items,
+  isMaster,
+}: {
+  items: InventoryItem[];
+  isMaster: boolean;
+}) {
   const [nameSearch, setNameSearch] = useState("");
   const [codeSearch, setCodeSearch] = useState("");
   const [categorySearch, setCategorySearch] = useState("");
@@ -945,6 +960,26 @@ function StockOverview({ items }: { items: InventoryItem[] }) {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [visibleCount, setVisibleCount] = useState(10);
+  const valuationQuery = useQuery({
+    queryKey: inventoryKeys.valuation,
+    queryFn: getCurrentInventoryValuation,
+    enabled: isMaster,
+  });
+  const trackedItems = useMemo(() => items.filter((item) => item.is_tracked), [items]);
+  const inventoryByItem = useMemo(
+    () => new Map(items.map((item) => [item.item_name, item])),
+    [items],
+  );
+  const valuationSummary = useMemo(() => {
+    const valuationItems = (valuationQuery.data?.items ?? []).filter(
+      (item) => inventoryByItem.get(item.itemName)?.is_tracked !== false,
+    );
+    return {
+      totalCost: valuationItems.reduce((total, item) => total + item.totalCost, 0),
+      layerQuantity: valuationItems.reduce((total, item) => total + item.layerQuantity, 0),
+      pendingQuantity: valuationItems.reduce((total, item) => total + item.pendingQuantity, 0),
+    };
+  }, [inventoryByItem, valuationQuery.data?.items]);
   type SortKey =
     "category" | "code" | "name" | "usage" | "quantity" | "updated";
   const [sort, setSort] = useState<{
@@ -956,7 +991,7 @@ function StockOverview({ items }: { items: InventoryItem[] }) {
     const offset = date.getTimezoneOffset() * 60000;
     return new Date(date.getTime() - offset).toISOString().slice(0, 10);
   };
-  const filtered = items.filter((item) => {
+  const filtered = trackedItems.filter((item) => {
     const matchesName = item.item_name
       .toLocaleLowerCase("ko-KR")
       .includes(nameSearch.trim().toLocaleLowerCase("ko-KR"));
@@ -1046,6 +1081,23 @@ function StockOverview({ items }: { items: InventoryItem[] }) {
   ] as const;
   return (
     <div className="space-y-4">
+      {isMaster && (
+        <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div><h2 className="text-base font-bold text-gray-900">현재 재고 원가</h2><p className="mt-1 text-sm text-gray-500">남은 FIFO 원가층을 기준으로 계산한 현재 보유 재고 금액입니다.</p></div>
+            <span className="text-xs text-gray-500">마스터 전용</span>
+          </div>
+          {valuationQuery.isPending ? <div className="mt-4"><Loading size="sm" /></div> : valuationQuery.isError ? <p className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">재고 원가를 불러오지 못했습니다.</p> : (
+            <>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border border-brand-200 bg-brand-50 p-3"><p className="text-xs font-semibold text-brand-700">재고 원가 총액</p><p className="mt-1 text-xl font-bold text-brand-800">{valuationSummary.totalCost.toLocaleString("ko-KR")}원</p><p className="mt-1 text-xs text-brand-700">원가 확정 {(valuationSummary.layerQuantity - valuationSummary.pendingQuantity).toLocaleString("ko-KR")}개</p></div>
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3"><p className="text-xs font-semibold text-amber-700">원가 미확정 재고</p><p className="mt-1 text-xl font-bold text-amber-800">{valuationSummary.pendingQuantity.toLocaleString("ko-KR")}개</p><p className="mt-1 text-xs text-amber-700">총액에는 포함하지 않음</p></div>
+              </div>
+              <details className="mt-4 rounded-xl border border-gray-200 bg-gray-50/70"><summary className="cursor-pointer px-3 py-3 text-sm font-semibold text-gray-800">품목별 재고 원가 보기</summary><div className="overflow-x-auto border-t border-gray-200"><table className="w-full min-w-[650px] text-sm"><thead className="bg-white text-left text-xs text-gray-600"><tr><th className="px-3 py-2">품목명</th><th className="px-3 py-2 text-right">실재고</th><th className="px-3 py-2 text-right">원가층 잔량</th><th className="px-3 py-2 text-right">미확정</th><th className="px-3 py-2 text-right">원가 합계</th></tr></thead><tbody className="divide-y divide-gray-200">{(valuationQuery.data?.items ?? []).filter((item) => inventoryByItem.get(item.itemName)?.is_tracked !== false).map((item) => <tr key={item.itemName}><td className="px-3 py-2 font-medium text-gray-900">{item.itemName}</td><td className="px-3 py-2 text-right">{(inventoryByItem.get(item.itemName)?.quantity ?? 0).toLocaleString("ko-KR")}</td><td className="px-3 py-2 text-right">{item.layerQuantity.toLocaleString("ko-KR")}</td><td className="px-3 py-2 text-right text-amber-700">{item.pendingQuantity ? `${item.pendingQuantity.toLocaleString("ko-KR")}개` : "-"}</td><td className="px-3 py-2 text-right font-semibold">{item.totalCost.toLocaleString("ko-KR")}원</td></tr>)}</tbody></table></div></details>
+            </>
+          )}
+        </section>
+      )}
       <section className="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
         <div className="space-y-3">
           <div className="flex flex-col gap-2 lg:flex-row lg:items-stretch lg:gap-3">
@@ -1902,8 +1954,6 @@ function ReceiptManager({
           !Number.isInteger(Number(row.unitPrice)) ||
           Number(row.unitPrice) < 0),
     );
-  const hasDuplicateItems =
-    new Set(validRows.map((row) => row.itemName)).size !== validRows.length;
   const hasInvalidAdjustments = adjustments.some(
     (row) =>
       !row.categoryId ||
@@ -3274,6 +3324,33 @@ function ReceiptManager({
                       <span className="font-medium">{orderedOn}</span>
                     </p>
                   </div>
+                  <div className="grid overflow-hidden rounded-xl border border-gray-200 bg-white text-center text-sm sm:grid-cols-5">
+                    {[
+                      ["상품 합계", productTotal, "text-gray-900"],
+                      ["할인", discountTotal, "text-blue-600"],
+                      ["지불", paymentTotal, "text-orange-600"],
+                    ].map(([label, amount, color]) => (
+                      <div key={String(label)} className="border-b border-gray-200 px-3 py-3 sm:border-b-0 sm:border-r">
+                        <p className="text-xs font-semibold text-gray-500">{label}</p>
+                        <p className={`mt-1 font-bold ${color}`}>{Number(amount).toLocaleString("ko-KR")}원</p>
+                      </div>
+                    ))}
+                    <div className="border-b border-gray-200 px-3 py-3 sm:border-b-0 sm:border-r">
+                      <p className="text-xs font-semibold text-brand-600">입력 최종 금액</p>
+                      <input
+                        type="number"
+                        min="0"
+                        value={enteredTotalAmount}
+                        onChange={(event) => setEnteredTotalAmount(event.target.value)}
+                        placeholder={calculatedFinalAmount.toLocaleString("ko-KR")}
+                        className="mt-1 h-8 w-full rounded border border-gray-300 px-2 text-right text-sm font-bold outline-none focus:border-brand-500"
+                      />
+                    </div>
+                    <div className="bg-brand-50 px-3 py-3 text-brand-700">
+                      <p className="text-xs font-semibold">최종 금액</p>
+                      <p className="mt-1 font-bold">{(enteredTotalAmount === "" ? calculatedFinalAmount : Number(enteredTotalAmount)).toLocaleString("ko-KR")}원</p>
+                    </div>
+                  </div>
                   <div className="overflow-hidden rounded-2xl border border-gray-200">
                     <div className="grid grid-cols-[1fr_70px_110px_120px] bg-gray-50 px-4 py-3 text-xs font-semibold text-gray-500">
                       <span>품목명</span>
@@ -3316,14 +3393,6 @@ function ReceiptManager({
                         <span className="text-right font-bold text-brand-700">
                           {(Number(row.quantity) * Number(row.unitPrice || 0)).toLocaleString()}원
                         </span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-2 divide-x divide-gray-200 overflow-hidden rounded-xl border border-gray-200 text-center text-sm sm:grid-cols-5">
-                    {([["상품 합계", productTotal], ["할인", discountTotal], ["지불", paymentTotal], ["입력 최종 금액", enteredTotalAmount === "" ? calculatedFinalAmount : Number(enteredTotalAmount)], ["최종 금액", enteredTotalAmount === "" ? calculatedFinalAmount : Number(enteredTotalAmount)]] as const).map(([label, amount], index) => (
-                      <div key={label} className={`px-3 py-3 ${index === 4 ? "bg-brand-50 text-brand-700" : "bg-white"}`}>
-                        <p className="text-xs font-semibold text-gray-500">{label}</p>
-                        <p className="mt-1 font-bold">{amount.toLocaleString("ko-KR")}원</p>
                       </div>
                     ))}
                   </div>
@@ -3378,7 +3447,7 @@ function ReceiptManager({
               >
                 {createStep === 1 ? "취소" : "이전"}
               </Button>
-              {createStep >= 2 && (
+              {createStep >= 2 && createStep !== 3 && (
                 <div className="hidden items-stretch divide-x divide-gray-200 overflow-hidden rounded-xl border border-gray-200 bg-white text-center sm:flex">
                   {[
                     ["상품 합계", productTotal, "text-gray-900"],
@@ -3669,11 +3738,6 @@ function ReceiptManager({
         >
           품목 추가
         </button>
-        {hasDuplicateItems && (
-          <p className="mt-2 text-xs font-medium text-rose-600">
-            같은 품목이 중복 선택되었습니다. 한 행으로 합쳐 주세요.
-          </p>
-        )}
         <textarea
           value={note}
           onChange={(event) => setNote(event.target.value)}
@@ -3688,7 +3752,6 @@ function ReceiptManager({
               !orderedOn ||
               !validRows.length ||
               hasMissingUnitPrices ||
-              hasDuplicateItems ||
               receiveMutation.isPending
             }
           >
@@ -4925,11 +4988,20 @@ function PurchaseOrderList({
                                     : "처리 종료"}
                               </span>
                             ) : line.quantity_checked_at ? (
-                              <span
-                                className={`rounded-full px-2 py-1 text-xs font-bold ${arrivalDifference < 0 ? "bg-amber-100 text-amber-700" : arrivalDifference > 0 ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700"}`}
+                              <Button
+                                size="xs"
+                                variant="secondary"
+                                onClick={() =>
+                                  void run(
+                                    () => checkPurchaseArrivalQuantity(line.id),
+                                    "수량 체크를 취소했습니다.",
+                                  )
+                                }
+                                disabled={pending}
+                                className={`font-bold ${arrivalDifference < 0 ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100" : arrivalDifference > 0 ? "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100" : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"}`}
                               >
-                                {quantityCheckLabel}
-                              </span>
+                                {quantityCheckLabel} 취소
+                              </Button>
                             ) : open ? (
                               <Button
                                 size="xs"
@@ -5467,13 +5539,6 @@ function PurchaseOrderEditOverlay({
       toast.error("품목명·주문수량·입고 단가를 확인해 주세요.");
       return;
     }
-    if (
-      new Set(lines.map((line) => line.itemName.trim())).size !== lines.length
-    ) {
-      toast.error("같은 품목을 중복으로 저장할 수 없습니다.");
-      return;
-    }
-
     setSaving(true);
     try {
       await updatePurchaseOrderDetails({
@@ -6955,21 +7020,29 @@ function MovementHistory({
   isMaster,
   onSaved,
   onOpenPurchaseOrder,
+  initialItemName,
+  initialDate,
+  initialReferenceId,
 }: {
   isAdmin: boolean;
   isMaster: boolean;
   onSaved: () => Promise<void>;
   onOpenPurchaseOrder: (orderId: string) => void;
+  initialItemName: string;
+  initialDate: string;
+  initialReferenceId: string;
 }) {
   const router = useRouter();
-  const [search, setSearch] = useState("");
-  const [dateMode, setDateMode] = useState<"today" | "custom">("today");
+  const [search, setSearch] = useState(initialItemName);
+  const [dateMode, setDateMode] = useState<"today" | "custom">(
+    initialDate ? "custom" : "today",
+  );
   const [movementGroup, setMovementGroup] = useState<
     "all" | "out" | "in" | "correction"
   >("all");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [startDate, setStartDate] = useState(initialDate);
+  const [endDate, setEndDate] = useState(initialDate);
+  const [debouncedSearch, setDebouncedSearch] = useState(initialItemName);
   const [movementToReverse, setMovementToReverse] = useState<
     (typeof movements)[number] | null
   >(null);
@@ -6993,6 +7066,7 @@ function MovementHistory({
     startDate: queryStartDate,
     endDate: queryEndDate,
     itemName: debouncedSearch || undefined,
+    referenceId: initialReferenceId || undefined,
     movementGroup: movementGroup === "all" ? undefined : movementGroup,
   };
   const movementsQuery = useInfiniteQuery({
@@ -7021,52 +7095,48 @@ function MovementHistory({
   const reversedIds = new Set(
     movements.map((movement) => movement.reversed_movement_id).filter(Boolean),
   );
+  const getSpecialMovement = (
+    movement: Awaited<ReturnType<typeof getInventoryMovements>>[number],
+  ) => {
+    const counterparty = movement.counterparty_name?.trim() || "고객";
+    const remark = movement.item_remark?.trim() ?? "";
+    if (
+      movement.inventory_action === "adjustment_out" ||
+      (movement.counterparty_name?.trim() === "재고조정" &&
+        movement.movement_type === "sale_out")
+    ) return { route: "재고조정 출고", type: "출고/조정" };
+    if (
+      movement.inventory_action === "adjustment_in" ||
+      (movement.counterparty_name?.trim() === "재고조정" &&
+        movement.movement_type === "exchange_in")
+    ) return { route: "재고조정 입고", type: "입고/조정" };
+    if (movement.counterparty_name?.trim() === "시연용" || remark.startsWith("시연용"))
+      return { route: "시연용 처리", type: "출고/시연용" };
+    if (/^서비스(?:$|[,\s(])/.test(remark))
+      return { route: `${counterparty} 서비스 처리`, type: "출고/서비스" };
+    if (movement.inventory_action === "as_exchange_out")
+      return { route: `${counterparty} A/S 교환출고`, type: "출고/A/S 교환" };
+    if (movement.inventory_action === "as_exchange_in")
+      return { route: `${counterparty} A/S 교환입고`, type: "입고/A/S 교환" };
+    if (movement.inventory_action === "exchange_out")
+      return { route: `${counterparty} 교환출고`, type: "출고/교환" };
+    if (movement.inventory_action === "exchange_in" || movement.movement_type === "exchange_in")
+      return { route: `${counterparty} 교환입고`, type: "입고/교환" };
+    return null;
+  };
   const getMovementRoute = (
     movement: Awaited<ReturnType<typeof getInventoryMovements>>[number],
   ) => {
-    if (!movement.counterparty_name) return movement.note || "-";
+    const special = getSpecialMovement(movement);
+    if (!movement.counterparty_name) return special?.route ?? movement.note ?? "-";
 
     if (movement.movement_type === "outbound_edit") {
-      return `${movement.counterparty_name} 수정`;
+      return `${special?.route ?? movement.counterparty_name} 수정`;
     }
     if (movement.movement_type === "outbound_cancel") {
-      return `${movement.counterparty_name} 취소`;
+      return `${special?.route ?? movement.counterparty_name} 취소`;
     }
-    if (
-      movement.inventory_action === "adjustment_out" ||
-      (movement.counterparty_name.trim() === "재고조정" &&
-        movement.movement_type === "sale_out")
-    ) {
-      return "재고조정 출고";
-    }
-    if (
-      movement.inventory_action === "adjustment_in" ||
-      (movement.counterparty_name.trim() === "재고조정" &&
-        movement.movement_type === "exchange_in")
-    ) {
-      return "재고조정 입고";
-    }
-    if (
-      movement.counterparty_name.trim() === "시연용" ||
-      movement.item_remark?.trim().startsWith("시연용")
-    ) {
-      return "시연용 처리";
-    }
-    if (movement.inventory_action === "as_exchange_out") {
-      return `${movement.counterparty_name} A/S 교환출고`;
-    }
-    if (movement.inventory_action === "as_exchange_in") {
-      return `${movement.counterparty_name} A/S 교환입고`;
-    }
-    if (movement.inventory_action === "exchange_out") {
-      return `${movement.counterparty_name} 교환출고`;
-    }
-    if (
-      movement.inventory_action === "exchange_in" ||
-      movement.movement_type === "exchange_in"
-    ) {
-      return `${movement.counterparty_name} 교환입고`;
-    }
+    if (special) return special.route;
 
     if (movement.movement_type === "sale_out") {
       return `${movement.counterparty_name} 구매`;
@@ -7085,51 +7155,16 @@ function MovementHistory({
   const getMovementTypeLabel = (
     movement: Awaited<ReturnType<typeof getInventoryMovements>>[number],
   ) => {
-    if (
-      movement.movement_type === "outbound_cancel" &&
-      (movement.counterparty_name?.trim() === "시연용" ||
-        movement.item_remark?.trim().startsWith("시연용"))
-    ) {
-      return "시연용 처리 취소";
-    }
+    const special = getSpecialMovement(movement);
     if (
       movement.movement_type === "outbound_edit" ||
-      movement.movement_type === "outbound_cancel" ||
-      movement.movement_type === "reversal"
+      movement.movement_type === "outbound_cancel"
     ) {
+      if (special) return `${special.type}/${movement.movement_type === "outbound_edit" ? "수정" : "취소"}`;
       return movementLabels[movement.movement_type];
     }
-    if (
-      movement.inventory_action === "adjustment_out" ||
-      (movement.counterparty_name?.trim() === "재고조정" &&
-        movement.movement_type === "sale_out")
-    ) {
-      return "출고/조정";
-    }
-    if (
-      movement.inventory_action === "adjustment_in" ||
-      (movement.counterparty_name?.trim() === "재고조정" &&
-        movement.movement_type === "exchange_in")
-    ) {
-      return "입고/조정";
-    }
-    if (
-      movement.counterparty_name?.trim() === "시연용" ||
-      movement.item_remark?.trim().startsWith("시연용")
-    ) {
-      return "출고/시연용";
-    }
-    if (movement.inventory_action === "as_exchange_out")
-      return "출고/A/S 교환";
-    if (movement.inventory_action === "as_exchange_in")
-      return "입고/A/S 교환";
-    if (movement.inventory_action === "exchange_out") return "출고/교환";
-    if (
-      movement.inventory_action === "exchange_in" ||
-      movement.movement_type === "exchange_in"
-    ) {
-      return "입고/교환";
-    }
+    if (movement.movement_type === "reversal") return movementLabels.reversal;
+    if (special) return special.type;
     return movementLabels[movement.movement_type] ?? movement.movement_type;
   };
   const automaticNotes = new Set([
@@ -7313,6 +7348,10 @@ function MovementHistory({
       <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
         {loading ? (
           <Loading size="sm" text="이력을 불러오는 중..." />
+        ) : movementsQuery.isError ? (
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-12 text-center text-sm font-medium text-rose-700">
+            재고변동 목록을 불러오지 못했습니다. 페이지를 새로고침한 뒤 다시 확인해 주세요.
+          </div>
         ) : (
           <div className="mt-3 overflow-auto rounded-xl border border-gray-200">
             <table className="w-full min-w-[850px] border-collapse text-sm">
