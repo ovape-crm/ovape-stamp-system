@@ -35,6 +35,8 @@ export default function SettlementExpenseManager() {
   const [expenseDate, setExpenseDate] = useState(currentDate);
   const [categoryId, setCategoryId] = useState("");
   const [newCategory, setNewCategory] = useState("");
+  const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
+  const [categorySearch, setCategorySearch] = useState("");
   const [editingCategoryId, setEditingCategoryId] = useState("");
   const [editingCategoryName, setEditingCategoryName] = useState("");
   const [amount, setAmount] = useState("");
@@ -131,15 +133,17 @@ export default function SettlementExpenseManager() {
   return (
     <div className="space-y-4">
       <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-        <div><h1 className="text-lg font-bold text-gray-900">기타비용 관리</h1><p className="mt-1 text-sm text-gray-500">인건비, 월세, 관리비, A/S 택배비 등 매출 외 비용을 등록합니다.</p></div>
-        <div className="mt-4 flex flex-col gap-2 rounded-xl border border-gray-200 bg-gray-50/70 p-3 sm:flex-row sm:items-end">
+        <div className="flex items-start justify-between gap-3"><div><h1 className="text-lg font-bold text-gray-900">기타비용 관리</h1><p className="mt-1 text-sm text-gray-500">인건비, 월세, 관리비, A/S 택배비 등 매출 외 비용을 등록합니다.</p></div><Button type="button" variant="gray" onClick={() => setCategoryManagerOpen((open) => !open)}>카테고리 관리</Button></div>
+        {categoryManagerOpen && <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50/70 p-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
           <Field label="비용 카테고리 생성" className="sm:w-[280px]"><input value={newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder="새 카테고리 이름" className={fieldClass} /></Field>
           <Button type="button" variant="gray" onClick={() => { if (!newCategory.trim()) return toast.error("카테고리 이름을 입력해 주세요."); categoryMutation.mutate(newCategory); }} disabled={categoryMutation.isPending}>카테고리 생성</Button>
         </div>
-        <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50/70 p-3">
+        <div className="mt-3 rounded-xl border border-gray-200 bg-white p-3">
           <p className="mb-2 text-xs font-semibold text-gray-600">등록된 카테고리 관리</p>
+          <input value={categorySearch} onChange={(event) => setCategorySearch(event.target.value)} placeholder="등록된 카테고리 검색" className={`${fieldClass} mb-2`} />
           <div className="space-y-2">
-            {(categoriesQuery.data ?? []).map((category) => (
+            {(categoriesQuery.data ?? []).filter((category) => category.name.toLocaleLowerCase("ko-KR").includes(categorySearch.trim().toLocaleLowerCase("ko-KR"))).map((category) => (
               <div key={category.id} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white p-2">
                 {editingCategoryId === category.id ? (
                   <input
@@ -163,6 +167,7 @@ export default function SettlementExpenseManager() {
             ))}
           </div>
         </div>
+        </div>}
         {editingId && <div className="mt-3 flex items-center justify-between rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-700"><span className="font-semibold">비용 항목을 수정하는 중입니다.{isRecurring ? " 반복 규칙 전체에 적용됩니다." : ""}</span><button type="button" onClick={cancelEditing} className="cursor-pointer font-semibold hover:underline">수정 취소</button></div>}
         <form onSubmit={submit} className="mt-3 grid gap-3 rounded-xl border border-gray-200 bg-gray-50/70 p-3 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="발생일"><input type="date" value={expenseDate} onChange={(e) => setExpenseDate(e.target.value)} className={fieldClass} required /></Field>

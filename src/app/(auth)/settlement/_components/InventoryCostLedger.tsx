@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useDeferredValue, useMemo, useState } from "react";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import Loading from "@/app/_components/Loading";
 import { Dropdown, type DropdownOption } from "@/app/_components/Dropdown";
 import { KoreanDateRangePicker } from "@/app/_components/KoreanDatePicker";
@@ -58,6 +58,8 @@ const getKoreaDateValue = (value: string) => {
   return `${part("year")}-${part("month")}-${part("day")}`;
 };
 
+const getKoreaToday = () => getKoreaDateValue(new Date().toISOString());
+
 const referenceLabels: Record<string, string> = {
   stamp_log: "출고 이력",
   purchase_receipt: "입고 전표",
@@ -84,30 +86,40 @@ export default function InventoryCostLedger() {
   const [query, setQuery] = useState("");
   const [eventType, setEventType] = useState("all");
   const [costStatus, setCostStatus] = useState("all");
-  const [dateMode, setDateMode] = useState<"all" | "custom">("all");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const ledgerQuery = useQuery({
-    queryKey: ["inventory-cost-ledger", dateMode, startDate, endDate],
-    queryFn: () =>
-      getInventoryCostLedger(
-        dateMode === "custom" ? startDate || undefined : undefined,
-        dateMode === "custom" ? endDate || startDate || undefined : undefined,
-      ),
+  const [dateMode, setDateMode] = useState<"all" | "custom">("custom");
+  const [startDate, setStartDate] = useState(() => `${getKoreaToday().slice(0, 7)}-01`);
+  const [endDate, setEndDate] = useState(getKoreaToday);
+  const deferredQuery = useDeferredValue(query.trim());
+  const ledgerQuery = useInfiniteQuery({
+    queryKey: [
+      "inventory-cost-ledger",
+      dateMode,
+      startDate,
+      endDate,
+      deferredQuery,
+      eventType,
+      costStatus,
+    ],
+    queryFn: ({ pageParam }) =>
+      getInventoryCostLedger({
+        startDate: dateMode === "custom" ? startDate || undefined : undefined,
+        endDate: dateMode === "custom" ? endDate || startDate || undefined : undefined,
+        itemName: deferredQuery || undefined,
+        eventType: eventType === "all" ? undefined : eventType,
+        costStatus:
+          costStatus === "all"
+            ? undefined
+            : (costStatus as "confirmed" | "pending"),
+        offset: pageParam,
+        limit: 100,
+      }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => lastPage.nextOffset,
   });
   const rows = useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase("ko-KR");
-    return (ledgerQuery.data ?? []).filter(
-      (row) =>
-        (eventType === "all" || row.eventType === eventType) &&
-        (costStatus === "all" || row.costStatus === costStatus) &&
-        (!normalized ||
-          row.itemName.toLocaleLowerCase("ko-KR").includes(normalized) ||
-          String(row.metadata.customerName ?? "")
-            .toLocaleLowerCase("ko-KR")
-            .includes(normalized)),
-    );
-  }, [costStatus, eventType, ledgerQuery.data, query]);
+    return ledgerQuery.data?.pages.flatMap((page) => page.rows) ?? [];
+  }, [ledgerQuery.data]);
+  const totalCount = ledgerQuery.data?.pages[0]?.totalCount ?? 0;
 
   return (
     <div className="space-y-4">
@@ -123,13 +135,13 @@ export default function InventoryCostLedger() {
             </p>
             <Dropdown controlledValue={dateMode}>
               <Dropdown.Trigger compact>
-                {dateMode === "all" ? "전체" : "날짜 선택"}
+                {dateMode === "all" ? "전체" : "기간 선택"}
               </Dropdown.Trigger>
               <Dropdown.Content compact>
                 {(
                   [
+                    { value: "custom", label: "기간 선택" },
                     { value: "all", label: "전체" },
-                    { value: "custom", label: "날짜 선택" },
                   ] as const
                 ).map((option) => (
                   <Dropdown.Item
@@ -141,6 +153,10 @@ export default function InventoryCostLedger() {
                       if (next === "all") {
                         setStartDate("");
                         setEndDate("");
+                      } else if (!startDate) {
+                        const today = getKoreaToday();
+                        setStartDate(`${today.slice(0, 7)}-01`);
+                        setEndDate(today);
                       }
                       setDateMode(next);
                     }}
@@ -168,7 +184,7 @@ export default function InventoryCostLedger() {
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="품목명 또는 고객명 검색"
+            placeholder="품목명 검색"
             className="w-full rounded-lg border border-gray-300 bg-white py-2.5 px-3 text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 sm:max-w-sm"
           />
           <select
@@ -197,7 +213,9 @@ export default function InventoryCostLedger() {
       <div className="mb-3 flex items-center justify-start gap-3">
         <p className="text-xs text-gray-600 sm:text-sm">
           조회 결과{" "}
-          <span className="font-semibold text-brand-600">{rows.length}</span>
+          <span className="font-semibold text-brand-600">
+            {rows.length.toLocaleString("ko-KR")}/{totalCount.toLocaleString("ko-KR")}
+          </span>
         </p>
       </div>
       <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -279,6 +297,18 @@ export default function InventoryCostLedger() {
               <p className="px-4 py-12 text-center text-sm text-gray-400">
                 조회할 원가 원장 기록이 없습니다.
               </p>
+            )}
+            {ledgerQuery.hasNextPage && (
+              <div className="border-t border-gray-100 px-4 py-3 text-center">
+                <button
+                  type="button"
+                  onClick={() => ledgerQuery.fetchNextPage()}
+                  disabled={ledgerQuery.isFetchingNextPage}
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:border-brand-300 hover:text-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {ledgerQuery.isFetchingNextPage ? "불러오는 중..." : "원장 더 보기"}
+                </button>
+              </div>
             )}
           </div>
         )}

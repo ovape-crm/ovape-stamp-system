@@ -13,6 +13,7 @@ import {
   SettlementStore,
   SettlementSummary,
   InventoryCostLedgerRow,
+  InventoryCostLedgerPage,
   PendingInventoryCostLayer,
 } from "../_types/settlement.types";
 
@@ -961,34 +962,39 @@ export const deleteSettlementExpense = async (id: string) => {
   if (error) throw error;
 };
 
-export const getInventoryCostLedger = async (
-  startDate?: string,
-  endDate?: string,
-): Promise<InventoryCostLedgerRow[]> => {
-  const range = startDate
-    ? getKoreaRange(startDate, endDate || startDate)
+export const getInventoryCostLedger = async (params: {
+  startDate?: string;
+  endDate?: string;
+  itemName?: string;
+  eventType?: string;
+  costStatus?: "confirmed" | "pending";
+  offset?: number;
+  limit?: number;
+}): Promise<InventoryCostLedgerPage> => {
+  const range = params.startDate
+    ? getKoreaRange(params.startDate, params.endDate || params.startDate)
     : null;
-  const fetchedEvents = await fetchPaged(async (from, to) => {
-    let request = supabase
-      .from("inventory_cost_events")
-      .select(
-        "id,event_type,event_at,item_name,direction,quantity,total_cost,reference_type,reference_id,settlement_effect,metadata",
-      )
-      .order("event_at", { ascending: false })
-      .order("created_at", { ascending: false })
-      .order("id", { ascending: false })
-      .range(from, to);
-    if (range)
-      request = request.gte("event_at", range.start).lt("event_at", range.end);
-    return request;
-  });
-  // 같은 처리 시각의 원장 기록은 페이지 경계에서 순서가 흔들릴 수 있다.
-  // ID를 마지막 정렬 기준으로 고정하고, 이미 받은 이벤트도 한 번 더 제거한다.
-  const events = [
-    ...new Map(
-      fetchedEvents.map((event) => [String(event.id), event]),
-    ).values(),
-  ].filter(
+  const offset = params.offset ?? 0;
+  const limit = params.limit ?? 100;
+  let request = supabase
+    .from("inventory_cost_events")
+    .select(
+      "id,event_type,event_at,item_name,direction,quantity,total_cost,reference_type,reference_id,settlement_effect,metadata",
+      { count: "exact" },
+    )
+    .order("event_at", { ascending: false })
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .range(offset, offset + limit - 1);
+  if (range) request = request.gte("event_at", range.start).lt("event_at", range.end);
+  if (params.itemName) request = request.ilike("item_name", `%${params.itemName}%`);
+  if (params.eventType) request = request.eq("event_type", params.eventType);
+  // 이벤트의 총원가는 원가층 확정 여부와 함께 관리된다. 0원도 확정 원가이므로 null 여부로 구분한다.
+  if (params.costStatus === "confirmed") request = request.not("total_cost", "is", null);
+  if (params.costStatus === "pending") request = request.is("total_cost", null);
+  const { data: fetchedEvents, count, error: eventsError } = await request;
+  if (eventsError) throw eventsError;
+  const events = (fetchedEvents ?? []).filter(
     (event) =>
       !(
         event.event_type === "reconciliation_out" &&
@@ -1010,27 +1016,34 @@ export const getInventoryCostLedger = async (
     quantity: number;
     unit_cost: number | null;
   }> = [];
-  for (let index = 0; index < eventIds.length; index += 500) {
-    const ids = eventIds.slice(index, index + 500);
+  if (eventIds.length) {
     const [
       { data: layerRows, error: layersError },
       { data: allocationRows, error: allocationsError },
     ] = await Promise.all([
       supabase
         .from("inventory_cost_layers")
-        .select(
-          "id,source_event_id,item_name,unit_cost,cost_status,queue_sequence",
-        )
-        .in("source_event_id", ids),
+        .select("id,source_event_id,item_name,unit_cost,cost_status,queue_sequence")
+        .in("source_event_id", eventIds),
       supabase
         .from("inventory_cost_allocations")
         .select("outbound_event_id,source_layer_id,quantity,unit_cost")
-        .in("outbound_event_id", ids),
+        .in("outbound_event_id", eventIds),
     ]);
     if (layersError) throw layersError;
     if (allocationsError) throw allocationsError;
     layers.push(...(layerRows ?? []));
     allocations.push(...(allocationRows ?? []));
+
+    const sourceLayerIds = [...new Set((allocationRows ?? []).map((row) => String(row.source_layer_id)))];
+    if (sourceLayerIds.length) {
+      const { data: sourceLayers, error: sourceLayersError } = await supabase
+        .from("inventory_cost_layers")
+        .select("id,source_event_id,item_name,unit_cost,cost_status,queue_sequence")
+        .in("id", sourceLayerIds);
+      if (sourceLayersError) throw sourceLayersError;
+      layers.push(...(sourceLayers ?? []));
+    }
   }
 
   const layersByEvent = new Map(
@@ -1047,7 +1060,7 @@ export const getInventoryCostLedger = async (
     allocationsByEvent.set(key, rows);
   }
 
-  return events.map((event) => {
+  const rows = events.map((event) => {
     const layer = layersByEvent.get(String(event.id));
     const eventAllocations = allocationsByEvent.get(String(event.id)) ?? [];
     return {
@@ -1076,6 +1089,13 @@ export const getInventoryCostLedger = async (
       metadata: (event.metadata ?? {}) as Record<string, unknown>,
     };
   });
+  return {
+    rows,
+    totalCount: count ?? 0,
+    nextOffset: offset + (fetchedEvents?.length ?? 0) < (count ?? 0)
+      ? offset + (fetchedEvents?.length ?? 0)
+      : null,
+  };
 };
 
 export const getPendingInventoryCostLayers = async (): Promise<

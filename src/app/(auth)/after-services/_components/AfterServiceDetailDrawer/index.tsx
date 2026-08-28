@@ -7,6 +7,8 @@ import {
   processAfterServiceRepairReceipt,
   processInventoryServiceInbound,
   getInventoryServiceProgress,
+  getAfterServiceOutboundCostAllocations,
+  setAfterServiceManualCost,
   confirmInventoryServiceOutbound,
   editAfterServiceStatusProcessing,
   getAfterServiceIntakeExpense,
@@ -112,6 +114,8 @@ const AfterServiceDetailDrawer = ({
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isConfirmingOutbound, setIsConfirmingOutbound] = useState(false);
+  const [manualCost, setManualCost] = useState("");
+  const [isSavingManualCost, setIsSavingManualCost] = useState(false);
   const isInventoryServiceCase =
     afterServiceDetail?.service_case_type === "vendor_exchange" ||
     afterServiceDetail?.service_case_type === "store_product_as";
@@ -120,11 +124,53 @@ const AfterServiceDetailDrawer = ({
     queryFn: () => getInventoryServiceProgress(numericAfterServiceId),
     enabled: numericAfterServiceId > 0 && isInventoryServiceCase,
   });
+  const outboundCostAllocationsQuery = useQuery({
+    queryKey: ["after-service-outbound-cost-allocations", numericAfterServiceId],
+    queryFn: () => getAfterServiceOutboundCostAllocations(numericAfterServiceId),
+    enabled:
+      isMaster &&
+      numericAfterServiceId > 0 &&
+      Boolean(afterServiceDetail?.is_loaner_device_issued),
+  });
   const intakeExpenseQuery = useQuery({
     queryKey: ["after-service-intake-expense", numericAfterServiceId],
     queryFn: () => getAfterServiceIntakeExpense(String(numericAfterServiceId)),
     enabled: numericAfterServiceId > 0,
   });
+  const canSetManualCost =
+    isMaster &&
+    afterServiceDetail?.service_case_type === "customer_as" &&
+    afterServiceDetail.status === AfterServiceStatusEnum.SENT_FOR_REPAIR.value &&
+    Boolean(afterServiceDetail.is_loaner_device_issued) &&
+    !(outboundCostAllocationsQuery.data?.length);
+  const handleSaveManualCost = async () => {
+    if (!afterServiceDetail) return;
+    const unitPrice = Number(manualCost.replaceAll(",", ""));
+    if (!Number.isInteger(unitPrice) || unitPrice <= 0) {
+      toast.error("실제 단가를 1원 이상 입력해 주세요.");
+      return;
+    }
+    try {
+      setIsSavingManualCost(true);
+      await setAfterServiceManualCost({
+        afterServiceId: Number(afterServiceDetail.id),
+        unitPrice,
+      });
+      setManualCost("");
+      invalidateAfterServiceQueries();
+      toast.success("실제 A/S 원가를 등록했습니다.");
+    } catch (err) {
+      // Supabase 오류는 Error 인스턴스가 아닌 객체로 전달될 수 있어, 실제 DB 메시지를 잃지 않는다.
+      const message = err instanceof Error
+        ? err.message
+        : typeof err === "object" && err !== null && "message" in err
+          ? String((err as { message?: unknown }).message ?? "")
+          : "";
+      toast.error(message || "A/S 원가 등록에 실패했습니다.");
+    } finally {
+      setIsSavingManualCost(false);
+    }
+  };
   const handleConfirmInventoryOutbound = async () => {
     if (!afterServiceDetail || !isMaster) return;
     try {
@@ -159,6 +205,9 @@ const AfterServiceDetailDrawer = ({
       });
       queryClient.invalidateQueries({
         queryKey: ["after-service-inventory-progress", Number(afterServiceId)],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["after-service-outbound-cost-allocations", Number(afterServiceId)],
       });
     }
   };
@@ -217,7 +266,12 @@ const AfterServiceDetailDrawer = ({
       toast.success("상태가 업데이트되었습니다.");
     } catch (err) {
       console.error("Failed to update status:", err);
-      const message = err instanceof Error ? err.message : "";
+      // PostgREST/Supabase 오류는 Error 인스턴스가 아닐 수 있다.
+      const message = err instanceof Error
+        ? err.message
+        : typeof err === "object" && err !== null && "message" in err
+          ? String((err as { message?: unknown }).message ?? "")
+          : "";
       if (message.includes("SUPPLIER_REQUIRED")) {
         toast.error("거래처가 선택되어 있지 않습니다.");
       } else if (message.includes("SUPPLIER_NOT_FOUND")) {
@@ -234,6 +288,8 @@ const AfterServiceDetailDrawer = ({
         toast.error("남은 출고 수량보다 많이 입고할 수 없습니다.");
       } else if (message.includes("SERVICE_INBOUND_ITEM_MISMATCH")) {
         toast.error("출고한 품목과 같은 품목만 입고할 수 있습니다.");
+      } else if (message.includes("AUTH_REQUIRED")) {
+        toast.error("직원 계정 권한을 확인해 주세요. 다시 로그인한 뒤 시도해 주세요.");
       } else {
         toast.error(
           message || "상태 업데이트에 실패했습니다. 다시 시도해 주세요.",
@@ -988,6 +1044,83 @@ const AfterServiceDetailDrawer = ({
                     )}
                   </div>
                 )}
+
+                {isMaster &&
+                  afterServiceDetail.is_loaner_device_issued && (
+                    <section className="mb-4 rounded-xl border border-violet-200 bg-violet-50/70 p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <h4 className="text-sm font-bold text-violet-900">A/S 출고 원가</h4>
+                          <p className="mt-0.5 text-xs text-violet-700">
+                            출고 확정 시 배정된 매입 원가입니다.
+                          </p>
+                        </div>
+                        <span className="rounded-md bg-white px-2 py-1 text-[11px] font-semibold text-violet-700 shadow-sm">
+                          마스터 전용
+                        </span>
+                      </div>
+                      {outboundCostAllocationsQuery.isPending ? (
+                        <div className="py-4"><Loading size="sm" /></div>
+                      ) : outboundCostAllocationsQuery.isError ? (
+                        <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                          출고 원가를 불러오지 못했습니다.
+                        </p>
+                      ) : outboundCostAllocationsQuery.data?.length ? (
+                        <>
+                          <div className="mt-3 overflow-x-auto rounded-lg border border-violet-100 bg-white">
+                            <table className="w-full min-w-[440px] text-xs">
+                              <thead className="bg-violet-50 text-violet-800">
+                                <tr>
+                                  <th className="px-3 py-2 text-right font-semibold">출고 단가</th>
+                                  <th className="px-3 py-2 text-right font-semibold">출고 수량</th>
+                                  <th className="px-3 py-2 text-right font-semibold">입고 완료</th>
+                                  <th className="px-3 py-2 text-right font-semibold">미입고</th>
+                                  <th className="px-3 py-2 text-right font-semibold">출고 원가</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-violet-100">
+                                {outboundCostAllocationsQuery.data.map((allocation) => (
+                                  <tr key={allocation.id} className="text-gray-700">
+                                    <td className="px-3 py-2 text-right">{allocation.unit_price.toLocaleString("ko-KR")}원</td>
+                                    <td className="px-3 py-2 text-right">{allocation.outbound_quantity.toLocaleString("ko-KR")}개</td>
+                                    <td className="px-3 py-2 text-right">{allocation.received_quantity.toLocaleString("ko-KR")}개</td>
+                                    <td className="px-3 py-2 text-right">{(allocation.outbound_quantity - allocation.received_quantity).toLocaleString("ko-KR")}개</td>
+                                    <td className="px-3 py-2 text-right font-semibold text-violet-900">{(allocation.unit_price * allocation.outbound_quantity).toLocaleString("ko-KR")}원</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          <p className="mt-3 text-right text-sm font-bold text-violet-900">
+                            출고 원가 합계 {outboundCostAllocationsQuery.data
+                              .reduce((total, allocation) => total + allocation.unit_price * allocation.outbound_quantity, 0)
+                              .toLocaleString("ko-KR")}원
+                          </p>
+                        </>
+                      ) : (
+                        <div className="mt-3 rounded-lg border border-dashed border-violet-200 bg-white p-3">
+                          <p className="text-xs text-violet-700">현재 출고 원가 배정 이력이 없습니다.</p>
+                          {canSetManualCost && (
+                            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
+                              <label className="flex-1 text-xs font-semibold text-gray-700">
+                                실제 단가
+                                <input
+                                  value={manualCost}
+                                  onChange={(event) => setManualCost(event.target.value.replace(/[^0-9]/g, ""))}
+                                  inputMode="numeric"
+                                  placeholder="예: 25000"
+                                  className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                                />
+                              </label>
+                              <Button size="sm" onClick={handleSaveManualCost} disabled={isSavingManualCost}>
+                                {isSavingManualCost ? "등록 중..." : "원가 등록"}
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </section>
+                  )}
 
                 {/* 증상 카드 */}
                 <SymptomCard symptom={afterServiceDetail.symptom} />

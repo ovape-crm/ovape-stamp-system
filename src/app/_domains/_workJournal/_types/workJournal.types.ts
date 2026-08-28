@@ -14,6 +14,7 @@ export type WorkJournalType = {
   payment_status: WorkPaymentStatus;
   paid_at: string | null;
   paid_by: string | null;
+  payroll_batch_id?: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;

@@ -18,6 +18,8 @@ import {
   getWorkerDetails,
   getWorkerNames,
   updateWorkJournalPaymentStatus,
+  processWorkJournalPayroll,
+  cancelWorkJournalPayroll,
   updateWorkJournal,
   updateWorkerDetails,
   verifyWorkerPin,
@@ -26,6 +28,7 @@ import { workJournalKeys } from "@/app/_domains/_workJournal/_queryKeys/workJour
 import WorkerCreateModal from "./_components/WorkerCreateModal";
 import AttendanceRecordModal from "./_components/AttendanceRecordModal";
 import { useUser } from "@/app/_contexts/UserContext";
+import { useModal } from "@/app/_contexts/ModalContext";
 import StaffOpeningProgressBanner from "@/app/(auth)/_components/StaffOpeningProgressBanner";
 import { showConfirmDialog, showPromptDialog } from "@/app/_components/AppDialog";
 import {
@@ -229,6 +232,8 @@ export default function WorkJournalPage() {
   const workerFilter = verifiedWorkerName === "전체" ? "" : verifiedWorkerName;
   const [paymentMonth, setPaymentMonth] = useState(today.slice(0, 7));
   const [paymentWorkerFilter, setPaymentWorkerFilter] = useState("");
+  const [selectedAdvanceJournalIds, setSelectedAdvanceJournalIds] = useState<string[]>([]);
+  const { open, close } = useModal();
   const [workDate, setWorkDate] = useState(today);
   const [workerName, setWorkerName] = useState("");
   const [startTime, setStartTime] = useState("");
@@ -489,10 +494,32 @@ export default function WorkJournalPage() {
     },
     onError: () => toast.error("지급 상태 변경에 실패했습니다."),
   });
+  const payrollMutation = useMutation({
+    mutationFn: processWorkJournalPayroll,
+    onSuccess: async (result) => {
+      toast.success(`${result.memo} · ${Number(result.amount).toLocaleString("ko-KR")}원 등록 완료`);
+      setSelectedAdvanceJournalIds([]);
+      await Promise.all([queryClient.invalidateQueries({ queryKey: workJournalKeys.all() }), queryClient.invalidateQueries({ queryKey: ["settlement-expenses"] })]);
+    },
+    onError: (error: Error) => toast.error(error.message || "급여 지급 처리에 실패했습니다."),
+  });
+  const payrollCancelMutation = useMutation({
+    mutationFn: cancelWorkJournalPayroll,
+    onSuccess: async () => {
+      toast.success("급여 지급과 기타비용을 함께 취소했습니다.");
+      await Promise.all([queryClient.invalidateQueries({ queryKey: workJournalKeys.all() }), queryClient.invalidateQueries({ queryKey: ["settlement-expenses"] })]);
+    },
+    onError: (error: Error) => toast.error(error.message || "급여 지급 취소에 실패했습니다."),
+  });
 
   const handleAdvanceToggle = async (journal: WorkJournalType) => {
     const isAdvance = journal.payment_status === "advance";
-    if (isAdvance && !(await showConfirmDialog({ title: "선지급 처리 취소", description: "선지급 처리를 취소할까요?", confirmLabel: "처리 취소", tone: "warning" }))) return;
+    if (isAdvance && !(await showConfirmDialog({ title: "선지급 처리 취소", description: journal.payroll_batch_id ? "같은 묶음으로 선지급된 근무와 기타비용을 함께 취소할까요?" : "선지급 처리를 취소할까요?", confirmLabel: "처리 취소", tone: "warning" }))) return;
+
+    if (isAdvance && journal.payroll_batch_id) {
+      payrollCancelMutation.mutate([journal.payroll_batch_id]);
+      return;
+    }
 
     paymentMutation.mutate({
       journalIds: [journal.id],
@@ -506,20 +533,24 @@ export default function WorkJournalPage() {
 
   const handleWorkerSalaryPayment = async (group: (typeof paymentGroups)[number]) => {
     if (!group.unpaid.length) return;
-    const advanceNotice = group.advance.length
-      ? ` 선지급 ${group.advance.length}건은 그대로 유지됩니다.`
-      : "";
-    if (
-      !(await showConfirmDialog({ title: "월급 지급 처리", description: `${group.workerName}님의 미지급 근무 ${group.unpaid.length}건을 월급 지급 처리할까요?${advanceNotice}`, confirmLabel: "지급 처리" }))
-    )
-      return;
+    const journals = group.unpaid;
+    open({ content: <PayrollCalculationModal title="월급 지급" journals={journals} onCancel={close} onSubmit={(hourlyRate, mealAllowance) => { payrollMutation.mutate({ journalIds: group.unpaid.map((journal) => journal.id), kind: "salary", hourlyRate, mealAllowance, paidOn: today }); close(); }} />, options: { dismissOnBackdrop: false } });
+  };
 
-    paymentMutation.mutate({
-      journalIds: group.unpaid.map((journal) => journal.id),
-      status: "salary",
-      fromStatus: "unpaid",
-      successMessage: `${group.workerName}님의 월급 지급 처리가 완료되었습니다.`,
-    });
+  const toggleAdvanceSelection = (journalId: string) => {
+    setSelectedAdvanceJournalIds((current) =>
+      current.includes(journalId)
+        ? current.filter((id) => id !== journalId)
+        : [...current, journalId],
+    );
+  };
+  const handleSelectedAdvancePayment = async (group: (typeof paymentGroups)[number]) => {
+    const journalIds = group.unpaid
+      .map((journal) => journal.id)
+      .filter((id) => selectedAdvanceJournalIds.includes(id));
+    if (!journalIds.length) return;
+    const journals = group.unpaid.filter((journal) => journalIds.includes(journal.id));
+    open({ content: <PayrollCalculationModal title={`급여 선지급 (${journals.length}건)`} journals={journals} onCancel={close} onSubmit={(hourlyRate, mealAllowance) => { payrollMutation.mutate({ journalIds, kind: "advance", hourlyRate, mealAllowance, paidOn: today }); close(); }} />, options: { dismissOnBackdrop: false } });
   };
 
   const handleWorkerSalaryCancel = async (group: (typeof paymentGroups)[number]) => {
@@ -529,12 +560,10 @@ export default function WorkJournalPage() {
     )
       return;
 
-    paymentMutation.mutate({
-      journalIds: group.salary.map((journal) => journal.id),
-      status: "unpaid",
-      fromStatus: "salary",
-      successMessage: `${group.workerName}님의 월급 지급 처리가 취소되었습니다.`,
-    });
+    const batchIds = [...new Set(group.salary.map((journal) => journal.payroll_batch_id).filter((id): id is string => Boolean(id)))];
+    const legacyIds = group.salary.filter((journal) => !journal.payroll_batch_id).map((journal) => journal.id);
+    if (batchIds.length) payrollCancelMutation.mutate(batchIds);
+    if (legacyIds.length) paymentMutation.mutate({ journalIds: legacyIds, status: "unpaid", fromStatus: "salary", successMessage: `${group.workerName}님의 기존 월급 지급 처리가 취소되었습니다.` });
   };
 
   const handleSubmit = (event: FormEvent) => {
@@ -1456,6 +1485,7 @@ export default function WorkJournalPage() {
               <>
                 <div className="grid gap-3 lg:grid-cols-2">
                   {paymentGroups.map((group) => {
+                    const selectedAdvanceCount = group.unpaid.filter((journal) => selectedAdvanceJournalIds.includes(journal.id)).length;
                     const totalHours = group.journals.reduce(
                       (sum, journal) => sum + getPayableHours(journal),
                       0,
@@ -1497,6 +1527,11 @@ export default function WorkJournalPage() {
                             </p>
                           </div>
                           <div className="flex flex-wrap gap-2">
+                            {selectedAdvanceCount > 0 && (
+                              <Button size="sm" variant="secondary" disabled={paymentMutation.isPending} onClick={() => handleSelectedAdvancePayment(group)}>
+                                선지급 ({selectedAdvanceCount}건)
+                              </Button>
+                            )}
                             <Button
                               size="sm"
                               disabled={
@@ -1617,19 +1652,20 @@ export default function WorkJournalPage() {
                                 <span className="text-xs text-gray-400">
                                   월급 지급 완료
                                 </span>
-                              ) : (
+                              ) : status === "advance" ? (
                                 <Button
                                   size="xs"
-                                  variant={
-                                    status === "advance" ? "gray" : undefined
-                                  }
+                                  variant="gray"
                                   disabled={paymentMutation.isPending}
                                   onClick={() => handleAdvanceToggle(journal)}
                                 >
-                                  {status === "advance"
-                                    ? "선지급 취소"
-                                    : "선지급 처리"}
+                                  선지급 취소
                                 </Button>
+                              ) : (
+                                <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-gray-700">
+                                  <input type="checkbox" checked={selectedAdvanceJournalIds.includes(journal.id)} onChange={() => toggleAdvanceSelection(journal.id)} className="h-4 w-4 accent-brand-500" />
+                                  선지급 선택
+                                </label>
                               )}
                             </td>
                           </tr>
@@ -1674,6 +1710,18 @@ const SummaryCard = ({ label, value }: { label: string; value: string }) => (
     <p className="mt-2 text-xl font-bold text-gray-900">{value}</p>
   </div>
 );
+
+function PayrollCalculationModal({ title, journals, onCancel, onSubmit }: { title: string; journals: WorkJournalType[]; onCancel: () => void; onSubmit: (hourlyRate: number, mealAllowance: number) => void }) {
+  const [hourlyRate, setHourlyRate] = useState("");
+  const [mealAllowance, setMealAllowance] = useState("");
+  const hours = journals.reduce((sum, journal) => sum + getPayableHours(journal), 0);
+  const count = journals.length;
+  const rate = Number(hourlyRate);
+  const meal = Number(mealAllowance);
+  const wage = Number.isFinite(rate) && rate > 0 ? Math.floor(hours * rate * 0.991) : 0;
+  const total = wage + (Number.isFinite(meal) && meal >= 0 ? count * meal : 0);
+  return <div className="p-5"><h2 className="text-lg font-bold text-gray-900">{title}</h2><div className="mt-4 grid gap-3 sm:grid-cols-2"><Field label="입력시간"><div className="h-10 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-800">{formatHours(hours)}</div></Field><Field label="시급"><input autoFocus type="number" min="1" value={hourlyRate} onChange={(event) => setHourlyRate(event.target.value)} placeholder="시급 입력" className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100" /></Field><Field label="총 근무 횟수"><div className="h-10 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-800">{count}회</div></Field><Field label="식대 (1회당)"><input type="number" min="0" value={mealAllowance} onChange={(event) => setMealAllowance(event.target.value)} placeholder="식대 입력" className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100" /></Field></div><div className="mt-4 rounded-xl border border-brand-200 bg-brand-50 p-3"><p className="text-xs font-semibold text-brand-700">최종 지급액</p><p className="mt-1 text-2xl font-bold text-brand-800">{total.toLocaleString("ko-KR")}원</p><p className="mt-1 text-xs text-brand-700">입력시간 × 시급 × 0.991 + 근무횟수 × 식대</p></div><div className="mt-5 flex justify-end gap-2"><Button variant="gray" onClick={onCancel}>취소</Button><Button disabled={!Number.isInteger(rate) || rate <= 0 || !Number.isInteger(meal) || meal < 0} onClick={() => onSubmit(rate, meal)}>지급 확정</Button></div></div>;
+}
 
 const NumberTimeInput = ({
   value,

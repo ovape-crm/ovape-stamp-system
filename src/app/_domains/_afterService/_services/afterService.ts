@@ -362,7 +362,7 @@ export const processAfterServiceRepairReceipt = async (values: {
   memo: string;
 }) => {
   const { data, error } = await supabase.rpc(
-    'process_after_service_repair_receipt',
+    'process_after_service_repair_receipt_with_cost',
     {
       p_after_service_id: Number(values.afterServiceId),
       p_arrived_on: values.arrivedOn,
@@ -492,6 +492,38 @@ export const getInventoryServiceProgress = async (afterServiceId: number) => {
     received_quantity: 0,
     remaining_quantity: 0,
   }) as InventoryServiceProgress;
+};
+
+export type AfterServiceOutboundCostAllocation = {
+  id: string;
+  unit_price: number;
+  outbound_quantity: number;
+  received_quantity: number;
+};
+
+export const getAfterServiceOutboundCostAllocations = async (
+  afterServiceId: number,
+) => {
+  const { data, error } = await supabase
+    .from('after_service_outbound_cost_allocations')
+    .select('id, unit_price, outbound_quantity, received_quantity')
+    .eq('after_service_id', afterServiceId)
+    .order('created_at', { ascending: true })
+    .order('id', { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as AfterServiceOutboundCostAllocation[];
+};
+
+/** 기존 재고처리 A/S 건의 실제 수리 원가를 마스터가 직접 등록합니다. */
+export const setAfterServiceManualCost = async (values: {
+  afterServiceId: number;
+  unitPrice: number;
+}) => {
+  const { error } = await supabase.rpc('set_after_service_manual_cost', {
+    p_after_service_id: values.afterServiceId,
+    p_unit_price: values.unitPrice,
+  });
+  if (error) throw error;
 };
 
 export const processInventoryServiceInbound = async (values: {

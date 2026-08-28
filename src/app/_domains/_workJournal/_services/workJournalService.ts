@@ -527,3 +527,29 @@ export const updateWorkJournalPaymentStatus = async (
 
   if (error) throw error;
 };
+
+export const processWorkJournalPayroll = async (values: {
+  journalIds: string[];
+  kind: "advance" | "salary";
+  hourlyRate: number;
+  mealAllowance: number;
+  paidOn: string;
+}) => {
+  const { data, error } = await supabase.rpc("process_work_journal_payroll", {
+    p_journal_ids: values.journalIds,
+    p_kind: values.kind,
+    p_hourly_rate: values.hourlyRate,
+    p_meal_allowance: values.mealAllowance,
+    p_paid_on: values.paidOn,
+  });
+  if (error) throw error;
+  return (data ?? [])[0] as { batch_id: string; amount: number; memo: string };
+};
+
+export const cancelWorkJournalPayroll = async (batchIds: string[]) => {
+  const { data, error } = await supabase.rpc("cancel_work_journal_payroll", {
+    p_batch_ids: batchIds,
+  });
+  if (error) throw error;
+  return data as number;
+};

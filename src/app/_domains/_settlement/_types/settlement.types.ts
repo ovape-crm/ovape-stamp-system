@@ -90,6 +90,12 @@ export type InventoryCostLedgerRow = {
   metadata: Record<string, unknown>;
 };
 
+export type InventoryCostLedgerPage = {
+  rows: InventoryCostLedgerRow[];
+  totalCount: number;
+  nextOffset: number | null;
+};
+
 export type PendingInventoryCostLayer = {
   id: string;
   itemName: string;

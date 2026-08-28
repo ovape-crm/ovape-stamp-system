@@ -37,6 +37,7 @@ const formatReceiptDate = (date: string) =>
 
 export default function ComprehensiveSettlement() {
   const client = useQueryClient();
+  const [activeTab, setActiveTab] = useState<"settlement" | "history">("settlement");
   const receiptCaptureRef = useRef<HTMLTableElement>(null);
   const [paymentMethod, setPaymentMethod] = useState("현금");
   const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(
@@ -364,11 +365,18 @@ export default function ComprehensiveSettlement() {
           거래처 종합에 대한 입고·이월 잔금·지급만 별도로 관리합니다. 재고·일반
           정산에는 영향을 주지 않습니다.
         </p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          <Summary label="지급 대상" value={receivable} />
-          <Summary label="지급 완료" value={paid} />
-          <Summary label="현재 잔금" value={receivable - paid} emphasis />
+      </section>
+      <div className="border-b border-gray-200" role="tablist" aria-label="종합 정산 메뉴">
+        <div className="flex">
+          <button type="button" role="tab" aria-selected={activeTab === "settlement"} onClick={() => setActiveTab("settlement")} className={`border-b-2 px-4 py-3 text-sm font-semibold ${activeTab === "settlement" ? "border-brand-500 text-brand-700" : "border-transparent text-gray-500 hover:text-gray-700"}`}>종합 정산</button>
+          <button type="button" role="tab" aria-selected={activeTab === "history"} onClick={() => setActiveTab("history")} className={`border-b-2 px-4 py-3 text-sm font-semibold ${activeTab === "history" ? "border-brand-500 text-brand-700" : "border-transparent text-gray-500 hover:text-gray-700"}`}>정산 이력</button>
         </div>
+      </div>
+      {activeTab === "settlement" && <>
+      <section className="grid gap-3 sm:grid-cols-3">
+        <Summary label="지급 대상" value={receivable} />
+        <Summary label="지급 완료" value={paid} />
+        <Summary label="현재 잔금" value={receivable - paid} emphasis />
       </section>
       <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
         <h2 className="text-sm font-bold text-gray-900">종합 기존 입고목록</h2>
@@ -674,6 +682,8 @@ export default function ComprehensiveSettlement() {
           </div>
         </section>
       )}
+      </>}
+      {activeTab === "history" && <>
       <section className="rounded-2xl border border-gray-200 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
           <h2 className="text-sm font-bold text-gray-900">완료된 전표</h2>
@@ -883,6 +893,7 @@ export default function ComprehensiveSettlement() {
           </table>
         </div>
       </section>
+      </>}
     </div>
   );
 }

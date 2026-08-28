@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import Button from "@/app/_components/Button";
 import { Dropdown, DropdownOption } from "@/app/_components/Dropdown";
 import type { ItemCategoryType, ItemType } from "@/app/_domains/_item/_types/item.types";
@@ -26,6 +26,8 @@ const targets = [
   { value: "note", label: "비고" },
   { value: "status", label: "사용 상태" },
 ];
+const INITIAL_VISIBLE_COUNT = 80;
+const VISIBLE_COUNT_STEP = 80;
 
 const toDraft = (item: ItemType): Draft => ({
   id: item.id,
@@ -44,13 +46,18 @@ export default function ItemBulkEditModal({ items, categories, onClose, onSaved 
   const [drafts, setDrafts] = useState<Draft[]>(() => items.map(toDraft));
   const [target, setTarget] = useState("all");
   const [keyword, setKeyword] = useState("");
+  const deferredKeyword = useDeferredValue(keyword);
+  const [visibleLimit, setVisibleLimit] = useState(INITIAL_VISIBLE_COUNT);
   const [saving, setSaving] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const normalizedKeyword = keyword.trim().toLocaleLowerCase("ko-KR");
+  const normalizedKeyword = deferredKeyword.trim().toLocaleLowerCase("ko-KR");
   const categoryNames = useMemo(() => new Map(categories.map((category) => [String(category.id), category.name])), [categories]);
-  const changed = drafts.filter((draft) => originals.get(draft.id) !== JSON.stringify(draft));
+  const changed = useMemo(
+    () => drafts.filter((draft) => originals.get(draft.id) !== JSON.stringify(draft)),
+    [drafts, originals],
+  );
 
-  const visible = drafts.filter((draft) => {
+  const visible = useMemo(() => drafts.filter((draft) => {
     if (!normalizedKeyword) return true;
     const values: Record<string, string> = {
       itemCode: draft.itemCode,
@@ -64,7 +71,12 @@ export default function ItemBulkEditModal({ items, categories, onClose, onSaved 
     };
     const candidates = target === "all" ? Object.values(values) : [values[target] ?? ""];
     return candidates.some((value) => value.toLocaleLowerCase("ko-KR").includes(normalizedKeyword));
-  });
+  }), [categoryNames, drafts, normalizedKeyword, target]);
+  const displayed = useMemo(() => visible.slice(0, visibleLimit), [visible, visibleLimit]);
+
+  useEffect(() => {
+    setVisibleLimit(INITIAL_VISIBLE_COUNT);
+  }, [target, normalizedKeyword]);
 
   const patchDraft = (id: string, patch: Partial<Draft>) =>
     setDrafts((current) => current.map((draft) => draft.id === id ? { ...draft, ...patch } : draft));
@@ -108,7 +120,7 @@ export default function ItemBulkEditModal({ items, categories, onClose, onSaved 
     <div className="mb-3 flex items-center justify-start gap-3 text-xs text-gray-600 sm:text-sm"><span>검색 <b className="font-semibold text-brand-600">{visible.length}</b></span><span>변경 <b className="font-semibold text-brand-600">{changed.length}</b></span></div>
     <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
       {visible.length === 0 && <div className="rounded-xl border border-gray-200 bg-white py-12 text-center text-sm text-gray-500">검색 결과가 없습니다.</div>}
-      {visible.map((draft) => {
+      {displayed.map((draft) => {
         const isChanged = originals.get(draft.id) !== JSON.stringify(draft);
         const field = (label: string, control: React.ReactNode, className = "") => <label className={`min-w-0 space-y-1 ${className}`}><span className="block text-xs font-medium text-gray-600">{label}</span>{control}</label>;
         return <section key={draft.id} className={`rounded-xl border p-3 transition sm:p-4 ${isChanged ? "border-amber-300 bg-amber-50" : "border-gray-200 bg-white"}`}>
@@ -131,6 +143,7 @@ export default function ItemBulkEditModal({ items, categories, onClose, onSaved 
           </div>
         </section>;
       })}
+      {visible.length > displayed.length && <div className="flex justify-center pb-2"><Button variant="gray" onClick={() => setVisibleLimit((current) => current + VISIBLE_COUNT_STEP)}>{`${displayed.length}/${visible.length}개 더 보기`}</Button></div>}
     </div>
     <div className="flex justify-end gap-2 border-t border-gray-200 pt-3"><Button variant="gray" onClick={onClose}>취소</Button><Button onClick={requestSave} disabled={!changed.length || saving}>{`변경사항 저장 (${changed.length})`}</Button></div>
     {showConfirm && <div className="absolute inset-0 z-50 flex items-center justify-center rounded-xl bg-gray-950/45 p-3 sm:p-6">
