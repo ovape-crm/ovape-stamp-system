@@ -26,7 +26,7 @@ import {
   getInventoryMovements,
   getInventoryMovementCount,
   getInventoryOverview,
-  getCurrentInventoryValuation,
+  getCurrentInventoryCostLayers,
   initializeInventory,
   addInitialInventoryEntries,
   resetInventoryForReinitialization,
@@ -63,9 +63,10 @@ import type {
   PurchaseOrderLine,
 } from "@/app/_domains/_inventory/_types/inventory.types";
 
-type Tab = "stock" | "untracked" | "receive" | "movements" | "initial";
+type Tab = "stock" | "cost" | "untracked" | "receive" | "movements" | "initial";
 const defaultTabOrder: Tab[] = [
   "stock",
+  "cost",
   "untracked",
   "movements",
   "receive",
@@ -73,6 +74,7 @@ const defaultTabOrder: Tab[] = [
 ];
 const tabLabels: Record<Tab, string> = {
   stock: "재고 현황",
+  cost: "재고 원가",
   untracked: "수량 미관리 품목",
   movements: "재고 변동",
   receive: "입고 관리",
@@ -207,6 +209,7 @@ export function InventoryPageContent({
   const [inventorySection] = useState<"stock" | "receive">(initialSection);
   const [tabOrder, setTabOrder] = useState<Tab[]>(defaultTabOrder);
   const [editingTabOrder, setEditingTabOrder] = useState(false);
+  const [hiddenTabs, setHiddenTabs] = useState<Tab[]>([]);
   const [receiveView, setReceiveView] = useState<"receive" | "suppliers">(
     "receive",
   );
@@ -243,6 +246,20 @@ export function InventoryPageContent({
       window.localStorage.removeItem("inventory-tab-order");
     }
   }, []);
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem("inventory-hidden-tabs") ?? "[]") as unknown;
+      if (Array.isArray(saved)) setHiddenTabs(saved.filter((tab): tab is Tab => defaultTabOrder.includes(tab as Tab)));
+    } catch { window.localStorage.removeItem("inventory-hidden-tabs"); }
+  }, []);
+  const toggleTabVisibility = (item: Tab) => {
+    setHiddenTabs((current) => {
+      const next = current.includes(item) ? current.filter((value) => value !== item) : [...current, item];
+      window.localStorage.setItem("inventory-hidden-tabs", JSON.stringify(next));
+      if (item === tab && !current.includes(item)) setTab(tabOrder.find((value) => value !== item && !next.includes(value)) ?? "stock");
+      return next;
+    });
+  };
   useEffect(() => {
     const saved = window.localStorage.getItem("inventory-receive-tab-order");
     if (!saved) return;
@@ -319,14 +336,15 @@ export function InventoryPageContent({
   return (
     <main className="mx-auto max-w-7xl space-y-4 px-4 py-6 sm:px-6 lg:px-8">
       {inventorySection === "stock" && (
+        <>
         <div className="flex items-end justify-between border-b border-gray-200">
           <div
             className="flex min-w-0 overflow-x-auto"
             role="tablist"
             aria-label="재고 관리 메뉴"
           >
-            {tabOrder.map((item, index) =>
-              item === "receive" || (item === "initial" && !isAdmin) ? null : (
+            {tabOrder.filter((item) => editingTabOrder || !hiddenTabs.includes(item)).map((item, index) =>
+              item === "receive" || (item === "initial" && !isAdmin) || (item === "cost" && !isMaster) ? null : (
                 <div key={item} className="flex shrink-0 items-center">
                   {editingTabOrder && (
                     <button
@@ -398,6 +416,13 @@ export function InventoryPageContent({
             </button>
           )}
         </div>
+        {editingTabOrder && (
+          <div className="absolute right-4 top-16 z-30 flex max-w-md flex-wrap gap-2 rounded-xl border border-gray-200 bg-gray-50/95 p-3 text-xs text-gray-700 shadow-lg sm:right-6 lg:right-8">
+            <span className="mr-1 self-center font-semibold">탭 표시</span>
+            {tabOrder.filter((item) => item !== "receive" && (item !== "initial" || isAdmin) && (item !== "cost" || isMaster)).map((item) => <button key={item} type="button" onClick={() => toggleTabVisibility(item)} className={`cursor-pointer rounded-lg border px-2.5 py-1.5 font-semibold ${hiddenTabs.includes(item) ? "border-gray-200 bg-white text-gray-400" : "border-brand-200 bg-brand-50 text-brand-700"}`}>{hiddenTabs.includes(item) ? "숨김" : "표시"} · {tabLabels[item]}</button>)}
+          </div>
+        )}
+        </>
       )}
       {inventorySection === "receive" && (
         <div className="flex items-end justify-between border-b border-gray-200">
@@ -504,7 +529,9 @@ export function InventoryPageContent({
           onSaved={refresh}
         />
       ) : tab === "stock" ? (
-        <StockOverview items={items} isMaster={isMaster} />
+        <StockOverview items={items} />
+      ) : tab === "cost" && isMaster ? (
+        <InventoryCostOverview items={items} />
       ) : tab === "untracked" ? (
         <UntrackedOverview
           items={items.filter((item) => !item.is_tracked && item.is_use)}
@@ -942,12 +969,77 @@ function InitialStockSetup({
   );
 }
 
+function InventoryCostOverview({ items }: { items: InventoryItem[] }) {
+  const [nameSearch, setNameSearch] = useState("");
+  type SortKey = "code" | "name" | "stock" | "remaining" | "cost" | "total" | "date";
+  const [sorts, setSorts] = useState<Array<{ key: SortKey; direction: "asc" | "desc" }>>([{ key: "name", direction: "asc" }]);
+  const layersQuery = useQuery({
+    queryKey: ["inventory", "cost-layers", "current"],
+    queryFn: getCurrentInventoryCostLayers,
+  });
+  const inventoryByItem = useMemo(
+    () => new Map(items.map((item) => [item.item_name, item])),
+    [items],
+  );
+  const layerQuantityByItem = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const layer of layersQuery.data ?? []) totals.set(layer.itemName, (totals.get(layer.itemName) ?? 0) + layer.remainingQuantity);
+    return totals;
+  }, [layersQuery.data]);
+  const rows = (layersQuery.data ?? []).filter((layer) =>
+    layer.itemName.toLocaleLowerCase("ko-KR").includes(nameSearch.trim().toLocaleLowerCase("ko-KR")),
+  );
+  const sortedRows = sorts.length ? [...rows].sort((left, right) => {
+    const leftStock = inventoryByItem.get(left.itemName)?.quantity ?? 0;
+    const rightStock = inventoryByItem.get(right.itemName)?.quantity ?? 0;
+    const values: Record<SortKey, [string | number, string | number]> = {
+      code: [inventoryByItem.get(left.itemName)?.item_code ?? "", inventoryByItem.get(right.itemName)?.item_code ?? ""], name: [left.itemName, right.itemName], stock: [leftStock, rightStock], remaining: [left.remainingQuantity, right.remainingQuantity], cost: [left.unitCost ?? -1, right.unitCost ?? -1], total: [(left.unitCost ?? 0) * left.remainingQuantity, (right.unitCost ?? 0) * right.remainingQuantity], date: [left.eventAt, right.eventAt],
+    };
+    for (const sort of sorts) {
+      const [a, b] = values[sort.key];
+      const result = typeof a === "number" ? a - (b as number) : String(a).localeCompare(String(b), "ko-KR", { numeric: true });
+      if (result) return sort.direction === "asc" ? result : -result;
+    }
+    return 0;
+  }) : rows;
+  const toggleSort = (key: SortKey) => setSorts((current) => {
+    const selected = current.find((sort) => sort.key === key);
+    if (!selected) return [...current, { key, direction: "asc" }];
+    if (selected.direction === "asc") return current.map((sort) => sort.key === key ? { ...sort, direction: "desc" } : sort);
+    return current.filter((sort) => sort.key !== key);
+  });
+  const sortLabel = (label: string, key: SortKey) => {
+    const selected = sorts.find((sort) => sort.key === key);
+    return <button type="button" onClick={() => toggleSort(key)} className="cursor-pointer font-semibold hover:text-brand-700">{label}{selected ? (selected.direction === "asc" ? " ↑" : " ↓") : ""}{selected && sorts.length > 1 ? <sup className="ml-0.5 text-[9px]">{sorts.findIndex((sort) => sort.key === key) + 1}</sup> : null}</button>;
+  };
+  const totalCost = rows.reduce(
+    (total, layer) => total + (layer.unitCost ?? 0) * layer.remainingQuantity,
+    0,
+  );
+  return (
+    <div className="space-y-4">
+      <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+        <h1 className="text-lg font-bold text-gray-900">재고 원가</h1>
+        <p className="mt-1 text-sm text-gray-500">남아 있는 FIFO 원가층입니다. 같은 품목이라도 단가가 다르면 별도 행으로 표시됩니다.</p>
+      </section>
+      <section className="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <label className="w-full sm:max-w-sm"><span className="mb-1 block text-xs font-semibold text-gray-600">품목명 검색</span><input value={nameSearch} onChange={(event) => setNameSearch(event.target.value)} placeholder="품목명을 검색하세요" className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-3 pr-3 text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100" /></label>
+          <p className="text-sm font-bold text-gray-900">표시 원가 합계 {totalCost.toLocaleString("ko-KR")}원</p>
+        </div>
+      </section>
+      <p className="mb-3 flex items-center justify-start gap-3 text-xs text-gray-600 sm:text-sm"><span className="font-semibold text-brand-600">{sortedRows.length}</span>개 원가층</p>
+      <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        {layersQuery.isPending ? <Loading size="sm" text="재고 원가를 불러오는 중..." /> : layersQuery.isError ? <p className="px-4 py-10 text-center text-sm text-rose-700">재고 원가를 불러오지 못했습니다.</p> : <div className="overflow-x-auto"><table className="w-full min-w-[1140px] table-fixed text-sm"><colgroup><col className="w-[10%]" /><col className="w-[16%]" /><col className="w-[9%]" /><col className="w-[11%]" /><col className="w-[8%]" /><col className="w-[10%]" /><col className="w-[11%]" /><col className="w-[11%]" /><col className="w-[7%]" /><col className="w-[7%]" /></colgroup><thead className="bg-gray-50/70 text-left text-xs text-gray-600"><tr><th className="border-r border-gray-200 px-4 py-3">{sortLabel("품목 코드", "code")}</th><th className="border-r border-gray-200 px-4 py-3">{sortLabel("품목명", "name")}</th><th className="border-r border-gray-200 px-4 py-3 text-right">{sortLabel("현재 재고", "stock")}</th><th className="border-r border-gray-200 px-4 py-3 text-right">품목 원가층 합계</th><th className="border-r border-gray-200 px-4 py-3 text-right">재고 차이</th><th className="border-r border-gray-200 px-4 py-3 text-right">{sortLabel("개별 원가층", "remaining")}</th><th className="border-r border-gray-200 px-4 py-3 text-right">{sortLabel("개별 원가", "cost")}</th><th className="border-r border-gray-200 px-4 py-3 text-right">{sortLabel("원가 합계", "total")}</th><th className="border-r border-gray-200 px-4 py-3">원가 상태</th><th className="px-4 py-3">{sortLabel("발생일", "date")}</th></tr></thead><tbody className="divide-y divide-gray-100">{sortedRows.map((layer) => { const item = inventoryByItem.get(layer.itemName); const stock = item?.quantity ?? 0; const layerTotal = layerQuantityByItem.get(layer.itemName) ?? 0; const difference = stock - layerTotal; return <tr key={layer.id}><td className="truncate border-r border-gray-100 px-4 py-3 text-gray-600">{item?.item_code || "-"}</td><td className="truncate border-r border-gray-100 px-4 py-3 font-semibold text-gray-900" title={layer.itemName}>{layer.itemName}</td><td className="border-r border-gray-100 px-4 py-3 text-right">{stock.toLocaleString("ko-KR")}</td><td className="border-r border-gray-100 px-4 py-3 text-right">{layerTotal.toLocaleString("ko-KR")}</td><td className={`border-r border-gray-100 px-4 py-3 text-right font-semibold ${difference === 0 ? "text-gray-700" : "text-rose-700"}`}>{difference === 0 ? "-" : difference.toLocaleString("ko-KR")}</td><td className="border-r border-gray-100 px-4 py-3 text-right">{layer.remainingQuantity.toLocaleString("ko-KR")}개</td><td className="border-r border-gray-100 px-4 py-3 text-right">{layer.unitCost == null ? "미입력" : `${layer.unitCost.toLocaleString("ko-KR")}원`}</td><td className="border-r border-gray-100 px-4 py-3 text-right font-semibold">{layer.unitCost == null ? "-" : `${(layer.unitCost * layer.remainingQuantity).toLocaleString("ko-KR")}원`}</td><td className="border-r border-gray-100 px-4 py-3">{layer.costStatus === "pending" ? <span className="text-amber-700">미확정</span> : "확정"}</td><td className="px-4 py-3">{layer.eventAt ? layer.eventAt.slice(0, 10) : "-"}</td></tr>})}{!sortedRows.length && <tr><td colSpan={10} className="px-4 py-10 text-center text-sm text-gray-400">남아 있는 원가층이 없습니다.</td></tr>}</tbody></table></div>}
+      </section>
+    </div>
+  );
+}
+
 function StockOverview({
   items,
-  isMaster,
 }: {
   items: InventoryItem[];
-  isMaster: boolean;
 }) {
   const [nameSearch, setNameSearch] = useState("");
   const [codeSearch, setCodeSearch] = useState("");
@@ -960,26 +1052,7 @@ function StockOverview({
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [visibleCount, setVisibleCount] = useState(10);
-  const valuationQuery = useQuery({
-    queryKey: inventoryKeys.valuation,
-    queryFn: getCurrentInventoryValuation,
-    enabled: isMaster,
-  });
   const trackedItems = useMemo(() => items.filter((item) => item.is_tracked), [items]);
-  const inventoryByItem = useMemo(
-    () => new Map(items.map((item) => [item.item_name, item])),
-    [items],
-  );
-  const valuationSummary = useMemo(() => {
-    const valuationItems = (valuationQuery.data?.items ?? []).filter(
-      (item) => inventoryByItem.get(item.itemName)?.is_tracked !== false,
-    );
-    return {
-      totalCost: valuationItems.reduce((total, item) => total + item.totalCost, 0),
-      layerQuantity: valuationItems.reduce((total, item) => total + item.layerQuantity, 0),
-      pendingQuantity: valuationItems.reduce((total, item) => total + item.pendingQuantity, 0),
-    };
-  }, [inventoryByItem, valuationQuery.data?.items]);
   type SortKey =
     "category" | "code" | "name" | "usage" | "quantity" | "updated";
   const [sort, setSort] = useState<{
@@ -1081,23 +1154,6 @@ function StockOverview({
   ] as const;
   return (
     <div className="space-y-4">
-      {isMaster && (
-        <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-            <div><h2 className="text-base font-bold text-gray-900">현재 재고 원가</h2><p className="mt-1 text-sm text-gray-500">남은 FIFO 원가층을 기준으로 계산한 현재 보유 재고 금액입니다.</p></div>
-            <span className="text-xs text-gray-500">마스터 전용</span>
-          </div>
-          {valuationQuery.isPending ? <div className="mt-4"><Loading size="sm" /></div> : valuationQuery.isError ? <p className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">재고 원가를 불러오지 못했습니다.</p> : (
-            <>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-xl border border-brand-200 bg-brand-50 p-3"><p className="text-xs font-semibold text-brand-700">재고 원가 총액</p><p className="mt-1 text-xl font-bold text-brand-800">{valuationSummary.totalCost.toLocaleString("ko-KR")}원</p><p className="mt-1 text-xs text-brand-700">원가 확정 {(valuationSummary.layerQuantity - valuationSummary.pendingQuantity).toLocaleString("ko-KR")}개</p></div>
-                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3"><p className="text-xs font-semibold text-amber-700">원가 미확정 재고</p><p className="mt-1 text-xl font-bold text-amber-800">{valuationSummary.pendingQuantity.toLocaleString("ko-KR")}개</p><p className="mt-1 text-xs text-amber-700">총액에는 포함하지 않음</p></div>
-              </div>
-              <details className="mt-4 rounded-xl border border-gray-200 bg-gray-50/70"><summary className="cursor-pointer px-3 py-3 text-sm font-semibold text-gray-800">품목별 재고 원가 보기</summary><div className="overflow-x-auto border-t border-gray-200"><table className="w-full min-w-[650px] text-sm"><thead className="bg-white text-left text-xs text-gray-600"><tr><th className="px-3 py-2">품목명</th><th className="px-3 py-2 text-right">실재고</th><th className="px-3 py-2 text-right">원가층 잔량</th><th className="px-3 py-2 text-right">미확정</th><th className="px-3 py-2 text-right">원가 합계</th></tr></thead><tbody className="divide-y divide-gray-200">{(valuationQuery.data?.items ?? []).filter((item) => inventoryByItem.get(item.itemName)?.is_tracked !== false).map((item) => <tr key={item.itemName}><td className="px-3 py-2 font-medium text-gray-900">{item.itemName}</td><td className="px-3 py-2 text-right">{(inventoryByItem.get(item.itemName)?.quantity ?? 0).toLocaleString("ko-KR")}</td><td className="px-3 py-2 text-right">{item.layerQuantity.toLocaleString("ko-KR")}</td><td className="px-3 py-2 text-right text-amber-700">{item.pendingQuantity ? `${item.pendingQuantity.toLocaleString("ko-KR")}개` : "-"}</td><td className="px-3 py-2 text-right font-semibold">{item.totalCost.toLocaleString("ko-KR")}원</td></tr>)}</tbody></table></div></details>
-            </>
-          )}
-        </section>
-      )}
       <section className="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
         <div className="space-y-3">
           <div className="flex flex-col gap-2 lg:flex-row lg:items-stretch lg:gap-3">

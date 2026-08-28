@@ -349,6 +349,9 @@ export default function AttendanceRecordModal({
     if (!editingJournal && isHandoverWorker) return;
     setStartType(nextType);
     setStartTime(nextType === "handover" ? "17:00" : "11:00");
+    // 첫 교대 근무자는 다음 근무자 인수인계 시각을 기준으로 17시 퇴근을 제안한다.
+    // 사용자가 필요하면 퇴근시간 입력란에서 바로 수정할 수 있다.
+    if (nextType === "first") setExpectedEndTime("17:00");
   };
 
   useEffect(() => {

@@ -26,6 +26,7 @@ export default function SettlementPage() {
     settlementTabs.map(([tab]) => tab),
   );
   const [editingTabOrder, setEditingTabOrder] = useState(false);
+  const [hiddenTabs, setHiddenTabs] = useState<SettlementTab[]>([]);
 
   useEffect(() => {
     const defaultOrder = settlementTabs.map(([tab]) => tab);
@@ -46,6 +47,20 @@ export default function SettlementPage() {
       window.localStorage.removeItem("settlement-tab-order");
     }
   }, []);
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem("settlement-hidden-tabs") ?? "[]") as unknown;
+      if (Array.isArray(saved)) setHiddenTabs(saved.filter((tab): tab is SettlementTab => settlementTabs.some(([value]) => value === tab)));
+    } catch { window.localStorage.removeItem("settlement-hidden-tabs"); }
+  }, []);
+  const toggleTabVisibility = (tab: SettlementTab) => {
+    setHiddenTabs((current) => {
+      const next = current.includes(tab) ? current.filter((value) => value !== tab) : [...current, tab];
+      window.localStorage.setItem("settlement-hidden-tabs", JSON.stringify(next));
+      if (tab === activeTab && !current.includes(tab)) setActiveTab(tabOrder.find((value) => value !== tab && !next.includes(value)) ?? "report");
+      return next;
+    });
+  };
   const moveTab = (index: number, direction: -1 | 1) => {
     const target = index + direction;
     if (target < 0 || target >= tabOrder.length) return;
@@ -86,7 +101,7 @@ export default function SettlementPage() {
         aria-label="정산 메뉴"
       >
         <div className="flex min-w-0 overflow-x-auto">
-          {tabOrder.map((tab, index) => {
+          {tabOrder.filter((tab) => editingTabOrder || !hiddenTabs.includes(tab)).map((tab, index) => {
             const label =
               settlementTabs.find(([value]) => value === tab)?.[1] ?? tab;
             return (
@@ -149,6 +164,12 @@ export default function SettlementPage() {
           </svg>
         </button>
       </div>
+      {editingTabOrder && (
+        <div className="flex flex-wrap gap-2 rounded-xl border border-gray-200 bg-gray-50/70 p-3 text-xs text-gray-700">
+          <span className="mr-1 self-center font-semibold">탭 표시</span>
+          {tabOrder.map((tab) => <button key={tab} type="button" onClick={() => toggleTabVisibility(tab)} className={`cursor-pointer rounded-lg border px-2.5 py-1.5 font-semibold ${hiddenTabs.includes(tab) ? "border-gray-200 bg-white text-gray-400" : "border-brand-200 bg-brand-50 text-brand-700"}`}>{hiddenTabs.includes(tab) ? "숨김" : "표시"} · {settlementTabs.find(([value]) => value === tab)?.[1]}</button>)}
+        </div>
+      )}
       {activeTab === "report" ? (
         <SettlementReport />
       ) : activeTab === "expenses" ? (
