@@ -1,4 +1,7 @@
-import { CustomerType } from "@/app/_domains/_customer/_types/customer.types";
+import {
+  CustomerType,
+  type GenderType,
+} from "@/app/_domains/_customer/_types/customer.types";
 import supabase from "@/libs/supabaseClient";
 import { createLog } from "@/app/_domains/_log/_services/logService";
 import { LogCategoryEnum, PaymentTypeEnum } from "@/app/_enums/enums";
@@ -96,7 +99,7 @@ export const getCustomerQuickLinks = async (): Promise<CustomerQuickLink[]> => {
   const { data, error } = await supabase
     .from("customers")
     .select("id, name, phone, gender, created_at")
-    .or("and(name.eq.X,phone.eq.X),name.eq.시연용,name.eq.재고조정")
+    .or("phone.eq.X,name.eq.시연용,name.eq.재고조정")
     .order("created_at", { ascending: true });
 
   if (error) throw error;
@@ -338,7 +341,7 @@ export const updateCustomer = async (
   updates: {
     name?: string;
     phone?: string;
-    gender?: "male" | "female";
+    gender?: GenderType;
     is_stamp_eligible?: boolean;
     address?: string;
     note?: string;
@@ -385,7 +388,7 @@ export const updateCustomerWithAdultVerification = async (
   updates: {
     name?: string;
     phone?: string;
-    gender?: "male" | "female";
+    gender?: GenderType;
     is_stamp_eligible?: boolean;
     address?: string;
     note?: string;

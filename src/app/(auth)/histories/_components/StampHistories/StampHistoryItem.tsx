@@ -49,9 +49,11 @@ const StampHistoryItem = ({
     : "normal";
   const specialCustomerLabel =
     customerMode === "x"
-      ? log.customers?.gender === "female"
-        ? "X 여자"
-        : "X 남자"
+      ? log.customers?.gender === "special"
+        ? "X 통합"
+        : log.customers?.gender === "female"
+          ? "X 여자"
+          : "X 남자"
       : customerMode === "adjustment"
         ? "재고조정"
         : customerMode === "demo"
@@ -169,6 +171,12 @@ const StampHistoryItem = ({
                   핸드폰 뒷번호: {log.jsonb.xPhoneLastDigits.trim()}
                 </p>
               )}
+            {(log.jsonb?.xCustomerGender === "male" ||
+              log.jsonb?.xCustomerGender === "female") && (
+              <p className="mt-1 italic text-gray-400">
+                성별: {log.jsonb.xCustomerGender === "female" ? "여자" : "남자"}
+              </p>
+            )}
             {(log.jsonb?.deliveryMethod === "parcel" ||
               log.jsonb?.deliveryMethod === "delivery") &&
               typeof log.jsonb?.deliveryAddress === "string" &&

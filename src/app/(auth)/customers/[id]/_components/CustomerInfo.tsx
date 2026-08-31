@@ -1,11 +1,12 @@
 import Button from '@/app/_components/Button';
 import { formatPhoneNumber } from '@/app/_utils/utils';
+import type { GenderType } from '@/app/_domains/_customer/_types/customer.types';
 
 interface CustomerInfoProps {
   customer: {
     name: string;
     phone: string;
-    gender?: 'male' | 'female';
+    gender?: GenderType;
     address?: string | null;
     note?: string | null;
     created_at: string;
@@ -52,10 +53,8 @@ const CustomerInfo = ({ customer, onEdit }: CustomerInfoProps) => {
             성별
           </label>
           <p className="text-lg font-semibold text-gray-900">
-            {customer.name.trim() === '시연용'
-              ? '시연용'
-              : customer.name.trim() === '재고조정'
-                ? '재고조정'
+            {customer.gender === 'special'
+                  ? '특수계정'
                 : customer.gender === 'male'
                   ? '남자'
                   : customer.gender === 'female'

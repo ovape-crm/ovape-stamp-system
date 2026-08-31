@@ -7,11 +7,12 @@ import Button from "@/app/_components/Button";
 import { formatPhoneNumber } from "@/app/_utils/utils";
 import { Dropdown } from "@/app/_components/Dropdown";
 import supabase from "@/libs/supabaseClient";
+import type { GenderType } from "@/app/_domains/_customer/_types/customer.types";
 
 type FormValues = {
   name: string;
   phone: string;
-  gender: "male" | "female";
+  gender: GenderType;
   is_stamp_eligible: boolean;
   adult_verification_method: "" | "physical_id" | "bbaton";
   adult_verification_request_id?: string;
@@ -34,7 +35,7 @@ const schema = z
         message: "10-11자리 숫자만 입력하세요. (정보 없을 경우 X 입력)",
       })
       .transform((v) => (v.toUpperCase() === "X" ? "X" : v)),
-    gender: z.enum(["male", "female"]),
+    gender: z.enum(["male", "female", "special"]),
     is_stamp_eligible: z.boolean(),
     adult_verification_method: z.enum(["", "physical_id", "bbaton"]),
     adult_verification_request_id: z.string().optional(),
@@ -117,7 +118,7 @@ export default function CustomerEditModal({
   customer: {
     name: string;
     phone: string;
-    gender?: "male" | "female";
+    gender?: GenderType;
     is_stamp_eligible?: boolean;
     adult_verified?: boolean;
     adult_verification_method?: "bbaton" | "physical_id" | "manual" | null;
@@ -322,7 +323,11 @@ export default function CustomerEditModal({
             <div>
               <span className="text-sm font-medium text-gray-600">성별:</span>
               <p className="text-base font-semibold text-gray-900">
-                {formData.gender === "male" ? "남자" : "여자"}
+                {formData.gender === "special"
+                  ? "특수계정"
+                  : formData.gender === "male"
+                    ? "남자"
+                    : "여자"}
               </p>
             </div>
             <div>
@@ -450,6 +455,14 @@ export default function CustomerEditModal({
             <span className="block text-sm font-medium mb-1">
               성별 <span className="text-rose-600">*</span>
             </span>
+            {customer.gender === "special" ? (
+              <>
+                <input type="hidden" {...register("gender")} />
+                <p className="rounded-lg border border-gray-200 bg-gray-50 px-2 py-2 text-center text-sm font-medium text-gray-700">
+                  특수계정
+                </p>
+              </>
+            ) : (
             <div className="grid grid-cols-2 gap-2">
               <label className="cursor-pointer text-center text-sm">
                 <input
@@ -474,6 +487,7 @@ export default function CustomerEditModal({
                 </span>
               </label>
             </div>
+            )}
             {errors.gender && (
               <p className="mt-1 text-xs text-rose-600">
                 {errors.gender.message}

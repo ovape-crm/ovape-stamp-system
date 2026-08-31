@@ -8,6 +8,8 @@ import { LogBaseType } from "../_types/log.types";
 import { formatPhoneNumber } from "@/app/_utils/utils";
 import toast from "react-hot-toast";
 import { formatHistoryNote } from "../_utils/formatHistoryNote";
+import { isXCustomer } from "@/app/_domains/_customer/_utils/specialCustomer";
+import type { GenderType } from "@/app/_domains/_customer/_types/customer.types";
 
 const paymentTypeNameByValue = Object.values(PaymentTypeEnum).reduce(
   (acc, type) => {
@@ -84,7 +86,7 @@ const useCopy = () => {
     targetUser: {
       name: string;
       phone: string;
-      gender?: "male" | "female" | null;
+      gender?: GenderType | null;
     },
     paymentTypeLabelOverride?: string,
   ) => {
@@ -135,8 +137,7 @@ const useCopy = () => {
 
     const amountFormula = buildAmountFormula(log.jsonb);
 
-    const isXCustomer =
-      targetUser.name.trim() === "X" && targetUser.phone.trim() === "X";
+    const isXCustomerAccount = isXCustomer(targetUser.name, targetUser.phone);
     const savedXCustomerName =
       typeof log.jsonb?.xCustomerName === "string"
         ? log.jsonb.xCustomerName.trim()
@@ -145,10 +146,15 @@ const useCopy = () => {
       typeof log.jsonb?.xPhoneLastDigits === "string"
         ? log.jsonb.xPhoneLastDigits.trim()
         : "";
+    const savedXCustomerGender =
+      log.jsonb?.xCustomerGender === "male" ||
+      log.jsonb?.xCustomerGender === "female"
+        ? log.jsonb.xCustomerGender
+        : null;
     const name =
-      (isXCustomer && savedXCustomerName) || targetUser.name || "이름 없음";
+      (isXCustomerAccount && savedXCustomerName) || targetUser.name || "이름 없음";
     const phone =
-      isXCustomer && savedXPhoneLastDigits
+      isXCustomerAccount && savedXPhoneLastDigits
         ? savedXPhoneLastDigits
         : formatPhoneNumber(targetUser.phone);
     const specialCustomerName =
@@ -159,7 +165,11 @@ const useCopy = () => {
           : "";
     const genderText =
       specialCustomerName ||
-      (targetUser.gender === "male"
+      (savedXCustomerGender === "male"
+        ? "남자"
+        : savedXCustomerGender === "female"
+          ? "여자"
+          : targetUser.gender === "male"
         ? "남자"
         : targetUser.gender === "female"
           ? "여자"
@@ -245,7 +255,7 @@ const useCopy = () => {
     targetUser: {
       name: string;
       phone: string;
-      gender?: "male" | "female" | null;
+      gender?: GenderType | null;
     },
     paymentTypeLabelOverride?: string,
   ) => {
@@ -266,7 +276,7 @@ const useCopy = () => {
         customers?: {
           name?: string | null;
           phone?: string | null;
-          gender?: "male" | "female" | null;
+          gender?: GenderType | null;
         } | null;
       }
     >,

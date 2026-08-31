@@ -37,10 +37,39 @@ const escapeSelector = (value: string) => CSS.escape(value);
 const normalizeElementText = (value: string) =>
   value.trim().replace(/\s+/g, " ").slice(0, 120);
 
+const isVisibleElement = (element: HTMLElement) => {
+  const style = window.getComputedStyle(element);
+  return (
+    style.display !== "none" &&
+    style.visibility !== "hidden" &&
+    element.getClientRects().length > 0
+  );
+};
+
 const resolveTargetElement = (selector: string) => {
+  if (selector.startsWith("manual-visible-text:")) {
+    const [, tagName, encodedText] = selector.split(":", 3);
+    let expectedText: string;
+    try {
+      expectedText = decodeURIComponent(encodedText ?? "");
+    } catch {
+      return null;
+    }
+    const matches = Array.from(document.querySelectorAll<HTMLElement>(tagName)).filter(
+      (element) =>
+        isVisibleElement(element) &&
+        normalizeElementText(element.innerText) === expectedText,
+    );
+    return matches.length === 1 ? matches[0] : null;
+  }
   if (selector.startsWith("manual-text:")) {
     const [, tagName, encodedText] = selector.split(":", 3);
-    const expectedText = decodeURIComponent(encodedText ?? "");
+    let expectedText: string;
+    try {
+      expectedText = decodeURIComponent(encodedText ?? "");
+    } catch {
+      return null;
+    }
     const matches = Array.from(document.querySelectorAll<HTMLElement>(tagName)).filter(
       (element) => normalizeElementText(element.innerText) === expectedText,
     );
@@ -73,6 +102,10 @@ const getElementSelector = (element: HTMLElement) => {
     ).filter((candidate) => normalizeElementText(candidate.innerText) === text);
     if (matchingTextElements.length === 1) {
       return `manual-text:${tagName}:${encodeURIComponent(text)}`;
+    }
+    const visibleMatches = matchingTextElements.filter(isVisibleElement);
+    if (visibleMatches.length === 1) {
+      return `manual-visible-text:${tagName}:${encodeURIComponent(text)}`;
     }
   }
 
@@ -240,8 +273,26 @@ const ManualPlacementManager = () => {
     };
 
     syncMounts(true);
-    const observer = new MutationObserver(scheduleSync);
-    observer.observe(document.body, { childList: true, subtree: true });
+    const isManualPlacementNode = (node: Node) =>
+      node instanceof HTMLElement && Boolean(node.closest("[data-manual-placement-ui]"));
+    const observer = new MutationObserver((records) => {
+      const hasApplicationChange = records.some((record) => {
+        if (record.type === "attributes") return !isManualPlacementNode(record.target);
+        return [...record.addedNodes, ...record.removedNodes].some(
+          (node) => !isManualPlacementNode(node),
+        );
+      });
+      if (hasApplicationChange) scheduleSync();
+    });
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      // 출고 모달은 단계별 필드를 언마운트하지 않고 hidden 클래스로
+      // 전환한다. 다음/이전 시 클래스 변화도 감지해야 기존 배치 버튼을
+      // 새로 보이는 요소의 좌표로 다시 계산할 수 있다.
+      attributes: true,
+      attributeFilter: ["class", "style", "hidden", "aria-hidden"],
+    });
     window.addEventListener("resize", schedulePosition);
     window.addEventListener("scroll", schedulePosition, true);
     return () => {

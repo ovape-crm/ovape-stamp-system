@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Loading from "@/app/_components/Loading";
 import {
@@ -66,6 +66,9 @@ export default function SettlementReport() {
   const [startDate, setStartDate] = useState(`${today.slice(0, 7)}-01`);
   const [endDate, setEndDate] = useState(today);
   const [settlementDate, setSettlementDate] = useState(today);
+  const [selectedExpenseCategory, setSelectedExpenseCategory] = useState<
+    string | null
+  >(null);
   const monthLastDay = new Date(
     Number(settlementMonth.slice(0, 4)),
     Number(settlementMonth.slice(5, 7)),
@@ -122,11 +125,41 @@ export default function SettlementReport() {
       return left.localeCompare(right, "ko-KR");
     },
   );
-  const expenseOccurrences = expensesQuery.data ?? [];
+  const expenseOccurrences = useMemo(
+    () => expensesQuery.data ?? [],
+    [expensesQuery.data],
+  );
+  const expenseCategorySummaries = useMemo(() => {
+    const byCategory = new Map<
+      string,
+      { category: string; amount: number; occurrences: typeof expenseOccurrences }
+    >();
+    for (const occurrence of expenseOccurrences) {
+      const current = byCategory.get(occurrence.category) ?? {
+        category: occurrence.category,
+        amount: 0,
+        occurrences: [],
+      };
+      current.amount += occurrence.amount;
+      current.occurrences.push(occurrence);
+      byCategory.set(occurrence.category, current);
+    }
+    return [...byCategory.values()].sort(
+      (left, right) => right.amount - left.amount || left.category.localeCompare(right.category, "ko"),
+    );
+  }, [expenseOccurrences]);
+  const selectedExpenseSummary =
+    expenseCategorySummaries.find(
+      (summary) => summary.category === selectedExpenseCategory,
+    ) ?? null;
   const totalExpenses = expenseOccurrences.reduce(
     (total, expense) => total + expense.amount,
     0,
   );
+  const profit =
+    summaryQuery.data?.soldItemCost == null
+      ? null
+      : totalSales - summaryQuery.data.soldItemCost - totalExpenses;
 
   return (
     <div className="space-y-4">
@@ -208,7 +241,7 @@ export default function SettlementReport() {
         <Loading size="sm" text="정산 금액을 불러오는 중..." />
       )}
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         {[
           {
             label: "전체 매출",
@@ -235,6 +268,14 @@ export default function SettlementReport() {
             value: totalExpenses,
             description: "직접 등록한 운영 비용",
           },
+          {
+            label: "이익",
+            value: profit,
+            description:
+              profit == null
+                ? "판매품목 매출원가를 확인하면 계산됩니다."
+                : "매출에 원가, 기타비용 감소된 금액",
+          },
         ].map((item) => (
           <div
             key={item.label}
@@ -249,7 +290,7 @@ export default function SettlementReport() {
         ))}
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-3">
+      <section className="grid gap-4 xl:grid-cols-4">
         <SalesCard
           title="오베이프 매출"
           payments={summaryQuery.data?.sales.ovape}
@@ -274,78 +315,87 @@ export default function SettlementReport() {
             <AmountRow label="합계" value={totalPurchases} strong />
           </div>
         </div>
+        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="flex items-center justify-between gap-3 border-b border-gray-200 bg-gray-50/70 px-4 py-3">
+            <h2 className="text-sm font-bold text-gray-900">기타비용</h2>
+            <span className="text-xs font-semibold text-gray-500">
+              {expenseCategorySummaries.length.toLocaleString("ko-KR")}개 항목
+            </span>
+          </div>
+          <div className="divide-y divide-gray-100 px-4">
+            {expenseCategorySummaries.map((summary) => (
+              <div key={summary.category} className="flex items-center justify-between gap-2 py-3 text-sm">
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-gray-900">{summary.category}</p>
+                  <p className="mt-0.5 text-xs text-gray-500">{summary.occurrences.length.toLocaleString("ko-KR")}건</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <span className="font-semibold text-gray-900">{formatWon(summary.amount)}</span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSelectedExpenseCategory((current) =>
+                        current === summary.category ? null : summary.category,
+                      )
+                    }
+                    className="cursor-pointer rounded-md border border-gray-300 bg-white px-2 py-1 text-[11px] font-semibold text-gray-700 shadow-sm transition hover:border-brand-300 hover:text-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                  >
+                    {selectedExpenseCategory === summary.category
+                      ? "닫기"
+                      : "상세보기"}
+                  </button>
+                </div>
+              </div>
+            ))}
+            {!expenseCategorySummaries.length && (
+              <p className="py-8 text-center text-sm text-gray-400">기타비용 내역이 없습니다.</p>
+            )}
+            <AmountRow label="합계" value={totalExpenses} strong />
+          </div>
+        </div>
       </section>
 
-      <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div className="flex items-center justify-between gap-3 border-b border-gray-200 bg-gray-50/70 px-4 py-3">
-          <h2 className="text-sm font-bold text-gray-900">기타비용 상세내역</h2>
-          <span className="text-xs font-semibold text-gray-500">
-            {expenseOccurrences.length.toLocaleString("ko-KR")}건
-          </span>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-[720px] w-full text-sm">
-            <thead className="border-b border-gray-200 bg-white text-left text-xs font-semibold text-gray-500">
-              <tr>
-                <th className="px-4 py-2.5">반영일</th>
-                <th className="px-4 py-2.5">항목</th>
-                <th className="px-4 py-2.5">매장</th>
-                <th className="px-4 py-2.5">메모</th>
-                <th className="px-4 py-2.5 text-right">금액</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {expenseOccurrences.map((expense) => (
-                <tr
-                  key={`${expense.id}-${expense.occurrence_date}`}
-                  className="text-gray-700"
-                >
-                  <td className="whitespace-nowrap px-4 py-3">
-                    {expense.occurrence_date}
-                  </td>
-                  <td className="px-4 py-3 font-semibold text-gray-900">
-                    {expense.category}
-                    {expense.is_recurring && (
-                      <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500">
-                        반복
-                      </span>
-                    )}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3">
-                    {storeLabels[expense.store]}
-                  </td>
-                  <td className="max-w-[320px] px-4 py-3 text-gray-500">
-                    {expense.note || "—"}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-right font-semibold text-gray-900">
-                    {formatWon(expense.amount)}
-                  </td>
-                </tr>
-              ))}
-              {!expenseOccurrences.length && (
+      {selectedExpenseSummary && (
+        <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="flex items-center justify-between gap-3 border-b border-gray-200 bg-gray-50/70 px-4 py-3">
+            <div>
+              <h2 className="text-sm font-bold text-gray-900">{selectedExpenseSummary.category} 상세내역</h2>
+              <p className="mt-0.5 text-xs text-gray-500">
+                {selectedExpenseSummary.occurrences.length.toLocaleString("ko-KR")}건 · {formatWon(selectedExpenseSummary.amount)}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedExpenseCategory(null)}
+              className="cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-500 transition hover:bg-gray-100 hover:text-gray-800"
+            >
+              닫기
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-[720px] w-full text-sm">
+              <thead className="border-b border-gray-200 bg-white text-left text-xs font-semibold text-gray-500">
                 <tr>
-                  <td
-                    colSpan={5}
-                    className="px-4 py-10 text-center text-sm text-gray-400"
-                  >
-                    선택한 기간의 기타비용 내역이 없습니다.
-                  </td>
+                  <th className="px-5 py-3">반영일</th>
+                  <th className="px-5 py-3">매장</th>
+                  <th className="px-5 py-3">메모</th>
+                  <th className="px-5 py-3 text-right">금액</th>
                 </tr>
-              )}
-            </tbody>
-            <tfoot className="border-t border-gray-200 bg-gray-50/70">
-              <tr className="font-bold text-gray-900">
-                <td colSpan={4} className="px-4 py-3">
-                  합계
-                </td>
-                <td className="whitespace-nowrap px-4 py-3 text-right">
-                  {formatWon(totalExpenses)}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </section>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {selectedExpenseSummary.occurrences.map((expense) => (
+                  <tr key={`${expense.id}-${expense.occurrence_date}`} className="text-gray-700">
+                    <td className="whitespace-nowrap px-5 py-3">{expense.occurrence_date}</td>
+                    <td className="whitespace-nowrap px-5 py-3">{storeLabels[expense.store]}</td>
+                    <td className="px-5 py-3 text-gray-500">{expense.note || "—"}</td>
+                    <td className="whitespace-nowrap px-5 py-3 text-right font-semibold text-gray-900">{formatWon(expense.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       <section className="rounded-xl border border-dashed border-gray-300 bg-gray-50/70 px-4 py-5">
         <p className="text-sm font-semibold text-gray-800">

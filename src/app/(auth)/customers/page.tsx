@@ -24,8 +24,7 @@ import { useRouter } from "next/navigation";
 import { useUser } from "@/app/_contexts/UserContext";
 
 const quickLinkDefinitions = [
-  { key: "x-male", label: "X 남자" },
-  { key: "x-female", label: "X 여자" },
+  { key: "x-unified", label: "X 고객" },
   { key: "demo", label: "시연용" },
   { key: "adjustment", label: "재고조정" },
 ] as const;
@@ -73,19 +72,8 @@ export default function CustomersPage() {
 
   const findQuickLink = (key: (typeof quickLinkDefinitions)[number]["key"]) =>
     quickLinks.find((customer) => {
-      if (key === "x-male") {
-        return (
-          customer.name === "X" &&
-          customer.phone === "X" &&
-          customer.gender === "male"
-        );
-      }
-      if (key === "x-female") {
-        return (
-          customer.name === "X" &&
-          customer.phone === "X" &&
-          customer.gender === "female"
-        );
+      if (key === "x-unified") {
+        return customer.name === "X" && customer.phone === "X" && customer.gender === "special";
       }
       return customer.name === (key === "demo" ? "시연용" : "재고조정");
     });

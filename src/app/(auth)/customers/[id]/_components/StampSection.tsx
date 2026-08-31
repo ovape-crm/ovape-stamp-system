@@ -22,7 +22,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { logKeys } from "@/app/_domains/_log/_queryKeys/logKeys";
 import StampConfirmModal from "../../_components/StampConfirmModal";
 import Button from "@/app/_components/Button";
-import { getCustomerMode } from "@/app/_domains/_customer/_utils/specialCustomer";
+import {
+  getCustomerMode,
+  isUnifiedXCustomer,
+} from "@/app/_domains/_customer/_utils/specialCustomer";
+import type { GenderType } from "@/app/_domains/_customer/_types/customer.types";
 
 interface StampSectionProps {
   stampCount: number;
@@ -31,7 +35,7 @@ interface StampSectionProps {
     name: string;
     phone: string;
     address?: string | null;
-    gender?: "male" | "female" | null;
+    gender?: GenderType | null;
     is_stamp_eligible?: boolean;
     note?: string | null;
   };
@@ -128,11 +132,18 @@ const StampSection = ({
     !(target.name.trim() === "X" && target.phone.trim() === "X");
   const shouldHideStampStatus =
     isSpecialCustomer || isRegularNonAccrualCustomer;
+  const isUnifiedXAccount = isUnifiedXCustomer(
+    target.name,
+    target.phone,
+    target.gender,
+  );
   const specialAccountLabel =
     customerMode === "demo"
       ? "시연용 처리"
       : customerMode === "adjustment"
         ? "재고조정"
+        : isUnifiedXAccount
+          ? "미적립 통합 성별 고객"
         : `미적립 ${target.gender === "female" ? "여자" : "남자"} 고객`;
 
   const openOutboundForm = () =>
