@@ -3,6 +3,7 @@ import {
   WorkJournalType,
   WorkPaymentStatus,
   WorkerDetailType,
+  PayrollPaymentHistoryType,
 } from "../_types/workJournal.types";
 
 const getNextMonth = (month: string) => {
@@ -534,6 +535,7 @@ export const processWorkJournalPayroll = async (values: {
   hourlyRate: number;
   mealAllowance: number;
   paidOn: string;
+  amountOverride?: number;
 }) => {
   const { data, error } = await supabase.rpc("process_work_journal_payroll", {
     p_journal_ids: values.journalIds,
@@ -541,6 +543,7 @@ export const processWorkJournalPayroll = async (values: {
     p_hourly_rate: values.hourlyRate,
     p_meal_allowance: values.mealAllowance,
     p_paid_on: values.paidOn,
+    p_amount_override: values.amountOverride ?? null,
   });
   if (error) throw error;
   return (data ?? [])[0] as { batch_id: string; amount: number; memo: string };
@@ -552,4 +555,86 @@ export const cancelWorkJournalPayroll = async (batchIds: string[]) => {
   });
   if (error) throw error;
   return data as number;
+};
+
+export const getPayrollPaymentHistory = async (): Promise<
+  PayrollPaymentHistoryType[]
+> => {
+  const [automaticResult, manualResult] = await Promise.all([
+    supabase
+      .from("work_journal_payroll_batches")
+      .select(
+        "id, worker_name, payroll_month, payment_kind, hourly_rate, meal_allowance, amount, paid_on, work_hours, work_count, created_at",
+      )
+      .gte("paid_on", "2026-08-01"),
+    supabase
+      .from("work_journal_manual_payments")
+      .select(
+        "id, worker_name, payroll_month, payment_kind, wage_amount, meal_amount, amount, paid_on, note, created_at",
+      ),
+  ]);
+  if (automaticResult.error) throw automaticResult.error;
+  if (manualResult.error) throw manualResult.error;
+
+  return [
+    ...(automaticResult.data ?? []).map((payment) => {
+      const wageAmount = Math.floor(Number(payment.work_hours) * payment.hourly_rate * 0.991);
+      const mealAmount = payment.work_count * payment.meal_allowance;
+      const calculatedAmount = wageAmount + mealAmount;
+      const amount = Number(payment.amount);
+      return {
+      ...payment,
+      source: "automatic" as const,
+      note: null,
+      wage_amount: wageAmount,
+      meal_amount: mealAmount,
+      calculated_amount: calculatedAmount,
+      adjustment_amount: amount - calculatedAmount,
+      work_hours: Number(payment.work_hours),
+      work_count: payment.work_count,
+    }}),
+    ...(manualResult.data ?? []).map((payment) => ({
+      ...payment,
+      source: "manual" as const,
+      work_hours: null,
+      work_count: null,
+      calculated_amount: Number(payment.amount),
+      adjustment_amount: 0,
+    })),
+  ].sort(
+    (left, right) =>
+      right.paid_on.localeCompare(left.paid_on) ||
+      right.created_at.localeCompare(left.created_at),
+  ) as PayrollPaymentHistoryType[];
+};
+
+export const createManualPayrollPaymentHistory = async (values: {
+  workerName: string;
+  payrollMonth: string;
+  paymentKind: "advance" | "salary";
+  amount: number;
+  wageAmount: number;
+  mealAmount: number;
+  paidOn: string;
+  note: string;
+}) => {
+  const { error } = await supabase.from("work_journal_manual_payments").insert({
+    worker_name: values.workerName.trim(),
+    payroll_month: `${values.payrollMonth}-01`,
+    payment_kind: values.paymentKind,
+    amount: values.amount,
+    wage_amount: values.wageAmount,
+    meal_amount: values.mealAmount,
+    paid_on: values.paidOn,
+    note: values.note.trim() || null,
+  });
+  if (error) throw error;
+};
+
+export const deleteManualPayrollPaymentHistory = async (id: string) => {
+  const { error } = await supabase
+    .from("work_journal_manual_payments")
+    .delete()
+    .eq("id", id);
+  if (error) throw error;
 };

@@ -7,11 +7,12 @@ import Button from "@/app/_components/Button";
 import { useModal } from "@/app/_contexts/ModalContext";
 import StampConfirmModal from "@/app/(auth)/customers/_components/StampConfirmModal";
 
-type PreviewVariant = "normal" | "x-male" | "x-female" | "demo" | "adjustment";
+type PreviewVariant = "normal" | "x-unified" | "x-male" | "x-female" | "demo" | "adjustment";
 type PreviewFlow = "add" | "edit";
 
 const variants: Array<{ value: PreviewVariant; label: string; description: string }> = [
   { value: "normal", label: "일반 고객", description: "일반 고객 출고 이력 모달" },
+  { value: "x-unified", label: "X 고객", description: "통합 X 고객 모달" },
   { value: "x-male", label: "X 고객(남)", description: "미적립 남자 고객 모달" },
   { value: "x-female", label: "X 고객(여)", description: "미적립 여자 고객 모달" },
   { value: "demo", label: "시연용", description: "시연용 처리 모달" },
@@ -20,8 +21,9 @@ const variants: Array<{ value: PreviewVariant; label: string; description: strin
 
 const targets = {
   normal: { name: "홍길동", phone: "010-1234-5678", address: "서울시", is_stamp_eligible: true },
-  "x-male": { name: "미적립 남자 고객", phone: "010-0000-1234", gender: "male" as const, is_stamp_eligible: false },
-  "x-female": { name: "미적립 여자 고객", phone: "010-0000-5678", gender: "female" as const, is_stamp_eligible: false },
+  "x-unified": { name: "X", phone: "X", gender: "special" as const, is_stamp_eligible: false },
+  "x-male": { name: "X", phone: "X", gender: "male" as const, is_stamp_eligible: false },
+  "x-female": { name: "X", phone: "X", gender: "female" as const, is_stamp_eligible: false },
   demo: { name: "시연용", phone: "-", is_stamp_eligible: false },
   adjustment: { name: "재고조정", phone: "-", is_stamp_eligible: false },
 };

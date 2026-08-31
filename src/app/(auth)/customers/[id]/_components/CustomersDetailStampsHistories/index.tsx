@@ -28,6 +28,7 @@ import StampLogEditModal from "@/app/(auth)/_components/StampLogEditModal";
 import RemarkLogCreateModal from "../RemarkLogCreateModal";
 import type { StampLogMeta } from "@/app/_domains/_stamp/_services/stampService";
 import { formatHistoryNote } from "@/app/_domains/_log/_utils/formatHistoryNote";
+import type { GenderType } from "@/app/_domains/_customer/_types/customer.types";
 
 const CustomersDetailStampsHistories = ({
   targetUser,
@@ -43,7 +44,7 @@ const CustomersDetailStampsHistories = ({
   targetUser: {
     phone: string;
     name: string;
-    gender?: "male" | "female" | null;
+    gender?: GenderType | null;
     address?: string | null;
     note?: string | null;
     is_stamp_eligible?: boolean;
@@ -371,6 +372,12 @@ const CustomersDetailStampsHistories = ({
                               핸드폰 뒷번호: {log.jsonb.xPhoneLastDigits.trim()}
                             </p>
                           )}
+                        {(log.jsonb?.xCustomerGender === "male" ||
+                          log.jsonb?.xCustomerGender === "female") && (
+                          <p className="mt-1 italic text-gray-400">
+                            성별: {log.jsonb.xCustomerGender === "female" ? "여자" : "남자"}
+                          </p>
+                        )}
                         {(log.jsonb?.deliveryMethod === "parcel" ||
                           log.jsonb?.deliveryMethod === "delivery") &&
                           typeof log.jsonb?.deliveryAddress === "string" &&

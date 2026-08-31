@@ -146,9 +146,11 @@ export default function StampLogForm({
   onValidityChange,
   reservationSlot,
   stepOneReservationSlot,
+  stepOneAfterPaymentSlot,
   hasSelectedShipmentTiming = true,
   xCustomerName,
   xPhoneLastDigits,
+  xCustomerGender,
   customerMode = "normal",
   currentStampCount = 0,
   customerAddress,
@@ -186,10 +188,13 @@ export default function StampLogForm({
   reservationSlot?: React.ReactNode;
   /** step 1 기본정보에 표시할 출고일 선택 UI */
   stepOneReservationSlot?: React.ReactNode;
+  /** step 1 결제 정보 바로 다음에 표시할 추가 UI */
+  stepOneAfterPaymentSlot?: React.ReactNode;
   /** 출고일 선택 전에는 스탬프 적립 행을 숨김 */
   hasSelectedShipmentTiming?: boolean;
   xCustomerName?: string;
   xPhoneLastDigits?: string;
+  xCustomerGender?: "male" | "female";
   customerMode?: CustomerMode;
   currentStampCount?: number;
   customerAddress?: string | null;
@@ -698,6 +703,8 @@ export default function StampLogForm({
         customerMode === "x"
           ? xPhoneLastDigits?.trim() || undefined
           : undefined,
+      xCustomerGender:
+        customerMode === "x" ? xCustomerGender : undefined,
       deliveryMethod,
       deliveryType:
         deliveryMethod === "delivery" ? deliveryType || undefined : undefined,
@@ -2815,6 +2822,7 @@ export default function StampLogForm({
                     hasConfirmedDeliveryMethod &&
                     hasValidDeliveryInfo &&
                     stepOnePaymentField}
+                  {hasValidPayment && stepOneAfterPaymentSlot}
                   {hasConfirmedStore &&
                     hasConfirmedDeliveryMethod &&
                     hasValidDeliveryInfo &&

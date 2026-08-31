@@ -34,3 +34,21 @@ export type WorkerDetailType = {
   has_pin: boolean;
   pin_code: string;
 };
+
+export type PayrollPaymentHistoryType = {
+  id: string;
+  source: "automatic" | "manual";
+  worker_name: string;
+  payroll_month: string;
+  payment_kind: "advance" | "salary";
+  wage_amount: number;
+  meal_amount: number;
+  amount: number;
+  paid_on: string;
+  note: string | null;
+  work_hours: number | null;
+  work_count: number | null;
+  calculated_amount: number;
+  adjustment_amount: number;
+  created_at: string;
+};

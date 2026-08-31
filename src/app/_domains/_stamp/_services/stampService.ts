@@ -86,6 +86,7 @@ export type StampLogMeta = {
   extraNote?: string;
   xCustomerName?: string;
   xPhoneLastDigits?: string;
+  xCustomerGender?: "male" | "female";
   reservationDate?: string;
   deliveryMethod?: "store_visit" | "parcel" | "delivery";
   deliveryType?: "agency" | "self" | "customer_quick";

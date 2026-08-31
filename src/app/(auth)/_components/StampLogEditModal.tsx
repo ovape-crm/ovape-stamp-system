@@ -3,12 +3,13 @@
 import { PaymentTypeEnumType, StoreTypeEnumType } from "@/app/_enums/enums";
 import StampConfirmModal from "@/app/(auth)/customers/_components/StampConfirmModal";
 import type { StampLogMeta } from "@/app/_domains/_stamp/_services/stampService";
+import type { GenderType } from "@/app/_domains/_customer/_types/customer.types";
 
 interface StampLogEditModalProps {
   target: {
     name: string;
     phone: string;
-    gender?: "male" | "female" | null;
+    gender?: GenderType | null;
     address?: string | null;
     note?: string | null;
     is_stamp_eligible?: boolean;

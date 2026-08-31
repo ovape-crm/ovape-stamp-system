@@ -32,7 +32,11 @@ import {
 import { PaymentTypeEnum } from "@/app/_enums/enums";
 import { customerKeys } from "@/app/_domains/_customer/_queryKeys/customerKeys";
 import { logKeys } from "@/app/_domains/_log/_queryKeys/logKeys";
-import { isSpecialCustomer as checkSpecialCustomer } from "@/app/_domains/_customer/_utils/specialCustomer";
+import {
+  isSpecialCustomer as checkSpecialCustomer,
+  isXCustomer,
+} from "@/app/_domains/_customer/_utils/specialCustomer";
+import type { GenderType } from "@/app/_domains/_customer/_types/customer.types";
 
 const PAGE_SIZE = 10;
 
@@ -90,7 +94,7 @@ export default function CustomerDetailPage() {
   const handleEditCustomer = async (values: {
     name: string;
     phone: string;
-    gender: "male" | "female";
+    gender: GenderType;
     is_stamp_eligible: boolean;
     adult_verification_method: "" | "physical_id" | "bbaton";
     adult_verification_request_id?: string;
@@ -173,10 +177,9 @@ export default function CustomerDetailPage() {
     return <NotFoundView full={false} />;
   }
 
-  const stampCount =
-    customer.name.trim() === "X" && customer.phone.trim() === "X"
-      ? 0
-      : customer.stamps?.[0]?.count || 0;
+  const stampCount = isXCustomer(customer.name, customer.phone)
+    ? 0
+    : customer.stamps?.[0]?.count || 0;
   const isSpecialCustomer = checkSpecialCustomer(
     customer.name,
     customer.phone,

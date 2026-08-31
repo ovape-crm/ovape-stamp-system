@@ -3,6 +3,7 @@ import {
   AfterServiceStatusGroupEnum,
   AfterServiceStatusGroupEnumType,
 } from "@/app/_enums/enums";
+import type { GenderType } from "@/app/_domains/_customer/_types/customer.types";
 
 // AS 상태 그룹 정의 (enum 기반)
 export const getAfterServiceStatusGroups = () => {
@@ -58,6 +59,18 @@ export const getActionText = (action: string) => {
 
   if (action === "create-customer") {
     return { text: `고객 추가`, color: "text-green-700 bg-green-100" };
+  }
+
+  if (action === "adult-verification-manual-complete") {
+    return { text: "성인 인증 수동 완료", color: "text-emerald-700 bg-emerald-100" };
+  }
+
+  if (action === "adult-verification-link-complete") {
+    return { text: "성인 인증 완료", color: "text-emerald-700 bg-emerald-100" };
+  }
+
+  if (action === "adult-verification-revoked") {
+    return { text: "성인 인증 해제", color: "text-gray-700 bg-gray-100" };
   }
 
   if (action === "update-after-service-info") {
@@ -150,7 +163,7 @@ export const formatDateKey = (dateKey: string): string => {
 type CustomerValue = {
   name: string;
   phone: string;
-  gender: "male" | "female";
+  gender: GenderType;
   is_stamp_eligible?: boolean;
   address?: string | null;
   note?: string | null;

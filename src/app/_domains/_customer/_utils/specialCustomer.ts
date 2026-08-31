@@ -1,5 +1,20 @@
 export type CustomerMode = "normal" | "demo" | "adjustment" | "x";
 
+export const isXCustomer = (name: string, phone?: string | null) => {
+  const normalizedName = name.trim();
+  const normalizedPhone = phone?.trim();
+  return (
+    (normalizedName === "X" || normalizedName === "X 고객") &&
+    normalizedPhone === "X"
+  );
+};
+
+export const isUnifiedXCustomer = (
+  name: string,
+  phone?: string | null,
+  gender?: string | null,
+) => name.trim() === "X" && phone?.trim() === "X" && gender === "special";
+
 export const getCustomerMode = (
   name: string,
   phone?: string | null,
@@ -11,7 +26,7 @@ export const getCustomerMode = (
 
   if (normalizedName === "시연용") return "demo";
   if (normalizedName === "재고조정") return "adjustment";
-  if (normalizedName === "X" && normalizedPhone === "X") return "x";
+  if (isXCustomer(normalizedName, normalizedPhone)) return "x";
   return "normal";
 };
 

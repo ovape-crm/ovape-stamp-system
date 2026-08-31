@@ -22,7 +22,11 @@ import StampLogForm, {
   type StampLogValue,
 } from "./StampLogForm";
 import TargetCustomerCard from "./TargetCustomerCard";
-import { getCustomerMode } from "@/app/_domains/_customer/_utils/specialCustomer";
+import {
+  getCustomerMode,
+  isUnifiedXCustomer,
+  isXCustomer,
+} from "@/app/_domains/_customer/_utils/specialCustomer";
 import {
   ExistingCustomerMatch,
   findCustomersByNameAndPhoneLastDigits,
@@ -112,7 +116,7 @@ export default function StampConfirmModal({
   target: {
     name: string;
     phone: string;
-    gender?: "male" | "female" | null;
+    gender?: "male" | "female" | "special" | null;
     address?: string | null;
     note?: string | null;
     is_stamp_eligible?: boolean;
@@ -186,6 +190,15 @@ export default function StampConfirmModal({
   const [xPhoneLastDigits, setXPhoneLastDigits] = useState(
     initialLogMeta?.xPhoneLastDigits ?? "",
   );
+  const [xCustomerGender, setXCustomerGender] = useState<
+    "male" | "female" | ""
+  >(
+    initialLogMeta?.xCustomerGender ??
+      (isXCustomer(target.name, target.phone) &&
+      (target.gender === "male" || target.gender === "female")
+        ? target.gender
+        : ""),
+  );
   const isCustomerInfoDeclined =
     xCustomerName === "X" && xPhoneLastDigits === "X";
   const hasValidXPhoneLastDigits =
@@ -222,8 +235,12 @@ export default function StampConfirmModal({
     target.phone,
     target.is_stamp_eligible ?? true,
   );
-  const isAnonymousXCustomer =
-    target.name.trim() === "X" && target.phone.trim() === "X";
+  const isAnonymousXCustomer = isXCustomer(target.name, target.phone);
+  const isUnifiedXAccount = isUnifiedXCustomer(
+    target.name,
+    target.phone,
+    target.gender,
+  );
   const requiresXCustomerInfo = isAnonymousXCustomer && !selectedCustomer;
   const usesStandardSalesFlow =
     customerMode === "normal" || customerMode === "x";
@@ -756,8 +773,9 @@ export default function StampConfirmModal({
         <div className="mb-1 flex shrink-0 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-gray-50/70 px-4 py-2.5 text-sm font-semibold text-gray-700">
           <span className="h-2 w-2 shrink-0 rounded-full bg-brand-500" />
           <span>
-            미적립 {target.gender === "female" ? "여자" : "남자"} 고객을 위한
-            특수 계정입니다
+            {isUnifiedXAccount
+              ? "성별을 거래마다 기록하는 통합 X 고객 특수 계정입니다"
+              : `미적립 ${target.gender === "female" ? "여자" : "남자"} 고객을 위한 특수 계정입니다`}
           </span>
         </div>
       )}
@@ -799,11 +817,25 @@ export default function StampConfirmModal({
               ? undefined
               : reservationToggle
           }
+          stepOneAfterPaymentSlot={
+            isUnifiedXAccount && !selectedCustomer ? (
+              <div className="grid grid-cols-[140px_minmax(0,1fr)] border-b border-gray-200">
+                <div className="flex items-center border-r border-gray-200 px-4 py-[10px] text-sm font-bold text-gray-800">
+                  성별 <span className="ml-1 text-rose-600">*</span>
+                </div>
+                <div className="grid grid-cols-2 gap-[10px] px-4 py-[4.5px] [&_button]:h-8 [&_button]:py-0 sm:[&_button]:py-0">
+                  <Button type="button" size="sm" variant={xCustomerGender === "male" ? "primary" : "gray"} onClick={() => setXCustomerGender("male")}>남자</Button>
+                  <Button type="button" size="sm" variant={xCustomerGender === "female" ? "primary" : "gray"} onClick={() => setXCustomerGender("female")}>여자</Button>
+                </div>
+              </div>
+            ) : undefined
+          }
           hasSelectedShipmentTiming={
             effectiveFormCustomerMode === "x" || hasSelectedShipmentTiming
           }
           xCustomerName={xCustomerName}
           xPhoneLastDigits={xPhoneLastDigits}
+          xCustomerGender={xCustomerGender || undefined}
           customerMode={effectiveFormCustomerMode}
           hideRemoteDeliveryMethods={
             mode === "add" && effectiveFormCustomerMode === "x"
@@ -853,6 +885,17 @@ export default function StampConfirmModal({
                             label: "핸드폰 뒷번호",
                             value: xPhoneLastDigits.trim(),
                           },
+                          ...(isUnifiedXAccount
+                            ? [
+                                {
+                                  label: "성별",
+                                  value:
+                                    xCustomerGender === "female"
+                                      ? "여자"
+                                      : "남자",
+                                },
+                              ]
+                            : []),
                         ]
                       : [
                           {
@@ -1251,6 +1294,9 @@ export default function StampConfirmModal({
                 disabled={
                   addStep === 1
                     ? !formValidity.hasCompletedBasicSequence ||
+                      (isUnifiedXAccount &&
+                        !selectedCustomer &&
+                        !xCustomerGender) ||
                       (usesStandardSalesFlow &&
                         effectiveFormCustomerMode !== "x" &&
                         !hasSelectedShipmentTiming)
@@ -1259,7 +1305,10 @@ export default function StampConfirmModal({
                       (requiresXCustomerInfo &&
                         (isSearchingCustomer ||
                           (customerMatches.length > 0 &&
-                            !hasConfirmedXCustomer)))
+                            !hasConfirmedXCustomer) ||
+                          (isUnifiedXAccount &&
+                            !selectedCustomer &&
+                            !xCustomerGender)))
                 }
                 onClick={() => {
                   if (
@@ -1289,6 +1338,24 @@ export default function StampConfirmModal({
                       "이름과 뒷번호를 입력해 주세요.\n미제공 정보에는 X를 입력할 수 있습니다.",
                       { style: { whiteSpace: "pre-line" } },
                     );
+                    return;
+                  }
+                  if (
+                    addStep === 1 &&
+                    isUnifiedXAccount &&
+                    !selectedCustomer &&
+                    !xCustomerGender
+                  ) {
+                    toast.error("성별을 선택해 주세요.");
+                    return;
+                  }
+                  if (
+                    addStep === 2 &&
+                    isUnifiedXAccount &&
+                    !selectedCustomer &&
+                    !xCustomerGender
+                  ) {
+                    toast.error("성별을 선택해 주세요.");
                     return;
                   }
                   if (

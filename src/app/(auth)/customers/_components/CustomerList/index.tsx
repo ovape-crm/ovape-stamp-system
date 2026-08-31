@@ -184,11 +184,9 @@ const CustomerList = ({
                       {formatPhoneNumber(customer?.phone)}
                     </td>
                     <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 whitespace-nowrap">
-                      {customer.name.trim() === "시연용"
-                        ? "시연용"
-                        : customer.name.trim() === "재고조정"
-                          ? "재고조정"
-                          : customer.gender === "male"
+                      {customer.gender === "special"
+                        ? "특수계정"
+                        : customer.gender === "male"
                             ? "남자"
                             : customer.gender === "female"
                               ? "여자"

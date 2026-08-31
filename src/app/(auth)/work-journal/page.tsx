@@ -20,6 +20,9 @@ import {
   updateWorkJournalPaymentStatus,
   processWorkJournalPayroll,
   cancelWorkJournalPayroll,
+  createManualPayrollPaymentHistory,
+  deleteManualPayrollPaymentHistory,
+  getPayrollPaymentHistory,
   updateWorkJournal,
   updateWorkerDetails,
   verifyWorkerPin,
@@ -232,6 +235,9 @@ export default function WorkJournalPage() {
   const workerFilter = verifiedWorkerName === "전체" ? "" : verifiedWorkerName;
   const [paymentMonth, setPaymentMonth] = useState(today.slice(0, 7));
   const [paymentWorkerFilter, setPaymentWorkerFilter] = useState("");
+  const [paymentView, setPaymentView] = useState<"scheduled" | "history">(
+    "scheduled",
+  );
   const [selectedAdvanceJournalIds, setSelectedAdvanceJournalIds] = useState<string[]>([]);
   const { open, close } = useModal();
   const [workDate, setWorkDate] = useState(today);
@@ -342,6 +348,11 @@ export default function WorkJournalPage() {
     queryKey: workJournalKeys.month(paymentMonth, paymentWorkerFilter),
     queryFn: () => getWorkJournals(paymentMonth, paymentWorkerFilter),
     enabled: isAdmin && activeTab === "payment",
+  });
+  const paymentHistoryQuery = useQuery({
+    queryKey: workJournalKeys.payrollHistory(),
+    queryFn: getPayrollPaymentHistory,
+    enabled: isAdmin && activeTab === "payment" && paymentView === "history",
   });
   const payrollEligibleWorkerNames = useMemo(
     () =>
@@ -511,6 +522,28 @@ export default function WorkJournalPage() {
     },
     onError: (error: Error) => toast.error(error.message || "급여 지급 취소에 실패했습니다."),
   });
+  const manualPayrollHistoryMutation = useMutation({
+    mutationFn: createManualPayrollPaymentHistory,
+    onSuccess: async () => {
+      toast.success("이전 지급 이력이 등록되었습니다.");
+      await queryClient.invalidateQueries({
+        queryKey: workJournalKeys.payrollHistory(),
+      });
+    },
+    onError: (error: Error) =>
+      toast.error(error.message || "이전 지급 이력 등록에 실패했습니다."),
+  });
+  const deleteManualPayrollHistoryMutation = useMutation({
+    mutationFn: deleteManualPayrollPaymentHistory,
+    onSuccess: async () => {
+      toast.success("수기 지급 이력이 삭제되었습니다.");
+      await queryClient.invalidateQueries({
+        queryKey: workJournalKeys.payrollHistory(),
+      });
+    },
+    onError: (error: Error) =>
+      toast.error(error.message || "수기 지급 이력 삭제에 실패했습니다."),
+  });
 
   const handleAdvanceToggle = async (journal: WorkJournalType) => {
     const isAdvance = journal.payment_status === "advance";
@@ -534,7 +567,7 @@ export default function WorkJournalPage() {
   const handleWorkerSalaryPayment = async (group: (typeof paymentGroups)[number]) => {
     if (!group.unpaid.length) return;
     const journals = group.unpaid;
-    open({ content: <PayrollCalculationModal title="월급 지급" journals={journals} onCancel={close} onSubmit={(hourlyRate, mealAllowance) => { payrollMutation.mutate({ journalIds: group.unpaid.map((journal) => journal.id), kind: "salary", hourlyRate, mealAllowance, paidOn: today }); close(); }} />, options: { dismissOnBackdrop: false } });
+    open({ content: <PayrollCalculationModal title="월급 지급" journals={journals} onCancel={close} onSubmit={(hourlyRate, mealAllowance, amountOverride) => { payrollMutation.mutate({ journalIds: group.unpaid.map((journal) => journal.id), kind: "salary", hourlyRate, mealAllowance, paidOn: today, amountOverride }); close(); }} />, options: { dismissOnBackdrop: false } });
   };
 
   const toggleAdvanceSelection = (journalId: string) => {
@@ -550,7 +583,7 @@ export default function WorkJournalPage() {
       .filter((id) => selectedAdvanceJournalIds.includes(id));
     if (!journalIds.length) return;
     const journals = group.unpaid.filter((journal) => journalIds.includes(journal.id));
-    open({ content: <PayrollCalculationModal title={`급여 선지급 (${journals.length}건)`} journals={journals} onCancel={close} onSubmit={(hourlyRate, mealAllowance) => { payrollMutation.mutate({ journalIds, kind: "advance", hourlyRate, mealAllowance, paidOn: today }); close(); }} />, options: { dismissOnBackdrop: false } });
+    open({ content: <PayrollCalculationModal title={`급여 선지급 (${journals.length}건)`} journals={journals} onCancel={close} onSubmit={(hourlyRate, mealAllowance, amountOverride) => { payrollMutation.mutate({ journalIds, kind: "advance", hourlyRate, mealAllowance, paidOn: today, amountOverride }); close(); }} />, options: { dismissOnBackdrop: false } });
   };
 
   const handleWorkerSalaryCancel = async (group: (typeof paymentGroups)[number]) => {
@@ -564,6 +597,24 @@ export default function WorkJournalPage() {
     const legacyIds = group.salary.filter((journal) => !journal.payroll_batch_id).map((journal) => journal.id);
     if (batchIds.length) payrollCancelMutation.mutate(batchIds);
     if (legacyIds.length) paymentMutation.mutate({ journalIds: legacyIds, status: "unpaid", fromStatus: "salary", successMessage: `${group.workerName}님의 기존 월급 지급 처리가 취소되었습니다.` });
+  };
+
+  const openManualPayrollHistoryModal = () => {
+    open({
+      content: (
+        <ManualPayrollHistoryModal
+          workers={(workerDetailsQuery.data ?? [])
+            .filter((worker) => worker.is_payroll_eligible)
+            .map((worker) => worker.name)}
+          onCancel={close}
+          onSubmit={(values) => {
+            manualPayrollHistoryMutation.mutate(values);
+            close();
+          }}
+        />
+      ),
+      options: { dismissOnBackdrop: false, size: "max-w-3xl" },
+    });
   };
 
   const handleSubmit = (event: FormEvent) => {
@@ -1454,6 +1505,39 @@ export default function WorkJournalPage() {
       )}
 
       {isAdmin && activeTab === "payment" && (
+        <div className="flex items-end justify-between border-b border-gray-200">
+          <div className="flex" role="tablist" aria-label="급여 지급 하위 메뉴">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={paymentView === "scheduled"}
+              onClick={() => setPaymentView("scheduled")}
+              className={`cursor-pointer border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${
+                paymentView === "scheduled"
+                  ? "border-brand-500 text-brand-700"
+                  : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
+              }`}
+            >
+              지급 예정 목록
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={paymentView === "history"}
+              onClick={() => setPaymentView("history")}
+              className={`cursor-pointer border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${
+                paymentView === "history"
+                  ? "border-brand-500 text-brand-700"
+                  : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
+              }`}
+            >
+              지급 이력
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isAdmin && activeTab === "payment" && paymentView === "scheduled" && (
         <>
           <div className="flex flex-col justify-end gap-2 sm:flex-row">
             <input
@@ -1683,6 +1767,67 @@ export default function WorkJournalPage() {
           </section>
         </>
       )}
+      {isAdmin && activeTab === "payment" && paymentView === "history" && (
+        <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-base font-bold text-gray-900">지급 이력</h2>
+              <p className="mt-1 text-xs text-gray-500">
+                자동 지급 건은 2026년 8월부터 표시합니다. 그 이전 건은 수기 이력으로 별도 등록할 수 있습니다.
+              </p>
+            </div>
+            <Button type="button" onClick={openManualPayrollHistoryModal}>
+              이전 지급 이력 등록
+            </Button>
+          </div>
+          {paymentHistoryQuery.isPending ? (
+            <Loading size="sm" text="지급 이력을 불러오는 중..." />
+          ) : paymentHistoryQuery.data?.length ? (
+            <div className="overflow-x-auto rounded-lg border border-gray-200">
+              <table className="w-full min-w-[820px] text-sm">
+                <thead className="bg-gray-50/70 text-left text-xs text-gray-600">
+                  <tr>
+                    <th className="px-4 py-3">지급일</th>
+                    <th className="px-4 py-3">근무자</th>
+                    <th className="px-4 py-3">대상 월</th>
+                    <th className="px-4 py-3">구분</th>
+                    <th className="px-4 py-3 text-right">월급</th>
+                    <th className="px-4 py-3 text-right">식대</th>
+                    <th className="px-4 py-3 text-right">합계</th>
+                    <th className="px-4 py-3">등록 방식</th>
+                    <th className="px-4 py-3">메모</th>
+                    <th className="px-4 py-3 text-center">관리</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {paymentHistoryQuery.data.map((payment) => (
+                    <tr key={`${payment.source}-${payment.id}`}>
+                      <td className="whitespace-nowrap px-4 py-3">{formatKoreanDate(payment.paid_on)}</td>
+                      <td className="px-4 py-3 font-semibold text-gray-900">{payment.worker_name}</td>
+                      <td className="whitespace-nowrap px-4 py-3">{payment.payroll_month.slice(0, 7)}</td>
+                      <td className="px-4 py-3">{payment.payment_kind === "advance" ? "선지급" : "월급 지급"}</td>
+                      <td className="px-4 py-3 text-right">{Number(payment.wage_amount).toLocaleString("ko-KR")}원</td>
+                      <td className="px-4 py-3 text-right">{Number(payment.meal_amount).toLocaleString("ko-KR")}원</td>
+                      <td className="px-4 py-3 text-right font-semibold text-brand-700">{Number(payment.amount).toLocaleString("ko-KR")}원{payment.adjustment_amount !== 0 && <span className="mt-1 block text-[11px] font-medium text-brand-600">계산값 {Number(payment.calculated_amount).toLocaleString("ko-KR")}원 · {payment.adjustment_amount > 0 ? "+" : ""}{Number(payment.adjustment_amount).toLocaleString("ko-KR")}원 조정</span>}</td>
+                      <td className="px-4 py-3"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${payment.source === "automatic" ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-600"}`}>{payment.source === "automatic" ? "자동 지급" : "이전 수기 이력"}</span></td>
+                      <td className="max-w-60 truncate px-4 py-3 text-gray-500">{payment.note ?? (payment.work_hours != null ? `근무 ${formatHours(payment.work_hours)} · ${payment.work_count ?? 0}회` : "-")}</td>
+                      <td className="px-4 py-3 text-center">
+                        {payment.source === "manual" ? (
+                          <Button size="xs" variant="gray" disabled={deleteManualPayrollHistoryMutation.isPending} onClick={async () => {
+                            if (await showConfirmDialog({ title: "이전 지급 이력 삭제", description: "등록한 수기 지급 이력만 삭제합니다.", confirmLabel: "삭제", tone: "danger" })) deleteManualPayrollHistoryMutation.mutate(payment.id);
+                          }}>삭제</Button>
+                        ) : <span className="text-xs text-gray-400">자동 기록</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="py-12 text-center text-sm text-gray-500">등록된 지급 이력이 없습니다.</p>
+          )}
+        </section>
+      )}
     </main>
   );
 }
@@ -1711,16 +1856,70 @@ const SummaryCard = ({ label, value }: { label: string; value: string }) => (
   </div>
 );
 
-function PayrollCalculationModal({ title, journals, onCancel, onSubmit }: { title: string; journals: WorkJournalType[]; onCancel: () => void; onSubmit: (hourlyRate: number, mealAllowance: number) => void }) {
+function PayrollCalculationModal({ title, journals, onCancel, onSubmit }: { title: string; journals: WorkJournalType[]; onCancel: () => void; onSubmit: (hourlyRate: number, mealAllowance: number, amountOverride?: number) => void }) {
   const [hourlyRate, setHourlyRate] = useState("");
   const [mealAllowance, setMealAllowance] = useState("");
+  const [amountOverrideText, setAmountOverrideText] = useState("");
   const hours = journals.reduce((sum, journal) => sum + getPayableHours(journal), 0);
   const count = journals.length;
   const rate = Number(hourlyRate);
   const meal = Number(mealAllowance);
   const wage = Number.isFinite(rate) && rate > 0 ? Math.floor(hours * rate * 0.991) : 0;
-  const total = wage + (Number.isFinite(meal) && meal >= 0 ? count * meal : 0);
-  return <div className="p-5"><h2 className="text-lg font-bold text-gray-900">{title}</h2><div className="mt-4 grid gap-3 sm:grid-cols-2"><Field label="입력시간"><div className="h-10 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-800">{formatHours(hours)}</div></Field><Field label="시급"><input autoFocus type="number" min="1" value={hourlyRate} onChange={(event) => setHourlyRate(event.target.value)} placeholder="시급 입력" className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100" /></Field><Field label="총 근무 횟수"><div className="h-10 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-800">{count}회</div></Field><Field label="식대 (1회당)"><input type="number" min="0" value={mealAllowance} onChange={(event) => setMealAllowance(event.target.value)} placeholder="식대 입력" className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100" /></Field></div><div className="mt-4 rounded-xl border border-brand-200 bg-brand-50 p-3"><p className="text-xs font-semibold text-brand-700">최종 지급액</p><p className="mt-1 text-2xl font-bold text-brand-800">{total.toLocaleString("ko-KR")}원</p><p className="mt-1 text-xs text-brand-700">입력시간 × 시급 × 0.991 + 근무횟수 × 식대</p></div><div className="mt-5 flex justify-end gap-2"><Button variant="gray" onClick={onCancel}>취소</Button><Button disabled={!Number.isInteger(rate) || rate <= 0 || !Number.isInteger(meal) || meal < 0} onClick={() => onSubmit(rate, meal)}>지급 확정</Button></div></div>;
+  const calculatedTotal = wage + (Number.isFinite(meal) && meal >= 0 ? count * meal : 0);
+  const hasAmountOverride = amountOverrideText.trim() !== "";
+  const finalAmount = hasAmountOverride ? Number(amountOverrideText) : calculatedTotal;
+  const isFinalAmountValid = Number.isInteger(finalAmount) && finalAmount >= 0;
+  return <div className="p-5"><h2 className="text-lg font-bold text-gray-900">{title}</h2><div className="mt-4 grid gap-3 sm:grid-cols-2"><Field label="입력시간"><div className="h-10 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-800">{formatHours(hours)}</div></Field><Field label="시급"><input autoFocus type="number" min="1" value={hourlyRate} onChange={(event) => setHourlyRate(event.target.value)} placeholder="시급 입력" className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100" /></Field><Field label="총 근무 횟수"><div className="h-10 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-800">{count}회</div></Field><Field label="식대 (1회당)"><input type="number" min="0" value={mealAllowance} onChange={(event) => setMealAllowance(event.target.value)} placeholder="식대 입력" className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100" /></Field></div><div className="mt-4 rounded-xl border border-brand-200 bg-brand-50 p-3"><div className="flex items-center justify-between gap-3"><label className="text-xs font-semibold text-brand-700" htmlFor="payroll-final-amount">최종 지급액 (수정 가능)</label>{hasAmountOverride && <button type="button" onClick={() => setAmountOverrideText("")} className="cursor-pointer text-xs font-semibold text-brand-700 underline">계산값으로 되돌리기</button>}</div><div className="mt-1 flex items-center gap-1"><input id="payroll-final-amount" type="number" min="0" value={hasAmountOverride ? amountOverrideText : String(calculatedTotal)} onChange={(event) => setAmountOverrideText(event.target.value)} className="min-w-0 flex-1 bg-transparent text-2xl font-bold text-brand-800 outline-none" /><span className="text-2xl font-bold text-brand-800">원</span></div><p className="mt-1 text-xs text-brand-700">계산값 {calculatedTotal.toLocaleString("ko-KR")}원 · 필요하면 실제 지급액으로 수정하세요.</p></div><div className="mt-5 flex justify-end gap-2"><Button variant="gray" onClick={onCancel}>취소</Button><Button disabled={!Number.isInteger(rate) || rate <= 0 || !Number.isInteger(meal) || meal < 0 || !isFinalAmountValid} onClick={() => onSubmit(rate, meal, hasAmountOverride ? finalAmount : undefined)}>지급 확정</Button></div></div>;
+}
+
+function ManualPayrollHistoryModal({
+  workers,
+  onCancel,
+  onSubmit,
+}: {
+  workers: string[];
+  onCancel: () => void;
+  onSubmit: (values: {
+    workerName: string;
+    payrollMonth: string;
+    paymentKind: "advance" | "salary";
+    amount: number;
+    wageAmount: number;
+    mealAmount: number;
+    paidOn: string;
+    note: string;
+  }) => void;
+}) {
+  const [workerName, setWorkerName] = useState(workers[0] ?? "");
+  const [payrollMonth, setPayrollMonth] = useState("2026-07");
+  const [paymentKind, setPaymentKind] = useState<"advance" | "salary">("salary");
+  const [wageAmount, setWageAmount] = useState("");
+  const [mealAmount, setMealAmount] = useState("");
+  const [paidOn, setPaidOn] = useState("2026-07-31");
+  const [note, setNote] = useState("");
+  const wage = Number(wageAmount);
+  const meal = Number(mealAmount);
+  const total =
+    (Number.isFinite(wage) && wage >= 0 ? wage : 0) +
+    (Number.isFinite(meal) && meal >= 0 ? meal : 0);
+  const canSubmit = Boolean(workerName && payrollMonth && paidOn && total > 0 && paidOn < "2026-08-01");
+
+  return (
+    <div className="p-5">
+      <h2 className="text-lg font-bold text-gray-900">이전 지급 이력 등록</h2>
+      <div className="mt-5 grid gap-4 sm:grid-cols-3">
+        <Field label="근무자"><select value={workerName} onChange={(event) => setWorkerName(event.target.value)} className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900"><option value="">근무자 선택</option>{workers.map((worker) => <option key={worker} value={worker}>{worker}</option>)}</select></Field>
+        <Field label="지급 대상 월"><input type="month" max="2026-07" value={payrollMonth} onChange={(event) => setPayrollMonth(event.target.value)} className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900" /></Field>
+        <Field label="실제 지급일"><input type="date" max="2026-07-31" value={paidOn} onChange={(event) => setPaidOn(event.target.value)} className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900" /></Field>
+        <Field label="지급 구분"><select value={paymentKind} onChange={(event) => setPaymentKind(event.target.value as "advance" | "salary")} className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900"><option value="salary">월급 지급</option><option value="advance">선지급</option></select></Field>
+        <Field label="월급"><input type="number" min="0" value={wageAmount} onChange={(event) => setWageAmount(event.target.value)} placeholder="월급 입력" className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900" /></Field>
+        <Field label="총근무 식대"><input type="number" min="0" value={mealAmount} onChange={(event) => setMealAmount(event.target.value)} placeholder="식대 합계 입력" className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900" /></Field>
+        <Field label="메모 (선택)" className="sm:col-span-3"><input value={note} onChange={(event) => setNote(event.target.value)} placeholder="예: 계좌이체 완료" className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900" /></Field>
+      </div>
+      <div className="mt-4 rounded-xl border border-brand-200 bg-brand-50 p-3"><p className="text-xs font-semibold text-brand-700">최종 지급액</p><p className="mt-1 text-2xl font-bold text-brand-800">{total.toLocaleString("ko-KR")}원</p><p className="mt-1 text-xs text-brand-700">월급 + 총근무 식대</p></div>
+      <div className="mt-6 flex justify-end gap-2"><Button variant="gray" onClick={onCancel}>취소</Button><Button disabled={!canSubmit} onClick={() => onSubmit({ workerName, payrollMonth, paymentKind, amount: total, wageAmount: wage, mealAmount: meal, paidOn, note })}>등록</Button></div>
+    </div>
+  );
 }
 
 const NumberTimeInput = ({
