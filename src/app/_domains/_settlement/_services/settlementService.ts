@@ -12,7 +12,6 @@ import {
   SettlementSoldItem,
   SettlementStore,
   SettlementSummary,
-  InventoryCostLedgerRow,
   InventoryCostLedgerPage,
   PendingInventoryCostLayer,
 } from "../_types/settlement.types";

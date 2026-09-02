@@ -531,8 +531,22 @@ export default function ProductSearchPage() {
                   key={`${mode}-${field}`}
                   className={`block w-full ${index > 0 ? 'sm:border-l sm:border-gray-200 sm:pl-3' : ''}`}
                 >
-                  <span className="mb-2 block text-xs font-semibold text-gray-500">
+                  <span className="mb-2 flex h-4 items-center justify-between text-xs font-semibold text-gray-500">
                     {label}
+                    {index === 2 && hasSearchValue && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSearchValues((current) => ({
+                            ...current,
+                            [mode]: { itemName: '', second: '', third: '' },
+                          }))
+                        }
+                        className="-mr-1 rounded px-1 py-0.5 text-xs font-medium text-gray-500 transition hover:bg-gray-200 hover:text-gray-700"
+                      >
+                        검색 초기화
+                      </button>
+                    )}
                   </span>
                   <span className="relative block">
                     <svg
@@ -571,22 +585,6 @@ export default function ProductSearchPage() {
                 </label>
               ))}
             </div>
-            {hasSearchValue && (
-              <div className="mt-2 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setSearchValues((current) => ({
-                      ...current,
-                      [mode]: { itemName: '', second: '', third: '' },
-                    }))
-                  }
-                  className="rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-200"
-                >
-                  검색 초기화
-                </button>
-              </div>
-            )}
           </div>
         </div>
       </section>

@@ -96,6 +96,22 @@ const getItemDisplayMemo = (
   return remark;
 };
 
+const getDeliveryItem = (logMeta: StampLogMeta) => {
+  if (logMeta.deliveryMethod === "store_visit") return null;
+
+  return {
+    name:
+      logMeta.deliveryMethod === "parcel"
+        ? `${logMeta.parcelCarrier?.trim() ? `${logMeta.parcelCarrier.trim()} ` : ""}택배 비용`
+        : logMeta.deliveryType === "self"
+          ? "자체배달"
+          : logMeta.deliveryType === "customer_quick"
+            ? "손님퀵"
+            : "배달대행 비용",
+    amount: logMeta.deliveryFee ?? 0,
+  };
+};
+
 const addStepLabels = ["기본 정보", "품목 · 금액", "최종 확인"] as const;
 
 export default function StampConfirmModal({
@@ -833,6 +849,7 @@ export default function StampConfirmModal({
           hasSelectedShipmentTiming={
             effectiveFormCustomerMode === "x" || hasSelectedShipmentTiming
           }
+          showStampAccrual={mode === "edit" || shouldAccrueStamp}
           xCustomerName={xCustomerName}
           xPhoneLastDigits={xPhoneLastDigits}
           xCustomerGender={xCustomerGender || undefined}
@@ -1065,6 +1082,89 @@ export default function StampConfirmModal({
                     </tr>
                   </thead>
                   <tbody>
+                    {stampLog?.couponUse && (
+                      <tr className="border-b border-gray-200 bg-brand-50/40">
+                        <td className="px-2 py-2">
+                          <span className="mx-auto flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-xs font-semibold leading-none text-white">
+                            1
+                          </span>
+                        </td>
+                        <td className="px-2 py-2 font-medium text-gray-900">
+                          {`${getCouponUsageNote(stampLog.couponUse).replace(
+                            / \d+장 사용$/,
+                            "",
+                          )} 사용`}
+                        </td>
+                        <td className="px-2 py-2 text-center text-xs font-medium text-gray-600">
+                          쿠폰
+                        </td>
+                        <td className="px-2 py-2 text-center">
+                          <span className="inline-flex rounded-md bg-brand-100 px-2 py-1 text-xs font-semibold text-brand-700">
+                            쿠폰 사용
+                          </span>
+                        </td>
+                        <td className="px-2 py-2 text-center font-medium text-gray-800">
+                          {stampLog.couponUse.quantity}장
+                        </td>
+                        {customerMode !== "adjustment" &&
+                          customerMode !== "demo" && (
+                            <>
+                              <td className="px-2 py-2 text-right text-gray-500">
+                                -
+                              </td>
+                              <td className="px-3 py-2 text-right font-medium text-gray-500">
+                                -
+                              </td>
+                            </>
+                          )}
+                      </tr>
+                    )}
+                    {stampLog && getDeliveryItem(stampLog.logMeta) && (
+                      <tr className="border-b border-gray-200 bg-sky-50/50">
+                        <td className="px-2 py-2">
+                          <span className="mx-auto flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-xs font-semibold leading-none text-white">
+                            {stampLog.couponUse ? 2 : 1}
+                          </span>
+                        </td>
+                        <td className="px-2 py-2 font-medium text-gray-900">
+                          <div className="flex flex-wrap items-center gap-x-1.5">
+                            <span>{getDeliveryItem(stampLog.logMeta)?.name}</span>
+                            {(getDeliveryItem(stampLog.logMeta)?.amount ?? 0) >
+                              0 && (
+                              <span className="text-xs font-semibold text-gray-500">
+                                (
+                                {formatAmount(
+                                  getDeliveryItem(stampLog.logMeta)?.amount ?? 0,
+                                )}
+                                원)
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-2 py-2 text-center text-xs font-medium text-gray-600">
+                          배송
+                        </td>
+                        <td className="px-2 py-2 text-center">
+                          <span className="inline-flex rounded-md bg-sky-100 px-2 py-1 text-xs font-semibold text-sky-700">
+                            배송
+                          </span>
+                        </td>
+                        <td className="px-2 py-2 text-center font-medium text-gray-800">
+                          1건
+                        </td>
+                        {customerMode !== "adjustment" &&
+                          customerMode !== "demo" && (
+                            <>
+                              <td className="px-2 py-2 text-right text-gray-500">
+                                -
+                              </td>
+                              <td className="px-3 py-2 text-right font-medium text-gray-500">
+                                -
+                              </td>
+                            </>
+                          )}
+                      </tr>
+                    )}
                     {stampLog?.logMeta.items?.map((item, index) => {
                       const memo = getItemDisplayMemo(item);
                       return (
@@ -1074,7 +1174,10 @@ export default function StampConfirmModal({
                         >
                           <td className="px-2 py-2">
                             <span className="mx-auto flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-xs font-semibold leading-none text-white">
-                              {index + 1}
+                              {index +
+                                Number(Boolean(stampLog.couponUse)) +
+                                Number(Boolean(getDeliveryItem(stampLog.logMeta))) +
+                                1}
                             </span>
                           </td>
                           <td className="px-2 py-2 font-medium text-gray-900">

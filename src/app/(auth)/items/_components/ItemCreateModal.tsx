@@ -8,6 +8,7 @@ import Button from '@/app/_components/Button';
 import { Dropdown, DropdownOption } from '@/app/_components/Dropdown';
 import { ItemCategoryType, ItemType } from '@/app/_domains/_item/_types/item.types';
 import toast from 'react-hot-toast';
+import { getItemDeactivationImpacts, hasItemDeactivationImpact, type ItemDeactivationImpact } from '@/app/_domains/_item/_services/itemService';
 
 const schema = z.object({
   categoryId: z.string().optional(),
@@ -44,6 +45,8 @@ const ItemCreateModal = ({
   editItem,
 }: ItemCreateModalProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deactivationImpact, setDeactivationImpact] = useState<ItemDeactivationImpact | null>(null);
+  const [pendingValues, setPendingValues] = useState<FormValues | null>(null);
   const isEdit = !!editItem;
 
   const {
@@ -81,8 +84,7 @@ const ItemCreateModal = ({
     ...categories.map((c) => ({ label: c.name, value: String(c.id) })),
   ];
 
-  return (
-    <form onSubmit={handleSubmit(async (values) => {
+  const save = async (values: FormValues) => {
       try {
         setIsSubmitting(true);
         await onSubmit(values);
@@ -93,7 +95,28 @@ const ItemCreateModal = ({
       } finally {
         setIsSubmitting(false);
       }
-    })} className="flex flex-col gap-4">
+  };
+
+  return (
+    <form onSubmit={handleSubmit(async (values) => {
+      if (editItem?.is_use && values.isUse === false) {
+        try {
+          setIsSubmitting(true);
+          const [impact] = await getItemDeactivationImpacts([editItem.id]);
+          if (impact && hasItemDeactivationImpact(impact)) {
+            setPendingValues(values);
+            setDeactivationImpact(impact);
+            return;
+          }
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : '미사용 전환 영향을 확인하지 못했습니다.');
+          return;
+        } finally {
+          setIsSubmitting(false);
+        }
+      }
+      await save(values);
+    })} className="relative flex flex-col gap-4">
       <h2 className="text-base font-semibold text-gray-900">
         {isEdit ? '품목 수정' : '품목 추가'}
       </h2>
@@ -246,6 +269,23 @@ const ItemCreateModal = ({
           {isSubmitting ? '저장 중...' : isEdit ? '수정' : '추가'}
         </Button>
       </div>
+      {deactivationImpact && pendingValues && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-gray-950/45 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl">
+            <h3 className="text-base font-semibold text-gray-900">미사용 전환 전 확인</h3>
+            <p className="mt-2 text-sm text-gray-600"><strong>{deactivationImpact.itemName}</strong>에 연결된 데이터가 있습니다.</p>
+            <ul className="mt-3 space-y-1 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              {deactivationImpact.stockQuantity !== 0 && <li>재고: {deactivationImpact.stockQuantity}개</li>}
+              {deactivationImpact.pendingPurchaseLineCount > 0 && <li>미완료 발주: {deactivationImpact.pendingPurchaseLineCount}건</li>}
+              {deactivationImpact.pendingReservationLineCount > 0 && <li>예약: {deactivationImpact.pendingReservationLineCount}건</li>}
+              {deactivationImpact.liquidStandPlacementCount > 0 && <li>시연대 배치: {deactivationImpact.liquidStandPlacementCount}칸</li>}
+              {deactivationImpact.activeMemoRuleCount > 0 && <li>활성 출고 메모 규칙: {deactivationImpact.activeMemoRuleCount}개</li>}
+            </ul>
+            <p className="mt-3 text-xs text-gray-500">미사용으로 전환해도 정산 및 기존 이력은 유지됩니다.</p>
+            <div className="mt-5 flex justify-end gap-2"><Button type="button" size="sm" variant="gray" onClick={() => { setDeactivationImpact(null); setPendingValues(null); }}>취소</Button><Button type="button" size="sm" disabled={isSubmitting} onClick={() => void save(pendingValues)}>미사용으로 저장</Button></div>
+          </div>
+        </div>
+      )}
     </form>
   );
 };

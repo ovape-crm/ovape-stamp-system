@@ -4,7 +4,7 @@ import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import Button from "@/app/_components/Button";
 import { Dropdown, DropdownOption } from "@/app/_components/Dropdown";
 import type { ItemCategoryType, ItemType } from "@/app/_domains/_item/_types/item.types";
-import { updateItemsInBulk, type BulkItemUpdate } from "@/app/_domains/_item/_services/itemService";
+import { getItemDeactivationImpacts, hasItemDeactivationImpact, updateItemsInBulk, type BulkItemUpdate, type ItemDeactivationImpact } from "@/app/_domains/_item/_services/itemService";
 import toast from "react-hot-toast";
 
 type Props = {
@@ -50,6 +50,7 @@ export default function ItemBulkEditModal({ items, categories, onClose, onSaved 
   const [visibleLimit, setVisibleLimit] = useState(INITIAL_VISIBLE_COUNT);
   const [saving, setSaving] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [deactivationImpacts, setDeactivationImpacts] = useState<ItemDeactivationImpact[]>([]);
   const normalizedKeyword = deferredKeyword.trim().toLocaleLowerCase("ko-KR");
   const categoryNames = useMemo(() => new Map(categories.map((category) => [String(category.id), category.name])), [categories]);
   const changed = useMemo(
@@ -81,13 +82,22 @@ export default function ItemBulkEditModal({ items, categories, onClose, onSaved 
   const patchDraft = (id: string, patch: Partial<Draft>) =>
     setDrafts((current) => current.map((draft) => draft.id === id ? { ...draft, ...patch } : draft));
 
-  const requestSave = () => {
+  const requestSave = async () => {
     if (!changed.length) return;
     if (changed.some((item) => !item.itemCode.trim() || !item.itemName.trim())) {
       toast.error("품목 코드와 품목 명은 비워둘 수 없습니다.");
       return;
     }
-    setShowConfirm(true);
+    try {
+      const deactivated = changed
+        .filter((draft) => JSON.parse(originals.get(draft.id) ?? "{}").isUse && !draft.isUse)
+        .map((draft) => draft.id);
+      const impacts = await getItemDeactivationImpacts(deactivated);
+      setDeactivationImpacts(impacts.filter(hasItemDeactivationImpact));
+      setShowConfirm(true);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "미사용 전환 영향을 확인하지 못했습니다.");
+    }
   };
 
   const save = async () => {
@@ -151,6 +161,7 @@ export default function ItemBulkEditModal({ items, categories, onClose, onSaved 
         <div className="border-b border-gray-200 p-4">
           <h3 id="bulk-confirm-title" className="text-base font-bold text-gray-900">변경사항을 저장할까요?</h3>
           <p className="mt-1 text-xs text-gray-500">총 {changed.length}개 품목의 변경 전·후 내용을 확인해 주세요.</p>
+          {deactivationImpacts.length > 0 && <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"><p className="font-semibold">미사용 전환 전 확인이 필요한 연결 데이터가 있습니다.</p><ul className="mt-2 space-y-1">{deactivationImpacts.map((impact) => <li key={impact.itemId}><span className="font-semibold">{impact.itemName}</span>: {impact.stockQuantity !== 0 && `재고 ${impact.stockQuantity}개 `}{impact.pendingPurchaseLineCount > 0 && `미완료 발주 ${impact.pendingPurchaseLineCount}건 `}{impact.pendingReservationLineCount > 0 && `예약 ${impact.pendingReservationLineCount}건 `}{impact.liquidStandPlacementCount > 0 && `시연대 ${impact.liquidStandPlacementCount}칸 `}{impact.activeMemoRuleCount > 0 && `활성 메모 규칙 ${impact.activeMemoRuleCount}개`}</li>)}</ul><p className="mt-2">미사용으로 저장하면 새 출고·입고 선택에서는 제외되지만 정산과 기존 이력은 유지됩니다.</p></div>}
         </div>
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-gray-50/70 p-4">
           {changed.map((draft) => {

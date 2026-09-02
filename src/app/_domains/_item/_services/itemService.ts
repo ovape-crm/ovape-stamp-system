@@ -6,6 +6,77 @@ export type ItemSearchOption = Pick<
   "id" | "item_name" | "item_categories"
 >;
 
+export type ItemDeactivationImpact = {
+  itemId: string;
+  itemName: string;
+  stockQuantity: number;
+  pendingPurchaseLineCount: number;
+  pendingReservationLineCount: number;
+  liquidStandPlacementCount: number;
+  activeMemoRuleCount: number;
+};
+
+export const hasItemDeactivationImpact = (impact: ItemDeactivationImpact) =>
+  impact.stockQuantity !== 0 ||
+  impact.pendingPurchaseLineCount > 0 ||
+  impact.pendingReservationLineCount > 0 ||
+  impact.liquidStandPlacementCount > 0 ||
+  impact.activeMemoRuleCount > 0;
+
+export const getItemDeactivationImpacts = async (
+  itemIds: string[],
+): Promise<ItemDeactivationImpact[]> => {
+  if (!itemIds.length) return [];
+  const { data: items, error: itemsError } = await supabase
+    .from("items")
+    .select("id, item_name")
+    .in("id", itemIds);
+  if (itemsError) throw itemsError;
+  const resolvedItems = (items ?? []).map((item) => ({
+    id: String(item.id),
+    itemName: normalizeItemName(item.item_name),
+  }));
+  const itemNames = resolvedItems.map((item) => item.itemName);
+  const [balances, purchaseLines, primaryCells, secondaryCells, memoRules] =
+    await Promise.all([
+      supabase.from("inventory_balances").select("item_name, quantity").in("item_name", itemNames),
+      supabase.from("inventory_purchase_order_lines").select("item_name, pending_quantity, handling_type, reservation_log_id").in("item_name", itemNames).gt("pending_quantity", 0),
+      supabase.from("liqud_stand_cells").select("item_name").in("item_name", itemNames),
+      supabase.from("liqud_stand_cells").select("secondary_item_name").in("secondary_item_name", itemNames),
+      supabase.from("outbound_memo_rules").select("item_id").in("item_id", itemIds).eq("is_active", true),
+    ]);
+  for (const result of [balances, purchaseLines, primaryCells, secondaryCells, memoRules]) {
+    if (result.error) throw result.error;
+  }
+  const balanceByName = new Map((balances.data ?? []).map((row) => [normalizeItemName(row.item_name), Number(row.quantity)]));
+  const linesByName = new Map<string, { pending: number; reservations: number }>();
+  for (const line of purchaseLines.data ?? []) {
+    const name = normalizeItemName(line.item_name);
+    const current = linesByName.get(name) ?? { pending: 0, reservations: 0 };
+    current.pending += 1;
+    if (line.handling_type === "reservation" || line.reservation_log_id) current.reservations += 1;
+    linesByName.set(name, current);
+  }
+  const placementsByName = new Map<string, number>();
+  for (const cell of primaryCells.data ?? []) {
+    const name = normalizeItemName(cell.item_name);
+    placementsByName.set(name, (placementsByName.get(name) ?? 0) + 1);
+  }
+  for (const cell of secondaryCells.data ?? []) {
+    const name = normalizeItemName(cell.secondary_item_name);
+    placementsByName.set(name, (placementsByName.get(name) ?? 0) + 1);
+  }
+  const rulesById = new Map<string, number>();
+  for (const rule of memoRules.data ?? []) {
+    if (rule.item_id) rulesById.set(String(rule.item_id), (rulesById.get(String(rule.item_id)) ?? 0) + 1);
+  }
+  return resolvedItems.map((item) => {
+    const name = item.itemName;
+    const lines = linesByName.get(name) ?? { pending: 0, reservations: 0 };
+    return { itemId: item.id, itemName: item.itemName, stockQuantity: balanceByName.get(name) ?? 0, pendingPurchaseLineCount: lines.pending, pendingReservationLineCount: lines.reservations, liquidStandPlacementCount: placementsByName.get(name) ?? 0, activeMemoRuleCount: rulesById.get(item.id) ?? 0 };
+  });
+};
+
 const normalizeItemName = (value: string) => value.normalize("NFC").trim();
 
 const ensureUniqueItemName = async (itemName: string, excludeId?: string) => {

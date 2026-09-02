@@ -11,6 +11,7 @@ import AfterServiceDetailDrawer from "./_components/AfterServiceDetailDrawer";
 import {
   createAfterService,
   deleteAfterService,
+  rollbackAfterServiceCreationLogs,
 } from "@/app/_domains/_afterService/_services/afterService";
 import toast from "react-hot-toast";
 import AfterServiceSearchBox from "./_components/AfterServiceSearchBox";
@@ -19,10 +20,6 @@ import { afterServiceKeys } from "@/app/_domains/_afterService/_queryKeys/afterS
 import { addStamp } from "@/app/_domains/_stamp/_services/stampService";
 import { logKeys } from "@/app/_domains/_log/_queryKeys/logKeys";
 import { searchItemOptions } from "@/app/_domains/_item/_services/itemService";
-import {
-  deleteLog,
-  getAfterServiceStampLog,
-} from "@/app/_domains/_log/_services/logService";
 
 const getReceivedValue = (note: string | undefined, label: string) =>
   note
@@ -280,13 +277,7 @@ const AfterServicesPage = () => {
     } catch (err) {
       if (createdAfterServiceId) {
         try {
-          for (const operation of ["exchange", "cost"] as const) {
-            const linkedLog = await getAfterServiceStampLog(
-              createdAfterServiceId,
-              operation,
-            );
-            if (linkedLog) await deleteLog(String(linkedLog.id));
-          }
+          await rollbackAfterServiceCreationLogs(createdAfterServiceId);
           await deleteAfterService(String(createdAfterServiceId));
         } catch (rollbackError) {
           console.error("A/S 등록 롤백 실패:", rollbackError);

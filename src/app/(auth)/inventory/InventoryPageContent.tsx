@@ -972,7 +972,7 @@ function InitialStockSetup({
 function InventoryCostOverview({ items }: { items: InventoryItem[] }) {
   const [nameSearch, setNameSearch] = useState("");
   type SortKey = "code" | "name" | "stock" | "remaining" | "cost" | "total" | "date";
-  const [sorts, setSorts] = useState<Array<{ key: SortKey; direction: "asc" | "desc" }>>([{ key: "name", direction: "asc" }]);
+  const [sorts, setSorts] = useState<Array<{ key: SortKey; direction: "asc" | "desc" }>>([{ key: "code", direction: "asc" }]);
   const layersQuery = useQuery({
     queryKey: ["inventory", "cost-layers", "current"],
     queryFn: getCurrentInventoryCostLayers,

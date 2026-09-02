@@ -104,8 +104,8 @@ const CustomersDetailStampsHistories = ({
     (log: CustomersLogsResType[number]) => {
       const handleConfirm = async () => {
         try {
-          await deleteLog(log.id);
-          onDeleteLog(log.id);
+          const deletedLogIds = await deleteLog(log.id);
+          deletedLogIds.forEach(onDeleteLog);
           close();
           toast.success("로그를 삭제했습니다.");
         } catch (e) {
