@@ -333,10 +333,11 @@ export const getLogs = async (
  * 로그 삭제
  */
 export const deleteLog = async (logId: string) => {
-  const { error } = await supabase.rpc("cancel_or_delete_log_operation", {
+  const { data, error } = await supabase.rpc("cancel_or_delete_log_operation", {
     p_log_id: String(logId),
   });
   if (error) throw error;
+  return (data ?? [String(logId)]).map(String);
 };
 
 /**

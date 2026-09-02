@@ -26,6 +26,7 @@ import type {
 import {
   getAdjustmentInCostOptions,
   getCustomerExchangeSaleOptions,
+  getCouponUsageNote,
 } from "@/app/_domains/_stamp/_services/stampService";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CustomerMode } from "@/app/_domains/_customer/_utils/specialCustomer";
@@ -148,6 +149,7 @@ export default function StampLogForm({
   stepOneReservationSlot,
   stepOneAfterPaymentSlot,
   hasSelectedShipmentTiming = true,
+  showStampAccrual = true,
   xCustomerName,
   xPhoneLastDigits,
   xCustomerGender,
@@ -192,6 +194,8 @@ export default function StampLogForm({
   stepOneAfterPaymentSlot?: React.ReactNode;
   /** 출고일 선택 전에는 스탬프 적립 행을 숨김 */
   hasSelectedShipmentTiming?: boolean;
+  /** 미적립 고객의 출고 처리에서는 스탬프 적립 행을 숨김 */
+  showStampAccrual?: boolean;
   xCustomerName?: string;
   xPhoneLastDigits?: string;
   xCustomerGender?: "male" | "female";
@@ -2403,6 +2407,34 @@ export default function StampLogForm({
     </div>
   );
 
+  const couponUseForItemList =
+    useCouponAfterShipment && couponBreathType
+      ? {
+          quantity: couponUseQuantity,
+          breathType: couponBreathType,
+          customMemo:
+            couponBreathType === BreathTypeEnum.CUSTOM.value
+              ? couponCustomMemo.trim() || undefined
+              : undefined,
+        }
+      : null;
+  const deliveryForItemList =
+    deliveryMethod === "store_visit"
+      ? null
+      : {
+          name:
+            deliveryMethod === "parcel"
+              ? `${parcelCarrier.trim() ? `${parcelCarrier.trim()} ` : ""}택배 비용`
+              : deliveryType === "self"
+                ? "자체배달"
+                : deliveryType === "customer_quick"
+                  ? "손님퀵"
+                  : "배달대행 비용",
+          amount: activeDeliveryFee,
+        };
+  const virtualItemCount =
+    Number(Boolean(couponUseForItemList)) + Number(Boolean(deliveryForItemList));
+
   const itemListContent = (
     <div className="min-h-[210px] overflow-x-auto rounded-lg border border-gray-200 bg-white">
       <table
@@ -2439,6 +2471,84 @@ export default function StampLogForm({
           </tr>
         </thead>
         <tbody>
+          {couponUseForItemList && (
+            <tr className="border-b border-gray-200 bg-brand-50/40">
+              <td className="px-2 py-2">
+                <span className="mx-auto flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-xs font-semibold leading-none text-white">
+                  1
+                </span>
+              </td>
+              <td className="px-2 py-2 font-medium text-gray-900">
+                {`${getCouponUsageNote(couponUseForItemList).replace(
+                  / \d+장 사용$/,
+                  "",
+                )} 사용`}
+              </td>
+              <td className="px-2 py-2 text-center text-xs font-medium text-gray-600">
+                쿠폰
+              </td>
+              <td className="px-2 py-2 text-center">
+                <span className="inline-flex items-center rounded-md bg-brand-100 px-2 py-1 text-xs font-semibold text-brand-700">
+                  쿠폰 사용
+                </span>
+              </td>
+              <td className="px-2 py-2 text-center font-medium text-gray-800">
+                {couponUseForItemList.quantity}장
+              </td>
+              {customerMode !== "adjustment" && customerMode !== "demo" && (
+                <>
+                  <td className="px-2 py-2 text-right text-gray-500">-</td>
+                  <td className="px-2 py-2 text-right font-medium text-gray-500">
+                    -
+                  </td>
+                </>
+              )}
+              <td className="px-3 py-2 text-center text-xs font-medium text-gray-400">
+                -
+              </td>
+            </tr>
+          )}
+          {deliveryForItemList && (
+            <tr className="border-b border-gray-200 bg-sky-50/50">
+              <td className="px-2 py-2">
+                <span className="mx-auto flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-xs font-semibold leading-none text-white">
+                  {virtualItemCount}
+                </span>
+              </td>
+              <td className="px-2 py-2 font-medium text-gray-900">
+                <div className="flex flex-wrap items-center gap-x-1.5">
+                  <span>{deliveryForItemList.name}</span>
+                  {deliveryForItemList.amount > 0 && (
+                    <span className="text-xs font-semibold text-gray-500">
+                      ({formatAmount(deliveryForItemList.amount)}원)
+                    </span>
+                  )}
+                </div>
+              </td>
+              <td className="px-2 py-2 text-center text-xs font-medium text-gray-600">
+                배송
+              </td>
+              <td className="px-2 py-2 text-center">
+                <span className="inline-flex items-center rounded-md bg-sky-100 px-2 py-1 text-xs font-semibold text-sky-700">
+                  배송
+                </span>
+              </td>
+              <td className="px-2 py-2 text-center font-medium text-gray-800">
+                1건
+              </td>
+              {customerMode !== "adjustment" && customerMode !== "demo" && (
+                <>
+                  <td className="px-2 py-2 text-right text-gray-500">-</td>
+                  <td className="px-2 py-2 text-right font-medium text-gray-500">
+                    -
+                  </td>
+                </>
+              )}
+              <td className="px-3 py-2 text-center text-xs font-medium text-gray-400">
+                -
+              </td>
+            </tr>
+          )}
           {draftLines.length === 0 ? (
             <tr>
               <td
@@ -2461,7 +2571,7 @@ export default function StampLogForm({
               >
                 <td className="px-2 py-2">
                   <span className="mx-auto flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-xs font-semibold leading-none text-white">
-                    {index + 1}
+                    {index + virtualItemCount + 1}
                   </span>
                 </td>
                 <td className="px-2 py-2 font-medium text-gray-900">
@@ -2833,6 +2943,7 @@ export default function StampLogForm({
                     hasValidDeliveryInfo &&
                     hasValidPayment &&
                     hasSelectedShipmentTiming &&
+                    showStampAccrual &&
                     customerMode !== "x" &&
                     stepOneStampField}
                 </>

@@ -353,6 +353,13 @@ export const updateAfterServiceStatus = async (
   return afterService;
 };
 
+export const rollbackAfterServiceCreationLogs = async (afterServiceId: number) => {
+  const { error } = await supabase.rpc("rollback_after_service_creation_logs", {
+    p_after_service_id: afterServiceId,
+  });
+  if (error) throw error;
+};
+
 export const processAfterServiceRepairReceipt = async (values: {
   afterServiceId: string;
   arrivedOn: string;

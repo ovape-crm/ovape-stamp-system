@@ -137,7 +137,7 @@ export const addStamp = async (
   note: string = "",
   paymentType?: PaymentTypeEnumType["value"],
   logMeta?: StampLogMeta,
-) => {
+) : Promise<string> => {
   const requestMeta = {
     ...logMeta,
     clientRequestId: logMeta?.clientRequestId ?? crypto.randomUUID(),
@@ -145,7 +145,7 @@ export const addStamp = async (
   if (!(await confirmOutboundInventory(requestMeta.items ?? []))) {
     throw new Error("출고 처리를 취소했습니다.");
   }
-  const { error } = await supabase.rpc("apply_stamp_log_operation", {
+  const { data, error } = await supabase.rpc("apply_stamp_log_operation_v2", {
     p_customer_id: customerId,
     p_stamp_delta: amount,
     p_action: amount === 0 ? "no-stamp" : `add-${amount}`,
@@ -153,6 +153,7 @@ export const addStamp = async (
     p_jsonb: await withCreatedWorker({ paymentType, ...requestMeta }),
   });
   if (error) throw error;
+  return String(data);
 };
 
 /**
@@ -221,6 +222,7 @@ export const confirmReservationStamp = async (logId: string) => {
       PaymentTypeEnum.SHIPMENT_REMARK.value,
       (log.jsonb?.storeName as StoreTypeEnumType["value"] | undefined) ??
         StoreTypeEnum.OVAPE.value,
+      String(logId),
     );
   }
 };
@@ -235,6 +237,7 @@ export const removeStamp = async (
   note: string = "",
   paymentType?: PaymentTypeEnumType["value"],
   storeName?: StoreTypeEnumType["value"],
+  sourceOutboundLogId?: string,
 ) => {
   const { error } = await supabase.rpc("apply_stamp_log_operation", {
     p_customer_id: customerId,
@@ -242,7 +245,9 @@ export const removeStamp = async (
     p_action: `${mode}-${amount}`,
     p_note: note,
     p_jsonb: await withCreatedWorker(
-      paymentType || storeName ? { paymentType, storeName } : null,
+      paymentType || storeName || sourceOutboundLogId
+        ? { paymentType, storeName, couponSourceOutboundLogId: sourceOutboundLogId }
+        : null,
     ),
   });
   if (error) throw error;

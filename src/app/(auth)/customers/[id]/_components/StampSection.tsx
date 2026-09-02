@@ -15,7 +15,6 @@ import {
   PaymentTypeEnum,
   PaymentTypeEnumType,
   StoreTypeEnum,
-  StoreTypeEnumType,
 } from "@/app/_enums/enums";
 import { useModal } from "@/app/_contexts/ModalContext";
 import { useQueryClient } from "@tanstack/react-query";
@@ -242,7 +241,7 @@ const StampSection = ({
         : target.is_stamp_eligible === false || customerMode === "x"
           ? 0
           : amount;
-      await addStamp(
+      const outboundLogId = await addStamp(
         targetCustomerId ?? target.id,
         effectiveAmount,
         memo ?? "",
@@ -257,6 +256,7 @@ const StampSection = ({
           getCouponUsageNote(logMeta.couponUse),
           PaymentTypeEnum.SHIPMENT_REMARK.value,
           logMeta.storeName ?? StoreTypeEnum.OVAPE.value,
+          outboundLogId,
         );
       }
       onUpdate();
@@ -340,39 +340,6 @@ const StampSection = ({
     }
   };
 
-  const handleUse10 = async (
-    memo?: string,
-    couponQuantity: number = 1,
-    paymentType: PaymentTypeEnumType["value"] = PaymentTypeEnum.SHIPMENT_REMARK
-      .value,
-    storeName: StoreTypeEnumType["value"] = StoreTypeEnum.OVAPE.value,
-  ) => {
-    const stampAmount = couponQuantity * 10;
-    if (stampCount < stampAmount) {
-      toast.error("보유 스탬프가 쿠폰 사용 수량보다 부족합니다.");
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      await removeStamp(
-        "coupon",
-        target.id,
-        stampAmount,
-        memo ?? "",
-        paymentType,
-        storeName,
-      );
-      onUpdate();
-      toast.success("쿠폰 사용 완료! 🎉");
-    } catch (error) {
-      console.error("쿠폰 사용 실패:", error);
-      toast.error("쿠폰 사용에 실패했습니다.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   openOutboundModalRef.current = openOutboundModal;
 
   useEffect(() => {
@@ -443,48 +410,6 @@ const StampSection = ({
                 disabled={isLoading}
               >
                 출고 이력
-              </Button>
-              <Button
-                size="sm"
-                variant="tertiary"
-                className="flex-1"
-                onClick={() =>
-                  open({
-                    content: (
-                      <StampConfirmModal
-                        target={{
-                          name: target.name,
-                          phone: target.phone,
-                          gender: target.gender,
-                          address: target.address,
-                          note: target.note,
-                          is_stamp_eligible: target.is_stamp_eligible,
-                        }}
-                        mode="use10"
-                        stampCount={stampCount}
-                        onCancel={close}
-                        onConfirm={async (
-                          modalNote?: string,
-                          paymentType?: PaymentTypeEnumType["value"],
-                          couponQuantity?: number,
-                          logMeta?: StampLogMeta,
-                        ) => {
-                          await handleUse10(
-                            modalNote,
-                            couponQuantity ?? 1,
-                            paymentType,
-                            logMeta?.storeName,
-                          );
-                          close();
-                        }}
-                      />
-                    ),
-                    options: { dismissOnBackdrop: false },
-                  })
-                }
-                disabled={isLoading || stampCount < 10}
-              >
-                쿠폰사용
               </Button>
               <Button
                 size="sm"
