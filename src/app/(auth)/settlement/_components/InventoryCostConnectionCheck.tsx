@@ -5,6 +5,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import Button from "@/app/_components/Button";
 import Loading from "@/app/_components/Loading";
+import InventoryCostReassignment from "./InventoryCostReassignment";
+import InventoryCostIntegrityReport from "./InventoryCostIntegrityReport";
 import {
   getCurrentInventoryValuation,
   getCurrentInventoryCostLayers,
@@ -20,6 +22,35 @@ type CheckRow = {
   actualQuantity: number;
   layerQuantity: number;
   lastMovementAt: string | null;
+};
+
+const costEventLabels: Record<string, string> = {
+  opening: "기초재고",
+  purchase_in: "입고",
+  sale_out: "판매",
+  service_out: "서비스",
+  demo_out: "시연용",
+  loss_out: "재고손실",
+  reversal: "원복",
+  customer_exchange_in: "고객 교환입고",
+  customer_exchange_out: "고객 교환출고",
+  after_service_in: "A/S 입고",
+  after_service_out: "A/S 출고",
+  adjustment_in: "재고조정 입고",
+  adjustment_out: "재고조정 출고",
+  reconciliation_in: "원가층 추가",
+  reconciliation_out: "원가층 소진",
+};
+
+const costReferenceLabels: Record<string, string> = {
+  stamp_log: "출고 이력",
+  purchase_receipt: "입고 전표",
+  purchase_receipt_reversal: "입고 취소",
+  cost_missing: "원가 미연결",
+  reconciliation: "원가 연결 점검",
+  cost_reconciliation: "원가 연결 점검",
+  settlement_cost_basis: "기초 원가 입력",
+  after_service_outbound: "A/S 출고",
 };
 
 const CheckGroup = ({
@@ -233,6 +264,8 @@ export default function InventoryCostConnectionCheck() {
         기초원가와 현재 재고의 기준 차이를 품목별로 확인합니다. 재고조정 전에
         원본 입출고·기초원가를 먼저 검토하세요.
       </p>
+      <InventoryCostIntegrityReport />
+      <InventoryCostReassignment />
       <div className="mt-4 space-y-3">
         <CheckGroup
           title="원가층 없음"
@@ -432,7 +465,10 @@ export default function InventoryCostConnectionCheck() {
                           {layer.itemName}
                         </td>
                         <td className="px-2 py-2 text-xs text-gray-600">
-                          {layer.eventType} · {layer.referenceType}
+                          {costEventLabels[layer.eventType] ?? layer.eventType}
+                          {" · "}
+                          {costReferenceLabels[layer.referenceType] ??
+                            layer.referenceType}
                         </td>
                         <td className="px-2 py-2 text-right">
                           {layer.remainingQuantity.toLocaleString("ko-KR")}

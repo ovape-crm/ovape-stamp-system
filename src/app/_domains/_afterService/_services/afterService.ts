@@ -503,20 +503,18 @@ export const getInventoryServiceProgress = async (afterServiceId: number) => {
 
 export type AfterServiceOutboundCostAllocation = {
   id: string;
-  unit_price: number;
+  unit_price: number | null;
   outbound_quantity: number;
   received_quantity: number;
+  cost_source: string;
 };
 
 export const getAfterServiceOutboundCostAllocations = async (
   afterServiceId: number,
 ) => {
-  const { data, error } = await supabase
-    .from('after_service_outbound_cost_allocations')
-    .select('id, unit_price, outbound_quantity, received_quantity')
-    .eq('after_service_id', afterServiceId)
-    .order('created_at', { ascending: true })
-    .order('id', { ascending: true });
+  const { data, error } = await supabase.rpc('get_after_service_outbound_cost_details', {
+    p_after_service_id: afterServiceId,
+  });
   if (error) throw error;
   return (data ?? []) as AfterServiceOutboundCostAllocation[];
 };

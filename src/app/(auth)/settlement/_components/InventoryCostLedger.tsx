@@ -11,6 +11,7 @@ const eventLabels: Record<string, string> = {
   opening: "기초재고",
   purchase_in: "입고",
   sale_out: "판매",
+  service_out: "서비스",
   customer_exchange_in: "고객 교환입고",
   customer_exchange_out: "고객 교환출고",
   after_service_out: "A/S 선출고",
@@ -62,6 +63,7 @@ const getKoreaToday = () => getKoreaDateValue(new Date().toISOString());
 
 const referenceLabels: Record<string, string> = {
   stamp_log: "출고 이력",
+  manual_service_cost: "서비스 원가 입력",
   purchase_receipt: "입고 전표",
   purchase_receipt_reversal: "입고 취소",
 };

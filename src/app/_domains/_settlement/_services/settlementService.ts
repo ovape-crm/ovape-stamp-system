@@ -976,7 +976,7 @@ export const getInventoryCostLedger = async (params: {
   const offset = params.offset ?? 0;
   const limit = params.limit ?? 100;
   let request = supabase
-    .from("inventory_cost_events")
+    .from("inventory_cost_reporting_events")
     .select(
       "id,event_type,event_at,item_name,direction,quantity,total_cost,reference_type,reference_id,settlement_effect,metadata",
       { count: "exact" },
@@ -1079,7 +1079,11 @@ export const getInventoryCostLedger = async (params: {
           ? "pending"
           : "confirmed",
       queueSequence: layer ? Number(layer.queue_sequence) : null,
-      sourceSummary: eventAllocations
+      sourceSummary: (event.metadata as Record<string, unknown> | null)?.monetaryOnly
+        ? "수동 확정·출처 미확인 (재고 차감 없음)"
+        : (event.metadata as Record<string, unknown> | null)?.serviceAttributedCost !== undefined
+          ? `기존 소진 ${Number((event.metadata as Record<string, unknown>).originalConsumedCost).toLocaleString("ko-KR")}원 중 서비스로 ${Number((event.metadata as Record<string, unknown>).serviceAttributedCost).toLocaleString("ko-KR")}원 귀속`
+        : eventAllocations
         .map((allocation) => {
           const source = layersById.get(String(allocation.source_layer_id));
           return `${source?.item_name ?? event.item_name} ${Number(allocation.quantity)}개`;

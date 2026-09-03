@@ -398,19 +398,28 @@ export default function StampLogForm({
   }, [itemSearch]);
 
   const itemSearchQuery = useQuery({
-    queryKey: [...itemKeys.search(debouncedItemSearch), "outbound"],
+    queryKey: [
+      ...itemKeys.search(debouncedItemSearch),
+      "outbound",
+      "with-stock",
+    ],
     queryFn: () => searchOutboundItems(debouncedItemSearch),
     enabled: debouncedItemSearch.length > 0,
-    staleTime: 30_000,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchInterval: showItemResults && !selectedItem ? 15000 : false,
   });
   const items = itemSearchQuery.data ?? [];
   const isItemsLoading = itemSearchQuery.isPending;
   const isItemsFetching = itemSearchQuery.isFetching;
   const isItemSearchPending =
     itemSearch.trim().length > 0 &&
-    (itemSearch.trim() !== debouncedItemSearch || isItemsFetching);
+    (itemSearch.trim() !== debouncedItemSearch ||
+      (isItemsFetching && !itemSearchQuery.data));
   const canShowItemSearchResults =
-    itemSearch.trim() === debouncedItemSearch && !isItemSearchPending;
+    itemSearch.trim() === debouncedItemSearch &&
+    !isItemSearchPending &&
+    !itemSearchQuery.isError;
   const { rules: outboundMemoRules, isError: isOutboundMemoRulesError } =
     useOutboundMemoRules();
 
@@ -2052,6 +2061,26 @@ export default function StampLogForm({
                     ))}
                   </div>
                 )}
+
+              {!selectedItem && showItemResults && itemSearchQuery.isError && (
+                <div
+                  role="alert"
+                  className="absolute z-50 mt-1 w-full rounded-lg border border-gray-200 bg-white p-4 shadow-lg"
+                >
+                  <p className="text-sm text-rose-700">
+                    품목 또는 재고 잔량을 불러오지 못했습니다.
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="mt-2"
+                    disabled={isItemsFetching}
+                    onClick={() => void itemSearchQuery.refetch()}
+                  >
+                    다시 조회
+                  </Button>
+                </div>
+              )}
 
               {!selectedItem &&
                 showItemResults &&
