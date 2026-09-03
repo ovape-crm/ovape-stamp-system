@@ -236,7 +236,7 @@ export const searchItemOptions = async (
   }));
 };
 
-/** 출고 모달 전용 검색: 재고·시연대 후속 조회 없이 한 번의 요청으로 끝낸다. */
+/** 출고 검색 결과의 품목만 묶어서 실재고를 조회한다. 시연대 위치는 조회하지 않는다. */
 export const searchOutboundItems = async (
   keyword: string,
   limit = 20,
@@ -252,7 +252,28 @@ export const searchOutboundItems = async (
     .order("item_name", { ascending: true })
     .limit(limit);
   if (error) throw error;
-  return (data ?? []) as ItemType[];
+  const items = (data ?? []) as ItemType[];
+  if (!items.length) return [];
+  const itemNames = [
+    ...new Set(items.map((item) => normalizeItemName(item.item_name))),
+  ];
+  const { data: balances, error: balanceError } = await supabase
+    .from("inventory_balances")
+    .select("item_name, quantity")
+    .in("item_name", itemNames);
+  if (balanceError)
+    throw new Error("재고 잔량을 불러오지 못했습니다. 다시 검색해 주세요.");
+  const quantityByName = new Map(
+    (balances ?? []).map((row) => [
+      normalizeItemName(row.item_name),
+      Number(row.quantity),
+    ]),
+  );
+  return items.map((item) => ({
+    ...item,
+    current_quantity:
+      quantityByName.get(normalizeItemName(item.item_name)) ?? 0,
+  }));
 };
 
 export const getItemsCount = async (

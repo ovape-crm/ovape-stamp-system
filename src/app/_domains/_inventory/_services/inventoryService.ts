@@ -260,6 +260,132 @@ export const consumeInventoryCostReconciliationLayer = async (values: {
   if (error) throw error;
 };
 
+export const previewInventoryCostReassignment = async (values: {
+  itemName: string;
+  fromAt: string;
+  note?: string;
+}) => {
+  const { data, error } = await supabase.rpc("preview_inventory_cost_reassignment", {
+    p_item_name: normalizeInventoryItemName(values.itemName),
+    p_from_at: `${values.fromAt}T00:00:00+09:00`,
+    p_note: values.note?.trim() || null,
+  });
+  if (error) throw error;
+  return String(data);
+};
+
+export const approveInventoryCostReassignment = async (runId: string) => {
+  const { error } = await supabase.rpc("approve_inventory_cost_reassignment", {
+    p_run_id: runId,
+  });
+  if (error) throw error;
+};
+
+export const applyInventoryCostReassignment = async (runId: string) => {
+  const { error } = await supabase.rpc("apply_inventory_cost_reassignment", {
+    p_run_id: runId,
+  });
+  if (error) throw error;
+};
+
+export type CostReviewAllocation = { source_layer_id: string; quantity: number; unit_cost: number | null };
+export type CostReviewLine = {
+  id: string; event_at: string; event_type: string; quantity: number;
+  reference_type: string; reference_id: string; reference_line_key: string;
+  cost_before: number | null; cost_after: number | null; protected_reason: string | null;
+  before_allocations: CostReviewAllocation[]; after_allocations: CostReviewAllocation[];
+};
+export type CostReviewRun = {
+  id: string; item_name: string; from_at: string; created_at: string;
+  approved_at: string | null; applied_at: string | null; plan_version: number | null;
+  status: "previewed" | "approved" | "applied" | "rejected";
+  affected_outbound_count: number; cost_before: number | null; cost_after: number | null;
+  inventory_quantity_before: number; inventory_quantity_after: number; note: string | null;
+};
+export type CostReviewDetail = CostReviewRun & {
+  inventory_cost_reassignment_preview_lines: CostReviewLine[];
+  source_layers: { id: string; event_at: string }[] | null;
+};
+const costReviewColumns = "id,item_name,from_at,created_at,approved_at,applied_at,plan_version,status,affected_outbound_count,cost_before,cost_after,inventory_quantity_before,inventory_quantity_after,note";
+
+export const getInventoryCostReassignmentRun = async (runId: string): Promise<CostReviewDetail> => {
+  const { data, error } = await supabase
+    .from("inventory_cost_reassignment_runs")
+    .select(`${costReviewColumns},inventory_cost_reassignment_preview_lines(*),source_layers:source_snapshot->layers`)
+    .eq("id", runId)
+    .single();
+  if (error) throw error;
+  return data as unknown as CostReviewDetail;
+};
+
+export const getInventoryCostReassignmentHistory = async (limit: number) => {
+  const { data, error, count } = await supabase.from("inventory_cost_reassignment_runs")
+    .select(costReviewColumns, { count: "exact" })
+    .order("created_at", { ascending: false }).order("id", { ascending: false }).range(0, limit - 1);
+  if (error) throw error;
+  return { rows: data as unknown as CostReviewRun[], count: count ?? 0 };
+};
+
+export type InventoryCostIntegrityReport = {
+  stockMismatchCount: number; layerMismatchCount: number; outboundMismatchCount: number;
+  missingServiceCount: number;
+  serviceReviewCount: number;
+  missingServiceLines: { log_id: string; event_at: string; line_index: number; item_name: string; quantity: number; linked_quantity: number }[];
+};
+export const getInventoryCostIntegrityReport = async (limit: number): Promise<InventoryCostIntegrityReport> => {
+  const { data, error } = await supabase.rpc("get_inventory_cost_integrity_report", { p_limit: limit });
+  if (error) throw error;
+  return data as InventoryCostIntegrityReport;
+};
+
+export type ServiceCostLink = { allocation_id: string; quantity: number };
+export type ServiceCostEntry = {
+  log_id: string; line_index: number; item_name: string; event_at: string; quantity: number;
+  total_cost: number | null; allocated_cost: number | null; linked_cost: number | null;
+  source: "manual" | "fifo" | "linked" | "missing" | "untracked"; snapshot: string;
+  is_tracked: boolean;
+  has_allocation: boolean;
+  review?: { kind: "historical_manual" | "untracked_manual" | "offset_review" | "current_manual"; note: string } | null;
+  manual: { unit_cost: number; note: string } | null;
+  history: { id: string; created_at: string; note: string; before_cost: { total_cost: number | null }; after_cost: { total_cost: number | null } }[];
+};
+export const getServiceCostEntries = async (limit: number): Promise<{ count: number; rows: ServiceCostEntry[] }> => {
+  const { data, error } = await supabase.rpc("get_service_cost_entries", { p_limit: limit });
+  if (error) throw error;
+  return data;
+};
+export const getServiceCostAttention = async (limit: number): Promise<{ count: number; rows: ServiceCostEntry[] }> => {
+  const { data, error } = await supabase.rpc("get_service_cost_attention", { p_limit: limit });
+  if (error) throw error;
+  return data;
+};
+export const saveServiceManualCost = async (entry: ServiceCostEntry, unitCost: number | null, note: string) => {
+  const { error } = await supabase.rpc("save_service_manual_cost", {
+    p_log_id: entry.log_id, p_line_index: entry.line_index, p_snapshot: entry.snapshot,
+    p_unit_cost: unitCost, p_note: note,
+  });
+  if (error) throw error;
+};
+export type ServiceCostContext = {
+  log_id: string; line_index: number; item_name: string; event_at: string; quantity: number; snapshot: string;
+  nearby: { id: string; position: "before" | "after"; event_at: string; event_type: string; quantity: number; total_cost: number | null; reference: string; restored: boolean;
+    allocations: { quantity: number; unit_cost: number | null; received_at: string; source_layer_id: string }[] }[];
+  candidates: { allocation_id: string; source_layer_id: string; unit_cost: number | null; consumed_quantity: number; available_quantity: number; linked_quantity: number;
+    consumed_at: string; received_at: string; source_type: string; source_reference: string; note: string | null; eligible: boolean }[];
+  history: { id: string; created_at: string; note: string; before_links: (ServiceCostLink & { unit_cost: number | null })[]; after_links: (ServiceCostLink & { unit_cost: number | null })[] }[];
+};
+export const getServiceCostLinkContext = async (logId: string, lineIndex: number): Promise<ServiceCostContext> => {
+  const { data, error } = await supabase.rpc("get_service_cost_link_context", { p_log_id: logId, p_line_index: lineIndex });
+  if (error) throw error;
+  return data as ServiceCostContext;
+};
+export const saveServiceCostLinks = async (context: ServiceCostContext, links: ServiceCostLink[], note: string) => {
+  const { error } = await supabase.rpc("save_service_cost_links", {
+    p_log_id: context.log_id, p_line_index: context.line_index, p_snapshot: context.snapshot, p_links: links, p_note: note,
+  });
+  if (error) throw error;
+};
+
 export const saveInventoryTrackingSettings = async (
   settings: InventoryTrackingSettings,
 ) => {

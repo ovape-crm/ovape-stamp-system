@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toBlob } from "html-to-image";
 import toast from "react-hot-toast";
@@ -11,19 +11,20 @@ import { getPurchaseOrders } from "@/app/_domains/_inventory/_services/inventory
 type Entry = {
   id: string;
   entry_date: string;
-  entry_type: "receipt" | "balance" | "payment";
+  entry_type: "receipt" | "opening_balance" | "payment";
   item_name: string | null;
   quantity: number | null;
   unit_price: number | null;
   amount: number;
   payment_method: string | null;
   note: string | null;
+  created_at: string;
   related_receipt_id: string | null;
   source_receipt_id: string | null;
 };
 const labels = {
   receipt: "입고",
-  balance: "이월/잔금",
+  opening_balance: "기초 이월",
   payment: "지급",
 } as const;
 
@@ -38,16 +39,13 @@ const formatReceiptDate = (date: string) =>
 export default function ComprehensiveSettlement() {
   const client = useQueryClient();
   const [activeTab, setActiveTab] = useState<"settlement" | "history">("settlement");
+  const [receiptTab, setReceiptTab] = useState<"settlement" | "history">("settlement");
   const receiptCaptureRef = useRef<HTMLTableElement>(null);
   const [paymentMethod, setPaymentMethod] = useState("현금");
   const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(
     null,
   );
-  const [balanceAmount, setBalanceAmount] = useState("");
   const [paymentAmount, setPaymentAmount] = useState("");
-  const [draftBalanceAmount, setDraftBalanceAmount] = useState<number | null>(
-    null,
-  );
   const [draftPayment, setDraftPayment] = useState<{
     amount: number;
     method: string;
@@ -63,7 +61,7 @@ export default function ComprehensiveSettlement() {
       const { data, error } = await supabase
         .from("comprehensive_settlement_entries")
         .select(
-          "id,entry_date,entry_type,item_name,quantity,unit_price,amount,payment_method,note,source_receipt_id,related_receipt_id",
+          "id,entry_date,entry_type,item_name,quantity,unit_price,amount,payment_method,note,created_at,source_receipt_id,related_receipt_id",
         )
         .order("entry_date", { ascending: false })
         .order("created_at", { ascending: false });
@@ -140,9 +138,6 @@ export default function ComprehensiveSettlement() {
         (entry) => entry.related_receipt_id === selectedReceipt.receipt.id,
       )
     : [];
-  const savedBalanceAmount = selectedReceiptEntries
-    .filter((entry) => entry.entry_type === "balance")
-    .reduce((sum, entry) => sum + entry.amount, 0);
   const savedPaymentsByMethod = selectedReceiptEntries
     .filter((entry) => entry.entry_type === "payment")
     .reduce<Record<string, number>>((payments, entry) => {
@@ -154,20 +149,11 @@ export default function ComprehensiveSettlement() {
     (sum, value) => sum + value,
     0,
   );
-  const selectedSavedBalanceAmount =
-    editingReceiptId === selectedReceiptId ? 0 : savedBalanceAmount;
   const selectedSavedPaymentAmount =
     editingReceiptId === selectedReceiptId ? 0 : savedPaymentAmount;
   const isViewingCompletedReceipt =
     Boolean(selectedReceiptId && importedReceiptIds.has(selectedReceiptId)) &&
     editingReceiptId !== selectedReceiptId;
-  const selectedFinalAmount = selectedReceipt
-    ? selectedReceipt.amount +
-      selectedSavedBalanceAmount +
-      (draftBalanceAmount ?? 0) -
-      selectedSavedPaymentAmount -
-      (draftPayment?.amount ?? 0)
-    : 0;
   const completedReceipts = entries
     .filter(
       (entry) => entry.entry_type === "receipt" && entry.source_receipt_id,
@@ -186,14 +172,108 @@ export default function ComprehensiveSettlement() {
         receipt: (typeof allSupplierReceipts)[number];
       } => Boolean(row.receipt),
     );
+  const openingBalance = entries
+    .filter((entry) => entry.entry_type === "opening_balance")
+    .reduce((sum, entry) => sum + entry.amount, 0);
+  let runningBalance = openingBalance;
+  const completedReceiptSummaries = [...completedReceipts]
+    .sort(
+      (left, right) =>
+        left.entry.entry_date.localeCompare(right.entry.entry_date) ||
+        left.entry.created_at.localeCompare(right.entry.created_at),
+    )
+    .map(({ entry, receipt }) => {
+      const payment = entries
+        .filter(
+          (linked) =>
+            linked.entry_type === "payment" &&
+            linked.related_receipt_id === receipt.receipt.id,
+        )
+        .reduce((sum, linked) => sum + linked.amount, 0);
+      const balanceBeforeReceipt = runningBalance;
+      runningBalance += receipt.amount - payment;
+      return { entry, receipt, payment, balanceBeforeReceipt, finalBalance: runningBalance };
+    })
+    .reverse();
+  const selectedCompletedReceiptSummary = selectedReceiptId
+    ? completedReceiptSummaries.find(
+        (summary) => summary.receipt.receipt.id === selectedReceiptId,
+      )
+    : undefined;
+  const selectedSummaryIndex = selectedCompletedReceiptSummary
+    ? completedReceiptSummaries.indexOf(selectedCompletedReceiptSummary)
+    : -1;
+  const previousReceiptSummary = selectedCompletedReceiptSummary
+    ? completedReceiptSummaries[selectedSummaryIndex + 1]
+    : completedReceiptSummaries[0];
+  const selectedOpeningBalanceLabel = previousReceiptSummary
+    ? `${previousReceiptSummary.receipt.receipt.arrived_on} 전표 기준 기초 잔금`
+    : "기초 이월 잔금";
+  const selectedOpeningBalance =
+    selectedCompletedReceiptSummary?.balanceBeforeReceipt ?? receivable - paid;
+  const selectedFinalAmount = selectedReceipt
+    ? selectedOpeningBalance +
+      selectedReceipt.amount -
+      (editingReceiptId === selectedReceiptId
+        ? (draftPayment?.amount ?? 0)
+        : selectedCompletedReceiptSummary
+          ? selectedSavedPaymentAmount
+          : (draftPayment?.amount ?? 0))
+    : 0;
+  const historyDateSummaries = Array.from(
+    entries.reduce((days, entry) => {
+      const dayEntries = days.get(entry.entry_date) ?? [];
+      dayEntries.push(entry);
+      days.set(entry.entry_date, dayEntries);
+      return days;
+    }, new Map<string, Entry[]>()),
+  )
+    .sort(([left], [right]) => left.localeCompare(right))
+    .reduce<
+      Array<{
+        date: string;
+        entries: Entry[];
+        openingBalance: number;
+        receiptAmount: number;
+        paymentAmount: number;
+        finalBalance: number;
+      }>
+    >(
+      (days, [date, dayEntries]) => {
+        const openingBalance =
+          (days.at(-1)?.finalBalance ?? 0) +
+          dayEntries
+            .filter((entry) => entry.entry_type === "opening_balance")
+            .reduce((sum, entry) => sum + entry.amount, 0);
+        const receiptAmount = dayEntries
+          .filter((entry) => entry.entry_type === "receipt")
+          .reduce((sum, entry) => sum + entry.amount, 0);
+        const paymentAmount = dayEntries
+          .filter((entry) => entry.entry_type === "payment")
+          .reduce((sum, entry) => sum + entry.amount, 0);
+        const finalBalance = openingBalance + receiptAmount - paymentAmount;
+        days.push({
+          date,
+          entries: dayEntries,
+          openingBalance,
+          receiptAmount,
+          paymentAmount,
+          finalBalance,
+        });
+        return days;
+      },
+      [],
+    )
+    .reverse();
   const importReceipt = async (row: (typeof supplierReceipts)[number]) => {
     if (row.hasMissingPrice) {
       toast.error("입고 전표에 단가가 없는 품목이 있습니다.");
       return;
     }
+    setReceiptTab("settlement");
     setSelectedReceiptId(row.receipt.id);
+    setPaymentAmount("");
     setEditingReceiptId(null);
-    setDraftBalanceAmount(null);
     setDraftPayment(null);
     toast.success(
       "입고 전표를 불러왔습니다. 내용을 확인한 뒤 정산 내용을 입력해 주세요.",
@@ -206,9 +286,6 @@ export default function ComprehensiveSettlement() {
     const linkedEntries = entries.filter(
       (entry) => entry.related_receipt_id === receiptId,
     );
-    const balance = linkedEntries
-      .filter((entry) => entry.entry_type === "balance")
-      .reduce((sum, entry) => sum + entry.amount, 0);
     const payments = linkedEntries.filter(
       (entry) => entry.entry_type === "payment",
     );
@@ -216,9 +293,9 @@ export default function ComprehensiveSettlement() {
       (sum, entry) => sum + entry.amount,
       0,
     );
+    setReceiptTab("history");
     setSelectedReceiptId(receiptId);
     setEditingReceiptId(edit ? receiptId : null);
-    setDraftBalanceAmount(edit && balance > 0 ? balance : null);
     setDraftPayment(
       edit && paymentAmount > 0
         ? {
@@ -228,11 +305,10 @@ export default function ComprehensiveSettlement() {
         : null,
     );
     setPaymentMethod(payments[0]?.payment_method ?? "현금");
-    setBalanceAmount("");
     setPaymentAmount("");
   };
   const addSelectedAmount = (
-    entryType: "balance" | "payment",
+    entryType: "payment",
     rawAmount: string,
   ) => {
     const parsedAmount = Number(rawAmount);
@@ -240,13 +316,8 @@ export default function ComprehensiveSettlement() {
       toast.error("금액을 입력해 주세요.");
       return;
     }
-    if (entryType === "balance") {
-      setDraftBalanceAmount(parsedAmount);
-      setBalanceAmount("");
-    } else {
-      setDraftPayment({ amount: parsedAmount, method: paymentMethod });
-      setPaymentAmount("");
-    }
+    setDraftPayment({ amount: parsedAmount, method: paymentMethod });
+    setPaymentAmount("");
   };
   const saveSelectedReceipt = async () => {
     if (!selectedReceipt) return;
@@ -257,7 +328,7 @@ export default function ComprehensiveSettlement() {
         p_entry_date: selectedReceipt.receipt.arrived_on,
         p_item_name: `${selectedReceipt.lines.length}개 품목 입고 전표`,
         p_amount: selectedReceipt.amount,
-        p_balance_amount: draftBalanceAmount ?? 0,
+        p_balance_amount: 0,
         p_payment_amount: draftPayment?.amount ?? 0,
         p_payment_method: draftPayment?.method ?? null,
       },
@@ -268,9 +339,7 @@ export default function ComprehensiveSettlement() {
     }
     setSelectedReceiptId(null);
     setEditingReceiptId(null);
-    setDraftBalanceAmount(null);
     setDraftPayment(null);
-    setBalanceAmount("");
     setPaymentAmount("");
     await client.invalidateQueries({ queryKey: ["comprehensive-settlement"] });
     toast.success("입고 전표를 종합 정산에 저장했습니다.");
@@ -357,89 +426,8 @@ export default function ComprehensiveSettlement() {
     }
   };
 
-  return (
-    <div className="space-y-5">
-      <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-        <h1 className="text-lg font-bold text-gray-900">종합 정산</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          거래처 종합에 대한 입고·이월 잔금·지급만 별도로 관리합니다. 재고·일반
-          정산에는 영향을 주지 않습니다.
-        </p>
-      </section>
-      <div className="border-b border-gray-200" role="tablist" aria-label="종합 정산 메뉴">
-        <div className="flex">
-          <button type="button" role="tab" aria-selected={activeTab === "settlement"} onClick={() => setActiveTab("settlement")} className={`border-b-2 px-4 py-3 text-sm font-semibold ${activeTab === "settlement" ? "border-brand-500 text-brand-700" : "border-transparent text-gray-500 hover:text-gray-700"}`}>종합 정산</button>
-          <button type="button" role="tab" aria-selected={activeTab === "history"} onClick={() => setActiveTab("history")} className={`border-b-2 px-4 py-3 text-sm font-semibold ${activeTab === "history" ? "border-brand-500 text-brand-700" : "border-transparent text-gray-500 hover:text-gray-700"}`}>정산 이력</button>
-        </div>
-      </div>
-      {activeTab === "settlement" && <>
-      <section className="grid gap-3 sm:grid-cols-3">
-        <Summary label="지급 대상" value={receivable} />
-        <Summary label="지급 완료" value={paid} />
-        <Summary label="현재 잔금" value={receivable - paid} emphasis />
-      </section>
-      <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-bold text-gray-900">종합 기존 입고목록</h2>
-        <p className="mt-1 text-xs text-gray-500">
-          거래처가 종합인 실제 입고 전표만 불러옵니다. 이미 정산에 넣은 품목은
-          다시 표시하지 않습니다.
-        </p>
-        <div className="mt-3 overflow-x-auto">
-          <table className="w-full min-w-[620px] text-sm">
-            <thead className="bg-gray-50 text-left text-xs text-gray-600">
-              <tr>
-                <th className="px-3 py-2">입고일</th>
-                <th className="px-3 py-2">품목</th>
-                <th className="px-3 py-2 text-right">수량</th>
-                <th className="px-3 py-2 text-right">단가</th>
-                <th className="px-3 py-2 text-right">합계</th>
-                <th className="px-3 py-2">처리</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {supplierReceiptLines.map((row) => (
-                <tr key={row.line.id}>
-                  <td className="px-3 py-2">{row.receipt.arrived_on}</td>
-                  <td className="px-3 py-2 font-medium">
-                    {row.line.item_name}
-                  </td>
-                  <td className="px-3 py-2 text-right">{row.line.quantity}</td>
-                  <td className="px-3 py-2 text-right">
-                    {row.unitPrice == null
-                      ? "단가 없음"
-                      : `${row.unitPrice.toLocaleString("ko-KR")}원`}
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    {row.unitPrice == null
-                      ? "—"
-                      : `${(row.line.quantity * row.unitPrice).toLocaleString("ko-KR")}원`}
-                  </td>
-                  <td className="px-3 py-2">
-                    <Button
-                      size="xs"
-                      disabled={row.unitPrice == null}
-                      onClick={() => importReceiptLine(row)}
-                    >
-                      불러오기
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-              {!supplierReceiptLines.length && (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="px-3 py-8 text-center text-gray-400"
-                  >
-                    불러올 종합 입고 품목이 없습니다.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
-      {selectedReceipt && (
+  // Reuse the original receipt unchanged; only its placement depends on the selected row.
+  const receiptPanel = selectedReceipt ? (
         <section className="rounded-2xl border border-brand-200 bg-brand-50/40 p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -498,7 +486,9 @@ export default function ComprehensiveSettlement() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-black">
-                {selectedReceipt.lines.map((line) => (
+                {[...selectedReceipt.lines]
+                  .sort((left, right) => (right.unitPrice ?? 0) - (left.unitPrice ?? 0))
+                  .map((line) => (
                   <tr key={line.id}>
                     <td className="border-r border-black px-2 py-2">
                       {line.item_name}
@@ -516,7 +506,7 @@ export default function ComprehensiveSettlement() {
                       원
                     </td>
                   </tr>
-                ))}
+                  ))}
                 <tr>
                   <th
                     colSpan={3}
@@ -533,60 +523,10 @@ export default function ComprehensiveSettlement() {
                     colSpan={3}
                     className="border-r border-black px-2 py-2 text-center font-semibold"
                   >
-                    잔금
+                    {selectedOpeningBalanceLabel}
                   </th>
-                  <td className="px-2 py-2">
-                    {isViewingCompletedReceipt ? (
-                      <span className="font-semibold">
-                        {selectedSavedBalanceAmount.toLocaleString("ko-KR")}원
-                      </span>
-                    ) : draftBalanceAmount !== null ? (
-                      <div className="flex items-center justify-center gap-2">
-                        <span className="font-semibold">
-                          {(
-                            selectedSavedBalanceAmount + draftBalanceAmount
-                          ).toLocaleString("ko-KR")}
-                          원
-                        </span>
-                        <Button
-                          size="xs"
-                          variant="gray"
-                          onClick={() => {
-                            setBalanceAmount(String(draftBalanceAmount));
-                            setDraftBalanceAmount(null);
-                          }}
-                        >
-                          수정
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1">
-                        {selectedSavedBalanceAmount > 0 && (
-                          <span className="shrink-0 font-semibold">
-                            {selectedSavedBalanceAmount.toLocaleString("ko-KR")}
-                            원
-                          </span>
-                        )}
-                        <input
-                          type="number"
-                          min="1"
-                          value={balanceAmount}
-                          onChange={(event) =>
-                            setBalanceAmount(event.target.value)
-                          }
-                          placeholder="잔금 입력"
-                          className="h-8 min-w-0 flex-1 border border-gray-400 bg-white px-2 text-center text-xs"
-                        />
-                        <Button
-                          size="xs"
-                          onClick={() =>
-                            addSelectedAmount("balance", balanceAmount)
-                          }
-                        >
-                          추가
-                        </Button>
-                      </div>
-                    )}
+                  <td className="px-2 py-2 font-semibold">
+                    {selectedOpeningBalance.toLocaleString("ko-KR")}원
                   </td>
                 </tr>
                 {Object.entries(savedPaymentsByMethod).map(
@@ -671,7 +611,7 @@ export default function ComprehensiveSettlement() {
                     colSpan={3}
                     className="border-r border-black px-2 py-2.5 text-center font-bold"
                   >
-                    최종 금액
+                    최종 잔금
                   </th>
                   <td className="px-2 py-2.5 font-bold text-brand-700">
                     {selectedFinalAmount.toLocaleString("ko-KR")}원
@@ -681,8 +621,92 @@ export default function ComprehensiveSettlement() {
             </table>
           </div>
         </section>
-      )}
+  ) : null;
+
+  return (
+    <div className="space-y-5">
+      <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+        <h1 className="text-lg font-bold text-gray-900">종합 정산</h1>
+        <p className="mt-1 text-sm text-gray-500">
+          기초 이월·입고·지급을 누적해 지급 예정액을 관리합니다. 이후 전표에는
+          잔금을 따로 입력하지 않아 같은 금액이 중복되지 않습니다.
+        </p>
+      </section>
+      <div className="border-b border-gray-200" role="tablist" aria-label="종합 정산 메뉴">
+        <div className="flex">
+          <button type="button" role="tab" aria-selected={activeTab === "settlement"} onClick={() => setActiveTab("settlement")} className={`border-b-2 px-4 py-3 text-sm font-semibold ${activeTab === "settlement" ? "border-brand-500 text-brand-700" : "border-transparent text-gray-500 hover:text-gray-700"}`}>종합 정산</button>
+          <button type="button" role="tab" aria-selected={activeTab === "history"} onClick={() => setActiveTab("history")} className={`border-b-2 px-4 py-3 text-sm font-semibold ${activeTab === "history" ? "border-brand-500 text-brand-700" : "border-transparent text-gray-500 hover:text-gray-700"}`}>정산 이력</button>
+        </div>
+      </div>
+      {activeTab === "settlement" && <>
+      <section className="grid gap-3 sm:grid-cols-3">
+        <Summary label="입고·기초 이월" value={receivable} />
+        <Summary label="지급 완료" value={paid} />
+        <Summary label="현재 잔금" value={receivable - paid} emphasis />
+      </section>
+      <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+        <h2 className="text-sm font-bold text-gray-900">종합 기존 입고목록</h2>
+        <p className="mt-1 text-xs text-gray-500">
+          거래처가 종합인 실제 입고 전표만 불러옵니다. 이미 정산에 넣은 품목은
+          다시 표시하지 않습니다.
+        </p>
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full min-w-[620px] text-sm">
+            <thead className="bg-gray-50 text-left text-xs text-gray-600">
+              <tr>
+                <th className="px-3 py-2">입고일</th>
+                <th className="px-3 py-2">품목</th>
+                <th className="px-3 py-2 text-right">수량</th>
+                <th className="px-3 py-2 text-right">단가</th>
+                <th className="px-3 py-2 text-right">합계</th>
+                <th className="px-3 py-2">처리</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {supplierReceiptLines.map((row) => (
+                <tr key={row.line.id}>
+                  <td className="px-3 py-2">{row.receipt.arrived_on}</td>
+                  <td className="px-3 py-2 font-medium">
+                    {row.line.item_name}
+                  </td>
+                  <td className="px-3 py-2 text-right">{row.line.quantity}</td>
+                  <td className="px-3 py-2 text-right">
+                    {row.unitPrice == null
+                      ? "단가 없음"
+                      : `${row.unitPrice.toLocaleString("ko-KR")}원`}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    {row.unitPrice == null
+                      ? "—"
+                      : `${(row.line.quantity * row.unitPrice).toLocaleString("ko-KR")}원`}
+                  </td>
+                  <td className="px-3 py-2">
+                    <Button
+                      size="xs"
+                      disabled={row.unitPrice == null}
+                      onClick={() => importReceiptLine(row)}
+                    >
+                      불러오기
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+              {!supplierReceiptLines.length && (
+                <tr>
+                  <td
+                    colSpan={6}
+                    className="px-3 py-8 text-center text-gray-400"
+                  >
+                    불러올 종합 입고 품목이 없습니다.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
       </>}
+      {activeTab === "settlement" && receiptTab === "settlement" && receiptPanel}
       {activeTab === "history" && <>
       <section className="rounded-2xl border border-gray-200 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
@@ -692,19 +716,10 @@ export default function ComprehensiveSettlement() {
           </p>
         </div>
         <div className="divide-y divide-gray-100">
-          {completedReceipts.map(({ entry, receipt }) => {
-            const linkedEntries = entries.filter(
-              (linked) => linked.related_receipt_id === receipt.receipt.id,
-            );
-            const balance = linkedEntries
-              .filter((linked) => linked.entry_type === "balance")
-              .reduce((sum, linked) => sum + linked.amount, 0);
-            const payment = linkedEntries
-              .filter((linked) => linked.entry_type === "payment")
-              .reduce((sum, linked) => sum + linked.amount, 0);
-            return (
+          {completedReceiptSummaries.map(
+            ({ entry, receipt, payment, balanceBeforeReceipt, finalBalance }) => (
+              <Fragment key={entry.id}>
               <div
-                key={entry.id}
                 className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
               >
                 <div>
@@ -712,11 +727,10 @@ export default function ComprehensiveSettlement() {
                     {formatReceiptDate(receipt.receipt.arrived_on)}
                   </p>
                   <p className="mt-1 text-xs text-gray-500">
-                    {receipt.lines.length}개 품목 · 최종 금액{" "}
-                    {(receipt.amount + balance - payment).toLocaleString(
-                      "ko-KR",
-                    )}
-                    원
+                    기초 잔금 {balanceBeforeReceipt.toLocaleString("ko-KR")}원
+                    {" + "}입고 금액 {receipt.amount.toLocaleString("ko-KR")}원
+                    {" − "}잔금 지급 {payment.toLocaleString("ko-KR")}원
+                    {" = "}최종 잔금 {finalBalance.toLocaleString("ko-KR")}원
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -738,8 +752,10 @@ export default function ComprehensiveSettlement() {
                   </Button>
                 </div>
               </div>
-            );
-          })}
+              {receiptTab === "history" && selectedReceiptId === receipt.receipt.id && receiptPanel}
+              </Fragment>
+            ),
+          )}
           {!completedReceipts.length && (
             <p className="px-4 py-10 text-center text-sm text-gray-400">
               아직 완료된 전표가 없습니다.
@@ -751,7 +767,47 @@ export default function ComprehensiveSettlement() {
         <div className="border-b border-gray-200 px-4 py-3 text-sm font-bold">
           정산 이력
         </div>
-        <div className="overflow-x-auto">
+        <div className="divide-y divide-gray-100">
+          {historyDateSummaries.map(({
+            date,
+            openingBalance,
+            receiptAmount,
+            paymentAmount,
+            finalBalance,
+          }) => (
+            <div
+              key={date}
+              className="flex flex-col gap-1 px-4 py-3 text-xs sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:text-sm"
+            >
+              <span className="shrink-0 font-semibold text-gray-800">
+                {formatReceiptDate(date)}
+              </span>
+              <p className="font-semibold whitespace-nowrap">
+                <span className="text-gray-600">기초 잔금 </span>
+                <span className="text-gray-900">{openingBalance.toLocaleString("ko-KR")}원</span>
+                <span className="text-gray-400"> + </span>
+                <span className="text-gray-600">입고 </span>
+                <span className="text-gray-900">{receiptAmount.toLocaleString("ko-KR")}원</span>
+                <span className="text-gray-400"> − </span>
+                <span className="text-gray-600">지급 </span>
+                <span className="text-emerald-700">{paymentAmount.toLocaleString("ko-KR")}원</span>
+                <span className="text-gray-400"> = </span>
+                <span className="text-brand-700">최종 잔금 {finalBalance.toLocaleString("ko-KR")}원</span>
+              </p>
+            </div>
+          ))}
+          {!historyDateSummaries.length && (
+            <p className="px-4 py-12 text-center text-gray-400">
+              아직 종합 정산 내역이 없습니다.
+            </p>
+          )}
+        </div>
+        {historyDateSummaries.length > 0 && (
+        <details className="border-t border-gray-200">
+          <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+            개별 정산 전체 이력 펼치기
+          </summary>
+        <div className="overflow-x-auto border-t border-gray-200">
           <table className="w-full min-w-[820px] text-sm">
             <thead className="bg-gray-50 text-left text-xs text-gray-600">
               <tr>
@@ -879,19 +935,11 @@ export default function ComprehensiveSettlement() {
                   </td>
                 </tr>
               ))}
-              {!entries.length && (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="px-4 py-12 text-center text-gray-400"
-                  >
-                    아직 종합 정산 내역이 없습니다.
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
+        </details>
+        )}
       </section>
       </>}
     </div>

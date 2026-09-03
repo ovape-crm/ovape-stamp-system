@@ -130,7 +130,7 @@ const AfterServiceDetailDrawer = ({
     enabled:
       isMaster &&
       numericAfterServiceId > 0 &&
-      Boolean(afterServiceDetail?.is_loaner_device_issued),
+      Boolean(afterServiceDetail),
   });
   const intakeExpenseQuery = useQuery({
     queryKey: ["after-service-intake-expense", numericAfterServiceId],
@@ -1046,13 +1046,16 @@ const AfterServiceDetailDrawer = ({
                 )}
 
                 {isMaster &&
-                  afterServiceDetail.is_loaner_device_issued && (
+                  (afterServiceDetail.is_loaner_device_issued ||
+                    isInventoryServiceCase ||
+                    outboundCostAllocationsQuery.isError ||
+                    (outboundCostAllocationsQuery.data?.length ?? 0) > 0) && (
                     <section className="mb-4 rounded-xl border border-violet-200 bg-violet-50/70 p-3">
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <h4 className="text-sm font-bold text-violet-900">A/S 출고 원가</h4>
                           <p className="mt-0.5 text-xs text-violet-700">
-                            출고 확정 시 배정된 매입 원가입니다.
+                            실제 출고에 연결된 원가입니다. FIFO 연결 기록과 기존·수동 기록을 구분하며, 미확정 원가는 0원으로 계산하지 않습니다.
                           </p>
                         </div>
                         <span className="rounded-md bg-white px-2 py-1 text-[11px] font-semibold text-violet-700 shadow-sm">
@@ -1071,6 +1074,7 @@ const AfterServiceDetailDrawer = ({
                             <table className="w-full min-w-[440px] text-xs">
                               <thead className="bg-violet-50 text-violet-800">
                                 <tr>
+                                  <th className="px-3 py-2 text-left font-semibold">원가 출처</th>
                                   <th className="px-3 py-2 text-right font-semibold">출고 단가</th>
                                   <th className="px-3 py-2 text-right font-semibold">출고 수량</th>
                                   <th className="px-3 py-2 text-right font-semibold">입고 완료</th>
@@ -1081,20 +1085,21 @@ const AfterServiceDetailDrawer = ({
                               <tbody className="divide-y divide-violet-100">
                                 {outboundCostAllocationsQuery.data.map((allocation) => (
                                   <tr key={allocation.id} className="text-gray-700">
-                                    <td className="px-3 py-2 text-right">{allocation.unit_price.toLocaleString("ko-KR")}원</td>
+                                    <td className="px-3 py-2">{allocation.cost_source}</td>
+                                    <td className="px-3 py-2 text-right">{allocation.unit_price === null ? "미확정" : `${allocation.unit_price.toLocaleString("ko-KR")}원`}</td>
                                     <td className="px-3 py-2 text-right">{allocation.outbound_quantity.toLocaleString("ko-KR")}개</td>
                                     <td className="px-3 py-2 text-right">{allocation.received_quantity.toLocaleString("ko-KR")}개</td>
                                     <td className="px-3 py-2 text-right">{(allocation.outbound_quantity - allocation.received_quantity).toLocaleString("ko-KR")}개</td>
-                                    <td className="px-3 py-2 text-right font-semibold text-violet-900">{(allocation.unit_price * allocation.outbound_quantity).toLocaleString("ko-KR")}원</td>
+                                    <td className="px-3 py-2 text-right font-semibold text-violet-900">{allocation.unit_price === null ? "미확정" : `${(allocation.unit_price * allocation.outbound_quantity).toLocaleString("ko-KR")}원`}</td>
                                   </tr>
                                 ))}
                               </tbody>
                             </table>
                           </div>
                           <p className="mt-3 text-right text-sm font-bold text-violet-900">
-                            출고 원가 합계 {outboundCostAllocationsQuery.data
-                              .reduce((total, allocation) => total + allocation.unit_price * allocation.outbound_quantity, 0)
-                              .toLocaleString("ko-KR")}원
+                            출고 원가 합계 {outboundCostAllocationsQuery.data.some(allocation => allocation.unit_price === null)
+                              ? "미확정 포함"
+                              : `${outboundCostAllocationsQuery.data.reduce((total, allocation) => total + (allocation.unit_price ?? 0) * allocation.outbound_quantity, 0).toLocaleString("ko-KR")}원`}
                           </p>
                         </>
                       ) : (
