@@ -22,6 +22,7 @@ interface StampHistoryItemProps {
   onDelete: () => void;
   onConfirm?: () => void;
   showCopy?: boolean;
+  isLocked?: boolean;
 }
 
 const StampHistoryItem = ({
@@ -32,6 +33,7 @@ const StampHistoryItem = ({
   onDelete,
   onConfirm,
   showCopy = true,
+  isLocked = false,
 }: StampHistoryItemProps) => {
   const { copyLogToClipboard } = useCopy();
   const isSplitPayment =
@@ -113,6 +115,7 @@ const StampHistoryItem = ({
           phone={log.customers?.phone}
           onClick={onNavigate}
           singleLineLabel={specialCustomerLabel}
+          disabled={isLocked}
         />
       </div>
 
@@ -136,7 +139,13 @@ const StampHistoryItem = ({
 
       <div className="min-w-0 border-l border-brand-100 pl-3 sm:pl-4">
         <div className="flex items-start gap-2">
-          <Button variant="secondary" size="xs" onClick={onEdit}>
+          <Button
+            variant="secondary"
+            size="xs"
+            onClick={onEdit}
+            disabled={isLocked}
+            title={isLocked ? "마스터만 수정할 수 있습니다." : undefined}
+          >
             ✏️
           </Button>
           <div className="min-w-0 flex-1 break-words whitespace-normal text-xs text-gray-600 sm:text-sm">
@@ -206,7 +215,7 @@ const StampHistoryItem = ({
             출고 확정
           </Button>
         )}
-        {showCopy && (
+        {showCopy && !isLocked && (
           <Button
             variant="secondary"
             size="sm"
@@ -221,7 +230,7 @@ const StampHistoryItem = ({
             복사
           </Button>
         )}
-        {isAdmin && (
+        {isAdmin && !isLocked && (
           <Button
             variant="danger"
             size="sm"
@@ -229,6 +238,16 @@ const StampHistoryItem = ({
             aria-label="삭제"
           >
             🗑️
+          </Button>
+        )}
+        {isLocked && (
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled
+            title="마스터만 상세 조회할 수 있습니다."
+          >
+            🔒 열람 제한
           </Button>
         )}
       </div>

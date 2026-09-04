@@ -206,29 +206,41 @@ export default function CustomersPage() {
               {isQuickLinksOpen && (
                 <div className="absolute right-full top-1/2 z-30 mr-2 flex -translate-y-1/2 flex-nowrap items-center gap-2 whitespace-nowrap rounded-xl border border-gray-200 bg-white p-1.5 shadow-lg">
                   {quickLinkDefinitions
-                    .filter(
-                      (definition) =>
-                        definition.key !== "adjustment" ||
-                        user?.oss_role === "master",
-                    )
                     .map((definition) => {
                     const customer = findQuickLink(definition.key);
+                    const isLockedAdjustment =
+                      definition.key === "adjustment" &&
+                      user?.oss_role !== "master";
                     return (
                       <Button
                         key={definition.key}
                         size="sm"
                         variant="secondary"
                         className="whitespace-nowrap"
-                        disabled={isQuickLinksLoading || !customer}
+                        disabled={
+                          isQuickLinksLoading || !customer || isLockedAdjustment
+                        }
+                        title={
+                          isLockedAdjustment
+                            ? "재고조정 이력은 마스터만 상세 조회할 수 있습니다."
+                            : undefined
+                        }
+                        aria-label={
+                          isLockedAdjustment
+                            ? "재고조정 · 마스터만 상세 조회 가능"
+                            : undefined
+                        }
                         onClick={() => {
-                          if (!customer) return;
+                          if (!customer || isLockedAdjustment) return;
                           setIsQuickLinksOpen(false);
                           router.push(`/customers/${customer.id}`);
                         }}
                       >
                         {isQuickLinksLoading
                           ? "불러오는 중..."
-                          : definition.label}
+                          : isLockedAdjustment
+                            ? "🔒 재고조정 · 상세 조회 제한"
+                            : definition.label}
                       </Button>
                     );
                     })}

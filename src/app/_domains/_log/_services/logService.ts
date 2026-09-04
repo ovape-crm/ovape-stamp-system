@@ -329,6 +329,27 @@ export const getLogs = async (
   return data;
 };
 
+export const getInventoryAdjustmentLogsForHistory = async (
+  dateRange?: { start: string; end: string } | null,
+): Promise<LogsResType[]> => {
+  const { data, error } = await supabase.rpc(
+    "get_inventory_adjustment_logs_for_history",
+    {
+      p_start_at: dateRange?.start
+        ? `${dateRange.start}T00:00:00+09:00`
+        : null,
+      p_end_at: dateRange?.end
+        ? `${dateRange.end}T23:59:59.999+09:00`
+        : null,
+      p_limit: 100,
+    },
+  );
+  if (error) throw error;
+  return (data ?? []).map(
+    ({ log_data }: { log_data: LogsResType }) => log_data,
+  );
+};
+
 /**
  * 로그 삭제
  */

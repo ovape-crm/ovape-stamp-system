@@ -6,6 +6,7 @@ interface ButtonProps {
   onClick?: (e?: React.MouseEvent<HTMLButtonElement>) => void;
   disabled?: boolean;
   className?: string;
+  title?: string;
 }
 
 const Button = ({
@@ -16,6 +17,7 @@ const Button = ({
   onClick,
   disabled = false,
   className = '',
+  title,
 }: ButtonProps) => {
   // 공통 기본 스타일
   const baseClasses = [
@@ -115,6 +117,7 @@ const Button = ({
       type={type}
       onClick={onClick}
       disabled={disabled}
+      title={title}
     >
       {children}
     </button>
