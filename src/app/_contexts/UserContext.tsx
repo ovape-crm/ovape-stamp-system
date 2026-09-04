@@ -10,8 +10,8 @@ import {
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import supabase, {
-  clearLocalSupabaseSession,
-  isInvalidRefreshTokenError,
+  AUTH_SESSION_EXPIRED_EVENT,
+  getValidSession,
 } from "@/libs/supabaseClient";
 import Loading from "@/app/_components/Loading";
 import { UserType } from "@/app/_domains/_user/_types/user.types";
@@ -42,28 +42,19 @@ export const UserProvider = ({
   const fetchUser = useCallback(async () => {
     try {
       // 1. 세션에서 user id 가져오기
-      const { data: sessionData, error: sessionError } =
-        await supabase.auth.getSession();
+      const { session } = await getValidSession();
 
-      if (sessionError) {
-        if (isInvalidRefreshTokenError(sessionError)) {
-          await clearLocalSupabaseSession();
-        } else {
-          console.error("Session fetch error:", sessionError);
-        }
-      }
-
-      if (sessionError || !sessionData.session) {
+      if (!session) {
         setUser(null);
         setIsAdmin(false);
         // requireAuth가 true면 로그인 페이지로 리다이렉트
         if (requireAuth) {
-          router.push("/login");
+          router.replace("/login");
         }
         return;
       }
 
-      const userId = sessionData.session.user.id;
+      const userId = session.user.id;
 
       // 2. public.users 테이블에서 유저 정보 조회
       const { data: userData, error: userError } = await supabase
@@ -76,7 +67,7 @@ export const UserProvider = ({
         console.error("User fetch error:", userError);
         setUser(null);
         if (requireAuth) {
-          router.push("/login");
+          router.replace("/login");
         }
         return;
       }
@@ -88,15 +79,11 @@ export const UserProvider = ({
       setUser(resolvedUser);
       setIsAdmin(hasAdminAccess(resolvedUser.oss_role));
     } catch (error) {
-      if (isInvalidRefreshTokenError(error)) {
-        await clearLocalSupabaseSession();
-      } else {
-        console.error("Error fetching user:", error);
-      }
+      console.error("Error fetching user:", error);
       setUser(null);
       setIsAdmin(false);
       if (requireAuth) {
-        router.push("/login");
+        router.replace("/login");
       }
     } finally {
       setIsLoading(false);
@@ -106,6 +93,13 @@ export const UserProvider = ({
   useEffect(() => {
     fetchUser();
 
+    const handleExpiredSession = () => {
+      setUser(null);
+      setIsAdmin(false);
+      if (requireAuth) router.replace("/login");
+    };
+    window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, handleExpiredSession);
+
     // 세션 변경 감지 (로그인/로그아웃 시)
     const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
@@ -113,12 +107,16 @@ export const UserProvider = ({
       } else if (event === "SIGNED_OUT") {
         setUser(null);
         if (requireAuth) {
-          router.push("/login");
+          router.replace("/login");
         }
       }
     });
 
     return () => {
+      window.removeEventListener(
+        AUTH_SESSION_EXPIRED_EVENT,
+        handleExpiredSession,
+      );
       authListener.subscription.unsubscribe();
     };
   }, [fetchUser, requireAuth, router]);

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Loading from "@/app/_components/Loading";
+import { Dropdown } from "@/app/_components/Dropdown";
 import {
   getSettlementExpenseOccurrences,
   getSettlementSummary,
@@ -41,6 +42,9 @@ const paymentRows = [
   ["kakaotalk", "카카오톡"],
 ] as const;
 
+type PaymentMethod = (typeof paymentRows)[number][0];
+const paymentMethodKeys = paymentRows.map(([key]) => key);
+
 const formatWon = (amount: number) => `${amount.toLocaleString("ko-KR")}원`;
 
 const preferredPurchaseOrder = [
@@ -66,6 +70,9 @@ export default function SettlementReport() {
   const [startDate, setStartDate] = useState(`${today.slice(0, 7)}-01`);
   const [endDate, setEndDate] = useState(today);
   const [settlementDate, setSettlementDate] = useState(today);
+  const [selectedPaymentMethods, setSelectedPaymentMethods] = useState<
+    PaymentMethod[]
+  >(paymentMethodKeys);
   const [selectedExpenseCategory, setSelectedExpenseCategory] = useState<
     string | null
   >(null);
@@ -101,14 +108,21 @@ export default function SettlementReport() {
       getSettlementExpenseOccurrences(selectedRange.start, selectedRange.end),
     enabled: rangeValid,
   });
-  const ovapeSales = Object.values(summaryQuery.data?.sales.ovape ?? {}).reduce(
-    (a, b) => a + b,
-    0,
-  );
-  const eguvapeSales = Object.values(
-    summaryQuery.data?.sales.eguvape ?? {},
-  ).reduce((a, b) => a + b, 0);
+  const isAllPaymentMethodsSelected =
+    selectedPaymentMethods.length === paymentMethodKeys.length;
+  const sumPaymentSales = (payments?: Record<string, number>) =>
+    Object.values(payments ?? {}).reduce((total, amount) => total + amount, 0);
+  const getSelectedPaymentSales = (payments?: Record<string, number>) =>
+    selectedPaymentMethods.reduce(
+      (total, paymentMethod) => total + (payments?.[paymentMethod] ?? 0),
+      0,
+    );
+  const ovapeSales = getSelectedPaymentSales(summaryQuery.data?.sales.ovape);
+  const eguvapeSales = getSelectedPaymentSales(summaryQuery.data?.sales.eguvape);
   const totalSales = ovapeSales + eguvapeSales;
+  const totalAllPaymentSales =
+    sumPaymentSales(summaryQuery.data?.sales.ovape) +
+    sumPaymentSales(summaryQuery.data?.sales.eguvape);
   const totalPurchases = Object.values(
     summaryQuery.data?.purchases ?? {},
   ).reduce((a, b) => a + b, 0);
@@ -159,7 +173,15 @@ export default function SettlementReport() {
   const profit =
     summaryQuery.data?.soldItemCost == null
       ? null
-      : totalSales - summaryQuery.data.soldItemCost - totalExpenses;
+      : totalAllPaymentSales - summaryQuery.data.soldItemCost - totalExpenses;
+
+  const togglePaymentMethod = (paymentMethod: PaymentMethod) => {
+    setSelectedPaymentMethods((current) =>
+      current.includes(paymentMethod)
+        ? current.filter((value) => value !== paymentMethod)
+        : [...current, paymentMethod],
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -178,7 +200,7 @@ export default function SettlementReport() {
           </div>
         </div>
 
-        <div className="mt-4 flex flex-col gap-3 rounded-xl border border-gray-200 bg-gray-50/70 p-3 sm:flex-row sm:items-end">
+        <div className="mt-4 flex flex-col gap-3 rounded-xl border border-gray-200 bg-gray-50/70 p-3 sm:flex-row sm:flex-wrap sm:items-end">
           <div className="w-full sm:w-auto sm:shrink-0">
             <p className="mb-1 text-xs font-semibold text-gray-600">
               조회 기준
@@ -234,6 +256,34 @@ export default function SettlementReport() {
               onChange={setSettlementDate}
             />
           )}
+          <div className="w-full sm:w-[180px] sm:shrink-0">
+            <p className="mb-1 text-xs font-semibold text-gray-600">결제방식</p>
+            <Dropdown
+              multiple
+              controlledValues={selectedPaymentMethods}
+            >
+              <Dropdown.Trigger
+                neutral
+                className="h-9 px-3 py-0 text-xs font-semibold sm:px-3 sm:py-0 sm:text-xs"
+              >
+                {isAllPaymentMethodsSelected
+                  ? "전체 선택"
+                  : selectedPaymentMethods.length
+                    ? `${selectedPaymentMethods.length}개 선택`
+                    : "선택 없음"}
+              </Dropdown.Trigger>
+              <Dropdown.Content compact>
+                {paymentRows.map(([key, label]) => (
+                  <Dropdown.Item
+                    key={key}
+                    compact
+                    option={{ value: key, label }}
+                    onSelect={() => togglePaymentMethod(key)}
+                  />
+                ))}
+              </Dropdown.Content>
+            </Dropdown>
+          </div>
         </div>
       </section>
 
@@ -244,9 +294,11 @@ export default function SettlementReport() {
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         {[
           {
-            label: "전체 매출",
+            label: isAllPaymentMethodsSelected ? "전체 매출" : "선택 결제 매출",
             value: totalSales,
-            description: "오베이프와 이구베이프 결제 매출",
+            description: isAllPaymentMethodsSelected
+              ? "오베이프와 이구베이프 결제 매출"
+              : `${selectedPaymentMethods.length}개 결제방식의 합계`,
           },
           {
             label: "기간 매입액",
@@ -269,12 +321,14 @@ export default function SettlementReport() {
             description: "직접 등록한 운영 비용",
           },
           {
-            label: "이익",
+            label: "전체 기간 이익",
             value: profit,
             description:
               profit == null
                 ? "판매품목 매출원가를 확인하면 계산됩니다."
-                : "매출에 원가, 기타비용 감소된 금액",
+                : isAllPaymentMethodsSelected
+                  ? "매출에서 원가와 기타비용을 뺀 금액"
+                  : "결제방식 선택과 관계없이 전체 매출 기준",
           },
         ].map((item) => (
           <div
@@ -295,11 +349,13 @@ export default function SettlementReport() {
           title="오베이프 매출"
           payments={summaryQuery.data?.sales.ovape}
           total={ovapeSales}
+          selectedPaymentMethods={selectedPaymentMethods}
         />
         <SalesCard
           title="이구베이프 매출"
           payments={summaryQuery.data?.sales.eguvape}
           total={eguvapeSales}
+          selectedPaymentMethods={selectedPaymentMethods}
         />
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
           <h2 className="border-b border-gray-200 bg-gray-50/70 px-4 py-3 text-sm font-bold text-gray-900">
@@ -457,19 +513,26 @@ const SalesCard = ({
   title,
   payments,
   total,
+  selectedPaymentMethods,
 }: {
   title: string;
   payments?: Record<string, number>;
   total: number;
+  selectedPaymentMethods: PaymentMethod[];
 }) => (
   <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
     <h2 className="border-b border-gray-200 bg-gray-50/70 px-4 py-3 text-sm font-bold text-gray-900">
       {title}
     </h2>
     <div className="divide-y divide-gray-100 px-4">
-      {paymentRows.map(([key, label]) => (
-        <AmountRow key={key} label={label} value={payments?.[key] ?? 0} />
-      ))}
+      {paymentRows
+        .filter(([key]) => selectedPaymentMethods.includes(key))
+        .map(([key, label]) => (
+          <AmountRow key={key} label={label} value={payments?.[key] ?? 0} />
+        ))}
+      {!selectedPaymentMethods.length && (
+        <AmountRow label="선택한 결제방식 없음" value={0} />
+      )}
       <AmountRow label="합계" value={total} strong />
     </div>
   </div>

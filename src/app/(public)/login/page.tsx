@@ -3,8 +3,7 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import supabase, {
-  clearLocalSupabaseSession,
-  isInvalidRefreshTokenError,
+  getValidSession,
 } from '@/libs/supabaseClient';
 import { useRouter } from 'next/navigation';
 import Loading from '@/app/_components/Loading';
@@ -20,20 +19,13 @@ export default function LoginPage() {
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const { data, error } = await supabase.auth.getSession();
-        if (error && isInvalidRefreshTokenError(error)) {
-          await clearLocalSupabaseSession();
-        }
-        if (data.session && !error) {
-          router.push('/customers');
+        const { session } = await getValidSession();
+        if (session) {
+          router.replace('/customers');
           return;
         }
       } catch (error) {
-        if (isInvalidRefreshTokenError(error)) {
-          await clearLocalSupabaseSession();
-        } else {
-          console.error('Session check failed:', error);
-        }
+        console.error('Session check failed:', error);
       } finally {
         setIsChecking(false);
       }
@@ -60,7 +52,7 @@ export default function LoginPage() {
     }
 
     if (data.session) {
-      router.push('/customers');
+      router.replace('/customers');
     }
   };
 

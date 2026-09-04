@@ -10,12 +10,13 @@ import {
 } from "@/app/_enums/enums";
 import {
   getLogs,
+  getInventoryAdjustmentLogsForHistory,
   updateLogNote,
   deleteLog,
 } from "@/app/_domains/_log/_services/logService";
 import useCopy from "@/app/_domains/_log/_hooks/useCopy";
 import { confirmReservationStamp } from "@/app/_domains/_stamp/_services/stampService";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { logKeys } from "@/app/_domains/_log/_queryKeys/logKeys";
 import { customerKeys } from "@/app/_domains/_customer/_queryKeys/customerKeys";
 import Loading from "@/app/_components/Loading";
@@ -56,7 +57,7 @@ const StampHistories = ({
   isReservation = false,
 }: StampHistoriesProps = {}) => {
   const router = useRouter();
-  const { isAdmin } = useUser();
+  const { isAdmin, user } = useUser();
   const { open, close } = useModal();
   const { copyLogsToClipboard } = useCopy();
   const queryClient = useQueryClient();
@@ -70,6 +71,17 @@ const StampHistories = ({
 
   const dateRange =
     startDate && endDate ? { start: startDate, end: endDate } : null;
+  const showLockedAdjustmentSummaries =
+    category === LogCategoryEnum.STAMP.value &&
+    !isReservation &&
+    user?.oss_role !== "master" &&
+    !paymentMethod &&
+    !searchKeyword;
+  const adjustmentLogsQuery = useQuery({
+    queryKey: ["inventory-adjustment-logs-for-history", dateRange],
+    queryFn: () => getInventoryAdjustmentLogsForHistory(dateRange),
+    enabled: showLockedAdjustmentSummaries,
+  });
 
   const { items, updateItem, removeItem, isLoading, error, hasMore, load } =
     useLogs(
@@ -317,7 +329,20 @@ const StampHistories = ({
     [removeItem, open, close, queryClient],
   );
 
-  const { itemsByDate, sortedDates } = groupLogsByDate(items);
+  const displayItems = [
+    ...items.map((log) => ({ kind: "log" as const, created_at: log.created_at, log })),
+    ...(showLockedAdjustmentSummaries
+      ? (adjustmentLogsQuery.data ?? []).map((log) => ({
+          kind: "locked-adjustment" as const,
+          created_at: log.created_at,
+          log,
+        }))
+      : []),
+  ].sort(
+    (left, right) =>
+      new Date(right.created_at).getTime() - new Date(left.created_at).getTime(),
+  );
+  const { itemsByDate, sortedDates } = groupLogsByDate(displayItems);
 
   return (
     <>
@@ -394,7 +419,7 @@ const StampHistories = ({
         </div>
       )}
 
-      {items.length === 0 && !isLoading ? (
+      {displayItems.length === 0 && !isLoading ? (
         <div className="text-center py-12 text-gray-500 text-xs sm:text-sm">
           데이터가 없습니다.
         </div>
@@ -402,7 +427,7 @@ const StampHistories = ({
         <div className="overflow-x-auto">
           <div className="w-full min-w-[960px] space-y-4 text-xs sm:space-y-6 sm:text-sm">
             {sortedDates.map((dateKey) => {
-              const logsOfDate = itemsByDate[dateKey];
+              const historiesOfDate = itemsByDate[dateKey];
 
               const prettyDate = formatDateKey(dateKey);
 
@@ -419,24 +444,37 @@ const StampHistories = ({
 
                   {/* 해당 날짜 로그들 */}
                   <div className="space-y-3">
-                    {logsOfDate.map((log) => (
-                      <StampHistoryItem
-                        key={log.id}
-                        log={log}
-                        onEdit={() => startEdit(log)}
-                        onNavigate={() =>
-                          router.push(`/customers/${log.customer_id}`)
-                        }
-                        isAdmin={isAdmin}
-                        onDelete={() => deleteItem(log)}
-                        onConfirm={
-                          isReservation
-                            ? () => confirmReservation(log)
-                            : undefined
-                        }
-                        showCopy={!isReservation}
-                      />
-                    ))}
+                    {historiesOfDate.map((history) =>
+                      history.kind === "log" ? (
+                        <StampHistoryItem
+                          key={history.log.id}
+                          log={history.log}
+                          onEdit={() => startEdit(history.log)}
+                          onNavigate={() =>
+                            router.push(`/customers/${history.log.customer_id}`)
+                          }
+                          isAdmin={isAdmin}
+                          onDelete={() => deleteItem(history.log)}
+                          onConfirm={
+                            isReservation
+                              ? () => confirmReservation(history.log)
+                              : undefined
+                          }
+                          showCopy={!isReservation}
+                        />
+                      ) : (
+                        <StampHistoryItem
+                          key={`locked-adjustment-${history.log.id}`}
+                          log={history.log}
+                          onEdit={() => undefined}
+                          onNavigate={() => undefined}
+                          isAdmin={false}
+                          onDelete={() => undefined}
+                          showCopy={false}
+                          isLocked
+                        />
+                      ),
+                    )}
                   </div>
                 </div>
               );

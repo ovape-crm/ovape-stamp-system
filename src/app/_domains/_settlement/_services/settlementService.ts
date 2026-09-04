@@ -1,4 +1,5 @@
 import supabase from "@/libs/supabaseClient";
+import { aggregatePaymentSales } from "@/app/_domains/_settlement/_utils/paymentSales";
 import {
   getInventoryOverview,
   normalizeInventoryItemName,
@@ -336,52 +337,11 @@ export const getSettlementSummary = async (
       : Promise.resolve([]),
   ]);
 
-  const sales = {
-    ovape: {} as Record<string, number>,
-    eguvape: {} as Record<string, number>,
-  };
-  const addPayment = (paymentType: string, amount: number) => {
-    if (!paymentType || !Number.isFinite(amount)) return;
-    if (paymentType === "remark" || paymentType === "shipment_remark") return;
-    const isEgu = paymentType.startsWith("egu_");
-    const key = isEgu ? paymentType.slice(4) : paymentType;
-    const target = isEgu ? sales.eguvape : sales.ovape;
-    target[key] = (target[key] ?? 0) + amount;
-  };
-
-  for (const row of logs) {
-    if (
-      row.created_at < liveSalesRange.start ||
-      row.created_at >= liveSalesRange.end
-    )
-      continue;
-    const jsonb = (row.jsonb ?? {}) as Record<string, unknown>;
-    const payments = Array.isArray(jsonb.payments)
-      ? (jsonb.payments as Array<Record<string, unknown>>)
-      : [];
-    if (payments.length) {
-      payments.forEach((payment) =>
-        addPayment(
-          String(payment.paymentType ?? ""),
-          Number(payment.amount ?? 0),
-        ),
-      );
-    } else {
-      addPayment(
-        String(jsonb.paymentType ?? ""),
-        Number(jsonb.totalAmount ?? 0),
-      );
-    }
-  }
-  for (const row of historicalSales) {
-    const paymentType = String(row.payment_type ?? "");
-    addPayment(
-      row.store === "eguvape" && !paymentType.startsWith("egu_")
-        ? `egu_${paymentType}`
-        : paymentType,
-      Number(row.sales_amount ?? 0),
-    );
-  }
+  const sales = aggregatePaymentSales({
+    logs,
+    historicalSales,
+    liveRange: liveSalesRange,
+  });
 
   const purchases: Record<string, number> = {};
   const addPurchase = (label: string, amount: number) => {

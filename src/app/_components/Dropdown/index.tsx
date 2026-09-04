@@ -33,6 +33,8 @@ interface DropdownContextType {
   setItemCount: (count: number) => void;
   disabled: boolean;
   controlledValue?: string | number;
+  controlledValues?: Array<string | number>;
+  multiple: boolean;
 }
 
 const DropdownContext = createContext<DropdownContextType | null>(null);
@@ -41,12 +43,16 @@ interface DropdownProviderProps {
   children: React.ReactNode;
   disabled?: boolean;
   controlledValue?: string | number;
+  controlledValues?: Array<string | number>;
+  multiple?: boolean;
 }
 
 const DropdownProvider = ({
   children,
   disabled = false,
   controlledValue,
+  controlledValues,
+  multiple = false,
 }: DropdownProviderProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedOption, setSelectedOption] = useState<DropdownOption | null>(
@@ -55,12 +61,12 @@ const DropdownProvider = ({
 
   // 외부 controlledValue가 변경되면 내부 selectedOption을 초기화
   useEffect(() => {
-    if (controlledValue !== undefined) {
+    if (!multiple && controlledValue !== undefined) {
       if (selectedOption && selectedOption.value !== controlledValue) {
         setSelectedOption(null);
       }
     }
-  }, [controlledValue]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [controlledValue, multiple]); // eslint-disable-line react-hooks/exhaustive-deps
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
   const [itemCount, setItemCount] = useState(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -84,13 +90,14 @@ const DropdownProvider = ({
 
   const handleSelect = useCallback(
     (option: DropdownOption) => {
+      if (multiple) return;
       setSelectedOption(option);
       closeDropdown();
       setTimeout(() => {
         triggerRef.current?.focus();
       }, 0);
     },
-    [closeDropdown]
+    [closeDropdown, multiple]
   );
 
   // 외부 클릭 감지 (Portal로 렌더링된 content도 고려)
@@ -169,6 +176,8 @@ const DropdownProvider = ({
       setItemCount,
       disabled,
       controlledValue,
+      controlledValues,
+      multiple,
     }),
     [
       isOpen,
@@ -180,6 +189,8 @@ const DropdownProvider = ({
       itemCount,
       disabled,
       controlledValue,
+      controlledValues,
+      multiple,
     ]
   );
 
@@ -203,10 +214,12 @@ const DropdownTrigger = ({
   children,
   compact = false,
   neutral = false,
+  className = '',
 }: {
   children: React.ReactNode;
   compact?: boolean;
   neutral?: boolean;
+  className?: string;
 }) => {
   const {
     toggleDropdown,
@@ -216,6 +229,7 @@ const DropdownTrigger = ({
     setFocusedIndex,
     itemCount,
     disabled,
+    multiple,
   } = useDropdown();
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
@@ -257,14 +271,14 @@ const DropdownTrigger = ({
             : neutral
               ? 'cursor-pointer hover:border-gray-400 hover:bg-gray-50'
             : 'cursor-pointer hover:bg-brand-50 hover:border-brand-300'
-      }`}
+      } ${className}`}
       aria-expanded={isOpen}
       aria-haspopup="listbox"
       aria-label="Select an option"
       aria-disabled={disabled}
     >
       <span className="truncate">
-        {selectedOption ? selectedOption.label : children}
+        {!multiple && selectedOption ? selectedOption.label : children}
       </span>
       <svg
         className={`w-4 h-4 transition-transform flex-shrink-0 ${
@@ -297,7 +311,7 @@ const DropdownContent = ({
   neutral?: boolean;
   maxHeightClass?: string;
 }) => {
-  const { isOpen, setItemCount, triggerRef, contentRef } = useDropdown();
+  const { isOpen, setItemCount, triggerRef, contentRef, multiple } = useDropdown();
   const [position, setPosition] = useState<{
     top: number;
     left: number;
@@ -371,6 +385,7 @@ const DropdownContent = ({
         width: `${position.width}px`,
       }}
       role="listbox"
+      aria-multiselectable={multiple || undefined}
     >
       <div
         className={`${compact ? "py-0.5" : "py-1"} ${maxHeightClass} overflow-y-auto overscroll-contain`}
@@ -404,11 +419,15 @@ const DropdownItem = ({
     setFocusedIndex,
     isOpen,
     controlledValue,
+    controlledValues,
+    multiple,
   } = useDropdown();
   const itemRef = useRef<HTMLDivElement>(null);
 
   const selectedValue = selectedOption?.value ?? controlledValue;
-  const isSelected = selectedValue === option.value;
+  const isSelected = multiple
+    ? controlledValues?.includes(option.value) ?? false
+    : selectedValue === option.value;
   const isFocused = index >= 0 && focusedIndex === index;
 
   // 포커스된 아이템으로 스크롤

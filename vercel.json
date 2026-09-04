@@ -1,3 +1,9 @@
 {
-  "installCommand": "rm -rf node_modules package-lock.json && npm install"
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "rm -rf node_modules package-lock.json && npm install",
+  "functions": {
+    "src/app/api/adult-verification/requests/route.ts": {
+      "regions": ["icn1"]
+    }
+  }
 }
