@@ -10,13 +10,12 @@ import {
 } from "@/app/_enums/enums";
 import {
   getLogs,
-  getInventoryAdjustmentLogsForHistory,
   updateLogNote,
   deleteLog,
 } from "@/app/_domains/_log/_services/logService";
 import useCopy from "@/app/_domains/_log/_hooks/useCopy";
 import { confirmReservationStamp } from "@/app/_domains/_stamp/_services/stampService";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { logKeys } from "@/app/_domains/_log/_queryKeys/logKeys";
 import { customerKeys } from "@/app/_domains/_customer/_queryKeys/customerKeys";
 import Loading from "@/app/_components/Loading";
@@ -58,6 +57,7 @@ const StampHistories = ({
 }: StampHistoriesProps = {}) => {
   const router = useRouter();
   const { isAdmin, user } = useUser();
+  const canCopyHistory = user?.oss_role !== "staff";
   const { open, close } = useModal();
   const { copyLogsToClipboard } = useCopy();
   const queryClient = useQueryClient();
@@ -71,18 +71,6 @@ const StampHistories = ({
 
   const dateRange =
     startDate && endDate ? { start: startDate, end: endDate } : null;
-  const showLockedAdjustmentSummaries =
-    category === LogCategoryEnum.STAMP.value &&
-    !isReservation &&
-    user?.oss_role !== "master" &&
-    !paymentMethod &&
-    !searchKeyword;
-  const adjustmentLogsQuery = useQuery({
-    queryKey: ["inventory-adjustment-logs-for-history", dateRange],
-    queryFn: () => getInventoryAdjustmentLogsForHistory(dateRange),
-    enabled: showLockedAdjustmentSummaries,
-  });
-
   const { items, updateItem, removeItem, isLoading, error, hasMore, load } =
     useLogs(
       PAGE_SIZE,
@@ -329,16 +317,11 @@ const StampHistories = ({
     [removeItem, open, close, queryClient],
   );
 
-  const displayItems = [
-    ...items.map((log) => ({ kind: "log" as const, created_at: log.created_at, log })),
-    ...(showLockedAdjustmentSummaries
-      ? (adjustmentLogsQuery.data ?? []).map((log) => ({
-          kind: "locked-adjustment" as const,
-          created_at: log.created_at,
-          log,
-        }))
-      : []),
-  ].sort(
+  const displayItems = items.map((log) => ({
+    kind: "log" as const,
+    created_at: log.created_at,
+    log,
+  })).sort(
     (left, right) =>
       new Date(right.created_at).getTime() - new Date(left.created_at).getTime(),
   );
@@ -384,7 +367,7 @@ const StampHistories = ({
               </Dropdown>
             </div>
           </div>
-          {isAdmin && !isReservation && (
+          {isAdmin && canCopyHistory && !isReservation && (
             <Button
               type="button"
               size="sm"
@@ -444,8 +427,7 @@ const StampHistories = ({
 
                   {/* 해당 날짜 로그들 */}
                   <div className="space-y-3">
-                    {historiesOfDate.map((history) =>
-                      history.kind === "log" ? (
+                    {historiesOfDate.map((history) => (
                         <StampHistoryItem
                           key={history.log.id}
                           log={history.log}
@@ -460,21 +442,9 @@ const StampHistories = ({
                               ? () => confirmReservation(history.log)
                               : undefined
                           }
-                          showCopy={!isReservation}
+                          showCopy={canCopyHistory && !isReservation}
                         />
-                      ) : (
-                        <StampHistoryItem
-                          key={`locked-adjustment-${history.log.id}`}
-                          log={history.log}
-                          onEdit={() => undefined}
-                          onNavigate={() => undefined}
-                          isAdmin={false}
-                          onDelete={() => undefined}
-                          showCopy={false}
-                          isLocked
-                        />
-                      ),
-                    )}
+                    ))}
                   </div>
                 </div>
               );

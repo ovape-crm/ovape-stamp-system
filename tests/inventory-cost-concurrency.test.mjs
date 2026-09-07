@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import net from "node:net";
 import EmbeddedPostgres from "embedded-postgres";
+import { Client } from "pg";
 import { initializeCostTestDb, master } from "./helpers/cost-db-fixture.mjs";
 
 // Real, independent PostgreSQL connections; never connects to the application DB.
@@ -15,11 +16,34 @@ let directory,
   binaries,
   a,
   b,
+  postgresProcess,
   started = false;
 const command = (file, args) =>
   run(file, args, { windowsHide: true, timeout: 30000 });
 const query = async (client, sql, params = []) =>
   (await client.query(sql, params)).rows;
+
+const waitForPostgres = async (port) => {
+  const deadline = Date.now() + 30000;
+  while (Date.now() < deadline) {
+    const client = new Client({
+      host: "127.0.0.1",
+      port,
+      user: "postgres",
+      database: "postgres",
+    });
+    try {
+      await client.connect();
+      await client.query("select 1");
+      await client.end();
+      return;
+    } catch {
+      await client.end().catch(() => undefined);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error("Timed out while starting the test PostgreSQL server");
+};
 
 before(async () => {
   const platform = process.platform === "win32" ? "windows" : process.platform;
@@ -39,16 +63,25 @@ before(async () => {
     "--locale=C",
     "--encoding=UTF8",
   ]);
-  await command(binaries.pg_ctl, [
-    "-D",
-    directory,
-    "-l",
-    path.join(directory, "server.log"),
-    "-o",
-    `-p ${port} -h 127.0.0.1`,
-    "-w",
-    "start",
-  ]);
+  if (process.platform === "win32") {
+    postgresProcess = spawn(
+      binaries.postgres,
+      ["-D", directory, "-p", String(port), "-h", "127.0.0.1"],
+      { windowsHide: true, stdio: "ignore" },
+    );
+    await waitForPostgres(port);
+  } else {
+    await command(binaries.pg_ctl, [
+      "-D",
+      directory,
+      "-l",
+      path.join(directory, "server.log"),
+      "-o",
+      `-p ${port} -h 127.0.0.1`,
+      "-w",
+      "start",
+    ]);
+  }
   started = true;
   const cluster = new EmbeddedPostgres({
     databaseDir: directory,
@@ -74,7 +107,14 @@ before(async () => {
 
 after(async () => {
   await Promise.all([a?.end(), b?.end()]);
-  if (started)
+  if (postgresProcess) {
+    await command("taskkill.exe", [
+      "/pid",
+      String(postgresProcess.pid),
+      "/t",
+      "/f",
+    ]).catch(() => undefined);
+  } else if (started) {
     await command(binaries.pg_ctl, [
       "-D",
       directory,
@@ -83,13 +123,25 @@ after(async () => {
       "-w",
       "stop",
     ]);
+  }
   // Only remove the exact unique temporary cluster created by this test.
   if (
     directory &&
     path.dirname(path.resolve(directory)) === path.resolve(tmpdir()) &&
     path.basename(directory).startsWith("ovape-cost-concurrency-")
   ) {
-    await rm(directory, { recursive: true, force: true });
+    let lastError;
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      try {
+        await rm(directory, { recursive: true, force: true });
+        lastError = undefined;
+        break;
+      } catch (error) {
+        lastError = error;
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+    }
+    if (lastError) throw lastError;
   }
 });
 
