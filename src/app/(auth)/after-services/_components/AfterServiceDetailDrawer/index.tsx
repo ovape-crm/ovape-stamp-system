@@ -139,10 +139,12 @@ const AfterServiceDetailDrawer = ({
   });
   const canSetManualCost =
     isMaster &&
-    afterServiceDetail?.service_case_type === "customer_as" &&
+    (afterServiceDetail?.service_case_type === "store_product_as" ||
+      (afterServiceDetail?.service_case_type === "customer_as" &&
+        Boolean(afterServiceDetail.is_loaner_device_issued))) &&
     afterServiceDetail.status === AfterServiceStatusEnum.SENT_FOR_REPAIR.value &&
-    Boolean(afterServiceDetail.is_loaner_device_issued) &&
-    !(outboundCostAllocationsQuery.data?.length);
+    (afterServiceDetail.service_case_type === "store_product_as" ||
+      !(outboundCostAllocationsQuery.data?.length));
   const handleSaveManualCost = async () => {
     if (!afterServiceDetail) return;
     const unitPrice = Number(manualCost.replaceAll(",", ""));
@@ -1035,7 +1037,11 @@ const AfterServiceDetailDrawer = ({
                   <div className="mb-4 flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="text-sm font-bold text-amber-800">출고 승인 대기</p>
-                      <p className="mt-0.5 text-xs text-amber-700">마스터가 확정하면 기존 매입 이력에서 원가를 자동 배분하고 재고를 차감합니다.</p>
+                      <p className="mt-0.5 text-xs text-amber-700">
+                        {afterServiceDetail.service_case_type === "vendor_exchange"
+                          ? "마스터가 확정하면 기존 매입 이력에서 원가를 자동 배분하고 재고를 차감합니다."
+                          : "마스터가 확정한 뒤 실제 매입가를 직접 등록합니다. 매장 재고는 출고 처리되지 않습니다."}
+                      </p>
                     </div>
                     {isMaster && (
                       <Button size="sm" onClick={handleConfirmInventoryOutbound} disabled={isConfirmingOutbound}>
@@ -1055,7 +1061,9 @@ const AfterServiceDetailDrawer = ({
                         <div>
                           <h4 className="text-sm font-bold text-violet-900">A/S 출고 원가</h4>
                           <p className="mt-0.5 text-xs text-violet-700">
-                            실제 출고에 연결된 원가입니다. FIFO 연결 기록과 기존·수동 기록을 구분하며, 미확정 원가는 0원으로 계산하지 않습니다.
+                            {afterServiceDetail.service_case_type === "store_product_as"
+                              ? "매장제품 A/S의 실제 매입가입니다. 매입 이력이나 매장 재고 출고와 연결하지 않으며, 등록한 단가로 수리품 입고 원가층을 만듭니다."
+                              : "실제 출고에 연결된 원가입니다. FIFO 연결 기록과 기존·수동 기록을 구분하며, 미확정 원가는 0원으로 계산하지 않습니다."}
                           </p>
                         </div>
                         <span className="rounded-md bg-white px-2 py-1 text-[11px] font-semibold text-violet-700 shadow-sm">
@@ -1105,23 +1113,25 @@ const AfterServiceDetailDrawer = ({
                       ) : (
                         <div className="mt-3 rounded-lg border border-dashed border-violet-200 bg-white p-3">
                           <p className="text-xs text-violet-700">현재 출고 원가 배정 이력이 없습니다.</p>
-                          {canSetManualCost && (
-                            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
-                              <label className="flex-1 text-xs font-semibold text-gray-700">
-                                실제 단가
-                                <input
-                                  value={manualCost}
-                                  onChange={(event) => setManualCost(event.target.value.replace(/[^0-9]/g, ""))}
-                                  inputMode="numeric"
-                                  placeholder="예: 25000"
-                                  className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-                                />
-                              </label>
-                              <Button size="sm" onClick={handleSaveManualCost} disabled={isSavingManualCost}>
-                                {isSavingManualCost ? "등록 중..." : "원가 등록"}
-                              </Button>
-                            </div>
-                          )}
+                        </div>
+                      )}
+                      {canSetManualCost && (
+                        <div className="mt-3 flex flex-col gap-2 rounded-lg border border-dashed border-violet-200 bg-white p-3 sm:flex-row sm:items-end">
+                          <label className="flex-1 text-xs font-semibold text-gray-700">
+                            {afterServiceDetail.service_case_type === "store_product_as"
+                              ? "직접 입력 매입 단가"
+                              : "실제 단가"}
+                            <input
+                              value={manualCost}
+                              onChange={(event) => setManualCost(event.target.value.replace(/[^0-9]/g, ""))}
+                              inputMode="numeric"
+                              placeholder="예: 25000"
+                              className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                            />
+                          </label>
+                          <Button size="sm" onClick={handleSaveManualCost} disabled={isSavingManualCost}>
+                            {isSavingManualCost ? "등록 중..." : "원가 등록"}
+                          </Button>
                         </div>
                       )}
                     </section>

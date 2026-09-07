@@ -20,6 +20,7 @@ interface RemarkHistoryItemProps {
   onNavigate: () => void;
   isSaving: boolean;
   isAdmin: boolean;
+  showCopy: boolean;
   onDelete: () => void;
 }
 
@@ -35,6 +36,7 @@ const RemarkHistoryItem = ({
   onNavigate,
   isSaving,
   isAdmin,
+  showCopy,
   onDelete,
 }: RemarkHistoryItemProps) => {
   const { copyLogToClipboard } = useCopy();
@@ -110,24 +112,26 @@ const RemarkHistoryItem = ({
       </div>
 
       <div className="ml-4 flex items-center gap-2">
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() =>
-            copyLogToClipboard(
-              log,
-              {
-                name: log.customers?.name,
-                phone: log.customers?.phone,
-                gender: log.customers?.gender,
-              },
-              '특이사항',
-            )
-          }
-          disabled={isSaving}
-        >
-          복사
-        </Button>
+        {showCopy && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() =>
+              copyLogToClipboard(
+                log,
+                {
+                  name: log.customers?.name,
+                  phone: log.customers?.phone,
+                  gender: log.customers?.gender,
+                },
+                '특이사항',
+              )
+            }
+            disabled={isSaving}
+          >
+            복사
+          </Button>
+        )}
         {isAdmin && (
           <Button
             variant="danger"

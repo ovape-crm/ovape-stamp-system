@@ -23,7 +23,8 @@ interface RemarkHistoriesProps {
 
 const RemarkHistories = ({ dateRange }: RemarkHistoriesProps) => {
   const router = useRouter();
-  const { isAdmin } = useUser();
+  const { isAdmin, user } = useUser();
+  const canCopyHistory = user?.oss_role !== 'staff';
   const { open, close } = useModal();
   const { items, updateItem, removeItem, isLoading, error, hasMore, load } = useLogs(
     PAGE_SIZE,
@@ -151,6 +152,7 @@ const RemarkHistories = ({ dateRange }: RemarkHistoriesProps) => {
                           }
                           isSaving={isSaving}
                           isAdmin={isAdmin}
+                          showCopy={canCopyHistory}
                           onDelete={() => deleteItem(log)}
                         />
                       );

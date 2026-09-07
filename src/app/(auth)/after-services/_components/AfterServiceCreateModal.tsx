@@ -20,6 +20,7 @@ import {
   inventoryKeys,
 } from "@/app/_domains/_inventory/_services/inventoryService";
 import { useModal } from "@/app/_contexts/ModalContext";
+import { useUser } from "@/app/_contexts/UserContext";
 
 const getLocalDateInputValue = () => {
   const now = new Date();
@@ -254,6 +255,15 @@ export default function AfterServiceCreateModal({
   isAdmin?: boolean;
 }) {
   const { setSize } = useModal();
+  const { user } = useUser();
+  const isMaster = user?.oss_role === "master";
+  const caseTypeOptions = isMaster
+    ? ([
+        ["store_product_as", "매장제품 A/S 출고"],
+        ["vendor_exchange", "업체 교환출고"],
+        ["customer_as", "고객 A/S 추가"],
+      ] as const)
+    : ([["customer_as", "고객 A/S 추가"]] as const);
   // ========================================================================
   // 상태 관리
   // ========================================================================
@@ -857,13 +867,7 @@ export default function AfterServiceCreateModal({
                 접수 유형
               </span>
               <div className="grid gap-2 sm:grid-cols-3">
-                {(
-                  [
-                    ["store_product_as", "매장제품 A/S 출고"],
-                    ["vendor_exchange", "업체 교환출고"],
-                    ["customer_as", "고객 A/S 추가"],
-                  ] as const
-                ).map(([value, label]) => (
+                {caseTypeOptions.map(([value, label]) => (
                   <button
                     key={value}
                     type="button"

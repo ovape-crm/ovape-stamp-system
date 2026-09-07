@@ -15,20 +15,35 @@ export const getAuthenticatedStaff = async (authorization: string | null) => {
   if (!accessToken || !url || !anonKey) return null;
 
   const authClient = createClient(url, anonKey, {
+    global: { headers: { Authorization: `Bearer ${accessToken}` } },
     auth: { autoRefreshToken: false, persistSession: false },
   });
   const { data, error } = await authClient.auth.getUser(accessToken);
   if (error || !data.user) return null;
 
-  const admin = createSupabaseAdmin();
-  const { data: staff } = await admin
+  const selectCurrentStaff = (client: typeof authClient) =>
+    client
     .from("users")
     .select("id, name, oss_role")
     .eq("id", data.user.id)
     .in("oss_role", ["staff", "admin", "master"])
     .maybeSingle();
 
-  return staff ?? null;
+  try {
+    const admin = createSupabaseAdmin();
+    const { data: staff } = await selectCurrentStaff(admin);
+    return staff ?? null;
+  } catch (error) {
+    if (
+      !(error instanceof Error) ||
+      error.message !== "Missing Supabase server environment variables"
+    ) {
+      throw error;
+    }
+
+    const { data: staff } = await selectCurrentStaff(authClient);
+    return staff ?? null;
+  }
 };
 
 export const getRequestByToken = async (token: string) => {
