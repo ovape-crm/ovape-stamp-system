@@ -1035,9 +1035,14 @@ export default function AfterServiceCreateModal({
               </p>
             )}
           </div>
-          {caseType !== "customer_as" && itemNameKeyword.trim() && (
+          {caseType === "vendor_exchange" && itemNameKeyword.trim() && (
             <p className="rounded-lg border border-gray-200 bg-gray-50/70 px-3 py-2 text-xs text-gray-600">
               접수 후 마스터가 출고를 확정하면 기존 매입 이력에서 원가가 자동 배분됩니다.
+            </p>
+          )}
+          {caseType === "store_product_as" && itemNameKeyword.trim() && (
+            <p className="rounded-lg border border-gray-200 bg-gray-50/70 px-3 py-2 text-xs text-gray-600">
+              매입 이력이나 매장 재고를 사용하지 않습니다. 출고 확정 후 실제 매입가를 직접 입력합니다.
             </p>
           )}
         </section>
