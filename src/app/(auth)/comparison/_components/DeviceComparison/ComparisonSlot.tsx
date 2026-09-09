@@ -1,6 +1,7 @@
 "use client";
 
 import { ComparisonColumnType } from "@/app/_domains/_comparison/_types/comparison.types";
+import TaggedContent from "@/app/_components/TaggedContent";
 
 function isUrl(value: string): boolean {
   try {
@@ -23,6 +24,10 @@ function renderValue(value: string) {
         {value}
       </a>
     );
+  }
+
+  if (/<\/?(?:red|blue|green|bold|line|yellow-bg|pink-bg|blue-bg|link)(?: url="[^"]*")?>/.test(value)) {
+    return <TaggedContent content={value} />;
   }
 
   const parts = value.split(

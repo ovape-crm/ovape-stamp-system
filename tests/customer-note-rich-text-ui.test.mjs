@@ -60,6 +60,14 @@ test('고객 추가와 수정에서 동일한 특이사항 서식 편집기를 �
   assert.match(taggedContent, /blue-bg/);
 });
 
+test('같은 서식은 토글하고, 글자색·배경색은 한 종류만 남기며 중첩 미리보기를 렌더링한다', () => {
+  assert.match(editor, /isRangeFullyTagged/);
+  assert.match(editor, /shouldRemoveTag/);
+  assert.match(editor, /unwrapTags\(extracted, exclusiveGroup \?\? \[tag\]\)/);
+  assert.match(taggedContent, /parseNoteNodes/);
+  assert.match(taggedContent, /renderNoteChildren/);
+});
+
 test('내용이 긴 고객 수정 모달도 하단 저장 영역을 고정한다', () => {
   assert.match(editModalLayout, /max-h-\[calc\(90vh-2rem\)\] flex-col/);
   assert.match(editModalLayout, /min-h-0 flex-1 space-y-3 overflow-y-auto pr-1/);

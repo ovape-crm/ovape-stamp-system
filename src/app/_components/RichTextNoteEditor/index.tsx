@@ -9,6 +9,7 @@ type FormatAction = {
   tag: string;
   className: string;
   ariaLabel: string;
+  previewBackground?: string;
 };
 
 const actions: FormatAction[] = [
@@ -16,9 +17,9 @@ const actions: FormatAction[] = [
   { label: '가', tag: 'red', className: 'text-red-600', ariaLabel: '글자색 빨강' },
   { label: '가', tag: 'blue', className: 'text-blue-600', ariaLabel: '글자색 파랑' },
   { label: '가', tag: 'green', className: 'text-emerald-600', ariaLabel: '글자색 초록' },
-  { label: '가', tag: 'yellow-bg', className: 'bg-amber-100', ariaLabel: '배경색 노랑' },
-  { label: '가', tag: 'pink-bg', className: 'bg-rose-100', ariaLabel: '배경색 분홍' },
-  { label: '가', tag: 'blue-bg', className: 'bg-sky-100', ariaLabel: '배경색 파랑' },
+  { label: '가', tag: 'yellow-bg', className: 'text-gray-800', ariaLabel: '배경색 노랑', previewBackground: '#fef3c7' },
+  { label: '가', tag: 'pink-bg', className: 'text-gray-800', ariaLabel: '배경색 분홍', previewBackground: '#ffe4e6' },
+  { label: '가', tag: 'blue-bg', className: 'text-gray-800', ariaLabel: '배경색 파랑', previewBackground: '#e0f2fe' },
   { label: 'S', tag: 'line', className: 'line-through', ariaLabel: '취소선' },
 ];
 
@@ -43,6 +44,42 @@ const unwrapElement = (element: HTMLElement) => {
   if (!parent) return;
   while (element.firstChild) parent.insertBefore(element.firstChild, element);
   parent.removeChild(element);
+};
+
+const isRangeFullyTagged = (
+  root: HTMLElement,
+  range: Range,
+  tag: string,
+) => {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let hasSelectedText = false;
+  let node = walker.nextNode();
+
+  while (node) {
+    if (node.textContent?.length && range.intersectsNode(node)) {
+      hasSelectedText = true;
+      let parent = node.parentElement;
+      let isTagged = false;
+      while (parent && parent !== root) {
+        if (parent.dataset.noteTag === tag) {
+          isTagged = true;
+          break;
+        }
+        parent = parent.parentElement;
+      }
+      if (!isTagged) return false;
+    }
+    node = walker.nextNode();
+  }
+
+  return hasSelectedText;
+};
+
+const unwrapTags = (fragment: DocumentFragment, tags: string[]) => {
+  Array.from(fragment.querySelectorAll<HTMLElement>('[data-note-tag]'))
+    .filter((element) => tags.includes(element.dataset.noteTag ?? ''))
+    .reverse()
+    .forEach(unwrapElement);
 };
 
 const removeEmptyFormatting = (root: HTMLElement) => {
@@ -143,13 +180,20 @@ const RichTextNoteEditor = ({
     if (!selection?.rangeCount || selection.isCollapsed) return;
     const range = selection.getRangeAt(0);
     if (!editorRef.current.contains(range.commonAncestorContainer)) return;
-    const extracted = range.extractContents();
     const exclusiveGroup = exclusiveTagGroups.find((group) => group.includes(tag));
-    if (exclusiveGroup) {
-      Array.from(extracted.querySelectorAll<HTMLElement>('[data-note-tag]'))
-        .filter((element) => exclusiveGroup.includes(element.dataset.noteTag ?? ''))
-        .forEach(unwrapElement);
+    const shouldRemoveTag = isRangeFullyTagged(editorRef.current, range, tag);
+    const extracted = range.extractContents();
+
+    // 같은 서식은 다시 누르면 해제하고, 글자색/배경색은 항상 하나만 남긴다.
+    // 다른 서식(굵게·취소선 등)은 중첩을 허용하되 같은 태그 중첩은 만들지 않는다.
+    unwrapTags(extracted, exclusiveGroup ?? [tag]);
+    if (shouldRemoveTag) {
+      range.insertNode(extracted);
+      removeEmptyFormatting(editorRef.current);
+      emitValue();
+      return;
     }
+
     const wrapper = document.createElement('span');
     wrapper.dataset.noteTag = tag;
     wrapper.className = tagClassName[tag];
@@ -204,6 +248,7 @@ const RichTextNoteEditor = ({
             disabled={disabled}
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => applyTag(action.tag)}
+            style={action.previewBackground ? { backgroundColor: action.previewBackground } : undefined}
             className={`flex h-7 min-w-7 items-center justify-center rounded border border-gray-200 bg-white px-1 text-xs transition hover:border-brand-300 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-40 ${action.className}`}
           >
             {action.label}
