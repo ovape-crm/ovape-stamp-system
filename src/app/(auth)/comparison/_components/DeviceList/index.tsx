@@ -10,6 +10,7 @@ import {
 import { useModal } from '@/app/_contexts/ModalContext';
 import Loading from '@/app/_components/Loading';
 import Button from '@/app/_components/Button';
+import TaggedContent from '@/app/_components/TaggedContent';
 import DeviceEditModal from '../DeviceEditModal';
 import { comparisonKeys } from '@/app/_domains/_comparison/_queryKeys/comparisonKeys';
 import { useUser } from '@/app/_contexts/UserContext';
@@ -207,8 +208,10 @@ const DeviceList = ({ refreshKey }: DeviceListProps) => {
                 )}
               </td>
               {columns.map((col) => (
-                <td key={col.id} className="px-3 py-2.5 text-gray-700 whitespace-nowrap border-b border-r border-brand-50">
-                  {valueMap[device.id]?.[col.id] ?? (
+                <td key={col.id} className="border-b border-r border-brand-50 px-3 py-2.5 text-gray-700">
+                  {valueMap[device.id]?.[col.id] ? (
+                    <TaggedContent content={valueMap[device.id][col.id]} className="whitespace-nowrap" />
+                  ) : (
                     <span className="text-gray-300">-</span>
                   )}
                 </td>

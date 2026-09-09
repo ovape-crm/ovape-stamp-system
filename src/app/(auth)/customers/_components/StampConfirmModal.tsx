@@ -1378,6 +1378,7 @@ export default function StampConfirmModal({
         <div className="flex shrink-0 items-center justify-end gap-3">
           {addStep > 1 && (
             <Button
+              data-manual-key="outbound-modal-previous-step"
               variant="gray"
               size="sm"
               onClick={() => {
@@ -1393,6 +1394,7 @@ export default function StampConfirmModal({
           {addStep < 3 ? (
             addStep === 1 && !formValidity.hasCompletedBasicSequence ? null : (
               <Button
+                data-manual-key="outbound-modal-next-step"
                 size="sm"
                 disabled={
                   addStep === 1
@@ -1502,6 +1504,7 @@ export default function StampConfirmModal({
             )
           ) : (
             <Button
+              data-manual-key="outbound-modal-confirm"
               size="sm"
               disabled={!stampLog || isSubmitting}
               onClick={handleConfirm}
@@ -1544,7 +1547,7 @@ export default function StampConfirmModal({
               >
                 취소
               </Button>
-              <Button
+            <Button
                 type="button"
                 variant="tertiary"
                 className="flex w-full items-center justify-center text-center"

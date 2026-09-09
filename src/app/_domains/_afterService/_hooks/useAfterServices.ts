@@ -23,6 +23,8 @@ type AfterServiceType = {
   shop_note?: string | null;
   customer_note?: string | null;
   is_loaner_device_issued?: boolean;
+  service_case_type?: 'customer_as' | 'vendor_exchange' | 'store_product_as';
+  supplier_name?: string | null;
   status: string;
   created_at: string;
   users: {
@@ -47,6 +49,7 @@ const buildFilterParams = (filters?: AfterServiceFilters) => ({
     | 'item_name'
     | undefined,
   searchKeyword: filters?.searchKeyword,
+  caseType: filters?.caseType,
 });
 
 export const useAfterServices = (filters?: AfterServiceFilters) => {

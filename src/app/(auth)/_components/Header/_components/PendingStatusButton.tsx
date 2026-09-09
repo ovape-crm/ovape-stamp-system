@@ -8,6 +8,7 @@ import { getCurrentWorkerName } from "@/app/_domains/_workJournal/_utils/current
 import { useUser } from "@/app/_contexts/UserContext";
 import supabase from "@/libs/supabaseClient";
 import { showConfirmDialog } from "@/app/_components/AppDialog";
+import { getOpenCustomerFollowUpRemarks, type CustomerFollowUpRemark } from "@/app/_domains/_customer/_services/customerFollowUpRemarkService";
 
 type ReservationRow = {
   id: string;
@@ -20,6 +21,8 @@ type AfterServiceRow = {
   id: string;
   item_name: string;
   status: string;
+  service_case_type?: 'customer_as' | 'vendor_exchange' | 'store_product_as';
+  supplier_name?: string | null;
   customers: { name: string; phone: string } | null;
 };
 
@@ -76,6 +79,7 @@ export default function PendingStatusButton() {
   const [reservations, setReservations] = useState<ReservationRow[]>([]);
   const [afterServices, setAfterServices] = useState<AfterServiceRow[]>([]);
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrderRow[]>([]);
+  const [followUpRemarks, setFollowUpRemarks] = useState<CustomerFollowUpRemark[]>([]);
   const [memoToComplete, setMemoToComplete] = useState<HandoverMemo | null>(
     null,
   );
@@ -119,7 +123,7 @@ export default function PendingStatusButton() {
       ...afterServiceStatusGroups.received,
       ...afterServiceStatusGroups.inProgress,
     ];
-    const [reservationResult, afterServiceResult, purchaseOrderResult] =
+    const [reservationResult, afterServiceResult, purchaseOrderResult, followUpResult] =
       await Promise.all([
       supabase
         .from("logs")
@@ -128,7 +132,7 @@ export default function PendingStatusButton() {
         .order("created_at", { ascending: false }),
       supabase
         .from("after_services")
-        .select("id, item_name, status, customers(name, phone)")
+        .select("id, item_name, status, service_case_type, supplier_name, customers(name, phone)")
         .in("status", pendingAfterServiceStatuses)
         .order("created_at", { ascending: false }),
       supabase
@@ -138,11 +142,13 @@ export default function PendingStatusButton() {
         )
         .in("status", ["pending", "partial"])
         .order("created_at", { ascending: false }),
+      getOpenCustomerFollowUpRemarks(),
     ]);
 
     if (reservationResult.error) console.error(reservationResult.error);
     if (afterServiceResult.error) console.error(afterServiceResult.error);
     if (purchaseOrderResult.error) console.error(purchaseOrderResult.error);
+    setFollowUpRemarks(followUpResult);
 
     setReservations(
       (
@@ -389,12 +395,25 @@ export default function PendingStatusButton() {
                         className="min-w-0 rounded-lg border border-gray-200 bg-white px-3 py-2.5 transition hover:border-brand-300 hover:bg-brand-50/60 hover:shadow-sm"
                       >
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-gray-900">
-                            {afterService.customers?.name ?? "고객 정보 없음"}
-                          </p>
-                          <p className="mt-0.5 truncate text-xs text-gray-500">
-                            {afterService.item_name}
-                          </p>
+                          {afterService.service_case_type === 'vendor_exchange' || afterService.service_case_type === 'store_product_as' ? (
+                            <>
+                              <p className="truncate text-sm font-semibold text-violet-700">
+                                {afterService.service_case_type === 'vendor_exchange' ? '업체 불량교환' : '매장제품 A/S'}
+                              </p>
+                              <p className="mt-0.5 truncate text-xs text-violet-600">
+                                {afterService.supplier_name?.trim() || '거래처 미지정'} · {afterService.item_name}
+                              </p>
+                            </>
+                          ) : (
+                            <>
+                              <p className="truncate text-sm font-semibold text-gray-900">
+                                {afterService.customers?.name ?? "고객 정보 없음"}
+                              </p>
+                              <p className="mt-0.5 truncate text-xs text-gray-500">
+                                {afterService.item_name}
+                              </p>
+                            </>
+                          )}
                         </div>
                       </Link>
                     ))}
@@ -427,6 +446,28 @@ export default function PendingStatusButton() {
                     <EmptyState text="미입고 거래처가 없습니다." />
                   )}
                 </StatusCard>
+
+                <div className="lg:col-span-3">
+                  <StatusCard title="처리 필요 특이사항" count={followUpRemarks.length}>
+                    <div className="grid gap-2 pt-3 sm:grid-cols-2 xl:grid-cols-3">
+                      {followUpRemarks.slice(0, 9).map((remark) => (
+                        <Link
+                          key={remark.id}
+                          href={`/customers/${remark.customer_id}`}
+                          onClick={() => setIsOpen(false)}
+                          className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2.5 transition hover:border-amber-300 hover:bg-amber-50"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-gray-900">{remark.customers?.name ?? '고객'}</p>
+                            <p className="mt-0.5 truncate text-xs text-gray-600">{remark.content}</p>
+                          </div>
+                          <span className="whitespace-nowrap text-xs font-semibold text-amber-700">처리 필요</span>
+                        </Link>
+                      ))}
+                    </div>
+                    {!isLoading && followUpRemarks.length === 0 && <EmptyState text="처리 필요 특이사항이 없습니다." />}
+                  </StatusCard>
+                </div>
 
               </div>
             </div>

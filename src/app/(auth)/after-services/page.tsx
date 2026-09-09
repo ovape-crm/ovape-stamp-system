@@ -12,6 +12,8 @@ import {
   createAfterService,
   deleteAfterService,
   rollbackAfterServiceCreationLogs,
+  setAfterServiceManualCost,
+  processInventoryServiceOutbound,
 } from "@/app/_domains/_afterService/_services/afterService";
 import toast from "react-hot-toast";
 import AfterServiceSearchBox from "./_components/AfterServiceSearchBox";
@@ -20,6 +22,7 @@ import { afterServiceKeys } from "@/app/_domains/_afterService/_queryKeys/afterS
 import { addStamp } from "@/app/_domains/_stamp/_services/stampService";
 import { logKeys } from "@/app/_domains/_log/_queryKeys/logKeys";
 import { searchItemOptions } from "@/app/_domains/_item/_services/itemService";
+import { getStoreProductAfterServiceAccountId } from "@/app/_domains/_customer/_services/customerService";
 
 const getReceivedValue = (note: string | undefined, label: string) =>
   note
@@ -90,6 +93,7 @@ const AfterServicesPage = () => {
     itemType: string;
     itemName: string;
     quantity: number;
+    storeProductUnitCost: number;
     symptom: string;
     hasAfterServiceCost: boolean;
     afterServicePaymentMethod?: "card" | "transfer" | "cash";
@@ -139,9 +143,14 @@ const AfterServicesPage = () => {
         throw new Error('품목 관리에서 "A/S 비용" 품목을 찾을 수 없습니다.');
       }
 
+      const specialAccountId =
+        values.caseType === "vendor_exchange"
+          ? await getStoreProductAfterServiceAccountId()
+          : null;
       const createdAfterService = await createAfterService({
         customerId:
-          values.customerId.length > 0 ? String(values.customerId) : null,
+          specialAccountId ??
+          (values.customerId.length > 0 ? String(values.customerId) : null),
         itemType: values.itemType,
         itemName: values.itemName,
         quantity: values.quantity,
@@ -167,7 +176,8 @@ const AfterServicesPage = () => {
             getReceivedValue(values.receivedNote, "고객구매일"),
           ),
           customerReceivedDate: normalizeIntakeDate(
-            getReceivedValue(values.receivedNote, "고객접수일"),
+            getReceivedValue(values.receivedNote, "매장접수일") ||
+              getReceivedValue(values.receivedNote, "고객접수일"),
           ),
           supplierName: getReceivedValue(values.receivedNote, "도매처"),
           hasAfterServiceCost: values.hasAfterServiceCost,
@@ -187,6 +197,21 @@ const AfterServicesPage = () => {
         },
       });
       createdAfterServiceId = Number(createdAfterService.id);
+
+      if (values.caseType === "store_product_as") {
+        await setAfterServiceManualCost({
+          afterServiceId: createdAfterServiceId,
+          unitPrice: values.storeProductUnitCost,
+        });
+      }
+      if (values.caseType === "vendor_exchange") {
+        await processInventoryServiceOutbound({
+          afterServiceId: createdAfterServiceId,
+          caseType: "vendor_exchange",
+          supplierId: values.supplierId,
+          allocations: values.costAllocations.filter((allocation) => allocation.quantity > 0),
+        });
+      }
 
       if (values.isExchangeIssued) {
         const exchangeRemark = values.exchangeNote?.trim()
@@ -354,7 +379,7 @@ const AfterServicesPage = () => {
             });
           }}
         />
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
           <Button
             size="sm"
             className="min-w-20 sm:min-w-24"

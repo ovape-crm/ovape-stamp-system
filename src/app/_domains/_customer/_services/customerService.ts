@@ -99,7 +99,7 @@ export const getCustomerQuickLinks = async (): Promise<CustomerQuickLink[]> => {
   const { data, error } = await supabase
     .from("customers")
     .select("id, name, phone, gender, created_at")
-    .or("phone.eq.X,name.eq.시연용,name.eq.재고조정")
+    .or("phone.eq.X,name.eq.시연용,name.eq.재고조정,name.eq.매장제품 A/S")
     .order("created_at", { ascending: true });
 
   if (error) throw error;
@@ -109,6 +109,19 @@ export const getCustomerQuickLinks = async (): Promise<CustomerQuickLink[]> => {
     phone,
     gender,
   }));
+};
+
+/** 업체 불량교환 이력을 묶는 읽기 전용 특수계정입니다. */
+export const getStoreProductAfterServiceAccountId = async (): Promise<string> => {
+  const { data, error } = await supabase
+    .from("customers")
+    .select("id")
+    .eq("name", "매장제품 A/S")
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) throw new Error("매장제품 A/S 특수계정을 찾을 수 없습니다.");
+  return String(data.id);
 };
 
 /**
@@ -124,7 +137,7 @@ export const getCustomersCount = async (
 
   // 특수 고객은 바로가기와 이력에서만 접근하고 일반 고객 목록에서는 제외합니다.
   query = query
-    .not("name", "in", '("시연용","재고조정")')
+    .not("name", "in", '("시연용","재고조정","매장제품 A/S")')
     .or("name.neq.X,phone.neq.X");
 
   query = applyCustomerSearch(query, params);
@@ -154,7 +167,7 @@ export const getCustomers = async (
 
   // 특수 고객은 바로가기와 이력에서만 접근하고 일반 고객 목록에서는 제외합니다.
   query = query
-    .not("name", "in", '("시연용","재고조정")')
+    .not("name", "in", '("시연용","재고조정","매장제품 A/S")')
     .or("name.neq.X,phone.neq.X");
 
   query = applyCustomerSearch(query, params);

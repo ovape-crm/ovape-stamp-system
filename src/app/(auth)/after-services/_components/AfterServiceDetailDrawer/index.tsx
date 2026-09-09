@@ -119,6 +119,8 @@ const AfterServiceDetailDrawer = ({
   const isInventoryServiceCase =
     afterServiceDetail?.service_case_type === "vendor_exchange" ||
     afterServiceDetail?.service_case_type === "store_product_as";
+  const requiresOutboundConfirmation =
+    afterServiceDetail?.service_case_type === "vendor_exchange";
   const inventoryServiceProgressQuery = useQuery({
     queryKey: ["after-service-inventory-progress", numericAfterServiceId],
     queryFn: () => getInventoryServiceProgress(numericAfterServiceId),
@@ -142,9 +144,9 @@ const AfterServiceDetailDrawer = ({
     (afterServiceDetail?.service_case_type === "store_product_as" ||
       (afterServiceDetail?.service_case_type === "customer_as" &&
         Boolean(afterServiceDetail.is_loaner_device_issued))) &&
-    afterServiceDetail.status === AfterServiceStatusEnum.SENT_FOR_REPAIR.value &&
-    (afterServiceDetail.service_case_type === "store_product_as" ||
-      !(outboundCostAllocationsQuery.data?.length));
+    (afterServiceDetail?.service_case_type === "store_product_as" ||
+      (afterServiceDetail.status === AfterServiceStatusEnum.SENT_FOR_REPAIR.value &&
+        !(outboundCostAllocationsQuery.data?.length)));
   const handleSaveManualCost = async () => {
     if (!afterServiceDetail) return;
     const unitPrice = Number(manualCost.replaceAll(",", ""));
@@ -304,7 +306,7 @@ const AfterServiceDetailDrawer = ({
 
   const handleStatusAdvance = () => {
     if (!afterServiceDetail) return;
-    if (isInventoryServiceCase && !afterServiceDetail.outbound_processed_at) {
+    if (requiresOutboundConfirmation && !afterServiceDetail.outbound_processed_at) {
       toast.error("마스터의 출고 확정 후 상태를 변경할 수 있습니다.");
       return;
     }
@@ -533,6 +535,12 @@ const AfterServiceDetailDrawer = ({
           mode="edit"
           initialStep={initialStep}
           initialData={{
+            caseType: afterServiceDetail.service_case_type,
+            supplierId: afterServiceDetail.outbound_supplier_id ?? null,
+            storeProductUnitCost:
+              afterServiceDetail.service_case_type === "store_product_as"
+                ? (outboundCostAllocationsQuery.data?.[0]?.unit_price ?? null)
+                : null,
             customerId: afterServiceDetail.customer_id
               ? String(afterServiceDetail.customer_id)
               : null,
@@ -612,7 +620,10 @@ const AfterServiceDetailDrawer = ({
             try {
               setIsUpdating(true);
               await updateAfterService(afterServiceId, {
-                customerId: values.customerId || null,
+                customerId:
+                  afterServiceDetail.service_case_type === "vendor_exchange"
+                    ? String(afterServiceDetail.customer_id)
+                    : values.customerId || null,
                 itemType: values.itemType,
                 itemName: values.itemName,
                 quantity: values.quantity,
@@ -625,10 +636,9 @@ const AfterServiceDetailDrawer = ({
                     values.receivedNote ?? "",
                     "고객구매일",
                   ),
-                  customerReceivedDate: getLogValue(
-                    values.receivedNote ?? "",
-                    "고객접수일",
-                  ),
+                  customerReceivedDate:
+                    getLogValue(values.receivedNote ?? "", "매장접수일") ||
+                    getLogValue(values.receivedNote ?? "", "고객접수일"),
                   supplierName: getLogValue(
                     values.receivedNote ?? "",
                     "도매처",
@@ -649,6 +659,16 @@ const AfterServiceDetailDrawer = ({
                   exchangeNote: values.exchangeNote,
                 },
               });
+
+              if (
+                afterServiceDetail.service_case_type === "store_product_as" &&
+                afterServiceDetail.status === AfterServiceStatusEnum.RECEIVED.value
+              ) {
+                await setAfterServiceManualCost({
+                  afterServiceId: Number(afterServiceId),
+                  unitPrice: values.storeProductUnitCost,
+                });
+              }
 
               if (
                 values.isExchangeIssued &&
@@ -1030,17 +1050,17 @@ const AfterServiceDetailDrawer = ({
                     customerId={afterServiceDetail.customer_id}
                     customerName={afterServiceDetail.customers?.name}
                     customerPhone={afterServiceDetail.customers?.phone}
+                    serviceCaseType={afterServiceDetail.service_case_type}
+                    supplierName={afterServiceDetail.supplier_name}
                   />
                 </div>
 
-                {isInventoryServiceCase && !afterServiceDetail.outbound_processed_at && (
+                {requiresOutboundConfirmation && !afterServiceDetail.outbound_processed_at && (
                   <div className="mb-4 flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="text-sm font-bold text-amber-800">출고 승인 대기</p>
                       <p className="mt-0.5 text-xs text-amber-700">
-                        {afterServiceDetail.service_case_type === "vendor_exchange"
-                          ? "마스터가 확정하면 기존 매입 이력에서 원가를 자동 배분하고 재고를 차감합니다."
-                          : "마스터가 확정한 뒤 실제 매입가를 직접 등록합니다. 매장 재고는 출고 처리되지 않습니다."}
+                        마스터가 확정하면 기존 매입 이력에서 원가를 자동 배분하고 재고를 차감합니다.
                       </p>
                     </div>
                     {isMaster && (
@@ -1052,6 +1072,7 @@ const AfterServiceDetailDrawer = ({
                 )}
 
                 {isMaster &&
+                  afterServiceDetail.service_case_type !== "store_product_as" &&
                   (afterServiceDetail.is_loaner_device_issued ||
                     isInventoryServiceCase ||
                     outboundCostAllocationsQuery.isError ||
@@ -1061,9 +1082,7 @@ const AfterServiceDetailDrawer = ({
                         <div>
                           <h4 className="text-sm font-bold text-violet-900">A/S 출고 원가</h4>
                           <p className="mt-0.5 text-xs text-violet-700">
-                            {afterServiceDetail.service_case_type === "store_product_as"
-                              ? "매장제품 A/S의 실제 매입가입니다. 매입 이력이나 매장 재고 출고와 연결하지 않으며, 등록한 단가로 수리품 입고 원가층을 만듭니다."
-                              : "실제 출고에 연결된 원가입니다. FIFO 연결 기록과 기존·수동 기록을 구분하며, 미확정 원가는 0원으로 계산하지 않습니다."}
+                            실제 출고에 연결된 원가입니다. FIFO 연결 기록과 기존·수동 기록을 구분하며, 미확정 원가는 0원으로 계산하지 않습니다.
                           </p>
                         </div>
                         <span className="rounded-md bg-white px-2 py-1 text-[11px] font-semibold text-violet-700 shadow-sm">
@@ -1118,9 +1137,7 @@ const AfterServiceDetailDrawer = ({
                       {canSetManualCost && (
                         <div className="mt-3 flex flex-col gap-2 rounded-lg border border-dashed border-violet-200 bg-white p-3 sm:flex-row sm:items-end">
                           <label className="flex-1 text-xs font-semibold text-gray-700">
-                            {afterServiceDetail.service_case_type === "store_product_as"
-                              ? "직접 입력 매입 단가"
-                              : "실제 단가"}
+                            실제 단가
                             <input
                               value={manualCost}
                               onChange={(event) => setManualCost(event.target.value.replace(/[^0-9]/g, ""))}

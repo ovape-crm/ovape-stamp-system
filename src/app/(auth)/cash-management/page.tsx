@@ -594,28 +594,65 @@ export default function CashManagementPage() {
                   return (
                     <label
                       key={denomination}
-                      className="grid grid-cols-[minmax(70px,1fr)_80px_minmax(82px,1fr)] items-center gap-3 border-b border-r border-gray-200 px-5 py-2"
+                      className="grid min-w-0 grid-cols-[64px_auto_minmax(0,1fr)] items-center gap-2 border-b border-r border-gray-200 px-3 py-2"
                     >
-                      <span className="text-sm font-medium text-gray-700">
+                      <span className="whitespace-nowrap text-sm font-medium text-gray-700">
                         {denomination.toLocaleString("ko-KR")}원
                       </span>
-                      <input
-                        type="number"
-                        min="0"
-                        value={count || ""}
-                        onChange={(event) =>
-                          setCashCounts((previous) => ({
-                            ...previous,
-                            [String(denomination)]: toNonNegativeNumber(
-                              event.target.value,
-                            ),
-                          }))
-                        }
-                        className="w-full rounded-md border border-gray-200 bg-gray-50 px-2 py-2 text-right text-sm outline-none transition focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-50"
-                        placeholder="0"
-                        aria-label={`${denomination.toLocaleString("ko-KR")}원 개수`}
-                      />
-                      <span className="text-right text-xs tabular-nums text-gray-500">
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={3}
+                          value={count || ""}
+                          onChange={(event) => {
+                            const nextValue = event.target.value;
+                            if (
+                              nextValue !== "" &&
+                              !/^[0-9]{1,3}$/.test(nextValue)
+                            )
+                              return;
+                            setCashCounts((previous) => ({
+                              ...previous,
+                              [String(denomination)]: toNonNegativeNumber(
+                                nextValue,
+                              ),
+                            }));
+                          }}
+                          className="w-12 rounded-md border border-gray-200 bg-gray-50 px-2 py-2 text-right text-sm outline-none transition focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-50"
+                          placeholder="0"
+                          aria-label={`${denomination.toLocaleString("ko-KR")}원 개수`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setCashCounts((previous) => ({
+                              ...previous,
+                              [String(denomination)]: Math.max(0, count - 1),
+                            }))
+                          }
+                          disabled={count <= 0}
+                          aria-label={`${denomination.toLocaleString("ko-KR")}원 개수 감소`}
+                          className="flex h-9 w-8 shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-white text-lg leading-none text-gray-600 transition-colors hover:bg-gray-50 active:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          −
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setCashCounts((previous) => ({
+                              ...previous,
+                              [String(denomination)]: Math.min(999, count + 1),
+                            }))
+                          }
+                          disabled={count >= 999}
+                          aria-label={`${denomination.toLocaleString("ko-KR")}원 개수 증가`}
+                          className="flex h-9 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-500 text-lg leading-none text-white transition-colors hover:bg-brand-600 active:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          +
+                        </button>
+                      </div>
+                      <span className="min-w-0 whitespace-nowrap text-right text-xs tabular-nums text-gray-500">
                         {formatWon(denomination * count)}
                       </span>
                     </label>

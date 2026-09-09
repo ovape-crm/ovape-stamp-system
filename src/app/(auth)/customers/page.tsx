@@ -27,6 +27,7 @@ const quickLinkDefinitions = [
   { key: "x-unified", label: "X 고객" },
   { key: "demo", label: "시연용" },
   { key: "adjustment", label: "재고조정" },
+  { key: "store-product-as", label: "매장제품 A/S" },
 ] as const;
 
 const getCustomerCreateError = (error: unknown) => {
@@ -75,7 +76,12 @@ export default function CustomersPage() {
       if (key === "x-unified") {
         return customer.name === "X" && customer.phone === "X" && customer.gender === "special";
       }
-      return customer.name === (key === "demo" ? "시연용" : "재고조정");
+      return customer.name ===
+        (key === "demo"
+          ? "시연용"
+          : key === "adjustment"
+            ? "재고조정"
+            : "매장제품 A/S");
     });
 
   useEffect(() => {
@@ -208,8 +214,11 @@ export default function CustomersPage() {
                   {quickLinkDefinitions
                     .filter(
                       (definition) =>
-                        definition.key !== "adjustment" ||
-                        user?.oss_role === "master",
+                        (definition.key !== "adjustment" ||
+                          user?.oss_role === "master") &&
+                        (definition.key !== "store-product-as" ||
+                          user?.oss_role === "master" ||
+                          user?.oss_role === "admin"),
                     )
                     .map((definition) => {
                       const customer = findQuickLink(definition.key);

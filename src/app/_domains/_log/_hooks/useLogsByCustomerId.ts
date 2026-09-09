@@ -51,10 +51,11 @@ export const useLogsByCustomerId = (
   };
 
   const removeItem = (id: string) => {
-    queryClient.setQueryData(
-      queryKey,
+    queryClient.setQueriesData(
+      { queryKey: logKeys.all() },
       (old: InfiniteData<CustomersLogsResType> | undefined) => {
         if (!old) return old;
+        if (!Array.isArray(old.pages)) return old;
         return {
           ...old,
           pages: old.pages.map((page) =>
@@ -63,6 +64,7 @@ export const useLogsByCustomerId = (
         };
       },
     );
+    void queryClient.invalidateQueries({ queryKey: logKeys.all() });
   };
 
   const updateItem = (

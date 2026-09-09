@@ -6,7 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import Button from '@/app/_components/Button';
 import Loading from '@/app/_components/Loading';
-import TaggedContent from '@/app/_components/TaggedContent';
+import ManualContentSearch from '@/app/_components/ManualContentSearch';
 import { manualHelpKeys } from '@/app/_domains/_manual/_queryKeys/manualHelpKeys';
 import {
   deleteManualHelpBinding,
@@ -22,12 +22,16 @@ const ManualHelpButton = ({
   className = '',
   onPlacementEdit,
   buttonSize = 24,
+  questionSize = 14,
+  showCircle = true,
 }: {
   locationKey: string;
   ariaLabel: string;
   className?: string;
   onPlacementEdit?: () => void;
   buttonSize?: number;
+  questionSize?: number;
+  showCircle?: boolean;
 }) => {
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
@@ -116,9 +120,14 @@ const ManualHelpButton = ({
           setIsOpen(true);
         }}
         style={{ width: buttonSize, height: buttonSize }}
-        className={`group flex shrink-0 items-center justify-center rounded-full border border-brand-200 bg-brand-50 text-brand-600 shadow-sm ring-1 ring-white transition-all duration-150 hover:border-brand-400 hover:bg-brand-500 hover:text-white hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 focus-visible:ring-offset-1 active:scale-95 ${className}`}
+        className={`group relative flex shrink-0 items-center justify-center text-brand-600 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 focus-visible:ring-offset-1 active:scale-95 ${showCircle ? "rounded-lg bg-brand-500 text-white shadow-sm ring-1 ring-white hover:bg-brand-600 hover:shadow-md" : "rounded-md hover:bg-brand-50 hover:text-brand-700"} ${className}`}
       >
-        <span style={{ fontSize: Math.max(11, Math.round(buttonSize * 0.54)) }} className="font-extrabold leading-none">?</span>
+        <span
+          style={{ fontSize: questionSize }}
+          className="absolute inset-0 flex items-center justify-center font-extrabold leading-none"
+        >
+          ?
+        </span>
       </button>
 
       {isOpen &&
@@ -211,12 +220,7 @@ const ManualHelpButton = ({
                   </span>
                 )}
                 <h3 className="mb-3 text-base font-semibold">{manual.title}</h3>
-                <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-3">
-                  <TaggedContent
-                    content={manual.content}
-                    className="text-sm leading-relaxed text-gray-800"
-                  />
-                </div>
+                <ManualContentSearch content={manual.content} />
                 <div className="mt-4 flex items-center justify-between gap-2 border-t border-gray-200 pt-3">
                   <div>
                     {isAdmin && (

@@ -197,6 +197,18 @@ const AfterServiceList = ({
                               {formatPhoneNumber(as.customers.phone)}
                             </p>
                           </>
+                        ) : as.service_case_type === 'vendor_exchange' ||
+                          as.service_case_type === 'store_product_as' ? (
+                          <>
+                            <p className="font-medium text-violet-700">
+                              {as.service_case_type === 'vendor_exchange'
+                                ? '업체 불량교환'
+                                : '매장제품 A/S'}
+                            </p>
+                            <p className="text-[11px] sm:text-xs text-violet-600 whitespace-nowrap">
+                              {as.supplier_name?.trim() || '거래처 미지정'}
+                            </p>
+                          </>
                         ) : (
                           <>
                             <p className="font-medium text-gray-400">

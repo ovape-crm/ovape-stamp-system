@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import Button from '@/app/_components/Button';
+import DeviceValueInput from '@/app/_components/DeviceValueInput';
 import { useComparisonColumns } from '@/app/_domains/_comparison/_hooks/useComparisonColumns';
 import { updateComparisonDevice } from '@/app/_domains/_comparison/_services/comparisonDeviceService';
 
@@ -84,11 +85,11 @@ export default function DeviceEditModal({
               <label className="block text-sm font-medium mb-1">
                 {col.name} <span className="text-rose-600">*</span>
               </label>
-              <input
-                className="w-full rounded border border-brand-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
+              <DeviceValueInput
                 placeholder={`${col.name} 입력`}
                 value={values[col.id] || ''}
-                onChange={(e) => handleChange(col.id, e.target.value)}
+                onChange={(value) => handleChange(col.id, value)}
+                disabled={isSubmitting}
               />
               {errors[col.id] && (
                 <p className="mt-1 text-xs text-rose-600">{errors[col.id]}</p>
