@@ -1,7 +1,7 @@
 'use client';
 
 import Button from '@/app/_components/Button';
-import TaggedContent from '@/app/_components/TaggedContent';
+import ManualContentSearch from '@/app/_components/ManualContentSearch';
 import { ManualType } from '@/app/_domains/_manual/_types/manual.types';
 
 interface ManualDetailModalProps {
@@ -33,12 +33,10 @@ const ManualDetailModal = ({ manual, onClose }: ManualDetailModalProps) => {
         </span>
       </h2>
 
-      <div className="overflow-y-auto min-h-0 flex-1 px-3 py-2.5 border border-gray-100 rounded-lg bg-gray-50">
-        <TaggedContent
-          content={manual.content}
-          className="text-sm text-gray-800 leading-relaxed"
-        />
-      </div>
+      <ManualContentSearch
+        content={manual.content}
+        className="text-sm text-gray-800 leading-relaxed"
+      />
 
       <div className="flex justify-end pt-4 border-t border-gray-200 mt-6 shrink-0">
         <Button size="sm" variant="gray" onClick={onClose}>

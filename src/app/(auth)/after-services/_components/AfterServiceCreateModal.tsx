@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
-import { useState, useRef, useEffect, useDeferredValue } from "react";
+import { useState, useRef, useEffect, useDeferredValue, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Button from "@/app/_components/Button";
 import KoreanDatePicker from "@/app/_components/KoreanDatePicker";
@@ -21,6 +21,7 @@ import {
 } from "@/app/_domains/_inventory/_services/inventoryService";
 import { useModal } from "@/app/_contexts/ModalContext";
 import { useUser } from "@/app/_contexts/UserContext";
+import { getItemPurchaseCostOptions } from "@/app/_domains/_afterService/_services/afterService";
 
 const getLocalDateInputValue = () => {
   const now = new Date();
@@ -55,7 +56,7 @@ const schema = z
       z.object({
         sourceReceiptLineId: z.string().nullable(),
         unitPrice: z.number().min(0),
-        quantity: z.number().min(1),
+        quantity: z.number().min(0),
       }),
     ),
     customerId: z.string().trim(),
@@ -70,6 +71,7 @@ const schema = z
       .number({ error: "수량을 입력하세요." })
       .min(1, { message: "수량은 1개 이상이어야 합니다." })
       .max(1000, { message: "수량은 1000개 이하로 입력하세요." }),
+    storeProductUnitCost: z.number().min(0),
     symptom: z
       .string()
       .trim()
@@ -128,6 +130,19 @@ const schema = z
           message: "거래처를 정확히 선택하세요.",
         });
       }
+    }
+    if (values.caseType === "store_product_as" && values.storeProductUnitCost <= 0) {
+      context.addIssue({
+        code: "custom",
+        path: ["storeProductUnitCost"],
+        message: "매장제품 A/S 원가는 1원 이상 입력하세요.",
+      });
+    }
+    if (
+      values.caseType === "vendor_exchange" &&
+      values.costAllocations.reduce((sum, allocation) => sum + allocation.quantity, 0) !== values.quantity
+    ) {
+      context.addIssue({ code: "custom", path: ["costAllocations"], message: "출고 수량과 원가층 배정 수량을 같게 입력하세요." });
     }
     if (values.hasAfterServiceCost && !values.afterServicePaymentMethod) {
       context.addIssue({
@@ -221,6 +236,9 @@ export default function AfterServiceCreateModal({
   onCancel: () => void;
   isSubmitting: boolean;
   initialData?: {
+    caseType?: "customer_as" | "vendor_exchange" | "store_product_as";
+    supplierId?: string | null;
+    storeProductUnitCost?: number | null;
     customerId?: string | null;
     customerName?: string | null;
     customerPhone?: string | null;
@@ -256,11 +274,13 @@ export default function AfterServiceCreateModal({
 }) {
   const { setSize } = useModal();
   const { user } = useUser();
+  const isVendorExchangeInventoryLocked =
+    mode === "edit" && initialData?.caseType === "vendor_exchange";
   const isMaster = user?.oss_role === "master";
   const caseTypeOptions = isMaster
     ? ([
-        ["store_product_as", "매장제품 A/S 출고"],
-        ["vendor_exchange", "업체 교환출고"],
+        ["store_product_as", "매장제품 A/S"],
+        ["vendor_exchange", "업체 불량교환"],
         ["customer_as", "고객 A/S 추가"],
       ] as const)
     : ([["customer_as", "고객 A/S 추가"]] as const);
@@ -320,6 +340,7 @@ export default function AfterServiceCreateModal({
       itemType: initialData?.itemType || "",
       itemName: initialData?.itemName || "",
       quantity: initialData?.quantity || 1,
+      storeProductUnitCost: initialData?.storeProductUnitCost ?? 0,
       symptom: initialData?.symptom || "",
       hasAfterServiceCost: false,
       afterServicePaymentMethod: undefined,
@@ -359,6 +380,7 @@ export default function AfterServiceCreateModal({
   const exchangeItemName = watch("exchangeItemName") ?? "";
   const exchangeItemId = watch("exchangeItemId") ?? "";
   const exchangeQuantity = watch("exchangeQuantity");
+  const costAllocations = watch("costAllocations");
   const isStepOneComplete =
     itemNameKeyword.trim().length > 0 &&
     selectedItemType.trim().length > 0 &&
@@ -366,7 +388,12 @@ export default function AfterServiceCreateModal({
   const isStepTwoComplete =
     symptom.trim().length > 0 &&
     !isCostAmountEditing &&
-    (mode !== "create" ||
+    (caseType === "vendor_exchange"
+      ? Boolean(selectedSupplierId) &&
+        costAllocations.reduce((sum, allocation) => sum + allocation.quantity, 0) === selectedQuantity
+      : caseType === "store_product_as"
+        ? receivedDate.length > 0 && supplierSearch.trim().length > 0
+      : mode !== "create" ||
       (purchaseDate.length > 0 &&
         receivedDate.length > 0 &&
         supplierSearch.trim().length > 0 &&
@@ -401,6 +428,30 @@ export default function AfterServiceCreateModal({
           .includes(supplierSearch.trim().toLocaleLowerCase("ko-KR")),
     )
     .slice(0, 20);
+  const purchaseCostOptionsQuery = useQuery({
+    queryKey: ["vendor-exchange-cost-options", itemNameKeyword, selectedSupplierId],
+    queryFn: () => getItemPurchaseCostOptions(itemNameKeyword),
+    enabled: caseType === "vendor_exchange" && Boolean(selectedSupplierId) && selectedSupplierId !== "later" && itemNameKeyword.trim().length > 0,
+  });
+  const vendorCostOptions = (purchaseCostOptionsQuery.data ?? []).filter(
+    (option) => option.supplier_name === supplierSearch,
+  );
+  const buildReceivedNote = useCallback((supplierName = supplierSearch.trim()) => {
+    if (caseType !== "customer_as") {
+      return `매장접수일 : ${formatReceivedNoteDate(receivedDate)}\n도매처 : ${supplierName}`;
+    }
+
+    return `고객구매일 : ${formatReceivedNoteDate(purchaseDate)}\n매장접수일 : ${formatReceivedNoteDate(receivedDate)}\n도매처 : ${supplierName}\nA/S 비용 : ${hasAfterServiceCost ? `${afterServiceCostAmount.toLocaleString("ko-KR")}원` : "X"}${hasAfterServiceCost && afterServicePaymentMethod ? `\n결제방식 : ${{ card: "카드", transfer: "이체", cash: "현금" }[afterServicePaymentMethod]}` : ""}${hasAfterServiceCost && afterServiceCostMemo?.trim() ? `\n가격조정 메모 : ${afterServiceCostMemo.trim()}` : ""}`;
+  }, [
+    afterServiceCostAmount,
+    afterServiceCostMemo,
+    afterServicePaymentMethod,
+    caseType,
+    hasAfterServiceCost,
+    purchaseDate,
+    receivedDate,
+    supplierSearch,
+  ]);
   const deferredItemNameKeyword = useDeferredValue(itemNameKeyword.trim());
   const {
     data: itemSuggestions = [],
@@ -424,7 +475,7 @@ export default function AfterServiceCreateModal({
   useEffect(() => {
     setValue(
       "receivedNote",
-      `고객구매일 : ${formatReceivedNoteDate(purchaseDate)}\n고객접수일 : ${formatReceivedNoteDate(receivedDate)}\n도매처 : ${supplierSearch.trim()}\nA/S 비용 : ${hasAfterServiceCost ? `${afterServiceCostAmount.toLocaleString("ko-KR")}원` : "X"}${hasAfterServiceCost && afterServicePaymentMethod ? `\n결제방식 : ${{ card: "카드", transfer: "이체", cash: "현금" }[afterServicePaymentMethod]}` : ""}${hasAfterServiceCost && afterServiceCostMemo?.trim() ? `\n가격조정 메모 : ${afterServiceCostMemo.trim()}` : ""}`,
+      buildReceivedNote(),
       { shouldValidate: true },
     );
   }, [
@@ -437,6 +488,8 @@ export default function AfterServiceCreateModal({
     receivedDate,
     setValue,
     supplierSearch,
+    caseType,
+    buildReceivedNote,
   ]);
 
   useEffect(() => {
@@ -459,7 +512,7 @@ export default function AfterServiceCreateModal({
       setPurchaseDate(initialData.purchaseDate ?? "");
       setReceivedDate(initialData.receivedDate || getLocalDateInputValue());
       setSupplierSearch(initialData.supplierName ?? "");
-      setSelectedSupplierId(initialData.supplierName ? "existing" : null);
+      setSelectedSupplierId(initialData.supplierId ?? null);
       setHasCostAdjustment(
         Boolean(initialData.afterServiceCostMemo) ||
           (initialData.afterServiceCostAmount ?? 6000) !==
@@ -484,14 +537,15 @@ export default function AfterServiceCreateModal({
       }
 
       reset({
-        caseType: "customer_as",
-        supplierId: "",
+        caseType: initialData.caseType ?? "customer_as",
+        supplierId: initialData.supplierId ?? "",
         costAllocations: [],
         customerId: customerId || "",
         itemId: "",
         itemType: initialData.itemType,
         itemName: initialData.itemName,
         quantity: initialData.quantity,
+        storeProductUnitCost: initialData.storeProductUnitCost ?? 0,
         symptom: initialData.symptom,
         hasAfterServiceCost: initialData.hasAfterServiceCost ?? false,
         afterServicePaymentMethod: initialData.afterServicePaymentMethod,
@@ -557,7 +611,7 @@ export default function AfterServiceCreateModal({
 
     setFormData({
       ...values,
-      customerNote: [
+      customerNote: caseType === "customer_as" ? [
         values.customerNote
           ?.split("\n")
           .filter((line) => !isGeneratedExchangeCompletionNote(line))
@@ -566,10 +620,10 @@ export default function AfterServiceCreateModal({
         exchangeCompletionNote,
       ]
         .filter(Boolean)
-        .join("\n"),
+        .join("\n") : "",
       shopNote: [
         values.shopNote?.trim(),
-        values.isRentalIssued
+        caseType === "customer_as" && values.isRentalIssued
           ? `대여 : ${values.rentalNote?.trim() ?? ""}${/\d+\s*개/.test(values.rentalNote ?? "") ? "" : ` ${values.quantity}개`}`
           : "",
       ]
@@ -602,7 +656,7 @@ export default function AfterServiceCreateModal({
 
       setValue(
         "receivedNote",
-        `고객구매일 : ${formatReceivedNoteDate(purchaseDate)}\n고객접수일 : ${formatReceivedNoteDate(receivedDate)}\n도매처 : ${exactSupplier?.name ?? supplierSearch.trim()}\nA/S 비용 : ${hasAfterServiceCost ? `${afterServiceCostAmount.toLocaleString("ko-KR")}원` : "X"}${hasAfterServiceCost && afterServicePaymentMethod ? `\n결제방식 : ${{ card: "카드", transfer: "이체", cash: "현금" }[afterServicePaymentMethod]}` : ""}${hasAfterServiceCost && afterServiceCostMemo?.trim() ? `\n가격조정 메모 : ${afterServiceCostMemo.trim()}` : ""}`,
+        buildReceivedNote(exactSupplier?.name ?? supplierSearch.trim()),
         { shouldValidate: true },
       );
 
@@ -916,6 +970,7 @@ export default function AfterServiceCreateModal({
                   : "품목 관리에 등록된 이름을 검색하세요"
               }
               autoComplete="off"
+              readOnly={isVendorExchangeInventoryLocked}
               aria-invalid={!!errors.itemName || undefined}
               {...register("itemName", {
                 onChange: () => {
@@ -925,7 +980,9 @@ export default function AfterServiceCreateModal({
                 },
                 onBlur: () => setShowItemSuggestions(false),
               })}
-              onFocus={() => setShowItemSuggestions(true)}
+              onFocus={() => {
+                if (!isVendorExchangeInventoryLocked) setShowItemSuggestions(true);
+              }}
             />
             {showItemSuggestions && itemNameKeyword.trim() && (
               <div className="absolute z-20 mt-1 max-h-52 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
@@ -988,7 +1045,12 @@ export default function AfterServiceCreateModal({
             )}
           </div>
 
-          {/* 수량 */}
+          {/* 수량·매장제품 A/S 원가 */}
+          <div
+            className={
+              caseType === "store_product_as" ? "grid grid-cols-2 gap-3" : ""
+            }
+          >
           <div>
             <label className="block text-sm font-medium mb-1">
               수량 <span className="text-rose-600">*</span>
@@ -1000,12 +1062,13 @@ export default function AfterServiceCreateModal({
                 max="1000"
                 className="h-10 w-20 rounded-lg border border-gray-300 bg-white px-3 text-center text-sm font-medium shadow-sm outline-none transition hover:border-gray-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                 aria-invalid={!!errors.quantity || undefined}
+                readOnly={isVendorExchangeInventoryLocked}
                 {...register("quantity", { valueAsNumber: true })}
               />
               <button
                 type="button"
                 aria-label="수량 줄이기"
-                disabled={selectedQuantity <= 1}
+                disabled={isVendorExchangeInventoryLocked || selectedQuantity <= 1}
                 onClick={() =>
                   setValue("quantity", Math.max(1, selectedQuantity - 1), {
                     shouldValidate: true,
@@ -1018,7 +1081,7 @@ export default function AfterServiceCreateModal({
               <button
                 type="button"
                 aria-label="수량 늘리기"
-                disabled={selectedQuantity >= 1000}
+                disabled={isVendorExchangeInventoryLocked || selectedQuantity >= 1000}
                 onClick={() =>
                   setValue("quantity", Math.min(1000, selectedQuantity + 1), {
                     shouldValidate: true,
@@ -1035,16 +1098,28 @@ export default function AfterServiceCreateModal({
               </p>
             )}
           </div>
-          {caseType === "vendor_exchange" && itemNameKeyword.trim() && (
-            <p className="rounded-lg border border-gray-200 bg-gray-50/70 px-3 py-2 text-xs text-gray-600">
-              접수 후 마스터가 출고를 확정하면 기존 매입 이력에서 원가가 자동 배분됩니다.
-            </p>
+          {caseType === "store_product_as" && (
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                A/S 원가 <span className="text-rose-600">*</span>
+              </label>
+              <input
+                type="number"
+                min="1"
+                inputMode="numeric"
+                placeholder="예: 25000"
+                className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium shadow-sm outline-none transition hover:border-gray-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                aria-invalid={!!errors.storeProductUnitCost || undefined}
+                {...register("storeProductUnitCost", { valueAsNumber: true })}
+              />
+              {errors.storeProductUnitCost && (
+                <p className="mt-1 text-xs text-rose-600">
+                  {errors.storeProductUnitCost.message}
+                </p>
+              )}
+            </div>
           )}
-          {caseType === "store_product_as" && itemNameKeyword.trim() && (
-            <p className="rounded-lg border border-gray-200 bg-gray-50/70 px-3 py-2 text-xs text-gray-600">
-              매입 이력이나 매장 재고를 사용하지 않습니다. 출고 확정 후 실제 매입가를 직접 입력합니다.
-            </p>
-          )}
+          </div>
         </section>
 
         <section
@@ -1072,6 +1147,7 @@ export default function AfterServiceCreateModal({
 
           {/* 접수 정보 */}
           <div className="space-y-3">
+              {caseType === "customer_as" ? <>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="block text-sm font-medium text-gray-800">
                   <div className="flex items-center gap-2">
@@ -1116,7 +1192,7 @@ export default function AfterServiceCreateModal({
                 </div>
                 <label className="block text-sm font-medium text-gray-800">
                   <span className="flex h-6 items-center">
-                    고객 접수일 <span className="text-rose-600">*</span>
+                    매장 접수일 <span className="text-rose-600">*</span>
                   </span>
                   <div className="mt-1">
                     <KoreanDatePicker
@@ -1125,7 +1201,7 @@ export default function AfterServiceCreateModal({
                         setReceivedDate(value);
                         setReceivedInfoError("");
                       }}
-                      selectedLabel="고객 접수일"
+                      selectedLabel="매장 접수일"
                       placement="top"
                       align="right"
                       floating
@@ -1133,6 +1209,12 @@ export default function AfterServiceCreateModal({
                   </div>
                 </label>
               </div>
+              </> : (
+                <label className="block text-sm font-medium text-gray-800">
+                  매장 접수일 <span className="text-rose-600">*</span>
+                  <div className="mt-1"><KoreanDatePicker value={receivedDate} onChange={setReceivedDate} selectedLabel="매장 접수일" placement="top" align="left" floating /></div>
+                </label>
+              )}
 
               <div className="relative">
                 <div className="flex items-center gap-2">
@@ -1234,7 +1316,42 @@ export default function AfterServiceCreateModal({
                 )}
               </div>
 
-              <div className="grid grid-cols-[7rem_minmax(0,1fr)] items-end gap-3">
+              {caseType === "vendor_exchange" && selectedSupplierId && selectedSupplierId !== "later" && (
+                <div className="rounded-xl border border-gray-200 bg-gray-50/70 p-3">
+                  <p className="text-sm font-semibold text-gray-800">매입 원가층 배정</p>
+                  <p className="mt-1 text-xs text-gray-600">출고 수량만큼 사용할 매입 이력별 수량을 입력하세요.</p>
+                  <div className="mt-3 space-y-2">
+                    {vendorCostOptions.map((option, index) => (
+                      <div key={option.source_receipt_line_id} className="grid grid-cols-[1fr_5rem] items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs">
+                        <span>{option.arrived_on} · {option.unit_price.toLocaleString("ko-KR")}원 · 잔여 {option.received_quantity}개</span>
+                        <input
+                          type="number"
+                          min="0"
+                          max={option.received_quantity}
+                          value={costAllocations.find((allocation) => allocation.sourceReceiptLineId === option.source_receipt_line_id)?.quantity ?? 0}
+                          onChange={(event) => {
+                            const quantity = Math.min(option.received_quantity, Math.max(0, Number(event.target.value) || 0));
+                            const next = vendorCostOptions.map((source, sourceIndex) => ({
+                              sourceReceiptLineId: source.source_receipt_line_id,
+                              unitPrice: source.unit_price,
+                              quantity: sourceIndex === index ? quantity : costAllocations.find((allocation) => allocation.sourceReceiptLineId === source.source_receipt_line_id)?.quantity ?? 0,
+                            }));
+                            setValue("costAllocations", next, { shouldValidate: true });
+                          }}
+                          className="h-9 rounded-lg border border-gray-300 px-2 text-center text-sm"
+                        />
+                      </div>
+                    ))}
+                    {!purchaseCostOptionsQuery.isPending && vendorCostOptions.length === 0 && (
+                      <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">선택한 거래처에 배정 가능한 매입 이력이 없습니다.</p>
+                    )}
+                  </div>
+                  <p className="mt-2 text-right text-xs text-gray-600">배정 {costAllocations.reduce((sum, allocation) => sum + allocation.quantity, 0)} / 출고 {selectedQuantity}</p>
+                  {errors.costAllocations && <p className="mt-1 text-xs text-rose-600">{errors.costAllocations.message}</p>}
+                </div>
+              )}
+
+              {caseType === "customer_as" && <div className="grid grid-cols-[7rem_minmax(0,1fr)] items-end gap-3">
                 <div>
                   <span className="mb-2 block text-sm font-medium text-gray-800">
                     A/S 비용
@@ -1313,7 +1430,7 @@ export default function AfterServiceCreateModal({
                     />
                   </div>
                 )}
-              </div>
+              </div>}
 
               {errors.afterServicePaymentMethod && (
                 <p className="text-xs text-rose-600">
@@ -1412,6 +1529,8 @@ export default function AfterServiceCreateModal({
           className="space-y-3"
           style={{ display: currentStep === 3 ? "block" : "none" }}
         >
+          {caseType === "customer_as" && (
+          <>
           <div className="grid grid-cols-3 gap-3">
             <div className="min-w-0">
               <span className="mb-2 block text-sm font-medium">
@@ -1812,6 +1931,8 @@ export default function AfterServiceCreateModal({
               </p>
             )}
           </div>
+          </>
+          )}
 
           {/* 매장 특이사항 */}
           <div>

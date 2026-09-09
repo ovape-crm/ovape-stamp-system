@@ -106,7 +106,7 @@ before(async () => {
 });
 
 after(async () => {
-  await Promise.all([a?.end(), b?.end()]);
+  await Promise.allSettled([a?.end(), b?.end()]);
   if (postgresProcess) {
     await command("taskkill.exe", [
       "/pid",

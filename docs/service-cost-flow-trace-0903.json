@@ -1,0 +1,5382 @@
+{
+  "readOnly": true,
+  "items": [
+    {
+      "item": "젤로 0.8 팟",
+      "services": [
+        {
+          "id": "6617",
+          "line": 6,
+          "date": "2026-08-25",
+          "item": "젤로 0.8 팟",
+          "quantity": 2
+        }
+      ],
+      "serviceQ": 2,
+      "consumption": 1,
+      "current": {
+        "initialized_at": "2026-07-22 12:51:54.973352+00",
+        "item_name": "젤로 0.8 팟",
+        "layers": 46,
+        "movement_balance": 46,
+        "stock": 46
+      },
+      "explanation": "기초 입력 전 7/22 판매 #5638 원가만 -1 → 8/25 서비스 #6617 누락 +2 → 8/27 소진 -1 = 0. 서비스 2개 중 1개가 없는 것이 아니라 별도 원가 차감과 상쇄됨.",
+      "evidence": [
+        {
+          "cost_delta": -1,
+          "difference": -1,
+          "events": [
+            {
+              "at": "2026-08-27T07:48:12.435605+00:00",
+              "cost": 2000,
+              "meta": {
+                "note": "원가 연결 점검에서 소진",
+                "reconciliation": true,
+                "sourceLayerId": "51a37886-c1cb-41e4-9196-e705874e9cf7"
+              },
+              "q": 1,
+              "type": "reconciliation_out"
+            }
+          ],
+          "id": "ddadae27-793a-46d3-b4c3-b7388ced1c67",
+          "item": "젤로 0.8 팟",
+          "movements": null,
+          "ref": "cost_reconciliation",
+          "stock_delta": null
+        },
+        {
+          "cost_delta": -1,
+          "difference": -1,
+          "events": [
+            {
+              "at": "2026-07-22T05:38:14.952933+00:00",
+              "cost": 2000,
+              "meta": {
+                "backfilled": true,
+                "customerId": 1662
+              },
+              "q": 1,
+              "type": "sale_out"
+            }
+          ],
+          "id": "5638",
+          "item": "젤로 0.8 팟",
+          "movements": null,
+          "ref": "outbound_log",
+          "stock_delta": null
+        },
+        {
+          "cost_delta": -6,
+          "difference": 2,
+          "events": [
+            {
+              "at": "2026-08-25T12:11:28.807561+00:00",
+              "cost": 12000,
+              "meta": {
+                "backfilled": true,
+                "customerId": 1214
+              },
+              "q": 6,
+              "type": "sale_out"
+            }
+          ],
+          "id": "6617",
+          "item": "젤로 0.8 팟",
+          "movements": [
+            {
+              "after": 24,
+              "at": "2026-08-25T12:11:28.807561+00:00",
+              "note": "출고 처리",
+              "q": -8,
+              "type": "sale_out"
+            }
+          ],
+          "ref": "outbound_log",
+          "stock_delta": -8
+        }
+      ]
+    },
+    {
+      "item": "아보카도베이비프로 0.6 팟",
+      "services": [],
+      "serviceQ": 0,
+      "consumption": 0,
+      "current": {
+        "initialized_at": null,
+        "item_name": "아보카도베이비프로 0.6 팟",
+        "layers": 11,
+        "movement_balance": 11,
+        "stock": 11
+      },
+      "explanation": "현재 추적대상 서비스는 7/22 이전 과거분. 당시 서비스는 원가 재구축에서 제외되었고 현재 재고변동과 분리되어 있음.",
+      "evidence": []
+    },
+    {
+      "item": "디오X 0.6 팟",
+      "services": [
+        {
+          "id": "5655",
+          "line": 3,
+          "date": "2026-07-23",
+          "item": "디오X 0.6 팟",
+          "quantity": 1
+        },
+        {
+          "id": "6443",
+          "line": 3,
+          "date": "2026-08-18",
+          "item": "디오X 0.6 팟",
+          "quantity": 1
+        }
+      ],
+      "serviceQ": 2,
+      "consumption": 2,
+      "current": {
+        "initialized_at": "2026-07-22 12:51:54.973352+00",
+        "item_name": "디오X 0.6 팟",
+        "layers": 26,
+        "movement_balance": 26,
+        "stock": 26
+      },
+      "explanation": "서비스 누락 +2개와 별도 소진 -2개가 품목 합계에서 대응. 날짜별 원가층 귀속 확정과 금액 정정은 별도 검증 필요.",
+      "evidence": [
+        {
+          "cost_delta": -2,
+          "difference": -2,
+          "events": [
+            {
+              "at": "2026-08-27T07:47:50.977421+00:00",
+              "cost": 6600,
+              "meta": {
+                "note": "원가 연결 점검에서 소진",
+                "reconciliation": true,
+                "sourceLayerId": "8c75d088-6721-4836-90fc-77cdcc66ffff"
+              },
+              "q": 2,
+              "type": "reconciliation_out"
+            }
+          ],
+          "id": "08611b90-52ed-44d3-8e95-618ba72a8641",
+          "item": "디오X 0.6 팟",
+          "movements": null,
+          "ref": "cost_reconciliation",
+          "stock_delta": null
+        },
+        {
+          "cost_delta": null,
+          "difference": 1,
+          "events": null,
+          "id": "5655",
+          "item": "디오X 0.6 팟",
+          "movements": [
+            {
+              "after": 18,
+              "at": "2026-07-23T05:24:21.184571+00:00",
+              "note": "출고 처리",
+              "q": -1,
+              "type": "sale_out"
+            }
+          ],
+          "ref": "outbound_log",
+          "stock_delta": -1
+        },
+        {
+          "cost_delta": null,
+          "difference": 1,
+          "events": null,
+          "id": "6443",
+          "item": "디오X 0.6 팟",
+          "movements": [
+            {
+              "after": 8,
+              "at": "2026-08-18T09:33:47.283531+00:00",
+              "note": "출고 처리",
+              "q": -1,
+              "type": "sale_out"
+            }
+          ],
+          "ref": "outbound_log",
+          "stock_delta": -1
+        }
+      ]
+    },
+    {
+      "item": "팬텀 엔트리 케이스",
+      "services": [
+        {
+          "id": "6594",
+          "line": 3,
+          "date": "2026-08-25",
+          "item": "팬텀 엔트리 케이스",
+          "quantity": 1
+        }
+      ],
+      "serviceQ": 1,
+      "consumption": 1,
+      "current": {
+        "initialized_at": "2026-07-22 12:51:54.973352+00",
+        "item_name": "팬텀 엔트리 케이스",
+        "layers": 9,
+        "movement_balance": 9,
+        "stock": 9
+      },
+      "explanation": "서비스 누락 +1개와 별도 소진 -1개가 품목 합계에서 대응. 날짜별 원가층 귀속 확정과 금액 정정은 별도 검증 필요.",
+      "evidence": [
+        {
+          "cost_delta": -1,
+          "difference": -1,
+          "events": [
+            {
+              "at": "2026-08-27T07:46:30.546444+00:00",
+              "cost": 0,
+              "meta": {
+                "note": "원가 연결 점검에서 소진",
+                "reconciliation": true,
+                "sourceLayerId": "d2afe6e5-86fd-454b-ac03-685f6e31e091"
+              },
+              "q": 1,
+              "type": "reconciliation_out"
+            }
+          ],
+          "id": "cb0779dd-1347-4782-9826-9826da3ac340",
+          "item": "팬텀 엔트리 케이스",
+          "movements": null,
+          "ref": "cost_reconciliation",
+          "stock_delta": null
+        },
+        {
+          "cost_delta": null,
+          "difference": 1,
+          "events": null,
+          "id": "6594",
+          "item": "팬텀 엔트리 케이스",
+          "movements": [
+            {
+              "after": 9,
+              "at": "2026-08-25T02:52:13.947903+00:00",
+              "note": "출고 처리",
+              "q": -1,
+              "type": "sale_out"
+            }
+          ],
+          "ref": "outbound_log",
+          "stock_delta": -1
+        }
+      ]
+    },
+    {
+      "item": "빔버니리유즈 배터리",
+      "services": [],
+      "serviceQ": 0,
+      "consumption": 0,
+      "current": {
+        "initialized_at": null,
+        "item_name": "빔버니리유즈 배터리",
+        "layers": 2,
+        "movement_balance": 2,
+        "stock": 2
+      },
+      "explanation": "현재 추적대상 서비스는 7/22 이전 과거분. 당시 서비스는 원가 재구축에서 제외되었고 현재 재고변동과 분리되어 있음.",
+      "evidence": []
+    },
+    {
+      "item": "발라리안맥스프로 투명케이스 신형",
+      "services": [
+        {
+          "id": "6195",
+          "line": 6,
+          "date": "2026-08-12",
+          "item": "발라리안맥스프로 투명케이스 신형",
+          "quantity": 1
+        },
+        {
+          "id": "6208",
+          "line": 5,
+          "date": "2026-08-12",
+          "item": "발라리안맥스프로 투명케이스 신형",
+          "quantity": 1
+        }
+      ],
+      "serviceQ": 2,
+      "consumption": 2,
+      "current": {
+        "initialized_at": "2026-07-22 12:51:54.973352+00",
+        "item_name": "발라리안맥스프로 투명케이스 신형",
+        "layers": 4,
+        "movement_balance": 4,
+        "stock": 4
+      },
+      "explanation": "서비스 누락 +2개와 별도 소진 -2개가 품목 합계에서 대응. 날짜별 원가층 귀속 확정과 금액 정정은 별도 검증 필요.",
+      "evidence": [
+        {
+          "cost_delta": -1,
+          "difference": -1,
+          "events": [
+            {
+              "at": "2026-08-27T07:47:38.990302+00:00",
+              "cost": 4950,
+              "meta": {
+                "note": "원가 연결 점검에서 소진",
+                "reconciliation": true,
+                "sourceLayerId": "068d31f3-89e0-4133-9eae-98998e6bca26"
+              },
+              "q": 1,
+              "type": "reconciliation_out"
+            }
+          ],
+          "id": "612cad62-4b29-45d5-9ca5-665687043c19",
+          "item": "발라리안맥스프로 투명케이스 신형",
+          "movements": null,
+          "ref": "cost_reconciliation",
+          "stock_delta": null
+        },
+        {
+          "cost_delta": -1,
+          "difference": -1,
+          "events": [
+            {
+              "at": "2026-08-27T07:48:00.65092+00:00",
+              "cost": 4950,
+              "meta": {
+                "note": "원가 연결 점검에서 소진",
+                "reconciliation": true,
+                "sourceLayerId": "37efd81a-5bb4-4587-a439-ed899956243e"
+              },
+              "q": 1,
+              "type": "reconciliation_out"
+            }
+          ],
+          "id": "b6a9a539-b6f8-4894-ae8e-f418154e3265",
+          "item": "발라리안맥스프로 투명케이스 신형",
+          "movements": null,
+          "ref": "cost_reconciliation",
+          "stock_delta": null
+        },
+        {
+          "cost_delta": null,
+          "difference": 1,
+          "events": null,
+          "id": "6195",
+          "item": "발라리안맥스프로 투명케이스 신형",
+          "movements": [
+            {
+              "after": 2,
+              "at": "2026-08-12T08:00:56.839204+00:00",
+              "note": "출고 처리",
+              "q": -1,
+              "type": "sale_out"
+            }
+          ],
+          "ref": "outbound_log",
+          "stock_delta": -1
+        },
+        {
+          "cost_delta": null,
+          "difference": 1,
+          "events": null,
+          "id": "6208",
+          "item": "발라리안맥스프로 투명케이스 신형",
+          "movements": [
+            {
+              "after": 4,
+              "at": "2026-08-14T08:27:12.565499+00:00",
+              "note": "출고 수정",
+              "q": -1,
+              "type": "outbound_edit"
+            }
+          ],
+          "ref": "outbound_log",
+          "stock_delta": -1
+        }
+      ]
+    },
+    {
+      "item": "발라리안 0.6 코일",
+      "services": [
+        {
+          "id": "6423",
+          "line": 3,
+          "date": "2026-08-17",
+          "item": "발라리안 0.6 코일",
+          "quantity": 1
+        }
+      ],
+      "serviceQ": 1,
+      "consumption": 0,
+      "current": {
+        "initialized_at": "2026-07-22 12:51:54.973352+00",
+        "item_name": "발라리안 0.6 코일",
+        "layers": 73,
+        "movement_balance": 73,
+        "stock": 73
+      },
+      "explanation": "기초 입력 전 판매 #5626·#5640 원가만 -7, 과거 시연 #5274·#5312·#5342·#5410·#5509가 현재층 -58, 8/17 서비스 누락 +1, 8/27 원가 보충 +64. -7-58+1+64=0.",
+      "evidence": [
+        {
+          "cost_delta": 64,
+          "difference": 64,
+          "events": [
+            {
+              "at": "2026-08-12T15:00:00+00:00",
+              "cost": 128000,
+              "meta": {
+                "note": "원가 연결 점검에서 추가",
+                "reconciliation": true
+              },
+              "q": 64,
+              "type": "reconciliation_in"
+            }
+          ],
+          "id": "1fd64141-9b62-401f-a1aa-ea20e2326b12",
+          "item": "발라리안 0.6 코일",
+          "movements": null,
+          "ref": "cost_reconciliation",
+          "stock_delta": null
+        },
+        {
+          "cost_delta": -3,
+          "difference": -3,
+          "events": [
+            {
+              "at": "2026-07-22T02:00:05.773101+00:00",
+              "cost": 6000,
+              "meta": {
+                "backfilled": true,
+                "customerId": 829
+              },
+              "q": 3,
+              "type": "sale_out"
+            }
+          ],
+          "id": "5626",
+          "item": "발라리안 0.6 코일",
+          "movements": null,
+          "ref": "outbound_log",
+          "stock_delta": null
+        },
+        {
+          "cost_delta": -4,
+          "difference": -4,
+          "events": [
+            {
+              "at": "2026-07-22T07:06:38.171978+00:00",
+              "cost": 8000,
+              "meta": {
+                "backfilled": true,
+                "customerId": 1658
+              },
+              "q": 4,
+              "type": "sale_out"
+            }
+          ],
+          "id": "5640",
+          "item": "발라리안 0.6 코일",
+          "movements": null,
+          "ref": "outbound_log",
+          "stock_delta": null
+        },
+        {
+          "cost_delta": null,
+          "difference": 1,
+          "events": null,
+          "id": "6423",
+          "item": "발라리안 0.6 코일",
+          "movements": [
+            {
+              "after": 99,
+              "at": "2026-08-17T11:50:07.624452+00:00",
+              "note": "출고 처리",
+              "q": -1,
+              "type": "sale_out"
+            }
+          ],
+          "ref": "outbound_log",
+          "stock_delta": -1
+        }
+      ]
+    },
+    {
+      "item": "젤로맥스 투명케이스",
+      "services": [
+        {
+          "id": "5834",
+          "line": 2,
+          "date": "2026-07-30",
+          "item": "젤로맥스 투명케이스",
+          "quantity": 2
+        }
+      ],
+      "serviceQ": 2,
+      "consumption": 2,
+      "current": {
+        "initialized_at": "2026-07-22 12:51:54.973352+00",
+        "item_name": "젤로맥스 투명케이스",
+        "layers": 5,
+        "movement_balance": 5,
+        "stock": 5
+      },
+      "explanation": "서비스 누락 +2개와 별도 소진 -2개가 품목 합계에서 대응. 날짜별 원가층 귀속 확정과 금액 정정은 별도 검증 필요.",
+      "evidence": [
+        {
+          "cost_delta": -2,
+          "difference": -2,
+          "events": [
+            {
+              "at": "2026-08-27T07:47:32.153912+00:00",
+              "cost": 6160,
+              "meta": {
+                "note": "원가 연결 점검에서 소진",
+                "reconciliation": true,
+                "sourceLayerId": "064d74b0-30c1-4129-aa5e-c347bcf84ff6"
+              },
+              "q": 2,
+              "type": "reconciliation_out"
+            }
+          ],
+          "id": "e808837c-d654-4470-a643-f6103e37e92d",
+          "item": "젤로맥스 투명케이스",
+          "movements": null,
+          "ref": "cost_reconciliation",
+          "stock_delta": null
+        },
+        {
+          "cost_delta": null,
+          "difference": 2,
+          "events": null,
+          "id": "5834",
+          "item": "젤로맥스 투명케이스",
+          "movements": [
+            {
+              "after": 0,
+              "at": "2026-07-30T11:49:45.057904+00:00",
+              "note": "출고 처리",
+              "q": -2,
+              "type": "sale_out"
+            }
+          ],
+          "ref": "outbound_log",
+          "stock_delta": -2
+        }
+      ]
+    },
+    {
+      "item": "젤로맥스 0.6 팟",
+      "services": [],
+      "serviceQ": 0,
+      "consumption": 0,
+      "current": null,
+      "explanation": "현재 추적대상 서비스는 7/22 이전 과거분. 당시 서비스는 원가 재구축에서 제외되었고 현재 재고변동과 분리되어 있음.",
+      "evidence": []
+    },
+    {
+      "item": "젤로 1.2 팟",
+      "services": [],
+      "serviceQ": 0,
+      "consumption": 0,
+      "current": {
+        "initialized_at": "2026-07-22 12:51:54.973352+00",
+        "item_name": "젤로 1.2 팟",
+        "layers": 21,
+        "movement_balance": 21,
+        "stock": 21
+      },
+      "explanation": "현재 추적대상 서비스는 7/22 이전 과거분. 당시 서비스는 원가 재구축에서 제외되었고 현재 재고변동과 분리되어 있음.",
+      "evidence": []
+    },
+    {
+      "item": "말론 투명케이스",
+      "services": [],
+      "serviceQ": 0,
+      "consumption": 0,
+      "current": {
+        "initialized_at": "2026-07-22 12:51:54.973352+00",
+        "item_name": "말론 투명케이스",
+        "layers": 4,
+        "movement_balance": 4,
+        "stock": 4
+      },
+      "explanation": "현재 추적대상 서비스는 7/22 이전 과거분. 당시 서비스는 원가 재구축에서 제외되었고 현재 재고변동과 분리되어 있음.",
+      "evidence": []
+    },
+    {
+      "item": "글렌트/글렌트프로 투명케이스",
+      "services": [
+        {
+          "id": "5756",
+          "line": 3,
+          "date": "2026-07-28",
+          "item": "글렌트/글렌트프로 투명케이스",
+          "quantity": 1
+        }
+      ],
+      "serviceQ": 1,
+      "consumption": 11,
+      "current": {
+        "initialized_at": "2026-07-22 12:51:54.973352+00",
+        "item_name": "글렌트/글렌트프로 투명케이스",
+        "layers": 10,
+        "movement_balance": 10,
+        "stock": 10
+      },
+      "explanation": "7/28 서비스 누락 +1, 8/27 원가 보충 +10 및 소진 -11. +1+10-11=0. 11개 전부가 서비스 소진은 아님.",
+      "evidence": [
+        {
+          "cost_delta": 10,
+          "difference": 10,
+          "events": [
+            {
+              "at": "2026-07-27T15:00:00+00:00",
+              "cost": 0,
+              "meta": {
+                "note": "원가 연결 점검에서 추가",
+                "reconciliation": true
+              },
+              "q": 10,
+              "type": "reconciliation_in"
+            }
+          ],
+          "id": "0c4aa076-abcc-4ad7-a22c-8e588014fd1e",
+          "item": "글렌트/글렌트프로 투명케이스",
+          "movements": null,
+          "ref": "cost_reconciliation",
+          "stock_delta": null
+        },
+        {
+          "cost_delta": -11,
+          "difference": -11,
+          "events": [
+            {
+              "at": "2026-08-27T07:39:26.157659+00:00",
+              "cost": 0,
+              "meta": {
+                "note": "원가 연결 점검에서 소진",
+                "reconciliation": true,
+                "sourceLayerId": "9c61732d-ca25-4dfd-a36b-845ab7d21f4f"
+              },
+              "q": 11,
+              "type": "reconciliation_out"
+            }
+          ],
+          "id": "5cf7547e-5980-4bb5-b6bf-84264da73e8a",
+          "item": "글렌트/글렌트프로 투명케이스",
+          "movements": null,
+          "ref": "cost_reconciliation",
+          "stock_delta": null
+        },
+        {
+          "cost_delta": null,
+          "difference": 1,
+          "events": null,
+          "id": "5756",
+          "item": "글렌트/글렌트프로 투명케이스",
+          "movements": [
+            {
+              "after": 10,
+              "at": "2026-07-28T02:47:04.77269+00:00",
+              "note": "출고 처리",
+              "q": -1,
+              "type": "sale_out"
+            }
+          ],
+          "ref": "outbound_log",
+          "stock_delta": -1
+        }
+      ]
+    },
+    {
+      "item": "하부코일 1.6",
+      "services": [
+        {
+          "id": "5676",
+          "line": 2,
+          "date": "2026-08-08",
+          "item": "하부코일 1.6",
+          "quantity": 59
+        }
+      ],
+      "serviceQ": 59,
+      "consumption": 59,
+      "current": {
+        "initialized_at": "2026-07-22 12:51:54.973352+00",
+        "item_name": "하부코일 1.6",
+        "layers": 70,
+        "movement_balance": 70,
+        "stock": 70
+      },
+      "explanation": "서비스 누락 +59개와 별도 소진 -59개가 품목 합계에서 대응. 날짜별 원가층 귀속 확정과 금액 정정은 별도 검증 필요.",
+      "evidence": [
+        {
+          "cost_delta": -9,
+          "difference": -9,
+          "events": [
+            {
+              "at": "2026-08-27T07:39:33.550193+00:00",
+              "cost": 5940,
+              "meta": {
+                "note": "원가 연결 점검에서 소진",
+                "reconciliation": true,
+                "sourceLayerId": "cd9ca6e9-0f83-49e9-bc2f-bf70b3c7b3a3"
+              },
+              "q": 9,
+              "type": "reconciliation_out"
+            }
+          ],
+          "id": "15791af3-c0f7-42b7-9925-6e7e8dd07694",
+          "item": "하부코일 1.6",
+          "movements": null,
+          "ref": "cost_reconciliation",
+          "stock_delta": null
+        },
+        {
+          "cost_delta": -50,
+          "difference": -50,
+          "events": [
+            {
+              "at": "2026-08-27T07:46:53.467931+00:00",
+              "cost": 27500,
+              "meta": {
+                "note": "원가 연결 점검에서 소진",
+                "reconciliation": true,
+                "sourceLayerId": "3dcf0846-a860-434c-a2e0-8f4f884fdb30"
+              },
+              "q": 50,
+              "type": "reconciliation_out"
+            }
+          ],
+          "id": "1b1f48ee-1a4a-4ecb-90d3-dbadc0d17200",
+          "item": "하부코일 1.6",
+          "movements": null,
+          "ref": "cost_reconciliation",
+          "stock_delta": null
+        },
+        {
+          "cost_delta": null,
+          "difference": 59,
+          "events": null,
+          "id": "5676",
+          "item": "하부코일 1.6",
+          "movements": [
+            {
+              "after": 70,
+              "at": "2026-08-08T09:28:01.240401+00:00",
+              "note": "출고 처리",
+              "q": -59,
+              "type": "sale_out"
+            }
+          ],
+          "ref": "outbound_log",
+          "stock_delta": -59
+        }
+      ]
+    },
+    {
+      "item": "젤로 투명케이스",
+      "services": [
+        {
+          "id": "5725",
+          "line": 4,
+          "date": "2026-07-27",
+          "item": "젤로 투명케이스",
+          "quantity": 1
+        },
+        {
+          "id": "5735",
+          "line": 4,
+          "date": "2026-07-27",
+          "item": "젤로 투명케이스",
+          "quantity": 1
+        },
+        {
+          "id": "5779",
+          "line": 3,
+          "date": "2026-07-29",
+          "item": "젤로 투명케이스",
+          "quantity": 1
+        },
+        {
+          "id": "6480",
+          "line": 5,
+          "date": "2026-08-20",
+          "item": "젤로 투명케이스",
+          "quantity": 2
+        },
+        {
+          "id": "6592",
+          "line": 5,
+          "date": "2026-08-25",
+          "item": "젤로 투명케이스",
+          "quantity": 1
+        },
+        {
+          "id": "6754",
+          "line": 6,
+          "date": "2026-08-31",
+          "item": "젤로 투명케이스",
+          "quantity": 1
+        }
+      ],
+      "serviceQ": 7,
+      "consumption": 7,
+      "current": {
+        "initialized_at": "2026-07-22 12:51:54.973352+00",
+        "item_name": "젤로 투명케이스",
+        "layers": 3,
+        "movement_balance": 3,
+        "stock": 3
+      },
+      "explanation": "서비스 누락 +7개와 별도 소진 -7개가 품목 합계에서 대응. 날짜별 원가층 귀속 확정과 금액 정정은 별도 검증 필요.",
+      "evidence": [
+        {
+          "cost_delta": -4,
+          "difference": -4,
+          "events": [
+            {
+              "at": "2026-08-27T07:39:43.800958+00:00",
+              "cost": 11000,
+              "meta": {
+                "note": "원가 연결 점검에서 소진",
+                "reconciliation": true,
+                "sourceLayerId": "f0b6218e-26b3-43a8-a4f1-da4b0deb643a"
+              },
+              "q": 4,
+              "type": "reconciliation_out"
+            }
+          ],
+          "id": "0ac27225-5853-4e61-86af-a13ac1def6e5",
+          "item": "젤로 투명케이스",
+          "movements": null,
+          "ref": "cost_reconciliation",
+          "stock_delta": null
+        },
+        {
+          "cost_delta": -1,
+          "difference": -1,
+          "events": [
+            {
+              "at": "2026-09-03T04:36:33.986577+00:00",
+              "cost": 3080,
+              "meta": {
+                "note": "원가 연결 점검에서 소진",
+                "reconciliation": true,
+                "sourceLayerId": "a91d988b-67d8-49ce-9d97-e4f6707ef9c2"
+              },
+              "q": 1,
+              "type": "reconciliation_out"
+            }
+          ],
+          "id": "1b580cc6-ac47-4a42-ae1e-ff9ce9da2495",
+          "item": "젤로 투명케이스",
+          "movements": null,
+          "ref": "cost_reconciliation",
+          "stock_delta": null
+        },
+        {
+          "cost_delta": -2,
+          "difference": -2,
+          "events": [
+            {
+              "at": "2026-08-27T07:47:24.007361+00:00",
+              "cost": 6160,
+              "meta": {
+                "note": "원가 연결 점검에서 소진",
+                "reconciliation": true,
+                "sourceLayerId": "a91d988b-67d8-49ce-9d97-e4f6707ef9c2"
+              },
+              "q": 2,
+              "type": "reconciliation_out"
+            }
+          ],
+          "id": "be510ec8-b253-4b0f-a5af-b3c4274272da",
+          "item": "젤로 투명케이스",
+          "movements": null,
+          "ref": "cost_reconciliation",
+          "stock_delta": null
+        },
+        {
+          "cost_delta": null,
+          "difference": 1,
+          "events": null,
+          "id": "5725",
+          "item": "젤로 투명케이스",
+          "movements": [
+            {
+              "after": 4,
+              "at": "2026-07-27T03:51:28.034557+00:00",
+              "note": "출고 수정",
+              "q": -1,
+              "type": "outbound_edit"
+            }
+          ],
+          "ref": "outbound_log",
+          "stock_delta": -1
+        },
+        {
+          "cost_delta": null,
+          "difference": 1,
+          "events": null,
+          "id": "5735",
+          "item": "젤로 투명케이스",
+          "movements": [
+            {
+              "after": 3,
+              "at": "2026-07-27T09:08:45.556784+00:00",
+              "note": "출고 처리",
+              "q": -1,
+              "type": "sale_out"
+            }
+          ],
+          "ref": "outbound_log",
+          "stock_delta": -1
+        },
+        {
+          "cost_delta": null,
+          "difference": 1,
+          "events": null,
+          "id": "5779",
+          "item": "젤로 투명케이스",
+          "movements": [
+            {
+              "after": 2,
+              "at": "2026-07-29T02:19:54.44162+00:00",
+              "note": "출고 처리",
+              "q": -1,
+              "type": "sale_out"
+            }
+          ],
+          "ref": "outbound_log",
+          "stock_delta": -1
+        },
+        {
+          "cost_delta": null,
+          "difference": 2,
+          "events": null,
+          "id": "6480",
+          "item": "젤로 투명케이스",
+          "movements": [
+            {
+              "after": 5,
+              "at": "2026-08-20T06:57:15.144977+00:00",
+              "note": "출고 수정",
+              "q": -2,
+              "type": "outbound_edit"
+            }
+          ],
+          "ref": "outbound_log",
+          "stock_delta": -2
+        },
+        {
+          "cost_delta": null,
+          "difference": 1,
+          "events": null,
+          "id": "6592",
+          "item": "젤로 투명케이스",
+          "movements": [
+            {
+              "after": 4,
+              "at": "2026-08-25T02:50:45.190335+00:00",
+              "note": "출고 처리",
+              "q": -1,
+              "type": "sale_out"
+            }
+          ],
+          "ref": "outbound_log",
+          "stock_delta": -1
+        },
+        {
+          "cost_delta": null,
+          "difference": 1,
+          "events": null,
+          "id": "6754",
+          "item": "젤로 투명케이스",
+          "movements": [
+            {
+              "after": 3,
+              "at": "2026-08-31T10:06:24.569514+00:00",
+              "note": "출고 처리",
+              "q": -1,
+              "type": "sale_out"
+            }
+          ],
+          "ref": "outbound_log",
+          "stock_delta": -1
+        }
+      ]
+    },
+    {
+      "item": "발라리안맥스프로 0.5 팟",
+      "services": [
+        {
+          "id": "5737",
+          "line": 6,
+          "date": "2026-07-27",
+          "item": "발라리안맥스프로 0.5 팟",
+          "quantity": 1
+        }
+      ],
+      "serviceQ": 1,
+      "consumption": 0,
+      "current": {
+        "initialized_at": "2026-07-22 12:51:54.973352+00",
+        "item_name": "발라리안맥스프로 0.5 팟",
+        "layers": 38,
+        "movement_balance": 38,
+        "stock": 38
+      },
+      "explanation": "기초 입력 전 7/22 판매 #5636 원가만 -2 → 7/27 서비스 #5737 누락 +1 → 8/27 원가 보충 +1 = 0.",
+      "evidence": [
+        {
+          "cost_delta": 1,
+          "difference": 1,
+          "events": [
+            {
+              "at": "2026-08-12T15:00:00+00:00",
+              "cost": 3000,
+              "meta": {
+                "note": "원가 연결 점검에서 추가",
+                "reconciliation": true
+              },
+              "q": 1,
+              "type": "reconciliation_in"
+            }
+          ],
+          "id": "e0338d2e-9296-4e27-93da-a4ed00c38d49",
+          "item": "발라리안맥스프로 0.5 팟",
+          "movements": null,
+          "ref": "cost_reconciliation",
+          "stock_delta": null
+        },
+        {
+          "cost_delta": -2,
+          "difference": -2,
+          "events": [
+            {
+              "at": "2026-07-22T05:10:00.12414+00:00",
+              "cost": 6000,
+              "meta": {
+                "backfilled": true,
+                "customerId": 1659
+              },
+              "q": 2,
+              "type": "sale_out"
+            }
+          ],
+          "id": "5636",
+          "item": "발라리안맥스프로 0.5 팟",
+          "movements": null,
+          "ref": "outbound_log",
+          "stock_delta": null
+        },
+        {
+          "cost_delta": -2,
+          "difference": 1,
+          "events": [
+            {
+              "at": "2026-07-27T09:53:59.541476+00:00",
+              "cost": 6000,
+              "meta": {
+                "backfilled": true,
+                "customerId": 1733
+              },
+              "q": 2,
+              "type": "sale_out"
+            }
+          ],
+          "id": "5737",
+          "item": "발라리안맥스프로 0.5 팟",
+          "movements": [
+            {
+              "after": 18,
+              "at": "2026-07-27T09:53:59.541476+00:00",
+              "note": "출고 처리",
+              "q": -3,
+              "type": "sale_out"
+            }
+          ],
+          "ref": "outbound_log",
+          "stock_delta": -3
+        }
+      ]
+    },
+    {
+      "item": "말론S 0.6 팟",
+      "services": [
+        {
+          "id": "5822",
+          "line": 4,
+          "date": "2026-07-30",
+          "item": "말론S 0.6 팟",
+          "quantity": 2
+        }
+      ],
+      "serviceQ": 2,
+      "consumption": 2,
+      "current": {
+        "initialized_at": "2026-07-22 12:51:54.973352+00",
+        "item_name": "말론S 0.6 팟",
+        "layers": 45,
+        "movement_balance": 45,
+        "stock": 45
+      },
+      "explanation": "서비스 누락 +2개와 별도 소진 -2개가 품목 합계에서 대응. 날짜별 원가층 귀속 확정과 금액 정정은 별도 검증 필요.",
+      "evidence": [
+        {
+          "cost_delta": -2,
+          "difference": -2,
+          "events": [
+            {
+              "at": "2026-08-27T07:47:16.610025+00:00",
+              "cost": 7200,
+              "meta": {
+                "note": "원가 연결 점검에서 소진",
+                "reconciliation": true,
+                "sourceLayerId": "5c091d49-8580-4e76-84a5-bc00766dccb6"
+              },
+              "q": 2,
+              "type": "reconciliation_out"
+            }
+          ],
+          "id": "949b9eee-417f-469b-ab9a-f82c7a1af8f1",
+          "item": "말론S 0.6 팟",
+          "movements": null,
+          "ref": "cost_reconciliation",
+          "stock_delta": null
+        },
+        {
+          "cost_delta": -2,
+          "difference": 2,
+          "events": [
+            {
+              "at": "2026-07-30T06:23:51.365844+00:00",
+              "cost": 7200,
+              "meta": {
+                "backfilled": true,
+                "customerId": 1882
+              },
+              "q": 2,
+              "type": "sale_out"
+            }
+          ],
+          "id": "5822",
+          "item": "말론S 0.6 팟",
+          "movements": [
+            {
+              "after": 29,
+              "at": "2026-07-30T06:23:51.365844+00:00",
+              "note": "출고 처리",
+              "q": -4,
+              "type": "sale_out"
+            }
+          ],
+          "ref": "outbound_log",
+          "stock_delta": -4
+        }
+      ]
+    },
+    {
+      "item": "말론S 투명케이스",
+      "services": [
+        {
+          "id": "5822",
+          "line": 5,
+          "date": "2026-07-30",
+          "item": "말론S 투명케이스",
+          "quantity": 1
+        },
+        {
+          "id": "6504",
+          "line": 6,
+          "date": "2026-08-21",
+          "item": "말론S 투명케이스",
+          "quantity": 1
+        }
+      ],
+      "serviceQ": 2,
+      "consumption": 2,
+      "current": {
+        "initialized_at": "2026-07-22 12:51:54.973352+00",
+        "item_name": "말론S 투명케이스",
+        "layers": 3,
+        "movement_balance": 3,
+        "stock": 3
+      },
+      "explanation": "서비스 누락 +2개와 별도 소진 -2개가 품목 합계에서 대응. 날짜별 원가층 귀속 확정과 금액 정정은 별도 검증 필요.",
+      "evidence": [
+        {
+          "cost_delta": -2,
+          "difference": -2,
+          "events": [
+            {
+              "at": "2026-08-27T07:46:17.88576+00:00",
+              "cost": 8800,
+              "meta": {
+                "note": "원가 연결 점검에서 소진",
+                "reconciliation": true,
+                "sourceLayerId": "96ceb361-cc8f-4d9b-8987-c355cfce6a1b"
+              },
+              "q": 2,
+              "type": "reconciliation_out"
+            }
+          ],
+          "id": "e2c6d864-5d2e-4446-930a-513a4248edd4",
+          "item": "말론S 투명케이스",
+          "movements": null,
+          "ref": "cost_reconciliation",
+          "stock_delta": null
+        },
+        {
+          "cost_delta": null,
+          "difference": 1,
+          "events": null,
+          "id": "5822",
+          "item": "말론S 투명케이스",
+          "movements": [
+            {
+              "after": 3,
+              "at": "2026-07-30T06:23:51.365844+00:00",
+              "note": "출고 처리",
+              "q": -1,
+              "type": "sale_out"
+            }
+          ],
+          "ref": "outbound_log",
+          "stock_delta": -1
+        },
+        {
+          "cost_delta": null,
+          "difference": 1,
+          "events": null,
+          "id": "6504",
+          "item": "말론S 투명케이스",
+          "movements": [
+            {
+              "after": 3,
+              "at": "2026-08-21T07:21:50.47435+00:00",
+              "note": "출고 처리",
+              "q": -1,
+              "type": "sale_out"
+            }
+          ],
+          "ref": "outbound_log",
+          "stock_delta": -1
+        }
+      ]
+    },
+    {
+      "item": "젤로맥스 0.6 팟 (5ml)",
+      "services": [
+        {
+          "id": "5993",
+          "line": 5,
+          "date": "2026-08-04",
+          "item": "젤로맥스 0.6 팟 (5ml)",
+          "quantity": 2
+        }
+      ],
+      "serviceQ": 2,
+      "consumption": 0,
+      "current": {
+        "initialized_at": "2026-07-22 12:51:54.973352+00",
+        "item_name": "젤로맥스 0.6 팟 (5ml)",
+        "layers": 53,
+        "movement_balance": 53,
+        "stock": 53
+      },
+      "explanation": "기초 입력 전 7/22 판매 #5637 원가만 -3 → 8/4 서비스 #5993 누락 +2 → 8/27 원가 보충 +1 = 0.",
+      "evidence": [
+        {
+          "cost_delta": 1,
+          "difference": 1,
+          "events": [
+            {
+              "at": "2026-08-19T15:00:00+00:00",
+              "cost": 2000,
+              "meta": {
+                "note": "원가 연결 점검에서 추가",
+                "reconciliation": true
+              },
+              "q": 1,
+              "type": "reconciliation_in"
+            }
+          ],
+          "id": "33d6937f-a3d8-4c42-9778-fd77e9ed89ca",
+          "item": "젤로맥스 0.6 팟 (5ml)",
+          "movements": null,
+          "ref": "cost_reconciliation",
+          "stock_delta": null
+        },
+        {
+          "cost_delta": -3,
+          "difference": -3,
+          "events": [
+            {
+              "at": "2026-07-22T05:16:03.984823+00:00",
+              "cost": 6000,
+              "meta": {
+                "customerId": 1575,
+                "memo": ""
+              },
+              "q": 3,
+              "type": "sale_out"
+            }
+          ],
+          "id": "5637",
+          "item": "젤로맥스 0.6 팟 (5ml)",
+          "movements": null,
+          "ref": "outbound_log",
+          "stock_delta": null
+        },
+        {
+          "cost_delta": -4,
+          "difference": 2,
+          "events": [
+            {
+              "at": "2026-08-04T11:59:27.134193+00:00",
+              "cost": 8000,
+              "meta": {
+                "backfilled": true,
+                "customerId": 857
+              },
+              "q": 4,
+              "type": "sale_out"
+            }
+          ],
+          "id": "5993",
+          "item": "젤로맥스 0.6 팟 (5ml)",
+          "movements": [
+            {
+              "after": 29,
+              "at": "2026-08-04T11:59:27.134193+00:00",
+              "note": "출고 처리",
+              "q": -6,
+              "type": "sale_out"
+            }
+          ],
+          "ref": "outbound_log",
+          "stock_delta": -6
+        }
+      ]
+    },
+    {
+      "item": "디오X 투명케이스",
+      "services": [
+        {
+          "id": "6071",
+          "line": 2,
+          "date": "2026-08-08",
+          "item": "디오X 투명케이스",
+          "quantity": 1
+        },
+        {
+          "id": "6430",
+          "line": 3,
+          "date": "2026-08-18",
+          "item": "디오X 투명케이스",
+          "quantity": 1
+        }
+      ],
+      "serviceQ": 2,
+      "consumption": 2,
+      "current": {
+        "initialized_at": "2026-07-22 12:51:54.973352+00",
+        "item_name": "디오X 투명케이스",
+        "layers": 0,
+        "movement_balance": 0,
+        "stock": 0
+      },
+      "explanation": "서비스 누락 +2개와 별도 소진 -2개가 품목 합계에서 대응. 날짜별 원가층 귀속 확정과 금액 정정은 별도 검증 필요.",
+      "evidence": [
+        {
+          "cost_delta": -2,
+          "difference": -2,
+          "events": [
+            {
+              "at": "2026-08-27T07:47:04.353002+00:00",
+              "cost": 5500,
+              "meta": {
+                "note": "원가 연결 점검에서 소진",
+                "reconciliation": true,
+                "sourceLayerId": "add3a6ae-2183-4a55-8fe2-a121ebf6b0df"
+              },
+              "q": 2,
+              "type": "reconciliation_out"
+            }
+          ],
+          "id": "46f22410-14ca-4134-80c7-129a7857834c",
+          "item": "디오X 투명케이스",
+          "movements": null,
+          "ref": "cost_reconciliation",
+          "stock_delta": null
+        },
+        {
+          "cost_delta": null,
+          "difference": 1,
+          "events": null,
+          "id": "6071",
+          "item": "디오X 투명케이스",
+          "movements": [
+            {
+              "after": 1,
+              "at": "2026-08-08T02:54:28.890664+00:00",
+              "note": "출고 수정",
+              "q": -1,
+              "type": "outbound_edit"
+            }
+          ],
+          "ref": "outbound_log",
+          "stock_delta": -1
+        },
+        {
+          "cost_delta": null,
+          "difference": 1,
+          "events": null,
+          "id": "6430",
+          "item": "디오X 투명케이스",
+          "movements": [
+            {
+              "after": 0,
+              "at": "2026-08-18T02:42:13.104219+00:00",
+              "note": "출고 처리",
+              "q": -1,
+              "type": "sale_out"
+            }
+          ],
+          "ref": "outbound_log",
+          "stock_delta": -1
+        }
+      ]
+    },
+    {
+      "item": "젤로 0.8 부스트팟",
+      "services": [
+        {
+          "id": "6111",
+          "line": 4,
+          "date": "2026-08-10",
+          "item": "젤로 0.8 부스트팟",
+          "quantity": 1
+        }
+      ],
+      "serviceQ": 1,
+      "consumption": 1,
+      "current": {
+        "initialized_at": "2026-07-22 12:51:54.973352+00",
+        "item_name": "젤로 0.8 부스트팟",
+        "layers": 43,
+        "movement_balance": 43,
+        "stock": 43
+      },
+      "explanation": "서비스 누락 +1개와 별도 소진 -1개가 품목 합계에서 대응. 날짜별 원가층 귀속 확정과 금액 정정은 별도 검증 필요.",
+      "evidence": [
+        {
+          "cost_delta": -1,
+          "difference": -1,
+          "events": [
+            {
+              "at": "2026-08-27T07:48:06.873699+00:00",
+              "cost": 2000,
+              "meta": {
+                "note": "원가 연결 점검에서 소진",
+                "reconciliation": true,
+                "sourceLayerId": "19ec1282-7da6-493e-9a1d-aecf99331d5a"
+              },
+              "q": 1,
+              "type": "reconciliation_out"
+            }
+          ],
+          "id": "34d5a294-4d8b-4f16-a1d2-21676f230ee4",
+          "item": "젤로 0.8 부스트팟",
+          "movements": null,
+          "ref": "cost_reconciliation",
+          "stock_delta": null
+        },
+        {
+          "cost_delta": null,
+          "difference": 1,
+          "events": null,
+          "id": "6111",
+          "item": "젤로 0.8 부스트팟",
+          "movements": [
+            {
+              "after": 67,
+              "at": "2026-08-10T02:12:51.746865+00:00",
+              "note": "출고 처리",
+              "q": -1,
+              "type": "sale_out"
+            }
+          ],
+          "ref": "outbound_log",
+          "stock_delta": -1
+        }
+      ]
+    },
+    {
+      "item": "아보카도 aio 0.6 팟",
+      "services": [
+        {
+          "id": "6118",
+          "line": 5,
+          "date": "2026-08-10",
+          "item": "아보카도 aio 0.6 팟",
+          "quantity": 1
+        }
+      ],
+      "serviceQ": 1,
+      "consumption": 1,
+      "current": {
+        "initialized_at": "2026-07-22 12:51:54.973352+00",
+        "item_name": "아보카도 aio 0.6 팟",
+        "layers": 9,
+        "movement_balance": 9,
+        "stock": 9
+      },
+      "explanation": "서비스 누락 +1개와 별도 소진 -1개가 품목 합계에서 대응. 날짜별 원가층 귀속 확정과 금액 정정은 별도 검증 필요.",
+      "evidence": [
+        {
+          "cost_delta": -1,
+          "difference": -1,
+          "events": [
+            {
+              "at": "2026-08-27T07:39:49.741785+00:00",
+              "cost": 2970,
+              "meta": {
+                "note": "원가 연결 점검에서 소진",
+                "reconciliation": true,
+                "sourceLayerId": "7cc6cc4e-ad7a-4f68-be1c-b00ac6373024"
+              },
+              "q": 1,
+              "type": "reconciliation_out"
+            }
+          ],
+          "id": "377860c4-099a-419f-878f-b4bd6c1b08b6",
+          "item": "아보카도 aio 0.6 팟",
+          "movements": null,
+          "ref": "cost_reconciliation",
+          "stock_delta": null
+        },
+        {
+          "cost_delta": -2,
+          "difference": 1,
+          "events": [
+            {
+              "at": "2026-08-10T04:51:32.678713+00:00",
+              "cost": 5940,
+              "meta": {
+                "backfilled": true,
+                "customerId": 1675
+              },
+              "q": 2,
+              "type": "sale_out"
+            }
+          ],
+          "id": "6118",
+          "item": "아보카도 aio 0.6 팟",
+          "movements": [
+            {
+              "after": 0,
+              "at": "2026-08-10T04:51:32.678713+00:00",
+              "note": "출고 처리",
+              "q": -3,
+              "type": "sale_out"
+            }
+          ],
+          "ref": "outbound_log",
+          "stock_delta": -3
+        }
+      ]
+    },
+    {
+      "item": "하복 공팟 클리어",
+      "services": [
+        {
+          "id": "6270",
+          "line": 6,
+          "date": "2026-08-14",
+          "item": "하복 공팟 클리어",
+          "quantity": 1
+        }
+      ],
+      "serviceQ": 1,
+      "consumption": 1,
+      "current": {
+        "initialized_at": "2026-07-22 12:51:54.973352+00",
+        "item_name": "하복 공팟 클리어",
+        "layers": 9,
+        "movement_balance": 9,
+        "stock": 9
+      },
+      "explanation": "서비스 누락 +1개와 별도 소진 -1개가 품목 합계에서 대응. 날짜별 원가층 귀속 확정과 금액 정정은 별도 검증 필요.",
+      "evidence": [
+        {
+          "cost_delta": -1,
+          "difference": -1,
+          "events": [
+            {
+              "at": "2026-08-27T07:46:38.401157+00:00",
+              "cost": 3000,
+              "meta": {
+                "note": "원가 연결 점검에서 소진",
+                "reconciliation": true,
+                "sourceLayerId": "b5dac749-aa5c-485c-ae26-d5ce126b81e4"
+              },
+              "q": 1,
+              "type": "reconciliation_out"
+            }
+          ],
+          "id": "ece7714b-679e-423d-ae57-923dbabf7975",
+          "item": "하복 공팟 클리어",
+          "movements": null,
+          "ref": "cost_reconciliation",
+          "stock_delta": null
+        },
+        {
+          "cost_delta": null,
+          "difference": 1,
+          "events": null,
+          "id": "6270",
+          "item": "하복 공팟 클리어",
+          "movements": [
+            {
+              "after": 7,
+              "at": "2026-08-14T03:52:27.928822+00:00",
+              "note": "출고 처리",
+              "q": -1,
+              "type": "sale_out"
+            }
+          ],
+          "ref": "outbound_log",
+          "stock_delta": -1
+        }
+      ]
+    },
+    {
+      "item": "하복 0.6 코일",
+      "services": [
+        {
+          "id": "6270",
+          "line": 7,
+          "date": "2026-08-14",
+          "item": "하복 0.6 코일",
+          "quantity": 1
+        }
+      ],
+      "serviceQ": 1,
+      "consumption": 1,
+      "current": {
+        "initialized_at": "2026-07-22 12:51:54.973352+00",
+        "item_name": "하복 0.6 코일",
+        "layers": 36,
+        "movement_balance": 36,
+        "stock": 36
+      },
+      "explanation": "서비스 누락 +1개와 별도 소진 -1개가 품목 합계에서 대응. 날짜별 원가층 귀속 확정과 금액 정정은 별도 검증 필요.",
+      "evidence": [
+        {
+          "cost_delta": -1,
+          "difference": -1,
+          "events": [
+            {
+              "at": "2026-08-27T07:46:48.461366+00:00",
+              "cost": 2000,
+              "meta": {
+                "note": "원가 연결 점검에서 소진",
+                "reconciliation": true,
+                "sourceLayerId": "b7f0c7cc-8a65-4412-a9c6-7a5da61893c0"
+              },
+              "q": 1,
+              "type": "reconciliation_out"
+            }
+          ],
+          "id": "61d4cde7-87c0-4326-a441-2a3da89fe066",
+          "item": "하복 0.6 코일",
+          "movements": null,
+          "ref": "cost_reconciliation",
+          "stock_delta": null
+        },
+        {
+          "cost_delta": null,
+          "difference": 1,
+          "events": null,
+          "id": "6270",
+          "item": "하복 0.6 코일",
+          "movements": [
+            {
+              "after": 26,
+              "at": "2026-08-14T03:52:27.928822+00:00",
+              "note": "출고 처리",
+              "q": -1,
+              "type": "sale_out"
+            }
+          ],
+          "ref": "outbound_log",
+          "stock_delta": -1
+        }
+      ]
+    },
+    {
+      "item": "말론 0.6 팟",
+      "services": [
+        {
+          "id": "6476",
+          "line": 5,
+          "date": "2026-08-20",
+          "item": "말론 0.6 팟",
+          "quantity": 1
+        }
+      ],
+      "serviceQ": 1,
+      "consumption": 0,
+      "current": {
+        "initialized_at": "2026-07-22 12:51:54.973352+00",
+        "item_name": "말론 0.6 팟",
+        "layers": 72,
+        "movement_balance": 72,
+        "stock": 72
+      },
+      "explanation": "기초 입력 전 7/22 판매 #5631 원가만 -2 → 8/20 서비스 #6476 누락 +1 → 8/27 원가 보충 +1 = 0. 추가로 7/6 판매 #6575가 7/23·8/6 입고층 4개를 사용한 날짜 역전도 있음.",
+      "evidence": [
+        {
+          "cost_delta": 1,
+          "difference": 1,
+          "events": [
+            {
+              "at": "2026-08-26T15:00:00+00:00",
+              "cost": 2000,
+              "meta": {
+                "note": "원가 연결 점검에서 추가",
+                "reconciliation": true
+              },
+              "q": 1,
+              "type": "reconciliation_in"
+            }
+          ],
+          "id": "479c1d52-3336-4b7f-a8b1-1fd8ed535233",
+          "item": "말론 0.6 팟",
+          "movements": null,
+          "ref": "cost_reconciliation",
+          "stock_delta": null
+        },
+        {
+          "cost_delta": -2,
+          "difference": -2,
+          "events": [
+            {
+              "at": "2026-07-22T03:52:01.399473+00:00",
+              "cost": 4000,
+              "meta": {
+                "backfilled": true,
+                "customerId": 924
+              },
+              "q": 2,
+              "type": "sale_out"
+            }
+          ],
+          "id": "5631",
+          "item": "말론 0.6 팟",
+          "movements": null,
+          "ref": "outbound_log",
+          "stock_delta": null
+        },
+        {
+          "cost_delta": -2,
+          "difference": 1,
+          "events": [
+            {
+              "at": "2026-08-20T04:07:44.921958+00:00",
+              "cost": 4000,
+              "meta": {
+                "backfilled": true,
+                "customerId": 924
+              },
+              "q": 2,
+              "type": "sale_out"
+            }
+          ],
+          "id": "6476",
+          "item": "말론 0.6 팟",
+          "movements": [
+            {
+              "after": 26,
+              "at": "2026-08-20T04:07:44.921958+00:00",
+              "note": "출고 처리",
+              "q": -3,
+              "type": "sale_out"
+            }
+          ],
+          "ref": "outbound_log",
+          "stock_delta": -3
+        }
+      ]
+    }
+  ],
+  "currentBalances": [
+    {
+      "initialized_at": "2026-07-22 12:51:54.973352+00",
+      "item_name": "글렌트/글렌트프로 투명케이스",
+      "layers": 10,
+      "movement_balance": 10,
+      "stock": 10
+    },
+    {
+      "initialized_at": "2026-07-22 12:51:54.973352+00",
+      "item_name": "디오X 0.6 팟",
+      "layers": 26,
+      "movement_balance": 26,
+      "stock": 26
+    },
+    {
+      "initialized_at": "2026-07-22 12:51:54.973352+00",
+      "item_name": "디오X 투명케이스",
+      "layers": 0,
+      "movement_balance": 0,
+      "stock": 0
+    },
+    {
+      "initialized_at": "2026-07-22 12:51:54.973352+00",
+      "item_name": "말론 0.6 팟",
+      "layers": 72,
+      "movement_balance": 72,
+      "stock": 72
+    },
+    {
+      "initialized_at": "2026-07-22 12:51:54.973352+00",
+      "item_name": "말론 투명케이스",
+      "layers": 4,
+      "movement_balance": 4,
+      "stock": 4
+    },
+    {
+      "initialized_at": "2026-07-22 12:51:54.973352+00",
+      "item_name": "말론S 0.6 팟",
+      "layers": 45,
+      "movement_balance": 45,
+      "stock": 45
+    },
+    {
+      "initialized_at": "2026-07-22 12:51:54.973352+00",
+      "item_name": "말론S 투명케이스",
+      "layers": 3,
+      "movement_balance": 3,
+      "stock": 3
+    },
+    {
+      "initialized_at": "2026-07-22 12:51:54.973352+00",
+      "item_name": "발라리안 0.6 코일",
+      "layers": 73,
+      "movement_balance": 73,
+      "stock": 73
+    },
+    {
+      "initialized_at": "2026-07-22 12:51:54.973352+00",
+      "item_name": "발라리안맥스프로 0.5 팟",
+      "layers": 38,
+      "movement_balance": 38,
+      "stock": 38
+    },
+    {
+      "initialized_at": "2026-07-22 12:51:54.973352+00",
+      "item_name": "발라리안맥스프로 투명케이스 신형",
+      "layers": 4,
+      "movement_balance": 4,
+      "stock": 4
+    },
+    {
+      "initialized_at": null,
+      "item_name": "빔버니리유즈 배터리",
+      "layers": 2,
+      "movement_balance": 2,
+      "stock": 2
+    },
+    {
+      "initialized_at": "2026-07-22 12:51:54.973352+00",
+      "item_name": "아보카도 aio 0.6 팟",
+      "layers": 9,
+      "movement_balance": 9,
+      "stock": 9
+    },
+    {
+      "initialized_at": null,
+      "item_name": "아보카도베이비프로 0.6 팟",
+      "layers": 11,
+      "movement_balance": 11,
+      "stock": 11
+    },
+    {
+      "initialized_at": "2026-07-22 12:51:54.973352+00",
+      "item_name": "젤로 0.8 부스트팟",
+      "layers": 43,
+      "movement_balance": 43,
+      "stock": 43
+    },
+    {
+      "initialized_at": "2026-07-22 12:51:54.973352+00",
+      "item_name": "젤로 0.8 팟",
+      "layers": 46,
+      "movement_balance": 46,
+      "stock": 46
+    },
+    {
+      "initialized_at": "2026-07-22 12:51:54.973352+00",
+      "item_name": "젤로 1.2 팟",
+      "layers": 21,
+      "movement_balance": 21,
+      "stock": 21
+    },
+    {
+      "initialized_at": "2026-07-22 12:51:54.973352+00",
+      "item_name": "젤로 투명케이스",
+      "layers": 3,
+      "movement_balance": 3,
+      "stock": 3
+    },
+    {
+      "initialized_at": "2026-07-22 12:51:54.973352+00",
+      "item_name": "젤로맥스 0.6 팟 (5ml)",
+      "layers": 53,
+      "movement_balance": 53,
+      "stock": 53
+    },
+    {
+      "initialized_at": "2026-07-22 12:51:54.973352+00",
+      "item_name": "젤로맥스 투명케이스",
+      "layers": 5,
+      "movement_balance": 5,
+      "stock": 5
+    },
+    {
+      "initialized_at": "2026-07-22 12:51:54.973352+00",
+      "item_name": "팬텀 엔트리 케이스",
+      "layers": 9,
+      "movement_balance": 9,
+      "stock": 9
+    },
+    {
+      "initialized_at": "2026-07-22 12:51:54.973352+00",
+      "item_name": "하복 0.6 코일",
+      "layers": 36,
+      "movement_balance": 36,
+      "stock": 36
+    },
+    {
+      "initialized_at": "2026-07-22 12:51:54.973352+00",
+      "item_name": "하복 공팟 클리어",
+      "layers": 9,
+      "movement_balance": 9,
+      "stock": 9
+    },
+    {
+      "initialized_at": "2026-07-22 12:51:54.973352+00",
+      "item_name": "하부코일 1.6",
+      "layers": 70,
+      "movement_balance": 70,
+      "stock": 70
+    }
+  ],
+  "futureSourceAllocations": [
+    {
+      "allocated_from_live_sources": 4,
+      "event_at": "2026-07-06 08:09:32+00",
+      "event_type": "sale_out",
+      "id": "bdab39d2-c253-4a0e-b63a-d878d379e690",
+      "item_name": "말론 0.6 팟",
+      "quantity": 4,
+      "reference_id": "6575",
+      "reference_line_key": "1",
+      "sources": [
+        {
+          "price": 2000,
+          "q": 3,
+          "source_at": "2026-07-22T15:00:00+00:00",
+          "source_type": "purchase_in"
+        },
+        {
+          "price": 2000,
+          "q": 1,
+          "source_at": "2026-08-05T15:00:00+00:00",
+          "source_type": "purchase_in"
+        }
+      ]
+    },
+    {
+      "allocated_from_live_sources": 4,
+      "event_at": "2026-07-07 04:14:10.271001+00",
+      "event_type": "demo_out",
+      "id": "752a8e71-ef43-4434-9e8a-abf89718593d",
+      "item_name": "발라리안 0.6 코일",
+      "quantity": 4,
+      "reference_id": "5274",
+      "reference_line_key": "1",
+      "sources": [
+        {
+          "price": 2000,
+          "q": 4,
+          "source_at": "2026-08-05T15:00:00+00:00",
+          "source_type": "purchase_in"
+        }
+      ]
+    },
+    {
+      "allocated_from_live_sources": 2,
+      "event_at": "2026-07-08 06:43:31.973981+00",
+      "event_type": "demo_out",
+      "id": "004eb6fd-6453-43a0-a194-704bf60cd0d1",
+      "item_name": "발라리안 0.6 코일",
+      "quantity": 2,
+      "reference_id": "5312",
+      "reference_line_key": "1",
+      "sources": [
+        {
+          "price": 2000,
+          "q": 2,
+          "source_at": "2026-08-05T15:00:00+00:00",
+          "source_type": "purchase_in"
+        }
+      ]
+    },
+    {
+      "allocated_from_live_sources": 10,
+      "event_at": "2026-07-10 06:54:02.7463+00",
+      "event_type": "demo_out",
+      "id": "3260e13a-e107-4107-8762-f1a6d12c1409",
+      "item_name": "발라리안 0.6 코일",
+      "quantity": 10,
+      "reference_id": "5342",
+      "reference_line_key": "2",
+      "sources": [
+        {
+          "price": 2000,
+          "q": 10,
+          "source_at": "2026-08-05T15:00:00+00:00",
+          "source_type": "purchase_in"
+        }
+      ]
+    },
+    {
+      "allocated_from_live_sources": 6,
+      "event_at": "2026-07-13 06:53:52.673634+00",
+      "event_type": "demo_out",
+      "id": "6f752f78-1173-4828-ba15-116d7bf9ea90",
+      "item_name": "발라리안 0.6 코일",
+      "quantity": 6,
+      "reference_id": "5410",
+      "reference_line_key": "5",
+      "sources": [
+        {
+          "price": 2000,
+          "q": 6,
+          "source_at": "2026-08-05T15:00:00+00:00",
+          "source_type": "purchase_in"
+        }
+      ]
+    },
+    {
+      "allocated_from_live_sources": 36,
+      "event_at": "2026-07-17 06:21:37.833512+00",
+      "event_type": "demo_out",
+      "id": "715bce23-ff8c-44c1-b82d-ee1b4d232f4a",
+      "item_name": "발라리안 0.6 코일",
+      "quantity": 36,
+      "reference_id": "5509",
+      "reference_line_key": "2",
+      "sources": [
+        {
+          "price": 2000,
+          "q": 9,
+          "source_at": "2026-08-05T15:00:00+00:00",
+          "source_type": "purchase_in"
+        },
+        {
+          "price": 2000,
+          "q": 27,
+          "source_at": "2026-08-12T15:00:00+00:00",
+          "source_type": "purchase_in"
+        }
+      ]
+    }
+  ],
+  "correctionDates": [
+    {
+      "created_at": "2026-08-27 07:11:00.049487+00",
+      "event_at": "2026-08-12 15:00:00+00",
+      "event_type": "reconciliation_in",
+      "item_name": "발라리안 0.6 코일",
+      "metadata": {
+        "note": "원가 연결 점검에서 추가",
+        "reconciliation": true
+      },
+      "quantity": 64
+    },
+    {
+      "created_at": "2026-08-27 07:14:31.369988+00",
+      "event_at": "2026-07-27 15:00:00+00",
+      "event_type": "reconciliation_in",
+      "item_name": "글렌트/글렌트프로 투명케이스",
+      "metadata": {
+        "note": "원가 연결 점검에서 추가",
+        "reconciliation": true
+      },
+      "quantity": 10
+    },
+    {
+      "created_at": "2026-08-27 07:14:59.307701+00",
+      "event_at": "2026-08-26 15:00:00+00",
+      "event_type": "reconciliation_in",
+      "item_name": "말론 0.6 팟",
+      "metadata": {
+        "note": "원가 연결 점검에서 추가",
+        "reconciliation": true
+      },
+      "quantity": 1
+    },
+    {
+      "created_at": "2026-08-27 07:15:16.612302+00",
+      "event_at": "2026-08-12 15:00:00+00",
+      "event_type": "reconciliation_in",
+      "item_name": "발라리안맥스프로 0.5 팟",
+      "metadata": {
+        "note": "원가 연결 점검에서 추가",
+        "reconciliation": true
+      },
+      "quantity": 1
+    },
+    {
+      "created_at": "2026-08-27 07:15:30.906872+00",
+      "event_at": "2026-08-19 15:00:00+00",
+      "event_type": "reconciliation_in",
+      "item_name": "젤로맥스 0.6 팟 (5ml)",
+      "metadata": {
+        "note": "원가 연결 점검에서 추가",
+        "reconciliation": true
+      },
+      "quantity": 1
+    },
+    {
+      "created_at": "2026-08-27 07:39:26.157659+00",
+      "event_at": "2026-08-27 07:39:26.157659+00",
+      "event_type": "reconciliation_out",
+      "item_name": "글렌트/글렌트프로 투명케이스",
+      "metadata": {
+        "note": "원가 연결 점검에서 소진",
+        "reconciliation": true,
+        "sourceLayerId": "9c61732d-ca25-4dfd-a36b-845ab7d21f4f"
+      },
+      "quantity": 11
+    }
+  ],
+  "allReferenceDifferences": [
+    {
+      "cost_delta": 10,
+      "difference": 10,
+      "events": [
+        {
+          "at": "2026-07-27T15:00:00+00:00",
+          "cost": 0,
+          "meta": {
+            "note": "원가 연결 점검에서 추가",
+            "reconciliation": true
+          },
+          "q": 10,
+          "type": "reconciliation_in"
+        }
+      ],
+      "id": "0c4aa076-abcc-4ad7-a22c-8e588014fd1e",
+      "item": "글렌트/글렌트프로 투명케이스",
+      "movements": null,
+      "ref": "cost_reconciliation",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": -11,
+      "difference": -11,
+      "events": [
+        {
+          "at": "2026-08-27T07:39:26.157659+00:00",
+          "cost": 0,
+          "meta": {
+            "note": "원가 연결 점검에서 소진",
+            "reconciliation": true,
+            "sourceLayerId": "9c61732d-ca25-4dfd-a36b-845ab7d21f4f"
+          },
+          "q": 11,
+          "type": "reconciliation_out"
+        }
+      ],
+      "id": "5cf7547e-5980-4bb5-b6bf-84264da73e8a",
+      "item": "글렌트/글렌트프로 투명케이스",
+      "movements": null,
+      "ref": "cost_reconciliation",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": null,
+      "difference": 1,
+      "events": null,
+      "id": "5756",
+      "item": "글렌트/글렌트프로 투명케이스",
+      "movements": [
+        {
+          "after": 10,
+          "at": "2026-07-28T02:47:04.77269+00:00",
+          "note": "출고 처리",
+          "q": -1,
+          "type": "sale_out"
+        }
+      ],
+      "ref": "outbound_log",
+      "stock_delta": -1
+    },
+    {
+      "cost_delta": 11,
+      "difference": 11,
+      "events": [
+        {
+          "at": "2026-07-21T15:00:00+00:00",
+          "cost": 0,
+          "meta": {
+            "basisType": "opening_20260722"
+          },
+          "q": 11,
+          "type": "opening"
+        }
+      ],
+      "id": "글렌트/글렌트프로 투명케이스",
+      "item": "글렌트/글렌트프로 투명케이스",
+      "movements": null,
+      "ref": "settlement_cost_basis",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": null,
+      "difference": -11,
+      "events": null,
+      "id": null,
+      "item": "글렌트/글렌트프로 투명케이스",
+      "movements": [
+        {
+          "after": 11,
+          "at": "2026-07-22T12:51:54.973352+00:00",
+          "note": "기초재고",
+          "q": 11,
+          "type": "initial"
+        }
+      ],
+      "ref": null,
+      "stock_delta": 11
+    },
+    {
+      "cost_delta": -2,
+      "difference": -2,
+      "events": [
+        {
+          "at": "2026-08-27T07:47:50.977421+00:00",
+          "cost": 6600,
+          "meta": {
+            "note": "원가 연결 점검에서 소진",
+            "reconciliation": true,
+            "sourceLayerId": "8c75d088-6721-4836-90fc-77cdcc66ffff"
+          },
+          "q": 2,
+          "type": "reconciliation_out"
+        }
+      ],
+      "id": "08611b90-52ed-44d3-8e95-618ba72a8641",
+      "item": "디오X 0.6 팟",
+      "movements": null,
+      "ref": "cost_reconciliation",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": null,
+      "difference": 1,
+      "events": null,
+      "id": "5655",
+      "item": "디오X 0.6 팟",
+      "movements": [
+        {
+          "after": 18,
+          "at": "2026-07-23T05:24:21.184571+00:00",
+          "note": "출고 처리",
+          "q": -1,
+          "type": "sale_out"
+        }
+      ],
+      "ref": "outbound_log",
+      "stock_delta": -1
+    },
+    {
+      "cost_delta": null,
+      "difference": 1,
+      "events": null,
+      "id": "6443",
+      "item": "디오X 0.6 팟",
+      "movements": [
+        {
+          "after": 8,
+          "at": "2026-08-18T09:33:47.283531+00:00",
+          "note": "출고 처리",
+          "q": -1,
+          "type": "sale_out"
+        }
+      ],
+      "ref": "outbound_log",
+      "stock_delta": -1
+    },
+    {
+      "cost_delta": 19,
+      "difference": 19,
+      "events": [
+        {
+          "at": "2026-07-21T15:00:00+00:00",
+          "cost": 62700,
+          "meta": {
+            "basisType": "opening_20260722"
+          },
+          "q": 19,
+          "type": "opening"
+        }
+      ],
+      "id": "디오X 0.6 팟",
+      "item": "디오X 0.6 팟",
+      "movements": null,
+      "ref": "settlement_cost_basis",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": null,
+      "difference": -19,
+      "events": null,
+      "id": null,
+      "item": "디오X 0.6 팟",
+      "movements": [
+        {
+          "after": 19,
+          "at": "2026-07-22T12:51:54.973352+00:00",
+          "note": "기초재고",
+          "q": 19,
+          "type": "initial"
+        }
+      ],
+      "ref": null,
+      "stock_delta": 19
+    },
+    {
+      "cost_delta": -2,
+      "difference": -2,
+      "events": [
+        {
+          "at": "2026-08-27T07:47:04.353002+00:00",
+          "cost": 5500,
+          "meta": {
+            "note": "원가 연결 점검에서 소진",
+            "reconciliation": true,
+            "sourceLayerId": "add3a6ae-2183-4a55-8fe2-a121ebf6b0df"
+          },
+          "q": 2,
+          "type": "reconciliation_out"
+        }
+      ],
+      "id": "46f22410-14ca-4134-80c7-129a7857834c",
+      "item": "디오X 투명케이스",
+      "movements": null,
+      "ref": "cost_reconciliation",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": null,
+      "difference": 1,
+      "events": null,
+      "id": "6071",
+      "item": "디오X 투명케이스",
+      "movements": [
+        {
+          "after": 1,
+          "at": "2026-08-08T02:54:28.890664+00:00",
+          "note": "출고 수정",
+          "q": -1,
+          "type": "outbound_edit"
+        }
+      ],
+      "ref": "outbound_log",
+      "stock_delta": -1
+    },
+    {
+      "cost_delta": null,
+      "difference": 1,
+      "events": null,
+      "id": "6430",
+      "item": "디오X 투명케이스",
+      "movements": [
+        {
+          "after": 0,
+          "at": "2026-08-18T02:42:13.104219+00:00",
+          "note": "출고 처리",
+          "q": -1,
+          "type": "sale_out"
+        }
+      ],
+      "ref": "outbound_log",
+      "stock_delta": -1
+    },
+    {
+      "cost_delta": 2,
+      "difference": 2,
+      "events": [
+        {
+          "at": "2026-07-21T15:00:00+00:00",
+          "cost": 5500,
+          "meta": {
+            "basisType": "opening_20260722"
+          },
+          "q": 2,
+          "type": "opening"
+        }
+      ],
+      "id": "디오X 투명케이스",
+      "item": "디오X 투명케이스",
+      "movements": null,
+      "ref": "settlement_cost_basis",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": null,
+      "difference": -2,
+      "events": null,
+      "id": null,
+      "item": "디오X 투명케이스",
+      "movements": [
+        {
+          "after": 2,
+          "at": "2026-07-22T12:51:54.973352+00:00",
+          "note": "기초재고",
+          "q": 2,
+          "type": "initial"
+        }
+      ],
+      "ref": null,
+      "stock_delta": 2
+    },
+    {
+      "cost_delta": 1,
+      "difference": 1,
+      "events": [
+        {
+          "at": "2026-08-26T15:00:00+00:00",
+          "cost": 2000,
+          "meta": {
+            "note": "원가 연결 점검에서 추가",
+            "reconciliation": true
+          },
+          "q": 1,
+          "type": "reconciliation_in"
+        }
+      ],
+      "id": "479c1d52-3336-4b7f-a8b1-1fd8ed535233",
+      "item": "말론 0.6 팟",
+      "movements": null,
+      "ref": "cost_reconciliation",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": -2,
+      "difference": -2,
+      "events": [
+        {
+          "at": "2026-07-22T03:52:01.399473+00:00",
+          "cost": 4000,
+          "meta": {
+            "backfilled": true,
+            "customerId": 924
+          },
+          "q": 2,
+          "type": "sale_out"
+        }
+      ],
+      "id": "5631",
+      "item": "말론 0.6 팟",
+      "movements": null,
+      "ref": "outbound_log",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": -2,
+      "difference": 1,
+      "events": [
+        {
+          "at": "2026-08-20T04:07:44.921958+00:00",
+          "cost": 4000,
+          "meta": {
+            "backfilled": true,
+            "customerId": 924
+          },
+          "q": 2,
+          "type": "sale_out"
+        }
+      ],
+      "id": "6476",
+      "item": "말론 0.6 팟",
+      "movements": [
+        {
+          "after": 26,
+          "at": "2026-08-20T04:07:44.921958+00:00",
+          "note": "출고 처리",
+          "q": -3,
+          "type": "sale_out"
+        }
+      ],
+      "ref": "outbound_log",
+      "stock_delta": -3
+    },
+    {
+      "cost_delta": null,
+      "difference": -24,
+      "events": null,
+      "id": "151b702a-c435-44f8-aab7-9d5d9718e7da",
+      "item": "말론 0.6 팟",
+      "movements": [
+        {
+          "after": 66,
+          "at": "2026-08-06T04:38:47.825772+00:00",
+          "note": "입고 처리",
+          "q": 24,
+          "type": "purchase_in"
+        }
+      ],
+      "ref": "purchase_receipt",
+      "stock_delta": 24
+    },
+    {
+      "cost_delta": null,
+      "difference": -20,
+      "events": null,
+      "id": "5e8ab059-4424-4527-ae74-b450270a5dc2",
+      "item": "말론 0.6 팟",
+      "movements": [
+        {
+          "after": 80,
+          "at": "2026-07-22T14:20:39.771018+00:00",
+          "note": "입고 처리",
+          "q": 20,
+          "type": "purchase_in"
+        }
+      ],
+      "ref": "purchase_receipt",
+      "stock_delta": 20
+    },
+    {
+      "cost_delta": null,
+      "difference": -24,
+      "events": null,
+      "id": "bca37325-a8bb-4ad3-9cd2-d5536502ca4d",
+      "item": "말론 0.6 팟",
+      "movements": [
+        {
+          "after": 66,
+          "at": "2026-08-06T04:21:41.424699+00:00",
+          "note": "입고 처리",
+          "q": 24,
+          "type": "purchase_in"
+        }
+      ],
+      "ref": "purchase_receipt",
+      "stock_delta": 24
+    },
+    {
+      "cost_delta": null,
+      "difference": -24,
+      "events": null,
+      "id": "f5ead5ef-70c5-4f8e-9ed4-a047110dc4cb",
+      "item": "말론 0.6 팟",
+      "movements": [
+        {
+          "after": 66,
+          "at": "2026-08-06T04:26:50.929306+00:00",
+          "note": "입고 처리",
+          "q": 24,
+          "type": "purchase_in"
+        }
+      ],
+      "ref": "purchase_receipt",
+      "stock_delta": 24
+    },
+    {
+      "cost_delta": null,
+      "difference": 24,
+      "events": null,
+      "id": "151b702a-c435-44f8-aab7-9d5d9718e7da",
+      "item": "말론 0.6 팟",
+      "movements": [
+        {
+          "after": 39,
+          "at": "2026-08-07T08:42:50.988409+00:00",
+          "note": "수량 수정",
+          "q": -24,
+          "type": "reversal"
+        }
+      ],
+      "ref": "purchase_receipt_reversal",
+      "stock_delta": -24
+    },
+    {
+      "cost_delta": null,
+      "difference": 20,
+      "events": null,
+      "id": "5e8ab059-4424-4527-ae74-b450270a5dc2",
+      "item": "말론 0.6 팟",
+      "movements": [
+        {
+          "after": 55,
+          "at": "2026-07-23T02:19:02.823563+00:00",
+          "note": "품목 2개 수량 변경",
+          "q": -20,
+          "type": "reversal"
+        }
+      ],
+      "ref": "purchase_receipt_reversal",
+      "stock_delta": -20
+    },
+    {
+      "cost_delta": null,
+      "difference": 24,
+      "events": null,
+      "id": "bca37325-a8bb-4ad3-9cd2-d5536502ca4d",
+      "item": "말론 0.6 팟",
+      "movements": [
+        {
+          "after": 42,
+          "at": "2026-08-06T04:22:26.510588+00:00",
+          "note": "재입고처리",
+          "q": -24,
+          "type": "reversal"
+        }
+      ],
+      "ref": "purchase_receipt_reversal",
+      "stock_delta": -24
+    },
+    {
+      "cost_delta": null,
+      "difference": 24,
+      "events": null,
+      "id": "f5ead5ef-70c5-4f8e-9ed4-a047110dc4cb",
+      "item": "말론 0.6 팟",
+      "movements": [
+        {
+          "after": 42,
+          "at": "2026-08-06T04:27:56.569549+00:00",
+          "note": "시연용 잘못 선택함",
+          "q": -24,
+          "type": "reversal"
+        }
+      ],
+      "ref": "purchase_receipt_reversal",
+      "stock_delta": -24
+    },
+    {
+      "cost_delta": 60,
+      "difference": 60,
+      "events": [
+        {
+          "at": "2026-07-21T15:00:00+00:00",
+          "cost": 120000,
+          "meta": {
+            "basisType": "opening_20260722"
+          },
+          "q": 60,
+          "type": "opening"
+        }
+      ],
+      "id": "말론 0.6 팟",
+      "item": "말론 0.6 팟",
+      "movements": null,
+      "ref": "settlement_cost_basis",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": null,
+      "difference": -60,
+      "events": null,
+      "id": null,
+      "item": "말론 0.6 팟",
+      "movements": [
+        {
+          "after": 60,
+          "at": "2026-07-22T12:51:54.973352+00:00",
+          "note": "기초재고",
+          "q": 60,
+          "type": "initial"
+        }
+      ],
+      "ref": null,
+      "stock_delta": 60
+    },
+    {
+      "cost_delta": 4,
+      "difference": 4,
+      "events": [
+        {
+          "at": "2026-07-21T15:00:00+00:00",
+          "cost": 17600,
+          "meta": {
+            "basisType": "opening_20260722"
+          },
+          "q": 4,
+          "type": "opening"
+        }
+      ],
+      "id": "말론 투명케이스",
+      "item": "말론 투명케이스",
+      "movements": null,
+      "ref": "settlement_cost_basis",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": null,
+      "difference": -4,
+      "events": null,
+      "id": null,
+      "item": "말론 투명케이스",
+      "movements": [
+        {
+          "after": 4,
+          "at": "2026-07-22T12:51:54.973352+00:00",
+          "note": "기초재고",
+          "q": 4,
+          "type": "initial"
+        }
+      ],
+      "ref": null,
+      "stock_delta": 4
+    },
+    {
+      "cost_delta": -2,
+      "difference": -2,
+      "events": [
+        {
+          "at": "2026-08-27T07:47:16.610025+00:00",
+          "cost": 7200,
+          "meta": {
+            "note": "원가 연결 점검에서 소진",
+            "reconciliation": true,
+            "sourceLayerId": "5c091d49-8580-4e76-84a5-bc00766dccb6"
+          },
+          "q": 2,
+          "type": "reconciliation_out"
+        }
+      ],
+      "id": "949b9eee-417f-469b-ab9a-f82c7a1af8f1",
+      "item": "말론S 0.6 팟",
+      "movements": null,
+      "ref": "cost_reconciliation",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": -2,
+      "difference": 2,
+      "events": [
+        {
+          "at": "2026-07-30T06:23:51.365844+00:00",
+          "cost": 7200,
+          "meta": {
+            "backfilled": true,
+            "customerId": 1882
+          },
+          "q": 2,
+          "type": "sale_out"
+        }
+      ],
+      "id": "5822",
+      "item": "말론S 0.6 팟",
+      "movements": [
+        {
+          "after": 29,
+          "at": "2026-07-30T06:23:51.365844+00:00",
+          "note": "출고 처리",
+          "q": -4,
+          "type": "sale_out"
+        }
+      ],
+      "ref": "outbound_log",
+      "stock_delta": -4
+    },
+    {
+      "cost_delta": null,
+      "difference": -20,
+      "events": null,
+      "id": "151b702a-c435-44f8-aab7-9d5d9718e7da",
+      "item": "말론S 0.6 팟",
+      "movements": [
+        {
+          "after": 49,
+          "at": "2026-08-06T04:38:47.825772+00:00",
+          "note": "입고 처리",
+          "q": 20,
+          "type": "purchase_in"
+        }
+      ],
+      "ref": "purchase_receipt",
+      "stock_delta": 20
+    },
+    {
+      "cost_delta": null,
+      "difference": -20,
+      "events": null,
+      "id": "5e8ab059-4424-4527-ae74-b450270a5dc2",
+      "item": "말론S 0.6 팟",
+      "movements": [
+        {
+          "after": 33,
+          "at": "2026-07-22T14:20:39.771018+00:00",
+          "note": "입고 처리",
+          "q": 20,
+          "type": "purchase_in"
+        }
+      ],
+      "ref": "purchase_receipt",
+      "stock_delta": 20
+    },
+    {
+      "cost_delta": null,
+      "difference": -20,
+      "events": null,
+      "id": "bca37325-a8bb-4ad3-9cd2-d5536502ca4d",
+      "item": "말론S 0.6 팟",
+      "movements": [
+        {
+          "after": 49,
+          "at": "2026-08-06T04:21:41.424699+00:00",
+          "note": "입고 처리",
+          "q": 20,
+          "type": "purchase_in"
+        }
+      ],
+      "ref": "purchase_receipt",
+      "stock_delta": 20
+    },
+    {
+      "cost_delta": null,
+      "difference": -20,
+      "events": null,
+      "id": "f5ead5ef-70c5-4f8e-9ed4-a047110dc4cb",
+      "item": "말론S 0.6 팟",
+      "movements": [
+        {
+          "after": 49,
+          "at": "2026-08-06T04:26:50.929306+00:00",
+          "note": "입고 처리",
+          "q": 20,
+          "type": "purchase_in"
+        }
+      ],
+      "ref": "purchase_receipt",
+      "stock_delta": 20
+    },
+    {
+      "cost_delta": null,
+      "difference": 20,
+      "events": null,
+      "id": "151b702a-c435-44f8-aab7-9d5d9718e7da",
+      "item": "말론S 0.6 팟",
+      "movements": [
+        {
+          "after": 29,
+          "at": "2026-08-07T08:42:50.988409+00:00",
+          "note": "수량 수정",
+          "q": -20,
+          "type": "reversal"
+        }
+      ],
+      "ref": "purchase_receipt_reversal",
+      "stock_delta": -20
+    },
+    {
+      "cost_delta": null,
+      "difference": 20,
+      "events": null,
+      "id": "5e8ab059-4424-4527-ae74-b450270a5dc2",
+      "item": "말론S 0.6 팟",
+      "movements": [
+        {
+          "after": 13,
+          "at": "2026-07-23T02:19:02.823563+00:00",
+          "note": "품목 2개 수량 변경",
+          "q": -20,
+          "type": "reversal"
+        }
+      ],
+      "ref": "purchase_receipt_reversal",
+      "stock_delta": -20
+    },
+    {
+      "cost_delta": null,
+      "difference": 20,
+      "events": null,
+      "id": "bca37325-a8bb-4ad3-9cd2-d5536502ca4d",
+      "item": "말론S 0.6 팟",
+      "movements": [
+        {
+          "after": 29,
+          "at": "2026-08-06T04:22:26.510588+00:00",
+          "note": "재입고처리",
+          "q": -20,
+          "type": "reversal"
+        }
+      ],
+      "ref": "purchase_receipt_reversal",
+      "stock_delta": -20
+    },
+    {
+      "cost_delta": null,
+      "difference": 20,
+      "events": null,
+      "id": "f5ead5ef-70c5-4f8e-9ed4-a047110dc4cb",
+      "item": "말론S 0.6 팟",
+      "movements": [
+        {
+          "after": 29,
+          "at": "2026-08-06T04:27:56.569549+00:00",
+          "note": "시연용 잘못 선택함",
+          "q": -20,
+          "type": "reversal"
+        }
+      ],
+      "ref": "purchase_receipt_reversal",
+      "stock_delta": -20
+    },
+    {
+      "cost_delta": 13,
+      "difference": 13,
+      "events": [
+        {
+          "at": "2026-07-21T15:00:00+00:00",
+          "cost": 46800,
+          "meta": {
+            "basisType": "opening_20260722"
+          },
+          "q": 13,
+          "type": "opening"
+        }
+      ],
+      "id": "말론S 0.6 팟",
+      "item": "말론S 0.6 팟",
+      "movements": null,
+      "ref": "settlement_cost_basis",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": null,
+      "difference": -13,
+      "events": null,
+      "id": null,
+      "item": "말론S 0.6 팟",
+      "movements": [
+        {
+          "after": 13,
+          "at": "2026-07-22T12:51:54.973352+00:00",
+          "note": "기초재고",
+          "q": 13,
+          "type": "initial"
+        }
+      ],
+      "ref": null,
+      "stock_delta": 13
+    },
+    {
+      "cost_delta": -2,
+      "difference": -2,
+      "events": [
+        {
+          "at": "2026-08-27T07:46:17.88576+00:00",
+          "cost": 8800,
+          "meta": {
+            "note": "원가 연결 점검에서 소진",
+            "reconciliation": true,
+            "sourceLayerId": "96ceb361-cc8f-4d9b-8987-c355cfce6a1b"
+          },
+          "q": 2,
+          "type": "reconciliation_out"
+        }
+      ],
+      "id": "e2c6d864-5d2e-4446-930a-513a4248edd4",
+      "item": "말론S 투명케이스",
+      "movements": null,
+      "ref": "cost_reconciliation",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": null,
+      "difference": 1,
+      "events": null,
+      "id": "5822",
+      "item": "말론S 투명케이스",
+      "movements": [
+        {
+          "after": 3,
+          "at": "2026-07-30T06:23:51.365844+00:00",
+          "note": "출고 처리",
+          "q": -1,
+          "type": "sale_out"
+        }
+      ],
+      "ref": "outbound_log",
+      "stock_delta": -1
+    },
+    {
+      "cost_delta": null,
+      "difference": 1,
+      "events": null,
+      "id": "6504",
+      "item": "말론S 투명케이스",
+      "movements": [
+        {
+          "after": 3,
+          "at": "2026-08-21T07:21:50.47435+00:00",
+          "note": "출고 처리",
+          "q": -1,
+          "type": "sale_out"
+        }
+      ],
+      "ref": "outbound_log",
+      "stock_delta": -1
+    },
+    {
+      "cost_delta": 4,
+      "difference": 4,
+      "events": [
+        {
+          "at": "2026-07-21T15:00:00+00:00",
+          "cost": 17600,
+          "meta": {
+            "basisType": "opening_20260722"
+          },
+          "q": 4,
+          "type": "opening"
+        }
+      ],
+      "id": "말론S 투명케이스",
+      "item": "말론S 투명케이스",
+      "movements": null,
+      "ref": "settlement_cost_basis",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": null,
+      "difference": -4,
+      "events": null,
+      "id": null,
+      "item": "말론S 투명케이스",
+      "movements": [
+        {
+          "after": 4,
+          "at": "2026-07-22T12:51:54.973352+00:00",
+          "note": "기초재고",
+          "q": 4,
+          "type": "initial"
+        }
+      ],
+      "ref": null,
+      "stock_delta": 4
+    },
+    {
+      "cost_delta": 64,
+      "difference": 64,
+      "events": [
+        {
+          "at": "2026-08-12T15:00:00+00:00",
+          "cost": 128000,
+          "meta": {
+            "note": "원가 연결 점검에서 추가",
+            "reconciliation": true
+          },
+          "q": 64,
+          "type": "reconciliation_in"
+        }
+      ],
+      "id": "1fd64141-9b62-401f-a1aa-ea20e2326b12",
+      "item": "발라리안 0.6 코일",
+      "movements": null,
+      "ref": "cost_reconciliation",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": -3,
+      "difference": -3,
+      "events": [
+        {
+          "at": "2026-07-22T02:00:05.773101+00:00",
+          "cost": 6000,
+          "meta": {
+            "backfilled": true,
+            "customerId": 829
+          },
+          "q": 3,
+          "type": "sale_out"
+        }
+      ],
+      "id": "5626",
+      "item": "발라리안 0.6 코일",
+      "movements": null,
+      "ref": "outbound_log",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": -4,
+      "difference": -4,
+      "events": [
+        {
+          "at": "2026-07-22T07:06:38.171978+00:00",
+          "cost": 8000,
+          "meta": {
+            "backfilled": true,
+            "customerId": 1658
+          },
+          "q": 4,
+          "type": "sale_out"
+        }
+      ],
+      "id": "5640",
+      "item": "발라리안 0.6 코일",
+      "movements": null,
+      "ref": "outbound_log",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": null,
+      "difference": 1,
+      "events": null,
+      "id": "6423",
+      "item": "발라리안 0.6 코일",
+      "movements": [
+        {
+          "after": 99,
+          "at": "2026-08-17T11:50:07.624452+00:00",
+          "note": "출고 처리",
+          "q": -1,
+          "type": "sale_out"
+        }
+      ],
+      "ref": "outbound_log",
+      "stock_delta": -1
+    },
+    {
+      "cost_delta": null,
+      "difference": -44,
+      "events": null,
+      "id": "151b702a-c435-44f8-aab7-9d5d9718e7da",
+      "item": "발라리안 0.6 코일",
+      "movements": [
+        {
+          "after": 83,
+          "at": "2026-08-06T04:38:47.825772+00:00",
+          "note": "입고 처리",
+          "q": 44,
+          "type": "purchase_in"
+        }
+      ],
+      "ref": "purchase_receipt",
+      "stock_delta": 44
+    },
+    {
+      "cost_delta": null,
+      "difference": -44,
+      "events": null,
+      "id": "bca37325-a8bb-4ad3-9cd2-d5536502ca4d",
+      "item": "발라리안 0.6 코일",
+      "movements": [
+        {
+          "after": 83,
+          "at": "2026-08-06T04:21:41.424699+00:00",
+          "note": "입고 처리",
+          "q": 44,
+          "type": "purchase_in"
+        }
+      ],
+      "ref": "purchase_receipt",
+      "stock_delta": 44
+    },
+    {
+      "cost_delta": null,
+      "difference": -44,
+      "events": null,
+      "id": "f5ead5ef-70c5-4f8e-9ed4-a047110dc4cb",
+      "item": "발라리안 0.6 코일",
+      "movements": [
+        {
+          "after": 83,
+          "at": "2026-08-06T04:26:50.929306+00:00",
+          "note": "입고 처리",
+          "q": 44,
+          "type": "purchase_in"
+        }
+      ],
+      "ref": "purchase_receipt",
+      "stock_delta": 44
+    },
+    {
+      "cost_delta": null,
+      "difference": 44,
+      "events": null,
+      "id": "151b702a-c435-44f8-aab7-9d5d9718e7da",
+      "item": "발라리안 0.6 코일",
+      "movements": [
+        {
+          "after": 36,
+          "at": "2026-08-07T08:42:50.988409+00:00",
+          "note": "수량 수정",
+          "q": -44,
+          "type": "reversal"
+        }
+      ],
+      "ref": "purchase_receipt_reversal",
+      "stock_delta": -44
+    },
+    {
+      "cost_delta": null,
+      "difference": 44,
+      "events": null,
+      "id": "bca37325-a8bb-4ad3-9cd2-d5536502ca4d",
+      "item": "발라리안 0.6 코일",
+      "movements": [
+        {
+          "after": 39,
+          "at": "2026-08-06T04:22:26.510588+00:00",
+          "note": "재입고처리",
+          "q": -44,
+          "type": "reversal"
+        }
+      ],
+      "ref": "purchase_receipt_reversal",
+      "stock_delta": -44
+    },
+    {
+      "cost_delta": null,
+      "difference": 44,
+      "events": null,
+      "id": "f5ead5ef-70c5-4f8e-9ed4-a047110dc4cb",
+      "item": "발라리안 0.6 코일",
+      "movements": [
+        {
+          "after": 39,
+          "at": "2026-08-06T04:27:56.569549+00:00",
+          "note": "시연용 잘못 선택함",
+          "q": -44,
+          "type": "reversal"
+        }
+      ],
+      "ref": "purchase_receipt_reversal",
+      "stock_delta": -44
+    },
+    {
+      "cost_delta": 53,
+      "difference": 53,
+      "events": [
+        {
+          "at": "2026-07-21T15:00:00+00:00",
+          "cost": 106000,
+          "meta": {
+            "basisType": "opening_20260722"
+          },
+          "q": 53,
+          "type": "opening"
+        }
+      ],
+      "id": "발라리안 0.6 코일",
+      "item": "발라리안 0.6 코일",
+      "movements": null,
+      "ref": "settlement_cost_basis",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": null,
+      "difference": -53,
+      "events": null,
+      "id": null,
+      "item": "발라리안 0.6 코일",
+      "movements": [
+        {
+          "after": 53,
+          "at": "2026-07-22T12:51:54.973352+00:00",
+          "note": "기초재고",
+          "q": 53,
+          "type": "initial"
+        }
+      ],
+      "ref": null,
+      "stock_delta": 53
+    },
+    {
+      "cost_delta": 1,
+      "difference": 1,
+      "events": [
+        {
+          "at": "2026-08-12T15:00:00+00:00",
+          "cost": 3000,
+          "meta": {
+            "note": "원가 연결 점검에서 추가",
+            "reconciliation": true
+          },
+          "q": 1,
+          "type": "reconciliation_in"
+        }
+      ],
+      "id": "e0338d2e-9296-4e27-93da-a4ed00c38d49",
+      "item": "발라리안맥스프로 0.5 팟",
+      "movements": null,
+      "ref": "cost_reconciliation",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": -2,
+      "difference": -2,
+      "events": [
+        {
+          "at": "2026-07-22T05:10:00.12414+00:00",
+          "cost": 6000,
+          "meta": {
+            "backfilled": true,
+            "customerId": 1659
+          },
+          "q": 2,
+          "type": "sale_out"
+        }
+      ],
+      "id": "5636",
+      "item": "발라리안맥스프로 0.5 팟",
+      "movements": null,
+      "ref": "outbound_log",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": -2,
+      "difference": 1,
+      "events": [
+        {
+          "at": "2026-07-27T09:53:59.541476+00:00",
+          "cost": 6000,
+          "meta": {
+            "backfilled": true,
+            "customerId": 1733
+          },
+          "q": 2,
+          "type": "sale_out"
+        }
+      ],
+      "id": "5737",
+      "item": "발라리안맥스프로 0.5 팟",
+      "movements": [
+        {
+          "after": 18,
+          "at": "2026-07-27T09:53:59.541476+00:00",
+          "note": "출고 처리",
+          "q": -3,
+          "type": "sale_out"
+        }
+      ],
+      "ref": "outbound_log",
+      "stock_delta": -3
+    },
+    {
+      "cost_delta": null,
+      "difference": -28,
+      "events": null,
+      "id": "151b702a-c435-44f8-aab7-9d5d9718e7da",
+      "item": "발라리안맥스프로 0.5 팟",
+      "movements": [
+        {
+          "after": 53,
+          "at": "2026-08-06T04:38:47.825772+00:00",
+          "note": "입고 처리",
+          "q": 28,
+          "type": "purchase_in"
+        }
+      ],
+      "ref": "purchase_receipt",
+      "stock_delta": 28
+    },
+    {
+      "cost_delta": null,
+      "difference": -28,
+      "events": null,
+      "id": "bca37325-a8bb-4ad3-9cd2-d5536502ca4d",
+      "item": "발라리안맥스프로 0.5 팟",
+      "movements": [
+        {
+          "after": 53,
+          "at": "2026-08-06T04:21:41.424699+00:00",
+          "note": "입고 처리",
+          "q": 28,
+          "type": "purchase_in"
+        }
+      ],
+      "ref": "purchase_receipt",
+      "stock_delta": 28
+    },
+    {
+      "cost_delta": null,
+      "difference": -28,
+      "events": null,
+      "id": "f5ead5ef-70c5-4f8e-9ed4-a047110dc4cb",
+      "item": "발라리안맥스프로 0.5 팟",
+      "movements": [
+        {
+          "after": 53,
+          "at": "2026-08-06T04:26:50.929306+00:00",
+          "note": "입고 처리",
+          "q": 28,
+          "type": "purchase_in"
+        }
+      ],
+      "ref": "purchase_receipt",
+      "stock_delta": 28
+    },
+    {
+      "cost_delta": null,
+      "difference": 28,
+      "events": null,
+      "id": "151b702a-c435-44f8-aab7-9d5d9718e7da",
+      "item": "발라리안맥스프로 0.5 팟",
+      "movements": [
+        {
+          "after": 24,
+          "at": "2026-08-07T08:42:50.988409+00:00",
+          "note": "수량 수정",
+          "q": -28,
+          "type": "reversal"
+        }
+      ],
+      "ref": "purchase_receipt_reversal",
+      "stock_delta": -28
+    },
+    {
+      "cost_delta": null,
+      "difference": 28,
+      "events": null,
+      "id": "bca37325-a8bb-4ad3-9cd2-d5536502ca4d",
+      "item": "발라리안맥스프로 0.5 팟",
+      "movements": [
+        {
+          "after": 25,
+          "at": "2026-08-06T04:22:26.510588+00:00",
+          "note": "재입고처리",
+          "q": -28,
+          "type": "reversal"
+        }
+      ],
+      "ref": "purchase_receipt_reversal",
+      "stock_delta": -28
+    },
+    {
+      "cost_delta": null,
+      "difference": 28,
+      "events": null,
+      "id": "f5ead5ef-70c5-4f8e-9ed4-a047110dc4cb",
+      "item": "발라리안맥스프로 0.5 팟",
+      "movements": [
+        {
+          "after": 25,
+          "at": "2026-08-06T04:27:56.569549+00:00",
+          "note": "시연용 잘못 선택함",
+          "q": -28,
+          "type": "reversal"
+        }
+      ],
+      "ref": "purchase_receipt_reversal",
+      "stock_delta": -28
+    },
+    {
+      "cost_delta": 34,
+      "difference": 34,
+      "events": [
+        {
+          "at": "2026-07-21T15:00:00+00:00",
+          "cost": 102000,
+          "meta": {
+            "basisType": "opening_20260722"
+          },
+          "q": 34,
+          "type": "opening"
+        }
+      ],
+      "id": "발라리안맥스프로 0.5 팟",
+      "item": "발라리안맥스프로 0.5 팟",
+      "movements": null,
+      "ref": "settlement_cost_basis",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": null,
+      "difference": -34,
+      "events": null,
+      "id": null,
+      "item": "발라리안맥스프로 0.5 팟",
+      "movements": [
+        {
+          "after": 34,
+          "at": "2026-07-22T12:51:54.973352+00:00",
+          "note": "기초재고",
+          "q": 34,
+          "type": "initial"
+        }
+      ],
+      "ref": null,
+      "stock_delta": 34
+    },
+    {
+      "cost_delta": -1,
+      "difference": -1,
+      "events": [
+        {
+          "at": "2026-08-27T07:47:38.990302+00:00",
+          "cost": 4950,
+          "meta": {
+            "note": "원가 연결 점검에서 소진",
+            "reconciliation": true,
+            "sourceLayerId": "068d31f3-89e0-4133-9eae-98998e6bca26"
+          },
+          "q": 1,
+          "type": "reconciliation_out"
+        }
+      ],
+      "id": "612cad62-4b29-45d5-9ca5-665687043c19",
+      "item": "발라리안맥스프로 투명케이스 신형",
+      "movements": null,
+      "ref": "cost_reconciliation",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": -1,
+      "difference": -1,
+      "events": [
+        {
+          "at": "2026-08-27T07:48:00.65092+00:00",
+          "cost": 4950,
+          "meta": {
+            "note": "원가 연결 점검에서 소진",
+            "reconciliation": true,
+            "sourceLayerId": "37efd81a-5bb4-4587-a439-ed899956243e"
+          },
+          "q": 1,
+          "type": "reconciliation_out"
+        }
+      ],
+      "id": "b6a9a539-b6f8-4894-ae8e-f418154e3265",
+      "item": "발라리안맥스프로 투명케이스 신형",
+      "movements": null,
+      "ref": "cost_reconciliation",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": null,
+      "difference": 1,
+      "events": null,
+      "id": "6195",
+      "item": "발라리안맥스프로 투명케이스 신형",
+      "movements": [
+        {
+          "after": 2,
+          "at": "2026-08-12T08:00:56.839204+00:00",
+          "note": "출고 처리",
+          "q": -1,
+          "type": "sale_out"
+        }
+      ],
+      "ref": "outbound_log",
+      "stock_delta": -1
+    },
+    {
+      "cost_delta": null,
+      "difference": 1,
+      "events": null,
+      "id": "6208",
+      "item": "발라리안맥스프로 투명케이스 신형",
+      "movements": [
+        {
+          "after": 4,
+          "at": "2026-08-14T08:27:12.565499+00:00",
+          "note": "출고 수정",
+          "q": -1,
+          "type": "outbound_edit"
+        }
+      ],
+      "ref": "outbound_log",
+      "stock_delta": -1
+    },
+    {
+      "cost_delta": 3,
+      "difference": 3,
+      "events": [
+        {
+          "at": "2026-07-21T15:00:00+00:00",
+          "cost": 14850,
+          "meta": {
+            "basisType": "opening_20260722"
+          },
+          "q": 3,
+          "type": "opening"
+        }
+      ],
+      "id": "발라리안맥스프로 투명케이스 신형",
+      "item": "발라리안맥스프로 투명케이스 신형",
+      "movements": null,
+      "ref": "settlement_cost_basis",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": null,
+      "difference": -3,
+      "events": null,
+      "id": null,
+      "item": "발라리안맥스프로 투명케이스 신형",
+      "movements": [
+        {
+          "after": 3,
+          "at": "2026-07-22T12:51:54.973352+00:00",
+          "note": "기초재고",
+          "q": 3,
+          "type": "initial"
+        }
+      ],
+      "ref": null,
+      "stock_delta": 3
+    },
+    {
+      "cost_delta": -1,
+      "difference": -1,
+      "events": [
+        {
+          "at": "2026-08-27T07:39:49.741785+00:00",
+          "cost": 2970,
+          "meta": {
+            "note": "원가 연결 점검에서 소진",
+            "reconciliation": true,
+            "sourceLayerId": "7cc6cc4e-ad7a-4f68-be1c-b00ac6373024"
+          },
+          "q": 1,
+          "type": "reconciliation_out"
+        }
+      ],
+      "id": "377860c4-099a-419f-878f-b4bd6c1b08b6",
+      "item": "아보카도 aio 0.6 팟",
+      "movements": null,
+      "ref": "cost_reconciliation",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": -2,
+      "difference": 1,
+      "events": [
+        {
+          "at": "2026-08-10T04:51:32.678713+00:00",
+          "cost": 5940,
+          "meta": {
+            "backfilled": true,
+            "customerId": 1675
+          },
+          "q": 2,
+          "type": "sale_out"
+        }
+      ],
+      "id": "6118",
+      "item": "아보카도 aio 0.6 팟",
+      "movements": [
+        {
+          "after": 0,
+          "at": "2026-08-10T04:51:32.678713+00:00",
+          "note": "출고 처리",
+          "q": -3,
+          "type": "sale_out"
+        }
+      ],
+      "ref": "outbound_log",
+      "stock_delta": -3
+    },
+    {
+      "cost_delta": 3,
+      "difference": 3,
+      "events": [
+        {
+          "at": "2026-07-21T15:00:00+00:00",
+          "cost": 8910,
+          "meta": {
+            "basisType": "opening_20260722"
+          },
+          "q": 3,
+          "type": "opening"
+        }
+      ],
+      "id": "아보카도 aio 0.6 팟",
+      "item": "아보카도 aio 0.6 팟",
+      "movements": null,
+      "ref": "settlement_cost_basis",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": null,
+      "difference": -3,
+      "events": null,
+      "id": null,
+      "item": "아보카도 aio 0.6 팟",
+      "movements": [
+        {
+          "after": 3,
+          "at": "2026-07-22T12:51:54.973352+00:00",
+          "note": "기초재고",
+          "q": 3,
+          "type": "initial"
+        }
+      ],
+      "ref": null,
+      "stock_delta": 3
+    },
+    {
+      "cost_delta": -1,
+      "difference": -1,
+      "events": [
+        {
+          "at": "2026-08-27T07:48:06.873699+00:00",
+          "cost": 2000,
+          "meta": {
+            "note": "원가 연결 점검에서 소진",
+            "reconciliation": true,
+            "sourceLayerId": "19ec1282-7da6-493e-9a1d-aecf99331d5a"
+          },
+          "q": 1,
+          "type": "reconciliation_out"
+        }
+      ],
+      "id": "34d5a294-4d8b-4f16-a1d2-21676f230ee4",
+      "item": "젤로 0.8 부스트팟",
+      "movements": null,
+      "ref": "cost_reconciliation",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": null,
+      "difference": 1,
+      "events": null,
+      "id": "6111",
+      "item": "젤로 0.8 부스트팟",
+      "movements": [
+        {
+          "after": 67,
+          "at": "2026-08-10T02:12:51.746865+00:00",
+          "note": "출고 처리",
+          "q": -1,
+          "type": "sale_out"
+        }
+      ],
+      "ref": "outbound_log",
+      "stock_delta": -1
+    },
+    {
+      "cost_delta": null,
+      "difference": -30,
+      "events": null,
+      "id": "151b702a-c435-44f8-aab7-9d5d9718e7da",
+      "item": "젤로 0.8 부스트팟",
+      "movements": [
+        {
+          "after": 73,
+          "at": "2026-08-06T04:38:47.825772+00:00",
+          "note": "입고 처리",
+          "q": 30,
+          "type": "purchase_in"
+        }
+      ],
+      "ref": "purchase_receipt",
+      "stock_delta": 30
+    },
+    {
+      "cost_delta": null,
+      "difference": -51,
+      "events": null,
+      "id": "5e8ab059-4424-4527-ae74-b450270a5dc2",
+      "item": "젤로 0.8 부스트팟",
+      "movements": [
+        {
+          "after": 62,
+          "at": "2026-07-22T14:20:39.771018+00:00",
+          "note": "입고 처리",
+          "q": 51,
+          "type": "purchase_in"
+        }
+      ],
+      "ref": "purchase_receipt",
+      "stock_delta": 51
+    },
+    {
+      "cost_delta": null,
+      "difference": -30,
+      "events": null,
+      "id": "bca37325-a8bb-4ad3-9cd2-d5536502ca4d",
+      "item": "젤로 0.8 부스트팟",
+      "movements": [
+        {
+          "after": 73,
+          "at": "2026-08-06T04:21:41.424699+00:00",
+          "note": "입고 처리",
+          "q": 30,
+          "type": "purchase_in"
+        }
+      ],
+      "ref": "purchase_receipt",
+      "stock_delta": 30
+    },
+    {
+      "cost_delta": null,
+      "difference": -30,
+      "events": null,
+      "id": "f5ead5ef-70c5-4f8e-9ed4-a047110dc4cb",
+      "item": "젤로 0.8 부스트팟",
+      "movements": [
+        {
+          "after": 73,
+          "at": "2026-08-06T04:26:50.929306+00:00",
+          "note": "입고 처리",
+          "q": 30,
+          "type": "purchase_in"
+        }
+      ],
+      "ref": "purchase_receipt",
+      "stock_delta": 30
+    },
+    {
+      "cost_delta": null,
+      "difference": 30,
+      "events": null,
+      "id": "151b702a-c435-44f8-aab7-9d5d9718e7da",
+      "item": "젤로 0.8 부스트팟",
+      "movements": [
+        {
+          "after": 40,
+          "at": "2026-08-07T08:42:50.988409+00:00",
+          "note": "수량 수정",
+          "q": -30,
+          "type": "reversal"
+        }
+      ],
+      "ref": "purchase_receipt_reversal",
+      "stock_delta": -30
+    },
+    {
+      "cost_delta": null,
+      "difference": 51,
+      "events": null,
+      "id": "5e8ab059-4424-4527-ae74-b450270a5dc2",
+      "item": "젤로 0.8 부스트팟",
+      "movements": [
+        {
+          "after": 11,
+          "at": "2026-07-23T02:19:02.823563+00:00",
+          "note": "품목 2개 수량 변경",
+          "q": -51,
+          "type": "reversal"
+        }
+      ],
+      "ref": "purchase_receipt_reversal",
+      "stock_delta": -51
+    },
+    {
+      "cost_delta": null,
+      "difference": 30,
+      "events": null,
+      "id": "bca37325-a8bb-4ad3-9cd2-d5536502ca4d",
+      "item": "젤로 0.8 부스트팟",
+      "movements": [
+        {
+          "after": 43,
+          "at": "2026-08-06T04:22:26.510588+00:00",
+          "note": "재입고처리",
+          "q": -30,
+          "type": "reversal"
+        }
+      ],
+      "ref": "purchase_receipt_reversal",
+      "stock_delta": -30
+    },
+    {
+      "cost_delta": null,
+      "difference": 30,
+      "events": null,
+      "id": "f5ead5ef-70c5-4f8e-9ed4-a047110dc4cb",
+      "item": "젤로 0.8 부스트팟",
+      "movements": [
+        {
+          "after": 43,
+          "at": "2026-08-06T04:27:56.569549+00:00",
+          "note": "시연용 잘못 선택함",
+          "q": -30,
+          "type": "reversal"
+        }
+      ],
+      "ref": "purchase_receipt_reversal",
+      "stock_delta": -30
+    },
+    {
+      "cost_delta": 11,
+      "difference": 11,
+      "events": [
+        {
+          "at": "2026-07-21T15:00:00+00:00",
+          "cost": 22000,
+          "meta": {
+            "basisType": "opening_20260722"
+          },
+          "q": 11,
+          "type": "opening"
+        }
+      ],
+      "id": "젤로 0.8 부스트팟",
+      "item": "젤로 0.8 부스트팟",
+      "movements": null,
+      "ref": "settlement_cost_basis",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": null,
+      "difference": -11,
+      "events": null,
+      "id": null,
+      "item": "젤로 0.8 부스트팟",
+      "movements": [
+        {
+          "after": 11,
+          "at": "2026-07-22T12:51:54.973352+00:00",
+          "note": "기초재고",
+          "q": 11,
+          "type": "initial"
+        }
+      ],
+      "ref": null,
+      "stock_delta": 11
+    },
+    {
+      "cost_delta": -1,
+      "difference": -1,
+      "events": [
+        {
+          "at": "2026-08-27T07:48:12.435605+00:00",
+          "cost": 2000,
+          "meta": {
+            "note": "원가 연결 점검에서 소진",
+            "reconciliation": true,
+            "sourceLayerId": "51a37886-c1cb-41e4-9196-e705874e9cf7"
+          },
+          "q": 1,
+          "type": "reconciliation_out"
+        }
+      ],
+      "id": "ddadae27-793a-46d3-b4c3-b7388ced1c67",
+      "item": "젤로 0.8 팟",
+      "movements": null,
+      "ref": "cost_reconciliation",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": -1,
+      "difference": -1,
+      "events": [
+        {
+          "at": "2026-07-22T05:38:14.952933+00:00",
+          "cost": 2000,
+          "meta": {
+            "backfilled": true,
+            "customerId": 1662
+          },
+          "q": 1,
+          "type": "sale_out"
+        }
+      ],
+      "id": "5638",
+      "item": "젤로 0.8 팟",
+      "movements": null,
+      "ref": "outbound_log",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": -6,
+      "difference": 2,
+      "events": [
+        {
+          "at": "2026-08-25T12:11:28.807561+00:00",
+          "cost": 12000,
+          "meta": {
+            "backfilled": true,
+            "customerId": 1214
+          },
+          "q": 6,
+          "type": "sale_out"
+        }
+      ],
+      "id": "6617",
+      "item": "젤로 0.8 팟",
+      "movements": [
+        {
+          "after": 24,
+          "at": "2026-08-25T12:11:28.807561+00:00",
+          "note": "출고 처리",
+          "q": -8,
+          "type": "sale_out"
+        }
+      ],
+      "ref": "outbound_log",
+      "stock_delta": -8
+    },
+    {
+      "cost_delta": null,
+      "difference": -30,
+      "events": null,
+      "id": "151b702a-c435-44f8-aab7-9d5d9718e7da",
+      "item": "젤로 0.8 팟",
+      "movements": [
+        {
+          "after": 59,
+          "at": "2026-08-06T04:38:47.825772+00:00",
+          "note": "입고 처리",
+          "q": 30,
+          "type": "purchase_in"
+        }
+      ],
+      "ref": "purchase_receipt",
+      "stock_delta": 30
+    },
+    {
+      "cost_delta": null,
+      "difference": -36,
+      "events": null,
+      "id": "5e8ab059-4424-4527-ae74-b450270a5dc2",
+      "item": "젤로 0.8 팟",
+      "movements": [
+        {
+          "after": 64,
+          "at": "2026-07-22T14:20:39.771018+00:00",
+          "note": "입고 처리",
+          "q": 36,
+          "type": "purchase_in"
+        }
+      ],
+      "ref": "purchase_receipt",
+      "stock_delta": 36
+    },
+    {
+      "cost_delta": null,
+      "difference": -30,
+      "events": null,
+      "id": "bca37325-a8bb-4ad3-9cd2-d5536502ca4d",
+      "item": "젤로 0.8 팟",
+      "movements": [
+        {
+          "after": 59,
+          "at": "2026-08-06T04:21:41.424699+00:00",
+          "note": "입고 처리",
+          "q": 30,
+          "type": "purchase_in"
+        }
+      ],
+      "ref": "purchase_receipt",
+      "stock_delta": 30
+    },
+    {
+      "cost_delta": null,
+      "difference": -30,
+      "events": null,
+      "id": "f5ead5ef-70c5-4f8e-9ed4-a047110dc4cb",
+      "item": "젤로 0.8 팟",
+      "movements": [
+        {
+          "after": 59,
+          "at": "2026-08-06T04:26:50.929306+00:00",
+          "note": "입고 처리",
+          "q": 30,
+          "type": "purchase_in"
+        }
+      ],
+      "ref": "purchase_receipt",
+      "stock_delta": 30
+    },
+    {
+      "cost_delta": null,
+      "difference": 30,
+      "events": null,
+      "id": "151b702a-c435-44f8-aab7-9d5d9718e7da",
+      "item": "젤로 0.8 팟",
+      "movements": [
+        {
+          "after": 26,
+          "at": "2026-08-07T08:42:50.988409+00:00",
+          "note": "수량 수정",
+          "q": -30,
+          "type": "reversal"
+        }
+      ],
+      "ref": "purchase_receipt_reversal",
+      "stock_delta": -30
+    },
+    {
+      "cost_delta": null,
+      "difference": 36,
+      "events": null,
+      "id": "5e8ab059-4424-4527-ae74-b450270a5dc2",
+      "item": "젤로 0.8 팟",
+      "movements": [
+        {
+          "after": 28,
+          "at": "2026-07-23T02:19:02.823563+00:00",
+          "note": "품목 2개 수량 변경",
+          "q": -36,
+          "type": "reversal"
+        }
+      ],
+      "ref": "purchase_receipt_reversal",
+      "stock_delta": -36
+    },
+    {
+      "cost_delta": null,
+      "difference": 30,
+      "events": null,
+      "id": "bca37325-a8bb-4ad3-9cd2-d5536502ca4d",
+      "item": "젤로 0.8 팟",
+      "movements": [
+        {
+          "after": 29,
+          "at": "2026-08-06T04:22:26.510588+00:00",
+          "note": "재입고처리",
+          "q": -30,
+          "type": "reversal"
+        }
+      ],
+      "ref": "purchase_receipt_reversal",
+      "stock_delta": -30
+    },
+    {
+      "cost_delta": null,
+      "difference": 30,
+      "events": null,
+      "id": "f5ead5ef-70c5-4f8e-9ed4-a047110dc4cb",
+      "item": "젤로 0.8 팟",
+      "movements": [
+        {
+          "after": 29,
+          "at": "2026-08-06T04:27:56.569549+00:00",
+          "note": "시연용 잘못 선택함",
+          "q": -30,
+          "type": "reversal"
+        }
+      ],
+      "ref": "purchase_receipt_reversal",
+      "stock_delta": -30
+    },
+    {
+      "cost_delta": 28,
+      "difference": 28,
+      "events": [
+        {
+          "at": "2026-07-21T15:00:00+00:00",
+          "cost": 56000,
+          "meta": {
+            "basisType": "opening_20260722"
+          },
+          "q": 28,
+          "type": "opening"
+        }
+      ],
+      "id": "젤로 0.8 팟",
+      "item": "젤로 0.8 팟",
+      "movements": null,
+      "ref": "settlement_cost_basis",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": null,
+      "difference": -28,
+      "events": null,
+      "id": null,
+      "item": "젤로 0.8 팟",
+      "movements": [
+        {
+          "after": 28,
+          "at": "2026-07-22T12:51:54.973352+00:00",
+          "note": "기초재고",
+          "q": 28,
+          "type": "initial"
+        }
+      ],
+      "ref": null,
+      "stock_delta": 28
+    },
+    {
+      "cost_delta": null,
+      "difference": -15,
+      "events": null,
+      "id": "5e8ab059-4424-4527-ae74-b450270a5dc2",
+      "item": "젤로 1.2 팟",
+      "movements": [
+        {
+          "after": 18,
+          "at": "2026-07-22T14:20:39.771018+00:00",
+          "note": "입고 처리",
+          "q": 15,
+          "type": "purchase_in"
+        }
+      ],
+      "ref": "purchase_receipt",
+      "stock_delta": 15
+    },
+    {
+      "cost_delta": null,
+      "difference": 15,
+      "events": null,
+      "id": "5e8ab059-4424-4527-ae74-b450270a5dc2",
+      "item": "젤로 1.2 팟",
+      "movements": [
+        {
+          "after": 3,
+          "at": "2026-07-23T02:19:02.823563+00:00",
+          "note": "품목 2개 수량 변경",
+          "q": -15,
+          "type": "reversal"
+        }
+      ],
+      "ref": "purchase_receipt_reversal",
+      "stock_delta": -15
+    },
+    {
+      "cost_delta": 3,
+      "difference": 3,
+      "events": [
+        {
+          "at": "2026-07-21T15:00:00+00:00",
+          "cost": 6000,
+          "meta": {
+            "basisType": "opening_20260722"
+          },
+          "q": 3,
+          "type": "opening"
+        }
+      ],
+      "id": "젤로 1.2 팟",
+      "item": "젤로 1.2 팟",
+      "movements": null,
+      "ref": "settlement_cost_basis",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": null,
+      "difference": -3,
+      "events": null,
+      "id": null,
+      "item": "젤로 1.2 팟",
+      "movements": [
+        {
+          "after": 3,
+          "at": "2026-07-22T12:51:54.973352+00:00",
+          "note": "기초재고",
+          "q": 3,
+          "type": "initial"
+        }
+      ],
+      "ref": null,
+      "stock_delta": 3
+    },
+    {
+      "cost_delta": -4,
+      "difference": -4,
+      "events": [
+        {
+          "at": "2026-08-27T07:39:43.800958+00:00",
+          "cost": 11000,
+          "meta": {
+            "note": "원가 연결 점검에서 소진",
+            "reconciliation": true,
+            "sourceLayerId": "f0b6218e-26b3-43a8-a4f1-da4b0deb643a"
+          },
+          "q": 4,
+          "type": "reconciliation_out"
+        }
+      ],
+      "id": "0ac27225-5853-4e61-86af-a13ac1def6e5",
+      "item": "젤로 투명케이스",
+      "movements": null,
+      "ref": "cost_reconciliation",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": -1,
+      "difference": -1,
+      "events": [
+        {
+          "at": "2026-09-03T04:36:33.986577+00:00",
+          "cost": 3080,
+          "meta": {
+            "note": "원가 연결 점검에서 소진",
+            "reconciliation": true,
+            "sourceLayerId": "a91d988b-67d8-49ce-9d97-e4f6707ef9c2"
+          },
+          "q": 1,
+          "type": "reconciliation_out"
+        }
+      ],
+      "id": "1b580cc6-ac47-4a42-ae1e-ff9ce9da2495",
+      "item": "젤로 투명케이스",
+      "movements": null,
+      "ref": "cost_reconciliation",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": -2,
+      "difference": -2,
+      "events": [
+        {
+          "at": "2026-08-27T07:47:24.007361+00:00",
+          "cost": 6160,
+          "meta": {
+            "note": "원가 연결 점검에서 소진",
+            "reconciliation": true,
+            "sourceLayerId": "a91d988b-67d8-49ce-9d97-e4f6707ef9c2"
+          },
+          "q": 2,
+          "type": "reconciliation_out"
+        }
+      ],
+      "id": "be510ec8-b253-4b0f-a5af-b3c4274272da",
+      "item": "젤로 투명케이스",
+      "movements": null,
+      "ref": "cost_reconciliation",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": null,
+      "difference": 1,
+      "events": null,
+      "id": "5725",
+      "item": "젤로 투명케이스",
+      "movements": [
+        {
+          "after": 4,
+          "at": "2026-07-27T03:51:28.034557+00:00",
+          "note": "출고 수정",
+          "q": -1,
+          "type": "outbound_edit"
+        }
+      ],
+      "ref": "outbound_log",
+      "stock_delta": -1
+    },
+    {
+      "cost_delta": null,
+      "difference": 1,
+      "events": null,
+      "id": "5735",
+      "item": "젤로 투명케이스",
+      "movements": [
+        {
+          "after": 3,
+          "at": "2026-07-27T09:08:45.556784+00:00",
+          "note": "출고 처리",
+          "q": -1,
+          "type": "sale_out"
+        }
+      ],
+      "ref": "outbound_log",
+      "stock_delta": -1
+    },
+    {
+      "cost_delta": null,
+      "difference": 1,
+      "events": null,
+      "id": "5779",
+      "item": "젤로 투명케이스",
+      "movements": [
+        {
+          "after": 2,
+          "at": "2026-07-29T02:19:54.44162+00:00",
+          "note": "출고 처리",
+          "q": -1,
+          "type": "sale_out"
+        }
+      ],
+      "ref": "outbound_log",
+      "stock_delta": -1
+    },
+    {
+      "cost_delta": null,
+      "difference": 2,
+      "events": null,
+      "id": "6480",
+      "item": "젤로 투명케이스",
+      "movements": [
+        {
+          "after": 5,
+          "at": "2026-08-20T06:57:15.144977+00:00",
+          "note": "출고 수정",
+          "q": -2,
+          "type": "outbound_edit"
+        }
+      ],
+      "ref": "outbound_log",
+      "stock_delta": -2
+    },
+    {
+      "cost_delta": null,
+      "difference": 1,
+      "events": null,
+      "id": "6592",
+      "item": "젤로 투명케이스",
+      "movements": [
+        {
+          "after": 4,
+          "at": "2026-08-25T02:50:45.190335+00:00",
+          "note": "출고 처리",
+          "q": -1,
+          "type": "sale_out"
+        }
+      ],
+      "ref": "outbound_log",
+      "stock_delta": -1
+    },
+    {
+      "cost_delta": null,
+      "difference": 1,
+      "events": null,
+      "id": "6754",
+      "item": "젤로 투명케이스",
+      "movements": [
+        {
+          "after": 3,
+          "at": "2026-08-31T10:06:24.569514+00:00",
+          "note": "출고 처리",
+          "q": -1,
+          "type": "sale_out"
+        }
+      ],
+      "ref": "outbound_log",
+      "stock_delta": -1
+    },
+    {
+      "cost_delta": 5,
+      "difference": 5,
+      "events": [
+        {
+          "at": "2026-07-21T15:00:00+00:00",
+          "cost": 13750,
+          "meta": {
+            "basisType": "opening_20260722"
+          },
+          "q": 5,
+          "type": "opening"
+        }
+      ],
+      "id": "젤로 투명케이스",
+      "item": "젤로 투명케이스",
+      "movements": null,
+      "ref": "settlement_cost_basis",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": null,
+      "difference": -5,
+      "events": null,
+      "id": null,
+      "item": "젤로 투명케이스",
+      "movements": [
+        {
+          "after": 5,
+          "at": "2026-07-22T12:51:54.973352+00:00",
+          "note": "기초재고",
+          "q": 5,
+          "type": "initial"
+        }
+      ],
+      "ref": null,
+      "stock_delta": 5
+    },
+    {
+      "cost_delta": 1,
+      "difference": 1,
+      "events": [
+        {
+          "at": "2026-08-19T15:00:00+00:00",
+          "cost": 2000,
+          "meta": {
+            "note": "원가 연결 점검에서 추가",
+            "reconciliation": true
+          },
+          "q": 1,
+          "type": "reconciliation_in"
+        }
+      ],
+      "id": "33d6937f-a3d8-4c42-9778-fd77e9ed89ca",
+      "item": "젤로맥스 0.6 팟 (5ml)",
+      "movements": null,
+      "ref": "cost_reconciliation",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": -3,
+      "difference": -3,
+      "events": [
+        {
+          "at": "2026-07-22T05:16:03.984823+00:00",
+          "cost": 6000,
+          "meta": {
+            "customerId": 1575,
+            "memo": ""
+          },
+          "q": 3,
+          "type": "sale_out"
+        }
+      ],
+      "id": "5637",
+      "item": "젤로맥스 0.6 팟 (5ml)",
+      "movements": null,
+      "ref": "outbound_log",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": -4,
+      "difference": 2,
+      "events": [
+        {
+          "at": "2026-08-04T11:59:27.134193+00:00",
+          "cost": 8000,
+          "meta": {
+            "backfilled": true,
+            "customerId": 857
+          },
+          "q": 4,
+          "type": "sale_out"
+        }
+      ],
+      "id": "5993",
+      "item": "젤로맥스 0.6 팟 (5ml)",
+      "movements": [
+        {
+          "after": 29,
+          "at": "2026-08-04T11:59:27.134193+00:00",
+          "note": "출고 처리",
+          "q": -6,
+          "type": "sale_out"
+        }
+      ],
+      "ref": "outbound_log",
+      "stock_delta": -6
+    },
+    {
+      "cost_delta": null,
+      "difference": -9,
+      "events": null,
+      "id": "151b702a-c435-44f8-aab7-9d5d9718e7da",
+      "item": "젤로맥스 0.6 팟 (5ml)",
+      "movements": [
+        {
+          "after": 37,
+          "at": "2026-08-06T04:38:47.825772+00:00",
+          "note": "입고 처리",
+          "q": 9,
+          "type": "purchase_in"
+        }
+      ],
+      "ref": "purchase_receipt",
+      "stock_delta": 9
+    },
+    {
+      "cost_delta": null,
+      "difference": -36,
+      "events": null,
+      "id": "5e8ab059-4424-4527-ae74-b450270a5dc2",
+      "item": "젤로맥스 0.6 팟 (5ml)",
+      "movements": [
+        {
+          "after": 60,
+          "at": "2026-07-22T14:20:39.771018+00:00",
+          "note": "입고 처리",
+          "q": 36,
+          "type": "purchase_in"
+        }
+      ],
+      "ref": "purchase_receipt",
+      "stock_delta": 36
+    },
+    {
+      "cost_delta": null,
+      "difference": -9,
+      "events": null,
+      "id": "bca37325-a8bb-4ad3-9cd2-d5536502ca4d",
+      "item": "젤로맥스 0.6 팟 (5ml)",
+      "movements": [
+        {
+          "after": 37,
+          "at": "2026-08-06T04:21:41.424699+00:00",
+          "note": "입고 처리",
+          "q": 9,
+          "type": "purchase_in"
+        }
+      ],
+      "ref": "purchase_receipt",
+      "stock_delta": 9
+    },
+    {
+      "cost_delta": null,
+      "difference": -9,
+      "events": null,
+      "id": "f5ead5ef-70c5-4f8e-9ed4-a047110dc4cb",
+      "item": "젤로맥스 0.6 팟 (5ml)",
+      "movements": [
+        {
+          "after": 37,
+          "at": "2026-08-06T04:26:50.929306+00:00",
+          "note": "입고 처리",
+          "q": 9,
+          "type": "purchase_in"
+        }
+      ],
+      "ref": "purchase_receipt",
+      "stock_delta": 9
+    },
+    {
+      "cost_delta": null,
+      "difference": 9,
+      "events": null,
+      "id": "151b702a-c435-44f8-aab7-9d5d9718e7da",
+      "item": "젤로맥스 0.6 팟 (5ml)",
+      "movements": [
+        {
+          "after": 28,
+          "at": "2026-08-07T08:42:50.988409+00:00",
+          "note": "수량 수정",
+          "q": -9,
+          "type": "reversal"
+        }
+      ],
+      "ref": "purchase_receipt_reversal",
+      "stock_delta": -9
+    },
+    {
+      "cost_delta": null,
+      "difference": 36,
+      "events": null,
+      "id": "5e8ab059-4424-4527-ae74-b450270a5dc2",
+      "item": "젤로맥스 0.6 팟 (5ml)",
+      "movements": [
+        {
+          "after": 24,
+          "at": "2026-07-23T02:19:02.823563+00:00",
+          "note": "품목 2개 수량 변경",
+          "q": -36,
+          "type": "reversal"
+        }
+      ],
+      "ref": "purchase_receipt_reversal",
+      "stock_delta": -36
+    },
+    {
+      "cost_delta": null,
+      "difference": 9,
+      "events": null,
+      "id": "bca37325-a8bb-4ad3-9cd2-d5536502ca4d",
+      "item": "젤로맥스 0.6 팟 (5ml)",
+      "movements": [
+        {
+          "after": 28,
+          "at": "2026-08-06T04:22:26.510588+00:00",
+          "note": "재입고처리",
+          "q": -9,
+          "type": "reversal"
+        }
+      ],
+      "ref": "purchase_receipt_reversal",
+      "stock_delta": -9
+    },
+    {
+      "cost_delta": null,
+      "difference": 9,
+      "events": null,
+      "id": "f5ead5ef-70c5-4f8e-9ed4-a047110dc4cb",
+      "item": "젤로맥스 0.6 팟 (5ml)",
+      "movements": [
+        {
+          "after": 28,
+          "at": "2026-08-06T04:27:56.569549+00:00",
+          "note": "시연용 잘못 선택함",
+          "q": -9,
+          "type": "reversal"
+        }
+      ],
+      "ref": "purchase_receipt_reversal",
+      "stock_delta": -9
+    },
+    {
+      "cost_delta": 24,
+      "difference": 24,
+      "events": [
+        {
+          "at": "2026-07-21T15:00:00+00:00",
+          "cost": 48000,
+          "meta": {
+            "basisType": "opening_20260722"
+          },
+          "q": 24,
+          "type": "opening"
+        }
+      ],
+      "id": "젤로맥스 0.6 팟 (5ml)",
+      "item": "젤로맥스 0.6 팟 (5ml)",
+      "movements": null,
+      "ref": "settlement_cost_basis",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": null,
+      "difference": -24,
+      "events": null,
+      "id": null,
+      "item": "젤로맥스 0.6 팟 (5ml)",
+      "movements": [
+        {
+          "after": 24,
+          "at": "2026-07-22T12:51:54.973352+00:00",
+          "note": "기초재고",
+          "q": 24,
+          "type": "initial"
+        }
+      ],
+      "ref": null,
+      "stock_delta": 24
+    },
+    {
+      "cost_delta": -2,
+      "difference": -2,
+      "events": [
+        {
+          "at": "2026-08-27T07:47:32.153912+00:00",
+          "cost": 6160,
+          "meta": {
+            "note": "원가 연결 점검에서 소진",
+            "reconciliation": true,
+            "sourceLayerId": "064d74b0-30c1-4129-aa5e-c347bcf84ff6"
+          },
+          "q": 2,
+          "type": "reconciliation_out"
+        }
+      ],
+      "id": "e808837c-d654-4470-a643-f6103e37e92d",
+      "item": "젤로맥스 투명케이스",
+      "movements": null,
+      "ref": "cost_reconciliation",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": null,
+      "difference": 2,
+      "events": null,
+      "id": "5834",
+      "item": "젤로맥스 투명케이스",
+      "movements": [
+        {
+          "after": 0,
+          "at": "2026-07-30T11:49:45.057904+00:00",
+          "note": "출고 처리",
+          "q": -2,
+          "type": "sale_out"
+        }
+      ],
+      "ref": "outbound_log",
+      "stock_delta": -2
+    },
+    {
+      "cost_delta": 2,
+      "difference": 2,
+      "events": [
+        {
+          "at": "2026-07-21T15:00:00+00:00",
+          "cost": 6160,
+          "meta": {
+            "basisType": "opening_20260722"
+          },
+          "q": 2,
+          "type": "opening"
+        }
+      ],
+      "id": "젤로맥스 투명케이스",
+      "item": "젤로맥스 투명케이스",
+      "movements": null,
+      "ref": "settlement_cost_basis",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": null,
+      "difference": -2,
+      "events": null,
+      "id": null,
+      "item": "젤로맥스 투명케이스",
+      "movements": [
+        {
+          "after": 2,
+          "at": "2026-07-22T12:51:54.973352+00:00",
+          "note": "기초재고",
+          "q": 2,
+          "type": "initial"
+        }
+      ],
+      "ref": null,
+      "stock_delta": 2
+    },
+    {
+      "cost_delta": -1,
+      "difference": -1,
+      "events": [
+        {
+          "at": "2026-08-27T07:46:30.546444+00:00",
+          "cost": 0,
+          "meta": {
+            "note": "원가 연결 점검에서 소진",
+            "reconciliation": true,
+            "sourceLayerId": "d2afe6e5-86fd-454b-ac03-685f6e31e091"
+          },
+          "q": 1,
+          "type": "reconciliation_out"
+        }
+      ],
+      "id": "cb0779dd-1347-4782-9826-9826da3ac340",
+      "item": "팬텀 엔트리 케이스",
+      "movements": null,
+      "ref": "cost_reconciliation",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": null,
+      "difference": 1,
+      "events": null,
+      "id": "6594",
+      "item": "팬텀 엔트리 케이스",
+      "movements": [
+        {
+          "after": 9,
+          "at": "2026-08-25T02:52:13.947903+00:00",
+          "note": "출고 처리",
+          "q": -1,
+          "type": "sale_out"
+        }
+      ],
+      "ref": "outbound_log",
+      "stock_delta": -1
+    },
+    {
+      "cost_delta": 10,
+      "difference": 10,
+      "events": [
+        {
+          "at": "2026-07-21T15:00:00+00:00",
+          "cost": 0,
+          "meta": {
+            "basisType": "opening_20260722"
+          },
+          "q": 10,
+          "type": "opening"
+        }
+      ],
+      "id": "팬텀 엔트리 케이스",
+      "item": "팬텀 엔트리 케이스",
+      "movements": null,
+      "ref": "settlement_cost_basis",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": null,
+      "difference": -10,
+      "events": null,
+      "id": null,
+      "item": "팬텀 엔트리 케이스",
+      "movements": [
+        {
+          "after": 10,
+          "at": "2026-07-22T12:51:54.973352+00:00",
+          "note": "기초재고",
+          "q": 10,
+          "type": "initial"
+        }
+      ],
+      "ref": null,
+      "stock_delta": 10
+    },
+    {
+      "cost_delta": -1,
+      "difference": -1,
+      "events": [
+        {
+          "at": "2026-08-27T07:46:48.461366+00:00",
+          "cost": 2000,
+          "meta": {
+            "note": "원가 연결 점검에서 소진",
+            "reconciliation": true,
+            "sourceLayerId": "b7f0c7cc-8a65-4412-a9c6-7a5da61893c0"
+          },
+          "q": 1,
+          "type": "reconciliation_out"
+        }
+      ],
+      "id": "61d4cde7-87c0-4326-a441-2a3da89fe066",
+      "item": "하복 0.6 코일",
+      "movements": null,
+      "ref": "cost_reconciliation",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": null,
+      "difference": 1,
+      "events": null,
+      "id": "6270",
+      "item": "하복 0.6 코일",
+      "movements": [
+        {
+          "after": 26,
+          "at": "2026-08-14T03:52:27.928822+00:00",
+          "note": "출고 처리",
+          "q": -1,
+          "type": "sale_out"
+        }
+      ],
+      "ref": "outbound_log",
+      "stock_delta": -1
+    },
+    {
+      "cost_delta": null,
+      "difference": -20,
+      "events": null,
+      "id": "151b702a-c435-44f8-aab7-9d5d9718e7da",
+      "item": "하복 0.6 코일",
+      "movements": [
+        {
+          "after": 34,
+          "at": "2026-08-06T04:38:47.825772+00:00",
+          "note": "입고 처리",
+          "q": 20,
+          "type": "purchase_in"
+        }
+      ],
+      "ref": "purchase_receipt",
+      "stock_delta": 20
+    },
+    {
+      "cost_delta": null,
+      "difference": -20,
+      "events": null,
+      "id": "bca37325-a8bb-4ad3-9cd2-d5536502ca4d",
+      "item": "하복 0.6 코일",
+      "movements": [
+        {
+          "after": 34,
+          "at": "2026-08-06T04:21:41.424699+00:00",
+          "note": "입고 처리",
+          "q": 20,
+          "type": "purchase_in"
+        }
+      ],
+      "ref": "purchase_receipt",
+      "stock_delta": 20
+    },
+    {
+      "cost_delta": null,
+      "difference": -20,
+      "events": null,
+      "id": "f5ead5ef-70c5-4f8e-9ed4-a047110dc4cb",
+      "item": "하복 0.6 코일",
+      "movements": [
+        {
+          "after": 34,
+          "at": "2026-08-06T04:26:50.929306+00:00",
+          "note": "입고 처리",
+          "q": 20,
+          "type": "purchase_in"
+        }
+      ],
+      "ref": "purchase_receipt",
+      "stock_delta": 20
+    },
+    {
+      "cost_delta": null,
+      "difference": 20,
+      "events": null,
+      "id": "151b702a-c435-44f8-aab7-9d5d9718e7da",
+      "item": "하복 0.6 코일",
+      "movements": [
+        {
+          "after": 14,
+          "at": "2026-08-07T08:42:50.988409+00:00",
+          "note": "수량 수정",
+          "q": -20,
+          "type": "reversal"
+        }
+      ],
+      "ref": "purchase_receipt_reversal",
+      "stock_delta": -20
+    },
+    {
+      "cost_delta": null,
+      "difference": 20,
+      "events": null,
+      "id": "bca37325-a8bb-4ad3-9cd2-d5536502ca4d",
+      "item": "하복 0.6 코일",
+      "movements": [
+        {
+          "after": 14,
+          "at": "2026-08-06T04:22:26.510588+00:00",
+          "note": "재입고처리",
+          "q": -20,
+          "type": "reversal"
+        }
+      ],
+      "ref": "purchase_receipt_reversal",
+      "stock_delta": -20
+    },
+    {
+      "cost_delta": null,
+      "difference": 20,
+      "events": null,
+      "id": "f5ead5ef-70c5-4f8e-9ed4-a047110dc4cb",
+      "item": "하복 0.6 코일",
+      "movements": [
+        {
+          "after": 14,
+          "at": "2026-08-06T04:27:56.569549+00:00",
+          "note": "시연용 잘못 선택함",
+          "q": -20,
+          "type": "reversal"
+        }
+      ],
+      "ref": "purchase_receipt_reversal",
+      "stock_delta": -20
+    },
+    {
+      "cost_delta": 30,
+      "difference": 30,
+      "events": [
+        {
+          "at": "2026-07-21T15:00:00+00:00",
+          "cost": 60000,
+          "meta": {
+            "basisType": "opening_20260722"
+          },
+          "q": 30,
+          "type": "opening"
+        }
+      ],
+      "id": "하복 0.6 코일",
+      "item": "하복 0.6 코일",
+      "movements": null,
+      "ref": "settlement_cost_basis",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": null,
+      "difference": -30,
+      "events": null,
+      "id": null,
+      "item": "하복 0.6 코일",
+      "movements": [
+        {
+          "after": 30,
+          "at": "2026-07-22T12:51:54.973352+00:00",
+          "note": "기초재고",
+          "q": 30,
+          "type": "initial"
+        }
+      ],
+      "ref": null,
+      "stock_delta": 30
+    },
+    {
+      "cost_delta": -1,
+      "difference": -1,
+      "events": [
+        {
+          "at": "2026-08-27T07:46:38.401157+00:00",
+          "cost": 3000,
+          "meta": {
+            "note": "원가 연결 점검에서 소진",
+            "reconciliation": true,
+            "sourceLayerId": "b5dac749-aa5c-485c-ae26-d5ce126b81e4"
+          },
+          "q": 1,
+          "type": "reconciliation_out"
+        }
+      ],
+      "id": "ece7714b-679e-423d-ae57-923dbabf7975",
+      "item": "하복 공팟 클리어",
+      "movements": null,
+      "ref": "cost_reconciliation",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": null,
+      "difference": 1,
+      "events": null,
+      "id": "6270",
+      "item": "하복 공팟 클리어",
+      "movements": [
+        {
+          "after": 7,
+          "at": "2026-08-14T03:52:27.928822+00:00",
+          "note": "출고 처리",
+          "q": -1,
+          "type": "sale_out"
+        }
+      ],
+      "ref": "outbound_log",
+      "stock_delta": -1
+    },
+    {
+      "cost_delta": null,
+      "difference": -1,
+      "events": null,
+      "id": "151b702a-c435-44f8-aab7-9d5d9718e7da",
+      "item": "하복 공팟 클리어",
+      "movements": [
+        {
+          "after": 9,
+          "at": "2026-08-06T04:38:47.825772+00:00",
+          "note": "입고 처리",
+          "q": 1,
+          "type": "purchase_in"
+        }
+      ],
+      "ref": "purchase_receipt",
+      "stock_delta": 1
+    },
+    {
+      "cost_delta": null,
+      "difference": -1,
+      "events": null,
+      "id": "bca37325-a8bb-4ad3-9cd2-d5536502ca4d",
+      "item": "하복 공팟 클리어",
+      "movements": [
+        {
+          "after": 9,
+          "at": "2026-08-06T04:21:41.424699+00:00",
+          "note": "입고 처리",
+          "q": 1,
+          "type": "purchase_in"
+        }
+      ],
+      "ref": "purchase_receipt",
+      "stock_delta": 1
+    },
+    {
+      "cost_delta": null,
+      "difference": -1,
+      "events": null,
+      "id": "f5ead5ef-70c5-4f8e-9ed4-a047110dc4cb",
+      "item": "하복 공팟 클리어",
+      "movements": [
+        {
+          "after": 9,
+          "at": "2026-08-06T04:26:50.929306+00:00",
+          "note": "입고 처리",
+          "q": 1,
+          "type": "purchase_in"
+        }
+      ],
+      "ref": "purchase_receipt",
+      "stock_delta": 1
+    },
+    {
+      "cost_delta": null,
+      "difference": 1,
+      "events": null,
+      "id": "151b702a-c435-44f8-aab7-9d5d9718e7da",
+      "item": "하복 공팟 클리어",
+      "movements": [
+        {
+          "after": 8,
+          "at": "2026-08-07T08:42:50.988409+00:00",
+          "note": "수량 수정",
+          "q": -1,
+          "type": "reversal"
+        }
+      ],
+      "ref": "purchase_receipt_reversal",
+      "stock_delta": -1
+    },
+    {
+      "cost_delta": null,
+      "difference": 1,
+      "events": null,
+      "id": "bca37325-a8bb-4ad3-9cd2-d5536502ca4d",
+      "item": "하복 공팟 클리어",
+      "movements": [
+        {
+          "after": 8,
+          "at": "2026-08-06T04:22:26.510588+00:00",
+          "note": "재입고처리",
+          "q": -1,
+          "type": "reversal"
+        }
+      ],
+      "ref": "purchase_receipt_reversal",
+      "stock_delta": -1
+    },
+    {
+      "cost_delta": null,
+      "difference": 1,
+      "events": null,
+      "id": "f5ead5ef-70c5-4f8e-9ed4-a047110dc4cb",
+      "item": "하복 공팟 클리어",
+      "movements": [
+        {
+          "after": 8,
+          "at": "2026-08-06T04:27:56.569549+00:00",
+          "note": "시연용 잘못 선택함",
+          "q": -1,
+          "type": "reversal"
+        }
+      ],
+      "ref": "purchase_receipt_reversal",
+      "stock_delta": -1
+    },
+    {
+      "cost_delta": 9,
+      "difference": 9,
+      "events": [
+        {
+          "at": "2026-07-21T15:00:00+00:00",
+          "cost": 27000,
+          "meta": {
+            "basisType": "opening_20260722"
+          },
+          "q": 9,
+          "type": "opening"
+        }
+      ],
+      "id": "하복 공팟 클리어",
+      "item": "하복 공팟 클리어",
+      "movements": null,
+      "ref": "settlement_cost_basis",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": null,
+      "difference": -9,
+      "events": null,
+      "id": null,
+      "item": "하복 공팟 클리어",
+      "movements": [
+        {
+          "after": 9,
+          "at": "2026-07-22T12:51:54.973352+00:00",
+          "note": "기초재고",
+          "q": 9,
+          "type": "initial"
+        }
+      ],
+      "ref": null,
+      "stock_delta": 9
+    },
+    {
+      "cost_delta": -9,
+      "difference": -9,
+      "events": [
+        {
+          "at": "2026-08-27T07:39:33.550193+00:00",
+          "cost": 5940,
+          "meta": {
+            "note": "원가 연결 점검에서 소진",
+            "reconciliation": true,
+            "sourceLayerId": "cd9ca6e9-0f83-49e9-bc2f-bf70b3c7b3a3"
+          },
+          "q": 9,
+          "type": "reconciliation_out"
+        }
+      ],
+      "id": "15791af3-c0f7-42b7-9925-6e7e8dd07694",
+      "item": "하부코일 1.6",
+      "movements": null,
+      "ref": "cost_reconciliation",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": -50,
+      "difference": -50,
+      "events": [
+        {
+          "at": "2026-08-27T07:46:53.467931+00:00",
+          "cost": 27500,
+          "meta": {
+            "note": "원가 연결 점검에서 소진",
+            "reconciliation": true,
+            "sourceLayerId": "3dcf0846-a860-434c-a2e0-8f4f884fdb30"
+          },
+          "q": 50,
+          "type": "reconciliation_out"
+        }
+      ],
+      "id": "1b1f48ee-1a4a-4ecb-90d3-dbadc0d17200",
+      "item": "하부코일 1.6",
+      "movements": null,
+      "ref": "cost_reconciliation",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": null,
+      "difference": 59,
+      "events": null,
+      "id": "5676",
+      "item": "하부코일 1.6",
+      "movements": [
+        {
+          "after": 70,
+          "at": "2026-08-08T09:28:01.240401+00:00",
+          "note": "출고 처리",
+          "q": -59,
+          "type": "sale_out"
+        }
+      ],
+      "ref": "outbound_log",
+      "stock_delta": -59
+    },
+    {
+      "cost_delta": 129,
+      "difference": 129,
+      "events": [
+        {
+          "at": "2026-07-21T15:00:00+00:00",
+          "cost": 5940,
+          "meta": {
+            "basisType": "opening_20260722"
+          },
+          "q": 9,
+          "type": "opening"
+        },
+        {
+          "at": "2026-07-21T15:00:00+00:00",
+          "cost": 66000,
+          "meta": {
+            "basisType": "opening_20260722"
+          },
+          "q": 120,
+          "type": "opening"
+        }
+      ],
+      "id": "하부코일 1.6",
+      "item": "하부코일 1.6",
+      "movements": null,
+      "ref": "settlement_cost_basis",
+      "stock_delta": null
+    },
+    {
+      "cost_delta": null,
+      "difference": -129,
+      "events": null,
+      "id": null,
+      "item": "하부코일 1.6",
+      "movements": [
+        {
+          "after": 129,
+          "at": "2026-07-22T12:51:54.973352+00:00",
+          "note": "기초재고",
+          "q": 129,
+          "type": "initial"
+        }
+      ],
+      "ref": null,
+      "stock_delta": 129
+    }
+  ]
+}

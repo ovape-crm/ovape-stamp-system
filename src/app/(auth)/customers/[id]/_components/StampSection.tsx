@@ -125,6 +125,7 @@ const StampSection = ({
     target.is_stamp_eligible ?? true,
   );
   const isSpecialCustomer = customerMode !== "normal";
+  const isReadOnlySpecialAccount = customerMode === "store_product_as";
   const isRegularNonAccrualCustomer =
     customerMode === "normal" &&
     target.is_stamp_eligible === false &&
@@ -141,6 +142,8 @@ const StampSection = ({
       ? "시연용 처리"
       : customerMode === "adjustment"
         ? "재고조정"
+        : customerMode === "store_product_as"
+          ? "매장제품 A/S"
         : isUnifiedXAccount
           ? "미적립 통합 성별 고객"
         : `미적립 ${target.gender === "female" ? "여자" : "남자"} 고객`;
@@ -382,16 +385,22 @@ const StampSection = ({
             </p>
           </div>
 
-          <div className="w-full border-t border-brand-200 pt-5">
-            <Button
-              size="sm"
-              className="min-h-12 w-full text-base"
-              onClick={openOutboundModal}
-              disabled={isLoading}
-            >
-              출고 이력
-            </Button>
-          </div>
+          {isReadOnlySpecialAccount ? (
+            <p className="w-full border-t border-brand-200 pt-5 text-center text-sm text-gray-500">
+              업체 불량교환 이력 전용 계정입니다. 여기서 재고 처리는 할 수 없습니다.
+            </p>
+          ) : (
+            <div className="w-full border-t border-brand-200 pt-5">
+              <Button
+                size="sm"
+                className="min-h-12 w-full text-base"
+                onClick={openOutboundModal}
+                disabled={isLoading}
+              >
+                출고 이력
+              </Button>
+            </div>
+          )}
         </div>
       ) : (
         <>

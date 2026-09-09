@@ -182,6 +182,13 @@ const StatusUpdateModal = ({
         return false;
       }
       if (
+        (serviceCaseType === "store_product_as" ||
+          serviceCaseType === "vendor_exchange") &&
+        opt.value === AfterServiceStatusEnum.CUSTOMER_RECEIVED.value
+      ) {
+        return false;
+      }
+      if (
         opt.value === AfterServiceStatusEnum.RECEIVED.value ||
         opt.value === AfterServiceStatusEnum.EXCHANGE.value ||
         opt.value === AfterServiceStatusEnum.RENTAL.value
@@ -189,11 +196,23 @@ const StatusUpdateModal = ({
         return false;
       }
       if (opt.value === AfterServiceStatusEnum.REPAIR_RETURNED.value) {
+        if (
+          serviceCaseType === "store_product_as" ||
+          serviceCaseType === "vendor_exchange"
+        ) {
+          return false;
+        }
         return !isInventoryProcessed;
       }
       if (
         opt.value === AfterServiceStatusEnum.REPAIR_RETURNED_COMPLETED.value
       ) {
+        if (
+          serviceCaseType === "store_product_as" ||
+          serviceCaseType === "vendor_exchange"
+        ) {
+          return !isInventoryProcessed;
+        }
         return isInventoryProcessed;
       }
       if (opt.value === AfterServiceStatusEnum.CUSTOMER_RECEIVED.value) {
@@ -202,7 +221,12 @@ const StatusUpdateModal = ({
       return true;
     })
     .map((opt) => ({
-      label: opt.name,
+      label:
+        (serviceCaseType === "store_product_as" ||
+          serviceCaseType === "vendor_exchange") &&
+        opt.value === AfterServiceStatusEnum.REPAIR_RETURNED_COMPLETED.value
+          ? "수리 입고 (재고처리)"
+          : opt.name,
       value: opt.value,
     }));
 
@@ -383,16 +407,16 @@ const StatusUpdateModal = ({
   return (
     <form
       onSubmit={handleSubmit(handleStatusSubmit)}
-      className="w-full"
+      className="flex max-h-[calc(90vh-2rem)] min-h-0 w-full flex-1 flex-col"
       noValidate
     >
-      <h2 className="text-lg font-semibold mb-3">
+      <h2 className="mb-3 shrink-0 text-lg font-semibold">
         {editMode
           ? `${currentStatusInfo?.name || currentStatus} 내용 수정`
           : "진행상황 변경"}
       </h2>
 
-      <div className="space-y-3">
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
         {/* 새 진행상황 처리에서만 현재 상태와 변경할 상태를 표시합니다. */}
         {!editMode && <div>
           <label className="block text-sm font-medium mb-1">현재 상태</label>
@@ -475,7 +499,7 @@ const StatusUpdateModal = ({
                     </p>
                   ) : (
                     <>
-                      <div className="grid gap-2 text-sm sm:grid-cols-2">
+                      <div className={`grid gap-2 text-sm ${serviceCaseType === "customer_as" ? "sm:grid-cols-2" : ""}`}>
                         <p className="rounded-lg border border-gray-200 bg-white px-3 py-2">
                           <span className="text-xs font-semibold text-gray-500">
                             거래처명
@@ -484,16 +508,18 @@ const StatusUpdateModal = ({
                             {normalizedSupplierName}
                           </span>
                         </p>
-                        <p className="rounded-lg border border-gray-200 bg-white px-3 py-2">
-                          <span className="text-xs font-semibold text-gray-500">
-                            고객
-                          </span>
-                          <span className="mt-1 block font-semibold text-gray-900">
-                            {[customerName, customerPhone]
-                              .filter(Boolean)
-                              .join(" · ") || "고객 정보 없음"}
-                          </span>
-                        </p>
+                        {serviceCaseType === "customer_as" && (
+                          <p className="rounded-lg border border-gray-200 bg-white px-3 py-2">
+                            <span className="text-xs font-semibold text-gray-500">
+                              고객
+                            </span>
+                            <span className="mt-1 block font-semibold text-gray-900">
+                              {[customerName, customerPhone]
+                                .filter(Boolean)
+                                .join(" · ") || "고객 정보 없음"}
+                            </span>
+                          </p>
+                        )}
                       </div>
                       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_176px]">
                         <label className="relative text-sm font-medium text-gray-700">
@@ -529,7 +555,11 @@ const StatusUpdateModal = ({
                               autoComplete="off"
                               placeholder="품목명을 검색하세요"
                               className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-9 pr-10 text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-                              disabled={isSubmitting || editMode}
+                              disabled={
+                                isSubmitting ||
+                                editMode ||
+                                serviceCaseType === "store_product_as"
+                              }
                             />
                           </div>
                           {showReceiptItemSuggestions &&
@@ -579,7 +609,11 @@ const StatusUpdateModal = ({
                                 setReceiptMatchType("");
                               }}
                               className="h-10 w-[72px] rounded-lg border border-gray-300 bg-white px-2 text-center text-sm font-medium shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-                              disabled={isSubmitting || editMode}
+                              disabled={
+                                isSubmitting ||
+                                editMode ||
+                                serviceCaseType === "store_product_as"
+                              }
                             />
                             {([-1, 1] as const).map((delta) => (
                               <button
@@ -589,7 +623,9 @@ const StatusUpdateModal = ({
                                   delta < 0 ? "수량 감소" : "수량 증가"
                                 }
                                 disabled={
-                                  isSubmitting || editMode ||
+                                  isSubmitting ||
+                                  editMode ||
+                                  serviceCaseType === "store_product_as" ||
                                   (delta < 0 && parsedReceiptQuantity <= 1) ||
                                   (delta > 0 &&
                                     maximumReceiptQuantity !== null &&
@@ -621,7 +657,7 @@ const StatusUpdateModal = ({
                               </button>
                             ))}
                           </div>
-                          {isInventoryServiceCase && serviceProgress && (
+                          {serviceCaseType === "vendor_exchange" && serviceProgress && (
                             <p className="mt-1 text-xs text-gray-500">
                               출고 {serviceProgress.outbound_quantity}개 / 입고 {serviceProgress.received_quantity}개 / 남은 {serviceProgress.remaining_quantity}개
                             </p>
@@ -671,7 +707,7 @@ const StatusUpdateModal = ({
                           {serviceCaseType === "vendor_exchange"
                             ? "업체 교환입고 처리"
                             : serviceCaseType === "store_product_as"
-                              ? "매장제품 A/S 입고 처리"
+                              ? "수리 입고 (재고처리)"
                               : "A/S 교환입고 처리"}
                         </span>
                         <input
@@ -804,7 +840,7 @@ const StatusUpdateModal = ({
           ))}
       </div>
 
-      <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 mt-6">
+      <div className="mt-4 flex shrink-0 items-center justify-end gap-3 border-t border-gray-200 pt-4">
         <Button
           size="sm"
           variant="gray"

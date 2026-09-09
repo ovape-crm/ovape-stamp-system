@@ -3,6 +3,7 @@ export type AfterServiceFilters = {
   groupStatus?: 'received' | 'inProgress' | 'completed';
   searchTarget?: string;
   searchKeyword?: string;
+  caseType?: 'customer_as' | 'vendor_exchange' | 'store_product_as';
 };
 
 export const afterServiceKeys = {

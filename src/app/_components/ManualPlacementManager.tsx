@@ -46,6 +46,52 @@ const isVisibleElement = (element: HTMLElement) => {
   );
 };
 
+const isPlacementTargetVisible = (element: HTMLElement) => {
+  if (!isVisibleElement(element)) return false;
+
+  // 공용 모달이 열린 동안에는 뒤쪽 페이지의 컨트롤이 화면에 남아 있어도
+  // 실제로는 딤 처리되어 조작할 수 없다. 그 위치에 ?가 떠서는 안 된다.
+  const modalRoot = document.getElementById("modal-root");
+  if (modalRoot?.childElementCount && !element.closest("#modal-root")) {
+    return false;
+  }
+
+  const targetRect = element.getBoundingClientRect();
+  if (
+    targetRect.top < 0 ||
+    targetRect.left < 0 ||
+    targetRect.bottom > window.innerHeight ||
+    targetRect.right > window.innerWidth
+  ) {
+    return false;
+  }
+
+  // 스크롤 영역이나 고정 푸터 아래로 일부라도 가려진 컨트롤은 target의
+  // 좌표만 남아 도움말이 빈 공간에 나타난다. 모든 clipping 부모 안에
+  // 완전히 들어온 경우에만 배치한다.
+  let parent = element.parentElement;
+  while (parent && parent !== document.body) {
+    const style = window.getComputedStyle(parent);
+    const clipsChildren = [style.overflow, style.overflowX, style.overflowY].some(
+      (value) => ["auto", "scroll", "hidden", "clip"].includes(value),
+    );
+    if (clipsChildren) {
+      const parentRect = parent.getBoundingClientRect();
+      if (
+        targetRect.top < parentRect.top ||
+        targetRect.left < parentRect.left ||
+        targetRect.bottom > parentRect.bottom ||
+        targetRect.right > parentRect.right
+      ) {
+        return false;
+      }
+    }
+    parent = parent.parentElement;
+  }
+
+  return true;
+};
+
 const resolveTargetElement = (selector: string) => {
   if (selector.startsWith("manual-visible-text:")) {
     const [, tagName, encodedText] = selector.split(":", 3);
@@ -76,7 +122,9 @@ const resolveTargetElement = (selector: string) => {
     return matches.length === 1 ? matches[0] : null;
   }
   try {
-    return document.querySelector<HTMLElement>(selector);
+    const candidates = Array.from(document.querySelectorAll<HTMLElement>(selector));
+    const visibleCandidates = candidates.filter(isVisibleElement);
+    return visibleCandidates.length === 1 ? visibleCandidates[0] : null;
   } catch {
     return null;
   }
@@ -164,6 +212,7 @@ const ManualPlacementManager = () => {
   const { user } = useUser();
   const isAdmin = hasAdminAccess(user?.oss_role);
   const [isPlacementMode, setIsPlacementMode] = useState(false);
+  const [isPlacementControlsOpen, setIsPlacementControlsOpen] = useState(false);
   const [target, setTarget] = useState<PlacementTarget | null>(null);
   const [keyword, setKeyword] = useState("");
   const [selectedManualId, setSelectedManualId] = useState("");
@@ -175,6 +224,8 @@ const ManualPlacementManager = () => {
   const [offsetX, setOffsetX] = useState(0);
   const [offsetY, setOffsetY] = useState(0);
   const [buttonSize, setButtonSize] = useState(24);
+  const [questionSize, setQuestionSize] = useState(14);
+  const [showCircle, setShowCircle] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [mounts, setMounts] = useState<HelpMount[]>([]);
   const mountMapRef = useRef(new Map<string, HTMLSpanElement>());
@@ -209,7 +260,11 @@ const ManualPlacementManager = () => {
       for (const binding of bindings) {
         const mount = mountMap.get(binding.locationKey);
         const placementElement = findTarget(binding);
-        if (!mount || !placementElement) continue;
+        if (!mount) continue;
+        if (!placementElement || !isPlacementTargetVisible(placementElement)) {
+          mount.style.display = "none";
+          continue;
+        }
         const rect = placementElement.getBoundingClientRect();
         mount.style.display = rect.width || rect.height ? "inline-flex" : "none";
         const [vertical, horizontal] = binding.anchor.split("_") as [
@@ -372,6 +427,8 @@ const ManualPlacementManager = () => {
       setOffsetX(existing?.offsetX ?? 0);
       setOffsetY(existing?.offsetY ?? 0);
       setButtonSize(existing?.buttonSize ?? 24);
+      setQuestionSize(existing?.questionSize ?? 14);
+      setShowCircle(existing?.showCircle ?? true);
       setKeyword("");
       clearHighlight();
     };
@@ -386,6 +443,7 @@ const ManualPlacementManager = () => {
 
   useEffect(() => {
     setIsPlacementMode(false);
+    setIsPlacementControlsOpen(false);
     setTarget(null);
   }, [pathname]);
 
@@ -408,6 +466,8 @@ const ManualPlacementManager = () => {
         offsetX,
         offsetY,
         buttonSize,
+        questionSize,
+        showCircle,
       });
       await refresh();
       setTarget(null);
@@ -463,6 +523,8 @@ const ManualPlacementManager = () => {
             locationKey={binding.locationKey}
             ariaLabel={`${binding.targetLabel} 매뉴얼 보기`}
             buttonSize={binding.buttonSize}
+            questionSize={binding.questionSize}
+            showCircle={binding.showCircle}
             onPlacementEdit={
               isPlacementMode
                 ? () => {
@@ -477,6 +539,8 @@ const ManualPlacementManager = () => {
                     setOffsetX(binding.offsetX);
                     setOffsetY(binding.offsetY);
                     setButtonSize(binding.buttonSize);
+                    setQuestionSize(binding.questionSize);
+                    setShowCircle(binding.showCircle);
                     setKeyword("");
                   }
                 : undefined
@@ -490,24 +554,58 @@ const ManualPlacementManager = () => {
       {isAdmin && (
         <div
           data-manual-placement-ui="true"
-          className="fixed bottom-5 right-5 z-[2100] flex items-center gap-2"
+          className="fixed bottom-5 right-5 z-[2100] flex items-end gap-2"
         >
           {isPlacementMode && (
-            <span className="rounded-full border border-brand-200 bg-white px-3 py-2 text-xs font-semibold text-brand-700 shadow-lg">
+            <span className="rounded-xl border border-brand-200 bg-white px-3 py-2 text-xs font-semibold text-brand-700 shadow-lg">
               매뉴얼을 연결할 요소를 선택하세요
             </span>
           )}
-          <Button
-            size="sm"
-            variant={isPlacementMode ? "danger" : "primary"}
-            className="rounded-full shadow-lg"
-            onClick={() => {
-              setTarget(null);
-              setIsPlacementMode((current) => !current);
-            }}
-          >
-            {isPlacementMode ? "배치 종료" : "매뉴얼 배치"}
-          </Button>
+          <div className="relative">
+            {isPlacementControlsOpen && !isPlacementMode && (
+              <div className="absolute bottom-12 right-0 w-44 rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl">
+                <button
+                  type="button"
+                  className="flex min-h-10 w-full items-center rounded-lg px-3 text-left text-sm font-semibold text-gray-800 hover:bg-gray-50"
+                  onClick={() => {
+                    setTarget(null);
+                    setIsPlacementMode(true);
+                    setIsPlacementControlsOpen(false);
+                  }}
+                >
+                  배치 시작
+                </button>
+                <p className="px-3 pb-1 pt-1 text-xs text-gray-500">
+                  현재 화면의 버튼·입력칸에 도움말을 연결합니다.
+                </p>
+              </div>
+            )}
+            {isPlacementMode ? (
+              <Button
+                size="sm"
+                variant="danger"
+                className="rounded-full shadow-lg"
+                onClick={() => {
+                  setTarget(null);
+                  setIsPlacementMode(false);
+                }}
+              >
+                배치 종료
+              </Button>
+            ) : (
+              <button
+                type="button"
+                aria-label="매뉴얼 편집 열기"
+                aria-expanded={isPlacementControlsOpen}
+                onClick={() => setIsPlacementControlsOpen((open) => !open)}
+                className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-gray-300 bg-white text-gray-600 shadow-lg transition hover:border-brand-300 hover:text-brand-700"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m14.7 5.3 4 4M4 20l4.1-.8L19 8.3a2.1 2.1 0 0 0-3-3L5.1 16.2 4 20Z" />
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -529,11 +627,11 @@ const ManualPlacementManager = () => {
 
               <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
                 <div>
-                  <p className="mb-2 text-sm font-semibold text-gray-700">표시 방식</p>
+                  <p className="mb-2 text-sm font-semibold text-gray-700">도움말 표시</p>
                   <div className="grid grid-cols-2 gap-2">
                     {([
-                      ["help_button", "?로 열기"],
-                      ["direct_with_help", "바로 열기 + ? 유지"],
+                      ["help_button", "? 원형 표시"],
+                      ["direct_with_help", "원형 없이 바로 열기"],
                     ] as const).map(([value, label]) => (
                       <Button
                         key={value}
@@ -548,7 +646,7 @@ const ManualPlacementManager = () => {
                   </div>
                   {displayMode === "direct_with_help" && (
                     <p className="mt-2 text-xs text-gray-500">
-                      요소를 누르면 매뉴얼만 열리며, 원래 기능은 실행되지 않습니다.
+                      요소를 누르면 매뉴얼만 열리며, 원래 기능은 실행되지 않습니다. 입력·저장 같은 기능 버튼에는 사용하지 마세요.
                     </p>
                   )}
                 </div>
@@ -585,11 +683,11 @@ const ManualPlacementManager = () => {
                         const [vertical, horizontal] = anchor.split("_") as ["top" | "middle" | "bottom", "left" | "center" | "right"];
                         return (
                           <span
-                            className="absolute z-10 flex items-center justify-center rounded-full border border-brand-200 bg-brand-50 font-extrabold leading-none text-brand-600 shadow-md ring-1 ring-white"
+                            className={`absolute z-10 flex items-center justify-center font-extrabold leading-none ${showCircle ? "rounded-lg bg-brand-500 text-white shadow-md ring-1 ring-white" : "text-brand-600"}`}
                             style={{
                               width: buttonSize,
                               height: buttonSize,
-                              fontSize: Math.max(11, Math.round(buttonSize * 0.54)),
+                              fontSize: questionSize,
                               left: `calc(${horizontal === "left" ? "0%" : horizontal === "center" ? "50%" : "100%"} - ${buttonSize / 2}px + ${offsetX}px)`,
                               top: `calc(${vertical === "top" ? "0%" : vertical === "middle" ? "50%" : "100%"} - ${buttonSize / 2}px + ${offsetY}px)`,
                             }}
@@ -645,9 +743,26 @@ const ManualPlacementManager = () => {
                     </div>
                   </div>
                   <label className="mt-3 grid grid-cols-[64px_1fr_58px] items-center gap-2 rounded-xl border border-gray-200 bg-gray-50/70 p-3 text-sm text-gray-700">
-                    <span className="font-semibold">? 크기</span>
+                    <span className="font-semibold">배경 크기</span>
                     <input type="range" min={16} max={48} step={1} value={buttonSize} onChange={(event) => setButtonSize(Number(event.target.value))} className="w-full cursor-pointer accent-brand-500" />
                     <span className="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-center text-xs font-semibold">{buttonSize}px</span>
+                  </label>
+                  <label className="mt-3 grid grid-cols-[64px_1fr_58px] items-center gap-2 rounded-xl border border-gray-200 bg-gray-50/70 p-3 text-sm text-gray-700">
+                    <span className="font-semibold">? 크기</span>
+                    <input type="range" min={10} max={32} step={1} value={questionSize} onChange={(event) => setQuestionSize(Number(event.target.value))} className="w-full cursor-pointer accent-brand-500" />
+                    <span className="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-center text-xs font-semibold">{questionSize}px</span>
+                  </label>
+                  <label className="mt-3 flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50/70 p-3 text-sm text-gray-700">
+                    <span>
+                      <span className="block font-semibold">? 배경 표시</span>
+                      <span className="mt-0.5 block text-xs text-gray-500">배경을 제거해도 ? 글자는 남고 매뉴얼 연결도 유지됩니다.</span>
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={showCircle}
+                      onChange={(event) => setShowCircle(event.target.checked)}
+                      className="h-5 w-5 cursor-pointer accent-brand-500"
+                    />
                   </label>
                   <p className="mt-2 text-xs text-gray-500">기준점을 선택한 뒤 X/Y 값을 1px 단위로 조절할 수 있습니다.</p>
                 </div>
@@ -694,7 +809,7 @@ const ManualPlacementManager = () => {
                       onClick={() => void handleDelete()}
                       disabled={isSaving}
                     >
-                      배치 삭제
+                      매뉴얼 배치 삭제
                     </Button>
                   )}
                 </div>

@@ -61,6 +61,9 @@ export async function initializeCostTestDb(db) {
     "20260903200000_exclude_untracked_item_costs",
     "20260903210000_only_unresolved_service_cost_attention",
     "20260903220000_cleanup_cancelled_outbound_missing_layers",
+    "20260907000000_separate_store_product_as_cost_flow",
+    "20260909000000_store_product_as_manual_cost_without_outbound_confirmation",
+    "20260909010000_allow_manual_cost_for_existing_store_product_as",
   ])
     await db.exec(await sqlFile(file));
   await db.exec(`

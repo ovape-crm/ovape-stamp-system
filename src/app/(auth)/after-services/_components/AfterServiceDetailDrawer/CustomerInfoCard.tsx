@@ -7,12 +7,16 @@ interface CustomerInfoCardProps {
   customerId: string | null;
   customerName?: string | null;
   customerPhone?: string | null;
+  serviceCaseType?: 'vendor_exchange' | 'store_product_as' | 'customer_as';
+  supplierName?: string | null;
 }
 
 const CustomerInfoCard = ({
   customerId,
   customerName,
   customerPhone,
+  serviceCaseType,
+  supplierName,
 }: CustomerInfoCardProps) => {
   const router = useRouter();
 
@@ -21,6 +25,28 @@ const CustomerInfoCard = ({
       router.push(`/customers/${customerId}`);
     }
   };
+
+  const isCustomerlessService =
+    serviceCaseType === 'vendor_exchange' || serviceCaseType === 'store_product_as';
+
+  if (isCustomerlessService) {
+    return (
+      <div className="rounded-lg border-2 border-violet-200 bg-violet-50/40 p-3">
+        <div className="mb-1.5 flex items-center justify-between">
+          <h4 className="text-xs font-medium text-violet-700">업무 정보</h4>
+          <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-violet-700">
+            {serviceCaseType === 'vendor_exchange' ? '업체 불량교환' : '매장제품 A/S'}
+          </span>
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <span className="text-base font-semibold text-gray-900">
+            {supplierName?.trim() || '거래처 미지정'}
+          </span>
+          <span className="text-xs text-gray-600">고객 연동 없이 처리하는 A/S 건입니다.</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

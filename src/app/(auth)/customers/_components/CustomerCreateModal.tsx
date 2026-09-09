@@ -5,6 +5,8 @@ import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 import { useEffect, useState, useRef } from "react";
 import Button from "@/app/_components/Button";
+import RichTextNoteEditor from "@/app/_components/RichTextNoteEditor";
+import TaggedContent from "@/app/_components/TaggedContent";
 import { formatPhoneNumber } from "@/app/_utils/utils";
 import { Dropdown } from "@/app/_components/Dropdown";
 import supabase from "@/libs/supabaseClient";
@@ -269,7 +271,10 @@ export default function CustomerCreateModal({
                   <span className="text-sm font-medium text-gray-600">
                     특이사항:
                   </span>
-                  <p className="text-base text-gray-900">{formData.note}</p>
+                  <TaggedContent
+                    content={formData.note}
+                    className="text-base text-gray-900"
+                  />
                 </div>
               )}
               {formData.address && (
@@ -458,12 +463,16 @@ export default function CustomerCreateModal({
                 (선택)
               </span>
             </label>
-            <textarea
-              rows={2}
-              className="min-h-16 w-full resize-y rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition placeholder:text-gray-400 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-              placeholder="고객, 결제 관련 특이사항을 입력하세요."
-              aria-invalid={!!errors.note || undefined}
-              {...register("note")}
+            <Controller
+              name="note"
+              control={control}
+              render={({ field }) => (
+                <RichTextNoteEditor
+                  value={field.value ?? ""}
+                  onChange={field.onChange}
+                  ariaInvalid={!!errors.note || undefined}
+                />
+              )}
             />
             {errors.note && (
               <p className="mt-1 text-xs text-rose-600">

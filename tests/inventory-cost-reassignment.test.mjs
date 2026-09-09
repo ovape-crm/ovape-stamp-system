@@ -551,6 +551,49 @@ test("재고 밖 매장제품 A/S 출고·삭제는 재고를 늘리거나 줄�
   );
   assert.deepEqual(await snapshot(), before);
 });
+test("매장제품 A/S 원가 입력은 접수 상태를 유지하고 재고를 차감하지 않는다", async () => {
+  await fixture();
+  await query(
+    "insert into after_services(id,item_name,quantity,service_case_type,outbound_supplier_id,status) values(51,'테스트',2,'store_product_as',$1,'received')",
+    [uid(500)],
+  );
+  await query("select set_after_service_manual_cost(51, 250)");
+
+  const [afterService] = await query(
+    "select status, outbound_processed_at from after_services where id=51",
+  );
+  assert.equal(afterService.status, "received");
+  assert.equal(afterService.outbound_processed_at, null);
+  assert.deepEqual(
+    await query(
+      "select unit_price, outbound_quantity from after_service_outbound_cost_allocations where after_service_id=51",
+    ),
+    [{ unit_price: 250, outbound_quantity: 2 }],
+  );
+  assert.equal(
+    (await query("select quantity from inventory_balances where item_name='테스트'"))[0]
+      .quantity,
+    3,
+  );
+  assert.equal(
+    (await query("select count(*)::int count from inventory_movements"))[0].count,
+    0,
+  );
+});
+test("기존 수리 발송 매장제품 A/S도 원가를 보정할 수 있다", async () => {
+  await fixture();
+  await query(
+    "insert into after_services(id,item_name,quantity,service_case_type,outbound_supplier_id,status) values(52,'테스트',2,'store_product_as',$1,'sent_for_repair')",
+    [uid(500)],
+  );
+  await query("select set_after_service_manual_cost(52, 300)");
+  assert.deepEqual(
+    await query(
+      "select unit_price, outbound_quantity from after_service_outbound_cost_allocations where after_service_id=52",
+    ),
+    [{ unit_price: 300, outbound_quantity: 2 }],
+  );
+});
 test("업체 교환출고 취소는 실제 차감한 재고와 원가층만 원복한다", async () => {
   await fixture();
   const beforeLayers = await query(

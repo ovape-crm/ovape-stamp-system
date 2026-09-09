@@ -1,4 +1,5 @@
 import Button from '@/app/_components/Button';
+import TaggedContent from '@/app/_components/TaggedContent';
 import { formatPhoneNumber } from '@/app/_utils/utils';
 import type { GenderType } from '@/app/_domains/_customer/_types/customer.types';
 
@@ -81,11 +82,11 @@ const CustomerInfo = ({ customer, onEdit }: CustomerInfoProps) => {
         <label className="block text-sm font-medium text-gray-500 mb-1">
           특이사항
         </label>
-        <p className="text-sm text-gray-800 whitespace-pre-wrap">
+        <div className="text-sm text-gray-800 whitespace-pre-wrap">
           {customer?.note && customer?.note?.trim()?.length > 0
-            ? customer?.note
+            ? <TaggedContent content={customer.note} />
             : '—'}
-        </p>
+        </div>
         <div className="mt-4">
           <label className="block text-sm font-medium text-gray-500 mb-1">
             주소지

@@ -31,6 +31,8 @@ export type PageManualHelpBinding = ManualHelpBinding & {
   offsetX: number;
   offsetY: number;
   buttonSize: number;
+  questionSize: number;
+  showCircle: boolean;
 };
 
 type StoredPlacementMeta = {
@@ -39,6 +41,8 @@ type StoredPlacementMeta = {
   offsetX?: number;
   offsetY?: number;
   buttonSize?: number;
+  questionSize?: number;
+  showCircle?: boolean;
 };
 
 const parseStoredPlacementMeta = (value: string | null): StoredPlacementMeta => {
@@ -136,6 +140,8 @@ export const getPageManualHelpBindings = async (
       offsetX: placementMeta.offsetX ?? 0,
       offsetY: placementMeta.offsetY ?? 0,
       buttonSize: placementMeta.buttonSize ?? 24,
+      questionSize: placementMeta.questionSize ?? 14,
+      showCircle: placementMeta.showCircle ?? true,
     }];
   });
 };
@@ -182,6 +188,8 @@ export const savePlacedManualHelpBinding = async ({
   offsetX,
   offsetY,
   buttonSize,
+  questionSize,
+  showCircle,
 }: Omit<PageManualHelpBinding, 'manual'>): Promise<void> => {
   const { error } = await supabase.from('manual_help_bindings').upsert(
     {
@@ -195,6 +203,8 @@ export const savePlacedManualHelpBinding = async ({
         offsetX,
         offsetY,
         buttonSize,
+        questionSize,
+        showCircle,
       } satisfies StoredPlacementMeta),
       display_mode: displayMode,
       position,

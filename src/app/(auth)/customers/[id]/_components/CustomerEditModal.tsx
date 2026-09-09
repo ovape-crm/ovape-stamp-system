@@ -4,6 +4,8 @@ import { Controller, Resolver, useForm } from "react-hook-form";
 import { z } from "zod";
 import { useEffect, useRef, useState } from "react";
 import Button from "@/app/_components/Button";
+import RichTextNoteEditor from "@/app/_components/RichTextNoteEditor";
+import TaggedContent from "@/app/_components/TaggedContent";
 import { formatPhoneNumber } from "@/app/_utils/utils";
 import { Dropdown } from "@/app/_components/Dropdown";
 import supabase from "@/libs/supabaseClient";
@@ -256,7 +258,10 @@ export default function CustomerEditModal({
             {customer.note && (
               <div>
                 <span className="text-sm font-medium text-rose-600">메모:</span>
-                <p className="text-base text-gray-900">{customer.note}</p>
+                <TaggedContent
+                  content={customer.note}
+                  className="text-base text-gray-900"
+                />
               </div>
             )}
           </div>
@@ -355,7 +360,10 @@ export default function CustomerEditModal({
                 <span className="text-sm font-medium text-gray-600">
                   특이사항:
                 </span>
-                <p className="text-base text-gray-900">{formData.note}</p>
+                <TaggedContent
+                  content={formData.note}
+                  className="text-base text-gray-900"
+                />
               </div>
             )}
             {formData.address && (
@@ -400,12 +408,12 @@ export default function CustomerEditModal({
   return (
     <form
       onSubmit={handleSubmit(handleFormSubmit)}
-      className="w-full"
+      className="flex w-full min-h-0 max-h-[calc(90vh-2rem)] flex-col"
       noValidate
     >
-      <h2 className="text-lg font-semibold mb-3">고객 정보 수정</h2>
+      <h2 className="mb-3 shrink-0 text-lg font-semibold">고객 정보 수정</h2>
 
-      <div className="space-y-3">
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
         <div className="grid grid-cols-2 gap-3">
           <div className="min-w-0">
             <label className="block text-sm font-medium mb-1">
@@ -644,12 +652,16 @@ export default function CustomerEditModal({
               (선택)
             </span>
           </label>
-          <textarea
-            rows={2}
-            className="min-h-16 w-full resize-y rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition placeholder:text-gray-400 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-            placeholder="고객, 결제 관련 특이사항을 입력하세요."
-            aria-invalid={!!errors.note || undefined}
-            {...register("note")}
+          <Controller
+            name="note"
+            control={control}
+            render={({ field }) => (
+              <RichTextNoteEditor
+                value={field.value ?? ""}
+                onChange={field.onChange}
+                ariaInvalid={!!errors.note || undefined}
+              />
+            )}
           />
           {errors.note && (
             <p className="mt-1 text-xs text-rose-600">{errors.note.message}</p>
@@ -684,7 +696,7 @@ export default function CustomerEditModal({
       </div>
 
       <div
-        className={`pt-4 border-t border-gray-200 flex justify-between mt-4 ${
+        className={`mt-4 flex shrink-0 justify-between border-t border-gray-200 pt-4 ${
           isAdmin ? "justify-between" : "justify-end"
         }`}
       >

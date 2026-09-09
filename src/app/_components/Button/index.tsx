@@ -7,6 +7,7 @@ interface ButtonProps {
   disabled?: boolean;
   className?: string;
   title?: string;
+  'data-manual-key'?: string;
 }
 
 const Button = ({
@@ -18,6 +19,7 @@ const Button = ({
   disabled = false,
   className = '',
   title,
+  'data-manual-key': manualKey,
 }: ButtonProps) => {
   // 공통 기본 스타일
   const baseClasses = [
@@ -118,6 +120,7 @@ const Button = ({
       onClick={onClick}
       disabled={disabled}
       title={title}
+      data-manual-key={manualKey}
     >
       {children}
     </button>

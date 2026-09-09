@@ -137,6 +137,7 @@ export const getAfterServicesCount = async (filters?: {
   searchTarget?: 'name' | 'phone' | 'item_name';
   searchKeyword?: string;
   customerId?: string;
+  caseType?: 'customer_as' | 'vendor_exchange' | 'store_product_as';
 }): Promise<number> => {
   // customers 테이블로 필터링할 경우 inner join 사용
   const needsInnerJoin =
@@ -161,6 +162,7 @@ export const getAfterServicesCount = async (filters?: {
   if (filters?.customerId) {
     query = query.eq('customer_id', filters.customerId);
   }
+  if (filters?.caseType) query = query.eq('service_case_type', filters.caseType);
 
   // status 필터링 (선택사항)
   // groupStatus가 우선 (그룹 필터링이 있으면 그룹의 모든 status로 필터링)
@@ -216,6 +218,7 @@ export const getAfterServices = async (
     searchTarget?: 'name' | 'phone' | 'item_name';
     searchKeyword?: string;
     customerId?: string;
+    caseType?: 'customer_as' | 'vendor_exchange' | 'store_product_as';
   }
 ) => {
   const from = offset;
@@ -250,6 +253,7 @@ export const getAfterServices = async (
   if (filters?.customerId) {
     query = query.eq('customer_id', filters.customerId);
   }
+  if (filters?.caseType) query = query.eq('service_case_type', filters.caseType);
 
   // status 필터링 (선택사항)
   // groupStatus가 우선 (그룹 필터링이 있으면 그룹의 모든 status로 필터링)

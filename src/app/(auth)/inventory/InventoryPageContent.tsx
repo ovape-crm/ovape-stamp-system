@@ -53,6 +53,7 @@ import {
   searchReservationCustomers,
   getCustomerReservationHistories,
 } from "@/app/_domains/_inventory/_services/inventoryService";
+import { deactivateTaxInvoiceOption, getTaxInvoiceOptions, saveTaxInvoiceOption, type TaxInvoiceOption } from "@/app/_domains/_inventory/_services/taxInvoiceOptionService";
 import type {
   InventoryItem,
   InventorySupplier,
@@ -1680,13 +1681,7 @@ function UntrackedOverview({
   );
 }
 
-type TaxInvoiceStatus =
-  | ""
-  | "오베이프 세금계산서"
-  | "이구베이프 세금계산서"
-  | "오베이프 현금영수증"
-  | "이구베이프 현금영수증"
-  | "X";
+type TaxInvoiceStatus = string;
 
 const TAX_INVOICE_OPTIONS = [
   "오베이프 세금계산서",
@@ -1694,7 +1689,7 @@ const TAX_INVOICE_OPTIONS = [
   "오베이프 현금영수증",
   "이구베이프 현금영수증",
   "X",
-] as const satisfies readonly Exclude<TaxInvoiceStatus, "">[];
+] as const;
 
 const getSupplierDefaultTaxInvoiceStatus = (
   note: string | null | undefined,
@@ -1850,6 +1845,10 @@ function ReceiptManager({
   const suppliersQuery = useQuery({
     queryKey: [...inventoryKeys.suppliers, isAdmin],
     queryFn: () => getInventorySuppliers(isAdmin),
+  });
+  const taxInvoiceOptionsQuery = useQuery({
+    queryKey: ['inventory', 'tax-invoice-options'],
+    queryFn: () => getTaxInvoiceOptions(),
   });
   const ordersQuery = useQuery({
     queryKey: [...inventoryKeys.purchaseOrders, isAdmin],
@@ -2035,7 +2034,7 @@ function ReceiptManager({
         .toLocaleLowerCase("ko-KR")
         .includes(supplierSearch.trim().toLocaleLowerCase("ko-KR")),
     );
-  const taxInvoiceSuggestions = TAX_INVOICE_OPTIONS.filter((option) =>
+  const taxInvoiceSuggestions = (taxInvoiceOptionsQuery.data?.map((option) => option.name) ?? TAX_INVOICE_OPTIONS).filter((option) =>
     option
       .toLocaleLowerCase("ko-KR")
       .includes(taxInvoiceSearch.trim().toLocaleLowerCase("ko-KR")),
@@ -2324,11 +2323,7 @@ function ReceiptManager({
 
               {createStep === 1 && (
                 <div className="mx-auto max-w-3xl rounded-2xl border border-gray-200 bg-gray-50 p-5 sm:p-6">
-                  <h3 className="font-bold text-gray-900">주문 기본 정보</h3>
-                  <p className="mt-1 text-sm text-gray-500">
-                    주문일, 거래처와 발행 종류를 선택해 주세요.
-                  </p>
-                  <div className="mt-5 grid max-w-md gap-4">
+                  <div className="grid w-full max-w-xl gap-4">
                     <label className="order-2 text-sm font-medium text-gray-700">
                       거래처 <span className="text-brand-500">*</span>
                       <div ref={supplierPickerRef} className="relative mt-1">
@@ -2376,7 +2371,7 @@ function ReceiptManager({
                           </button>
                         )}
                         {supplierPickerOpen && (
-                          <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-xl border border-gray-200 bg-white p-1 shadow-xl">
+                            <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-xl border border-gray-200 bg-white p-1 shadow-xl">
                             {supplierSuggestions.length ? (
                               supplierSuggestions.map((supplier) => (
                                 <button
@@ -2467,7 +2462,7 @@ function ReceiptManager({
                             setTaxInvoiceStatus("");
                             setTaxInvoicePickerOpen(true);
                           }}
-                          placeholder="발행 종류를 검색하세요"
+                          placeholder="발행 종류를 선택하세요"
                           className="min-h-11 w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-9 pr-10 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
                         />
                         {taxInvoiceSearch && (
@@ -2485,9 +2480,10 @@ function ReceiptManager({
                           </button>
                         )}
                         {taxInvoicePickerOpen && (
-                          <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-xl border border-gray-200 bg-white p-1 shadow-xl">
+                          <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl">
                             {taxInvoiceSuggestions.length ? (
-                              taxInvoiceSuggestions.map((option) => (
+                              <div className="grid grid-cols-2 divide-x divide-y divide-gray-200">
+                              {taxInvoiceSuggestions.map((option) => (
                                 <button
                                   type="button"
                                   key={option}
@@ -2496,14 +2492,18 @@ function ReceiptManager({
                                     setTaxInvoiceSearch(option);
                                     setTaxInvoicePickerOpen(false);
                                   }}
-                                  className="flex min-h-11 w-full items-center justify-between rounded-lg px-3 text-left text-sm font-semibold text-gray-900 hover:bg-brand-50"
+                                  className="flex min-h-12 w-full min-w-0 items-center justify-center gap-2 px-3 text-center text-sm font-semibold text-gray-900 transition hover:bg-brand-50 whitespace-nowrap"
                                 >
                                   {option}
                                   {taxInvoiceStatus === option && (
                                     <span className="text-brand-500">✓</span>
                                   )}
                                 </button>
-                              ))
+                              ))}
+                              {taxInvoiceSuggestions.length % 2 === 1 && (
+                                <div aria-hidden="true" className="min-h-12" />
+                              )}
+                              </div>
                             ) : (
                               <p className="px-3 py-4 text-center text-sm text-gray-400">
                                 검색 결과가 없습니다.
@@ -3870,11 +3870,13 @@ function PurchaseOrderList({
   const [pending, setPending] = useState(false);
   const [editingOrder, setEditingOrder] = useState<PurchaseOrder | null>(null);
   const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
+  const [taxInvoiceManagerOpen, setTaxInvoiceManagerOpen] = useState(false);
   const adjustmentCategoriesQuery = useQuery({
     queryKey: inventoryKeys.purchaseAdjustmentCategories,
     queryFn: () => getPurchaseAdjustmentCategories(true),
     enabled: isAdmin,
   });
+  const taxInvoiceOptionsQuery = useQuery({ queryKey: ['inventory', 'tax-invoice-options'], queryFn: () => getTaxInvoiceOptions(true), enabled: isAdmin });
   const [listTab, setListTab] = useState<PurchaseOrderListTab>("waiting");
   const [tabExpandedDefaults, setTabExpandedDefaults] = useState({
     waiting: true,
@@ -4238,9 +4240,9 @@ function PurchaseOrderList({
     return <Loading size="sm" text="입고 예정 목록을 불러오는 중..." />;
   return (
     <section className="mt-4 space-y-3">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div
-          className={`grid grid-cols-2 gap-1 rounded-xl bg-gray-100 p-1 ${isAdmin ? "sm:w-[900px] sm:grid-cols-5" : "sm:w-[720px] sm:grid-cols-4"}`}
+          className={`grid min-w-0 flex-1 grid-cols-2 gap-1 rounded-xl bg-gray-100 p-1 ${isAdmin ? "sm:grid-cols-5" : "sm:grid-cols-4"}`}
         >
           <div className="relative">
             <button
@@ -4343,7 +4345,10 @@ function PurchaseOrderList({
           )}
         </div>
         {onCreate ? (
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
+            {isAdmin && (
+              <Button size="sm" variant="gray" onClick={() => setTaxInvoiceManagerOpen(true)}>발행 종류 관리</Button>
+            )}
             {isAdmin && (
               <Button
                 size="sm"
@@ -4355,7 +4360,7 @@ function PurchaseOrderList({
             )}
             {isMaster && (
               <Button size="sm" onClick={onCreate}>
-                입고 예정 등록
+                입고 등록
               </Button>
             )}
           </div>
@@ -5365,7 +5370,7 @@ function PurchaseOrderList({
                     도착일 <span className="text-brand-500">*</span>
                     <div className="mt-1.5">
                       <KoreanDatePicker
-                        value={arrivalDates[order.id] ?? ""}
+                        value={arrivalDates[order.id] ?? order.ordered_on ?? ""}
                         onChange={(value) =>
                           setArrivalDates((current) => ({
                             ...current,
@@ -5398,14 +5403,14 @@ function PurchaseOrderList({
                           () =>
                             processPurchaseArrival(
                               order.id,
-                              arrivalDates[order.id] ?? "",
+                              arrivalDates[order.id] ?? order.ordered_on ?? "",
                               arrivalNotes[order.id] ?? "",
                             ),
                           "재고에 입고 처리했습니다.",
                         )
                       }
                       disabled={
-                        pending || !arrivalDates[order.id] || !hasCheckedItems
+                        pending || !(arrivalDates[order.id] ?? order.ordered_on) || !hasCheckedItems
                       }
                     >
                       체크 품목 입고
@@ -5515,6 +5520,9 @@ function PurchaseOrderList({
           }}
         />
       )}
+      {taxInvoiceManagerOpen && (
+        <TaxInvoiceOptionOverlay options={taxInvoiceOptionsQuery.data ?? []} onClose={() => setTaxInvoiceManagerOpen(false)} onSaved={() => taxInvoiceOptionsQuery.refetch()} />
+      )}
     </section>
   );
 }
@@ -5549,6 +5557,7 @@ function PurchaseOrderEditOverlay({
   onSaved: () => Promise<void>;
 }) {
   const parsedNote = splitPurchaseOrderNote(order.note);
+  const taxInvoiceOptionsQuery = useQuery({ queryKey: ['inventory', 'tax-invoice-options'], queryFn: () => getTaxInvoiceOptions() });
   const [supplierId, setSupplierId] = useState(order.supplier_id);
   const [orderedOn, setOrderedOn] = useState(order.ordered_on);
   const [taxInvoiceStatus, setTaxInvoiceStatus] = useState<TaxInvoiceStatus>(
@@ -5708,7 +5717,7 @@ function PurchaseOrderEditOverlay({
                     {taxInvoiceStatus || "발행 종류 선택"}
                   </Dropdown.Trigger>
                   <Dropdown.Content>
-                    {TAX_INVOICE_OPTIONS.map((option) => (
+                    {(taxInvoiceOptionsQuery.data?.map((option) => option.name) ?? TAX_INVOICE_OPTIONS).map((option) => (
                       <Dropdown.Item
                         key={option}
                         option={{ value: option, label: option }}
@@ -6167,6 +6176,13 @@ function PurchaseAdjustmentOverlay({
       </div>
     </div>
   );
+}
+
+function TaxInvoiceOptionOverlay({ options, onClose, onSaved }: { options: TaxInvoiceOption[]; onClose: () => void; onSaved: () => Promise<unknown> }) {
+  const [name, setName] = useState('');
+  const [pending, setPending] = useState(false);
+  const run = async (task: () => Promise<void>, message: string) => { setPending(true); try { await task(); await onSaved(); toast.success(message); } catch (error) { toast.error((error as Error).message); } finally { setPending(false); } };
+  return <div className="fixed inset-0 z-[110] flex items-center justify-center bg-gray-950/60 p-4 backdrop-blur-[2px]"><section className="w-full max-w-xl rounded-2xl bg-white shadow-2xl"><header className="border-b border-gray-200 px-5 py-4"><h2 className="text-lg font-bold text-gray-900">발행 종류 관리</h2><p className="mt-1 text-xs text-gray-500">삭제한 종류는 새 입고 등록에서 숨겨지고 기존 기록에는 유지됩니다.</p></header><div className="space-y-2 p-5">{options.filter((option) => option.is_active).map((option) => <div key={option.id} className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 px-3 py-2"><span className="min-w-0 truncate text-sm font-semibold text-gray-800">{option.name}</span><Button size="sm" variant="danger" disabled={pending} onClick={() => void run(() => deactivateTaxInvoiceOption(option.id), '발행 종류를 삭제했습니다.')}>삭제</Button></div>)}<div className="flex gap-2 border-t border-gray-200 pt-4"><input value={name} onChange={(event) => setName(event.target.value)} placeholder="새 발행 종류" className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100" /><Button size="sm" disabled={pending || !name.trim()} onClick={() => void run(async () => { await saveTaxInvoiceOption(name); setName(''); }, '발행 종류를 추가했습니다.')}>추가</Button></div></div><footer className="flex justify-end border-t border-gray-200 bg-gray-50 px-5 py-4"><Button onClick={onClose}>완료</Button></footer></section></div>;
 }
 
 function PurchaseAdjustmentCategoryOverlay({

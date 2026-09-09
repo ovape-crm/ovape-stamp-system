@@ -1,4 +1,4 @@
-export type CustomerMode = "normal" | "demo" | "adjustment" | "x";
+export type CustomerMode = "normal" | "demo" | "adjustment" | "store_product_as" | "x";
 
 export const isXCustomer = (name: string, phone?: string | null) => {
   const normalizedName = name.trim();
@@ -26,6 +26,7 @@ export const getCustomerMode = (
 
   if (normalizedName === "시연용") return "demo";
   if (normalizedName === "재고조정") return "adjustment";
+  if (normalizedName === "매장제품 A/S") return "store_product_as";
   if (isXCustomer(normalizedName, normalizedPhone)) return "x";
   return "normal";
 };

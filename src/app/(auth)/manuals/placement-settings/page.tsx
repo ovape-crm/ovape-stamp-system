@@ -92,9 +92,9 @@ export default function ManualPlacementSettingsPage() {
           <div className="rounded-xl border border-gray-200 bg-gray-50/70 p-4">
             <p className="text-sm font-semibold text-gray-800">배치 방법</p>
             <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-gray-600">
-              <li>미리보기 모달을 연 뒤 우측 하단의 <b>매뉴얼 배치</b>를 누릅니다.</li>
+              <li>미리보기 모달을 연 뒤 우측 하단의 연필 아이콘을 눌러 <b>배치 시작</b>을 선택합니다.</li>
               <li>모달 안에서 설명을 연결할 버튼이나 입력칸을 선택합니다.</li>
-              <li>9개 기준점과 X/Y 값을 이용해 1px 단위로 위치를 조절합니다.</li>
+              <li>배경 크기와 ? 크기를 각각 조절하고, <b>? 배경 표시</b>로 배경만 켜거나 끕니다.</li>
             </ol>
           </div>
 

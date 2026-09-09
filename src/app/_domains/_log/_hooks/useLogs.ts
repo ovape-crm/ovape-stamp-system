@@ -68,16 +68,18 @@ const useLogs = (
   };
 
   const removeItem = (id: string) => {
-    queryClient.setQueryData(
-      queryKey,
+    queryClient.setQueriesData(
+      { queryKey: logKeys.all() },
       (old: InfiniteData<LogsResType[]> | undefined) => {
         if (!old) return old;
+        if (!Array.isArray(old.pages)) return old;
         return {
           ...old,
           pages: old.pages.map((page) => page.filter((item) => item.id !== id)),
         };
       },
     );
+    void queryClient.invalidateQueries({ queryKey: logKeys.all() });
   };
 
   const load = async () => {

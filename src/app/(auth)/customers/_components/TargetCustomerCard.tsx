@@ -1,6 +1,7 @@
 "use client";
 
 import { formatPhoneNumber } from "@/app/_utils/utils";
+import TaggedContent from "@/app/_components/TaggedContent";
 
 export default function TargetCustomerCard({
   name,
@@ -19,6 +20,8 @@ export default function TargetCustomerCard({
   label?: string;
   compact?: boolean;
 }) {
+  const noteText = note?.trim();
+
   return (
     <div
       className={`overflow-hidden rounded-xl border border-gray-200 bg-white ${className}`}
@@ -48,11 +51,11 @@ export default function TargetCustomerCard({
             >
               주소지
             </p>
-            <p
+            <div
               className={`flex min-w-0 items-center whitespace-pre-wrap break-words [overflow-wrap:anywhere] border-l border-gray-200 px-3 text-left text-sm leading-5 text-gray-800 ${compact ? "py-1" : "py-2"}`}
             >
               {address?.trim() || "등록 없음"}
-            </p>
+            </div>
           </div>
           <div className="grid min-w-0 grid-cols-[72px_minmax(0,1fr)]">
             <p
@@ -60,11 +63,17 @@ export default function TargetCustomerCard({
             >
               특이사항
             </p>
-            <p
+            <div
               className={`flex min-w-0 items-center whitespace-pre-wrap break-words [overflow-wrap:anywhere] border-l border-gray-200 px-3 text-left text-sm leading-5 text-gray-800 ${compact ? "py-1" : "py-2"}`}
             >
-              {note?.trim() || "등록 없음"}
-            </p>
+              {noteText ? (
+                <span className="text-gray-900">
+                  <TaggedContent content={noteText} />
+                </span>
+              ) : (
+                "등록 없음"
+              )}
+            </div>
           </div>
         </div>
       </div>
