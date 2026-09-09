@@ -6,7 +6,8 @@ import TaggedContent from '@/app/_components/TaggedContent';
 
 type FormatAction = {
   label: string;
-  tag: string;
+  tag?: string;
+  clearTags?: string[];
   className: string;
   ariaLabel: string;
   previewBackground?: string;
@@ -17,9 +18,11 @@ const actions: FormatAction[] = [
   { label: '가', tag: 'red', className: 'text-red-600', ariaLabel: '글자색 빨강' },
   { label: '가', tag: 'blue', className: 'text-blue-600', ariaLabel: '글자색 파랑' },
   { label: '가', tag: 'green', className: 'text-emerald-600', ariaLabel: '글자색 초록' },
+  { label: '가', clearTags: ['red', 'blue', 'green'], className: 'text-gray-900', ariaLabel: '글자색 기본(검정)' },
   { label: '가', tag: 'yellow-bg', className: 'text-gray-800', ariaLabel: '배경색 노랑', previewBackground: '#fef3c7' },
   { label: '가', tag: 'pink-bg', className: 'text-gray-800', ariaLabel: '배경색 분홍', previewBackground: '#ffe4e6' },
   { label: '가', tag: 'blue-bg', className: 'text-gray-800', ariaLabel: '배경색 파랑', previewBackground: '#e0f2fe' },
+  { label: '가', clearTags: ['yellow-bg', 'pink-bg', 'blue-bg'], className: 'text-gray-800', ariaLabel: '배경색 기본(투명)' },
   { label: 'S', tag: 'line', className: 'line-through', ariaLabel: '취소선' },
 ];
 
@@ -80,6 +83,87 @@ const unwrapTags = (fragment: DocumentFragment, tags: string[]) => {
     .filter((element) => tags.includes(element.dataset.noteTag ?? ''))
     .reverse()
     .forEach(unwrapElement);
+};
+
+const getClosestTaggedAncestor = (
+  root: HTMLElement,
+  node: Node,
+  tags: string[],
+) => {
+  let element = node instanceof HTMLElement ? node : node.parentElement;
+  while (element && element !== root) {
+    if (tags.includes(element.dataset.noteTag ?? '')) return element;
+    element = element.parentElement;
+  }
+  return null;
+};
+
+const rangeStartsAtElementStart = (range: Range, element: HTMLElement) => {
+  const elementRange = document.createRange();
+  elementRange.selectNodeContents(element);
+  return range.compareBoundaryPoints(Range.START_TO_START, elementRange) === 0;
+};
+
+const rangeEndsAtElementEnd = (range: Range, element: HTMLElement) => {
+  const elementRange = document.createRange();
+  elementRange.selectNodeContents(element);
+  return range.compareBoundaryPoints(Range.END_TO_END, elementRange) === 0;
+};
+
+const expandRangeToFormattingBoundaries = (
+  root: HTMLElement,
+  range: Range,
+  tags: string[],
+) => {
+  // 선택이 서식 span의 "내용 안"에 있을 때에도 해당 span을 추출 범위에 포함한다.
+  // 안쪽/바깥쪽에 중복된 색상 span이 있어도 반복 확장으로 모두 한 번에 정리한다.
+  for (let index = 0; index < 20; index += 1) {
+    let expanded = false;
+    const selectedText = range.toString();
+    const startAncestors: HTMLElement[] = [];
+    let startParent = range.startContainer instanceof HTMLElement
+      ? range.startContainer
+      : range.startContainer.parentElement;
+    while (startParent && startParent !== root) {
+      if (tags.includes(startParent.dataset.noteTag ?? '')) startAncestors.push(startParent);
+      startParent = startParent.parentElement;
+    }
+
+    // 글자색 span 안에 배경색 span이 있는 경우처럼, 선택 시작/끝이 서로 다른
+    // 서식 태그 안쪽에 있어도 전체 문장이 같으면 바깥쪽 같은 그룹 태그까지 확장한다.
+    const enclosingTag = startAncestors.find(
+      (element) =>
+        element.contains(range.endContainer) &&
+        Boolean(selectedText) &&
+        element.textContent === selectedText,
+    );
+    if (enclosingTag) {
+      range.setStartBefore(enclosingTag);
+      range.setEndAfter(enclosingTag);
+      continue;
+    }
+
+    const startElement = getClosestTaggedAncestor(root, range.startContainer, tags);
+    if (startElement && rangeStartsAtElementStart(range, startElement)) {
+      range.setStartBefore(startElement);
+      expanded = true;
+    }
+    const endElement = getClosestTaggedAncestor(root, range.endContainer, tags);
+    if (endElement && rangeEndsAtElementEnd(range, endElement)) {
+      range.setEndAfter(endElement);
+      expanded = true;
+    }
+    if (!expanded) break;
+  }
+};
+
+const selectInsertedNodes = (selection: Selection, nodes: Node[]) => {
+  if (!nodes.length) return;
+  const range = document.createRange();
+  range.setStartBefore(nodes[0]);
+  range.setEndAfter(nodes[nodes.length - 1]);
+  selection.removeAllRanges();
+  selection.addRange(range);
 };
 
 const removeEmptyFormatting = (root: HTMLElement) => {
@@ -182,14 +266,18 @@ const RichTextNoteEditor = ({
     if (!editorRef.current.contains(range.commonAncestorContainer)) return;
     const exclusiveGroup = exclusiveTagGroups.find((group) => group.includes(tag));
     const shouldRemoveTag = isRangeFullyTagged(editorRef.current, range, tag);
+    const tagsToReplace = exclusiveGroup ?? [tag];
+    expandRangeToFormattingBoundaries(editorRef.current, range, tagsToReplace);
     const extracted = range.extractContents();
 
     // 같은 서식은 다시 누르면 해제하고, 글자색/배경색은 항상 하나만 남긴다.
     // 다른 서식(굵게·취소선 등)은 중첩을 허용하되 같은 태그 중첩은 만들지 않는다.
-    unwrapTags(extracted, exclusiveGroup ?? [tag]);
+    unwrapTags(extracted, tagsToReplace);
     if (shouldRemoveTag) {
+      const insertedNodes = Array.from(extracted.childNodes);
       range.insertNode(extracted);
       removeEmptyFormatting(editorRef.current);
+      selectInsertedNodes(selection, insertedNodes);
       emitValue();
       return;
     }
@@ -204,6 +292,23 @@ const RichTextNoteEditor = ({
     const nextRange = document.createRange();
     nextRange.selectNodeContents(wrapper);
     selection.addRange(nextRange);
+    emitValue();
+  };
+
+  const clearTagGroup = (tags: string[]) => {
+    if (disabled || !editorRef.current) return;
+    const selection = window.getSelection();
+    if (!selection?.rangeCount || selection.isCollapsed) return;
+    const range = selection.getRangeAt(0);
+    if (!editorRef.current.contains(range.commonAncestorContainer)) return;
+
+    expandRangeToFormattingBoundaries(editorRef.current, range, tags);
+    const extracted = range.extractContents();
+    unwrapTags(extracted, tags);
+    const insertedNodes = Array.from(extracted.childNodes);
+    range.insertNode(extracted);
+    removeEmptyFormatting(editorRef.current);
+    selectInsertedNodes(selection, insertedNodes);
     emitValue();
   };
 
@@ -238,16 +343,18 @@ const RichTextNoteEditor = ({
   return (
     <div className="overflow-hidden rounded-lg border border-gray-300 bg-white transition hover:border-brand-300 focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-100">
       <div className="flex flex-wrap items-center gap-1 border-b border-gray-200 bg-gray-50 px-2 py-1.5">
-        <span className="mr-1 text-xs font-medium text-gray-500">선택 문장</span>
         {actions.map((action) => (
           <button
-            key={action.tag}
+            key={action.tag ?? action.clearTags?.join('-')}
             type="button"
             aria-label={action.ariaLabel}
             title={action.ariaLabel}
             disabled={disabled}
             onMouseDown={(event) => event.preventDefault()}
-            onClick={() => applyTag(action.tag)}
+            onClick={() => {
+              if (action.tag) applyTag(action.tag);
+              else if (action.clearTags) clearTagGroup(action.clearTags);
+            }}
             style={action.previewBackground ? { backgroundColor: action.previewBackground } : undefined}
             className={`flex h-7 min-w-7 items-center justify-center rounded border border-gray-200 bg-white px-1 text-xs transition hover:border-brand-300 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-40 ${action.className}`}
           >

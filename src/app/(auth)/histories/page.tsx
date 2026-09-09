@@ -35,7 +35,7 @@ export default function HistoriesPage() {
                   : 'secondary'
               }
             >
-              출고 이력
+              통합 이력
             </Button>
             <Button
               onClick={() => setLogType(LogCategoryEnum.RESERVATION.value)}

@@ -362,7 +362,7 @@ export default function CustomerDetailPage() {
               size="sm"
               onClick={() => setLogCategory(LogCategoryEnum.STAMP.value)}
             >
-              출고 이력
+              통합 이력
             </Button>
             {!isSpecialCustomer && (
               <Button

@@ -317,7 +317,23 @@ export const getLogs = async (
   }
 
   if (searchKeyword) {
-    query = query.ilike("note", `%${searchKeyword}%`);
+    const { data: matchedLogs, error: searchError } = await supabase.rpc(
+      "search_history_log_ids",
+      {
+        p_category: category,
+        p_keyword: searchKeyword,
+        p_start_at: dateRange?.start ?? null,
+        p_end_at: dateRange ? `${dateRange.end}T23:59:59.999Z` : null,
+        p_payment_method: paymentMethod ?? null,
+      },
+    );
+    if (searchError) throw searchError;
+
+    const matchedIds = (matchedLogs ?? []).map(
+      (log: { id: number | string }) => String(log.id),
+    );
+    if (matchedIds.length === 0) return [];
+    query = query.in("id", matchedIds);
   }
 
   const { data, error } = await query
