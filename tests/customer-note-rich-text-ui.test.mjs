@@ -45,7 +45,7 @@ test('고객 특이사항 편집기는 굵게·글자색·배경색 선택 서�
   assert.match(editor, /tag: 'red'/);
   assert.match(editor, /tag: 'yellow-bg'/);
   assert.match(editor, /tag: 'pink-bg'/);
-  assert.match(editor, /선택 문장/);
+  assert.doesNotMatch(editor, />선택 문장</);
   assert.match(editor, /표시 미리보기/);
   assert.match(editor, /contentEditable=\{!disabled\}/);
   assert.match(editor, /data-note-tag/);
@@ -63,7 +63,11 @@ test('고객 추가와 수정에서 동일한 특이사항 서식 편집기를 �
 test('같은 서식은 토글하고, 글자색·배경색은 한 종류만 남기며 중첩 미리보기를 렌더링한다', () => {
   assert.match(editor, /isRangeFullyTagged/);
   assert.match(editor, /shouldRemoveTag/);
-  assert.match(editor, /unwrapTags\(extracted, exclusiveGroup \?\? \[tag\]\)/);
+  assert.match(editor, /expandRangeToFormattingBoundaries/);
+  assert.match(editor, /unwrapTags\(extracted, tagsToReplace\)/);
+  assert.match(editor, /selectInsertedNodes/);
+  assert.match(editor, /글자색 기본\(검정\)/);
+  assert.match(editor, /배경색 기본\(투명\)/);
   assert.match(taggedContent, /parseNoteNodes/);
   assert.match(taggedContent, /renderNoteChildren/);
 });
