@@ -41,7 +41,8 @@ test('본문 검색어는 태그 표현을 보존한 채 강조된다', () => {
   assert.match(taggedContent, /highlightKeyword\?: string/);
   assert.match(taggedContent, /bg-amber-200/);
   assert.match(taggedContent, /data-manual-search-hit/);
-  assert.match(taggedContent, /renderHighlightedText\(linkMatch\[2\], keyword, key\)/);
+  assert.match(taggedContent, /renderNoteChildren/);
+  assert.match(taggedContent, /renderHighlightedText\(child, keyword, key\)/);
 });
 
 test('? 도움말과 매뉴얼 카테고리 상세가 동일한 본문 검색을 사용한다', () => {
