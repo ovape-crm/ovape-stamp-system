@@ -972,6 +972,23 @@ export type ReservationHistory = {
   created_at: string;
   note: string;
   jsonb: Record<string, unknown>;
+  customers?: { name: string; phone: string } | null;
+};
+
+export const getReservationHistories = async (): Promise<ReservationHistory[]> => {
+  const { data, error } = await supabase
+    .from("logs")
+    .select("id, customer_id, created_at, note, jsonb, customers(name, phone)")
+    .eq("category", "reservation")
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (error) throw error;
+  return (data ?? []).map((history) => ({
+    ...history,
+    customers: Array.isArray(history.customers)
+      ? history.customers[0] ?? null
+      : history.customers ?? null,
+  })) as unknown as ReservationHistory[];
 };
 
 export const searchReservationCustomers = async (

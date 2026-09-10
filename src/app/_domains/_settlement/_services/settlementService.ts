@@ -676,10 +676,15 @@ export const getSettlementExpenses = async (
   startDate: string,
   endDate: string,
 ) => {
+  const { error: materializeError } = await supabase.rpc(
+    "materialize_settlement_expense_recurrences",
+    { p_through: new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" }) },
+  );
+  if (materializeError) throw materializeError;
   const { data, error } = await supabase
     .from("settlement_expenses")
     .select(
-      "id, expense_date, category, category_id, amount, store, is_recurring, recurrence_day, recurrence_end_date, recurrence_cancelled_on, note, created_at",
+      "id, expense_date, category, category_id, amount, store, is_recurring, recurrence_day, recurrence_end_date, recurrence_cancelled_on, recurrence_source_id, note, created_at",
     )
     .lte("expense_date", endDate)
     .order("expense_date", { ascending: false });
@@ -759,30 +764,7 @@ export const getSettlementExpenseOccurrences = async (
         occurrences.push({ ...expense, occurrence_date: expense.expense_date });
       continue;
     }
-    const day =
-      expense.recurrence_day ?? Number(expense.expense_date.slice(8, 10));
-    const cursor = new Date(`${startDate.slice(0, 7)}-01T00:00:00`);
-    const lastMonth = endDate.slice(0, 7);
-    while (
-      `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}` <=
-      lastMonth
-    ) {
-      const year = cursor.getFullYear();
-      const month = cursor.getMonth() + 1;
-      const lastDay = new Date(year, month, 0).getDate();
-      const occurrence = `${year}-${String(month).padStart(2, "0")}-${String(Math.min(day, lastDay)).padStart(2, "0")}`;
-      const recurrenceEnd = expense.recurrence_end_date;
-      const cancelledOn = expense.recurrence_cancelled_on;
-      if (
-        occurrence >= expense.expense_date &&
-        occurrence >= startDate &&
-        occurrence <= endDate &&
-        (!recurrenceEnd || occurrence <= recurrenceEnd) &&
-        (!cancelledOn || occurrence < cancelledOn)
-      )
-        occurrences.push({ ...expense, occurrence_date: occurrence });
-      cursor.setMonth(cursor.getMonth() + 1);
-    }
+    // 반복 원본은 관리용 설정이며, 실제 발생 건은 위에서 생성한 일반 비용 행으로만 집계한다.
   }
   for (const expense of historicalExpenses) {
     occurrences.push({

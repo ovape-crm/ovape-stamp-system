@@ -22,6 +22,8 @@ interface StampHistoryItemProps {
   onDelete: () => void;
   onConfirm?: () => void;
   showCopy?: boolean;
+  isMaster?: boolean;
+  onManage?: () => void;
   isLocked?: boolean;
 }
 
@@ -33,6 +35,8 @@ const StampHistoryItem = ({
   onDelete,
   onConfirm,
   showCopy = true,
+  isMaster = false,
+  onManage,
   isLocked = false,
 }: StampHistoryItemProps) => {
   const { copyLogToClipboard } = useCopy();
@@ -79,6 +83,22 @@ const StampHistoryItem = ({
     (log.action.startsWith("add-") || log.action.startsWith("remove-")) &&
     !Array.isArray(log.jsonb?.items) &&
     !log.jsonb?.paymentType;
+  const xTransferExtraNote =
+    typeof log.jsonb?.xTransfer === "object" && log.jsonb.xTransfer !== null
+      ? (() => {
+          const transfer = log.jsonb.xTransfer as Record<string, unknown>;
+          const name = typeof transfer.name === "string" ? transfer.name : "X";
+          const phoneLastDigits =
+            typeof transfer.phoneLastDigits === "string"
+              ? transfer.phoneLastDigits
+              : "미입력";
+          return `X 통합 계정 이전, 이름 : ${name}, 핸드폰 뒷번호 : ${phoneLastDigits}`;
+        })()
+      : "";
+  const extraNote =
+    typeof log.jsonb?.extraNote === "string" && log.jsonb.extraNote.trim()
+      ? log.jsonb.extraNote.trim()
+      : xTransferExtraNote;
   const customerBadge = isCustomerRemark ? (
     <span className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-gray-100 px-2 py-1 text-center text-xs font-medium text-gray-500">
       고객 특이사항
@@ -162,10 +182,9 @@ const StampHistoryItem = ({
                 <span className="text-gray-400"> - </span>
               )}
             </p>
-            {typeof log.jsonb?.extraNote === "string" &&
-              log.jsonb.extraNote.trim() && (
+            {extraNote && (
                 <p className="mt-1 italic text-gray-400">
-                  출고 특이사항: &quot;{log.jsonb.extraNote.trim()}&quot;
+                  출고 특이사항: &quot;{extraNote}&quot;
                 </p>
               )}
             {typeof log.jsonb?.xCustomerName === "string" &&
@@ -228,6 +247,11 @@ const StampHistoryItem = ({
             }
           >
             복사
+          </Button>
+        )}
+        {isMaster && !isLocked && onManage && (
+          <Button variant="secondary" size="sm" onClick={onManage}>
+            관리
           </Button>
         )}
         {isAdmin && !isLocked && (

@@ -305,11 +305,13 @@ const DropdownContent = ({
   compact = false,
   neutral = false,
   maxHeightClass = "max-h-[300px]",
+  flush = false,
 }: {
   children: React.ReactNode;
   compact?: boolean;
   neutral?: boolean;
   maxHeightClass?: string;
+  flush?: boolean;
 }) => {
   const { isOpen, setItemCount, triggerRef, contentRef, multiple } = useDropdown();
   const [position, setPosition] = useState<{
@@ -388,7 +390,7 @@ const DropdownContent = ({
       aria-multiselectable={multiple || undefined}
     >
       <div
-        className={`${compact ? "py-0.5" : "py-1"} ${maxHeightClass} overflow-y-auto overscroll-contain`}
+        className={`${compact ? (flush ? "py-0" : "py-0.5") : "py-1"} ${maxHeightClass} overflow-y-auto overscroll-contain`}
       >
         {itemsWithIndex}
       </div>
@@ -405,12 +407,16 @@ const DropdownItem = ({
   index = -1,
   compact = false,
   neutral = false,
+  className = '',
+  children,
 }: {
   option: DropdownOption;
   onSelect?: (option: DropdownOption) => void;
   index?: number;
   compact?: boolean;
   neutral?: boolean;
+  className?: string;
+  children?: React.ReactNode;
 }) => {
   const {
     handleSelect,
@@ -466,6 +472,7 @@ const DropdownItem = ({
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       onMouseEnter={() => setFocusedIndex(index)}
+      aria-label={children ? option.label : undefined}
       className={`${
         compact
           ? "px-2.5 py-1.5 text-xs text-gray-700 focus:bg-gray-100"
@@ -492,10 +499,10 @@ const DropdownItem = ({
               ? "bg-gray-100"
             : "bg-brand-100"
           : ""
-      }`}
+      } ${className}`}
     >
       <div className="flex items-center justify-between">
-        <span>{option.label}</span>
+        <span>{children ?? option.label}</span>
         {isSelected && (
           <svg
             className={`${compact ? "h-3.5 w-3.5" : "h-5 w-5"} flex-shrink-0 ${neutral ? "text-gray-600" : "text-brand-600"}`}

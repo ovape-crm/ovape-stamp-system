@@ -1127,11 +1127,11 @@ export default function StampConfirmModal({
                           </span>
                         </td>
                         <td className="px-2 py-2 font-medium text-gray-900">
-                          <div className="flex flex-wrap items-center gap-x-1.5">
+                          <div className="flex items-center gap-x-1.5 whitespace-nowrap">
                             <span>{getDeliveryItem(stampLog.logMeta)?.name}</span>
                             {(getDeliveryItem(stampLog.logMeta)?.amount ?? 0) >
                               0 && (
-                              <span className="text-xs font-semibold text-gray-500">
+                              <span>
                                 (
                                 {formatAmount(
                                   getDeliveryItem(stampLog.logMeta)?.amount ?? 0,

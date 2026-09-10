@@ -64,6 +64,26 @@ const LogActorInfo = ({
       : modifiedWorkerName && modifiedAt
         ? [{ workerName: modifiedWorkerName, modifiedAt }]
         : [];
+  const transferHistory = Array.isArray(jsonb?.transferHistory)
+    ? jsonb.transferHistory.filter(
+        (
+          item,
+        ): item is {
+          transferredAt: string;
+          workerName: string;
+          fromCustomerName: string;
+          fromCustomerPhone: string;
+          toCustomerName: string;
+          toCustomerPhone: string;
+        } =>
+          typeof item === "object" &&
+          item !== null &&
+          typeof (item as Record<string, unknown>).transferredAt === "string" &&
+          typeof (item as Record<string, unknown>).workerName === "string" &&
+          typeof (item as Record<string, unknown>).fromCustomerName === "string" &&
+          typeof (item as Record<string, unknown>).toCustomerName === "string",
+      )
+    : [];
   const formatDate = (value: string) =>
     new Date(value).toLocaleString("ko-KR", {
       year: "2-digit",
@@ -122,6 +142,19 @@ const LogActorInfo = ({
           </div>
           <div className="mt-0.5 text-xs text-gray-400">
             {formatDate(history.modifiedAt)}
+          </div>
+        </div>
+      ))}
+      {transferHistory.map((history, index) => (
+        <div
+          key={`${history.transferredAt}-${history.fromCustomerName}-${index}`}
+          className="mt-1"
+        >
+          <div className="text-xs text-gray-500">
+            자료 이전 작업일
+          </div>
+          <div className="mt-0.5 text-xs text-gray-400">
+            {formatDate(history.transferredAt)}
           </div>
         </div>
       ))}

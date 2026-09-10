@@ -884,6 +884,63 @@ export default function StampLogForm({
     hasValidCouponSelection,
   ]);
 
+  const stepOneDeliveryRef = useRef<HTMLDivElement>(null);
+  const stepOnePaymentRef = useRef<HTMLDivElement>(null);
+  const stepOneAfterPaymentRef = useRef<HTMLDivElement>(null);
+  const stepOneReservationRef = useRef<HTMLDivElement>(null);
+  const stepOneStampRef = useRef<HTMLDivElement>(null);
+  const basicStepProgressRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (layout !== "split" || step !== 1) {
+      basicStepProgressRef.current = null;
+      return;
+    }
+
+    const progress = [
+      hasConfirmedStore,
+      hasConfirmedDeliveryMethod,
+      hasValidDeliveryInfo,
+      hasValidPayment,
+      hasValidCouponSelection,
+      hasSelectedShipmentTiming,
+    ].join(":");
+
+    if (basicStepProgressRef.current === null) {
+      basicStepProgressRef.current = progress;
+      return;
+    }
+    if (basicStepProgressRef.current !== progress) {
+      basicStepProgressRef.current = progress;
+      const nextField = !hasConfirmedDeliveryMethod
+        ? stepOneDeliveryRef.current
+        : !hasValidPayment
+          ? stepOnePaymentRef.current
+          : !hasSelectedShipmentTiming
+            ? stepOneReservationRef.current
+            : showStampAccrual && customerMode !== "x"
+              ? stepOneStampRef.current
+              : stepOneAfterPaymentRef.current;
+
+      // 조건부 행이 완전히 그려진 다음, 새 행의 끝까지 모달 안에 보이게 이동한다.
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          nextField?.scrollIntoView({ behavior: "smooth", block: "end" });
+        });
+      });
+    }
+  }, [
+    layout,
+    step,
+    hasConfirmedStore,
+    hasConfirmedDeliveryMethod,
+    hasValidDeliveryInfo,
+    hasValidPayment,
+    hasValidCouponSelection,
+    hasSelectedShipmentTiming,
+    showStampAccrual,
+    customerMode,
+  ]);
+
   const handleItemSelect = (item: ItemType) => {
     setSelectedItem(item);
     setExchangeSaleSource("");
@@ -1465,7 +1522,7 @@ export default function StampLogForm({
 
   const stepOnePaymentField = (
     <div className="grid grid-cols-[140px_minmax(0,1fr)] border-b border-gray-200">
-      <div className="flex items-start border-r border-gray-200 px-4 py-[10px] text-sm font-bold text-gray-800">
+      <div className="flex items-center border-r border-gray-200 px-4 py-[10px] text-sm font-bold text-gray-800">
         <span className="mr-2 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-500 text-[11px] font-bold leading-none text-white">
           {hasValidPayment ? "✓" : hideRemoteDeliveryMethods ? "2" : "3"}
         </span>
@@ -1558,7 +1615,7 @@ export default function StampLogForm({
 
   const stepOneDeliveryField = (
     <div className="grid grid-cols-[140px_minmax(0,1fr)] border-b border-gray-200">
-      <div className="flex items-start border-r border-gray-200 px-4 py-[10px] text-sm font-bold text-gray-800">
+      <div className="flex items-center border-r border-gray-200 px-4 py-[10px] text-sm font-bold text-gray-800">
         <span className="mr-2 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-500 text-[11px] font-bold leading-none text-white">
           {hasConfirmedDeliveryMethod && hasValidDeliveryInfo ? "✓" : "2"}
         </span>
@@ -2461,8 +2518,18 @@ export default function StampLogForm({
                   : "배달대행 비용",
           amount: activeDeliveryFee,
         };
+  // 스탬프 상태는 출고 작성 중 품목 목록에서만 보여 주고, 저장 품목에는 넣지 않는다.
+  const stampAccrualForItemList =
+    customerMode === "normal"
+      ? {
+          amount,
+          name: amount > 0 ? `스탬프 ${amount}개 적립` : "스탬프 미적립",
+        }
+      : null;
   const virtualItemCount =
-    Number(Boolean(couponUseForItemList)) + Number(Boolean(deliveryForItemList));
+    Number(Boolean(couponUseForItemList)) +
+    Number(Boolean(deliveryForItemList)) +
+    Number(Boolean(stampAccrualForItemList));
 
   const itemListContent = (
     <div className="min-h-[210px] overflow-x-auto rounded-lg border border-gray-200 bg-white">
@@ -2541,14 +2608,14 @@ export default function StampLogForm({
             <tr className="border-b border-gray-200 bg-sky-50/50">
               <td className="px-2 py-2">
                 <span className="mx-auto flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-xs font-semibold leading-none text-white">
-                  {virtualItemCount}
+                  {Number(Boolean(couponUseForItemList)) + 1}
                 </span>
               </td>
               <td className="px-2 py-2 font-medium text-gray-900">
-                <div className="flex flex-wrap items-center gap-x-1.5">
+                <div className="flex items-center gap-x-1.5 whitespace-nowrap">
                   <span>{deliveryForItemList.name}</span>
                   {deliveryForItemList.amount > 0 && (
-                    <span className="text-xs font-semibold text-gray-500">
+                    <span>
                       ({formatAmount(deliveryForItemList.amount)}원)
                     </span>
                   )}
@@ -2560,6 +2627,40 @@ export default function StampLogForm({
               <td className="px-2 py-2 text-center">
                 <span className="inline-flex items-center rounded-md bg-sky-100 px-2 py-1 text-xs font-semibold text-sky-700">
                   배송
+                </span>
+              </td>
+              <td className="px-2 py-2 text-center font-medium text-gray-800">
+                1건
+              </td>
+              {customerMode !== "adjustment" && customerMode !== "demo" && (
+                <>
+                  <td className="px-2 py-2 text-right text-gray-500">-</td>
+                  <td className="px-2 py-2 text-right font-medium text-gray-500">
+                    -
+                  </td>
+                </>
+              )}
+              <td className="px-3 py-2 text-center text-xs font-medium text-gray-400">
+                -
+              </td>
+            </tr>
+          )}
+          {stampAccrualForItemList && (
+            <tr className="border-b border-gray-200 bg-amber-50/50">
+              <td className="px-2 py-2">
+                <span className="mx-auto flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-xs font-semibold leading-none text-white">
+                  {virtualItemCount}
+                </span>
+              </td>
+              <td className="px-2 py-2 font-medium text-gray-900">
+                {stampAccrualForItemList.name}
+              </td>
+              <td className="px-2 py-2 text-center text-xs font-medium text-gray-600">
+                스탬프
+              </td>
+              <td className="px-2 py-2 text-center">
+                <span className="inline-flex items-center rounded-md bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-700">
+                  {stampAccrualForItemList.amount > 0 ? "적립" : "미적립"}
                 </span>
               </td>
               <td className="px-2 py-2 text-center font-medium text-gray-800">
@@ -2956,17 +3057,29 @@ export default function StampLogForm({
                 <>
                   {hasConfirmedStore &&
                     !hideRemoteDeliveryMethods &&
-                    stepOneDeliveryField}
+                    <div ref={stepOneDeliveryRef} className="scroll-mb-16">
+                      {stepOneDeliveryField}
+                    </div>}
                   {hasConfirmedStore &&
                     hasConfirmedDeliveryMethod &&
                     hasValidDeliveryInfo &&
-                    stepOnePaymentField}
-                  {hasValidPayment && stepOneAfterPaymentSlot}
+                    <div ref={stepOnePaymentRef} className="scroll-mb-16">
+                      {stepOnePaymentField}
+                    </div>}
+                  {hasValidPayment && stepOneAfterPaymentSlot && (
+                    <div ref={stepOneAfterPaymentRef} className="scroll-mb-16">
+                      {stepOneAfterPaymentSlot}
+                    </div>
+                  )}
                   {hasConfirmedStore &&
                     hasConfirmedDeliveryMethod &&
                     hasValidDeliveryInfo &&
                     hasValidPayment &&
-                    stepOneReservationField}
+                    stepOneReservationField && (
+                      <div ref={stepOneReservationRef} className="scroll-mb-16">
+                        {stepOneReservationField}
+                      </div>
+                    )}
                   {hasConfirmedStore &&
                     hasConfirmedDeliveryMethod &&
                     hasValidDeliveryInfo &&
@@ -2974,7 +3087,9 @@ export default function StampLogForm({
                     hasSelectedShipmentTiming &&
                     showStampAccrual &&
                     customerMode !== "x" &&
-                    stepOneStampField}
+                    <div ref={stepOneStampRef} className="scroll-mb-16">
+                      {stepOneStampField}
+                    </div>}
                 </>
               )}
             </div>
