@@ -16,6 +16,8 @@ import { useModal } from '@/app/_contexts/ModalContext';
 import DeleteConfirmModal from '@/app/(auth)/_components/DeleteConfirmModal';
 
 const PAGE_SIZE = 10;
+// 복사 기능은 유지하되, 이력 화면에서는 노출하지 않는다.
+const SHOW_HISTORY_COPY_ACTIONS = false;
 
 interface RemarkHistoriesProps {
   dateRange?: { start: string; end: string } | null;
@@ -152,7 +154,7 @@ const RemarkHistories = ({ dateRange }: RemarkHistoriesProps) => {
                           }
                           isSaving={isSaving}
                           isAdmin={isAdmin}
-                          showCopy={canCopyHistory}
+                          showCopy={SHOW_HISTORY_COPY_ACTIONS && canCopyHistory}
                           onDelete={() => deleteItem(log)}
                         />
                       );

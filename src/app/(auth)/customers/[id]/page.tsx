@@ -405,6 +405,7 @@ export default function CustomerDetailPage() {
               logCategory === LogCategoryEnum.RESERVATION.value) && (
               <CustomersDetailStampsHistories
                 targetUser={{
+                  id: customer.id,
                   phone: customer.phone,
                   name: customer.name,
                   gender: customer.gender,
@@ -416,6 +417,8 @@ export default function CustomerDetailPage() {
                 isLoading={logsLoading}
                 error={logsError}
                 isAdmin={isAdmin}
+                isMaster={user?.oss_role === "master"}
+                showCopyButton={false}
                 onDeleteLog={removeLog}
                 onUpdateLog={updateLog}
                 isReservation={

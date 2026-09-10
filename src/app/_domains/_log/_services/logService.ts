@@ -15,6 +15,56 @@ import supabase from "@/libs/supabaseClient";
 import { getCurrentWorkerName } from "@/app/_domains/_workJournal/_utils/currentWorker";
 import { hasAdminAccess, type OssRole } from "@/app/_domains/_user/_utils/userRole";
 
+export type HistoryTransferCustomer = {
+  id: string;
+  name: string;
+  phone: string;
+};
+
+export const searchHistoryTransferCustomers = async (keyword: string) => {
+  const normalized = keyword.trim();
+  if (!normalized) return [] as HistoryTransferCustomer[];
+  const phoneKeyword = normalized.replace(/\D/g, "");
+
+  let query = supabase
+    .from("customers")
+    .select("id, name, phone")
+    .order("name")
+    .limit(10);
+  query = phoneKeyword
+    ? query.or(`name.ilike.%${normalized}%,phone.ilike.%${phoneKeyword}%`)
+    : query.ilike("name", `%${normalized}%`);
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []).map((customer) => ({
+    id: String(customer.id),
+    name: customer.name,
+    phone: customer.phone,
+  }));
+};
+
+export const updateHistoryMasterMetadata = async (values: {
+  logId: string;
+  customerId: string;
+  createdAt: string;
+  workerName: string;
+}) => {
+  const { data, error } = await supabase.rpc("master_update_log_metadata", {
+    p_log_id: values.logId,
+    p_customer_id: values.customerId,
+    p_created_at: values.createdAt,
+    p_worker_name: values.workerName,
+  });
+  if (error) throw error;
+  return data as {
+    id: string;
+    customer_id: string;
+    created_at: string;
+    updated_at: string;
+    jsonb: Record<string, unknown>;
+  };
+};
+
 const resolveCurrentWorkerName = async () => {
   const {
     data: { session },

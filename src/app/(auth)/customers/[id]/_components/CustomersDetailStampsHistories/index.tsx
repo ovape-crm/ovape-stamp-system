@@ -29,6 +29,8 @@ import RemarkLogCreateModal from "../RemarkLogCreateModal";
 import type { StampLogMeta } from "@/app/_domains/_stamp/_services/stampService";
 import { formatHistoryNote } from "@/app/_domains/_log/_utils/formatHistoryNote";
 import type { GenderType } from "@/app/_domains/_customer/_types/customer.types";
+import MasterHistoryManagementModal from "../MasterHistoryManagementModal";
+import { updateHistoryMasterMetadata } from "@/app/_domains/_log/_services/logService";
 
 const CustomersDetailStampsHistories = ({
   targetUser,
@@ -36,12 +38,15 @@ const CustomersDetailStampsHistories = ({
   isLoading,
   error,
   isAdmin,
+  isMaster = false,
   onDeleteLog,
   onUpdateLog,
   isReservation = false,
+  showCopyButton = true,
   onConfirmReservation,
 }: {
   targetUser: {
+    id: string;
     phone: string;
     name: string;
     gender?: GenderType | null;
@@ -53,6 +58,7 @@ const CustomersDetailStampsHistories = ({
   error: string;
   logs: CustomersLogsResType;
   isAdmin: boolean;
+  isMaster?: boolean;
   onDeleteLog: (id: string) => void;
   onUpdateLog: (
     id: string,
@@ -61,10 +67,82 @@ const CustomersDetailStampsHistories = ({
     ) => CustomersLogsResType[number],
   ) => void;
   isReservation?: boolean;
+  /** 통합 이력은 이후 마스터 전용 기능을 넣을 자리를 남긴다. */
+  showCopyButton?: boolean;
   onConfirmReservation?: (logId: string) => Promise<void>;
 }) => {
   const { open, close } = useModal();
   const { copyLogToClipboard } = useCopy();
+
+  const getExtraNote = (log: CustomersLogsResType[number]) => {
+    if (typeof log.jsonb?.extraNote === "string" && log.jsonb.extraNote.trim()) {
+      return log.jsonb.extraNote.trim();
+    }
+    if (typeof log.jsonb?.xTransfer !== "object" || log.jsonb.xTransfer === null) {
+      return "";
+    }
+    const transfer = log.jsonb.xTransfer as Record<string, unknown>;
+    const name = typeof transfer.name === "string" ? transfer.name : "X";
+    const phoneLastDigits =
+      typeof transfer.phoneLastDigits === "string"
+        ? transfer.phoneLastDigits
+        : "미입력";
+    return `X 통합 계정 이전, 이름 : ${name}, 핸드폰 뒷번호 : ${phoneLastDigits}`;
+  };
+
+  const handleMasterManage = useCallback(
+    (log: CustomersLogsResType[number]) => {
+      const currentWorkerName =
+        typeof log.jsonb?.createdWorkerName === "string"
+          ? log.jsonb.createdWorkerName
+          : log.users?.name ?? "";
+      const handleSubmit = async (values: {
+        customer: { id: string; name: string; phone: string };
+        createdAt: string;
+        workerName: string;
+      }) => {
+        try {
+          const updated = await updateHistoryMasterMetadata({
+            logId: log.id,
+            customerId: values.customer.id,
+            createdAt: values.createdAt,
+            workerName: values.workerName,
+          });
+          if (updated.customer_id !== targetUser.id) {
+            onDeleteLog(log.id);
+          } else {
+            onUpdateLog(log.id, (item) => ({ ...item, ...updated }));
+          }
+          close();
+          toast.success("이력 관리 내용을 저장했습니다.");
+        } catch (error) {
+          console.error(error);
+          toast.error("이력 관리 내용을 저장하지 못했습니다.");
+        }
+      };
+      open({
+        content: (
+          <MasterHistoryManagementModal
+            initialCustomer={{
+              id: targetUser.id,
+              name: targetUser.name,
+              phone: targetUser.phone,
+            }}
+            initialCreatedAt={log.created_at}
+            initialWorkerName={currentWorkerName}
+            onSubmit={handleSubmit}
+            onCancel={close}
+          />
+        ),
+        options: {
+          dismissOnBackdrop: false,
+          dismissOnEsc: true,
+          size: "max-w-xl",
+        },
+      });
+    },
+    [close, onDeleteLog, onUpdateLog, open, targetUser.id, targetUser.name, targetUser.phone],
+  );
 
   const handleConfirm = useCallback(
     (log: CustomersLogsResType[number]) => {
@@ -353,10 +431,9 @@ const CustomersDetailStampsHistories = ({
                             <span className="text-gray-400"> - </span>
                           )}
                         </p>
-                        {typeof log.jsonb?.extraNote === "string" &&
-                          log.jsonb.extraNote.trim() && (
+                        {getExtraNote(log) && (
                             <p className="mt-1 italic text-gray-400">
-                              출고 특이사항: &quot;{log.jsonb.extraNote.trim()}
+                              출고 특이사항: &quot;{getExtraNote(log)}
                               &quot;
                             </p>
                           )}
@@ -409,7 +486,7 @@ const CustomersDetailStampsHistories = ({
                         />
                       </div>
                     )}
-                    {!isReservation && (
+                    {!isReservation && showCopyButton && (
                       <Button
                         variant="secondary"
                         size="xs"
@@ -422,6 +499,18 @@ const CustomersDetailStampsHistories = ({
                         }
                       >
                         복사
+                      </Button>
+                    )}
+                    {!isReservation && !showCopyButton && (
+                      <div className="h-7 w-12" aria-hidden="true" />
+                    )}
+                    {isMaster && (
+                      <Button
+                        variant="secondary"
+                        size="xs"
+                        onClick={() => handleMasterManage(log)}
+                      >
+                        관리
                       </Button>
                     )}
                     {isAdmin && (

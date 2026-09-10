@@ -11,6 +11,7 @@ export type SettlementExpense = {
   recurrence_day: number | null;
   recurrence_end_date: string | null;
   recurrence_cancelled_on: string | null;
+  recurrence_source_id?: string | null;
   note: string | null;
   created_at: string;
 };

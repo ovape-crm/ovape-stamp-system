@@ -35,8 +35,12 @@ import StampLogEditModal from "@/app/(auth)/_components/StampLogEditModal";
 import ConfirmModal from "@/app/(auth)/_components/ConfirmModal";
 import RemarkLogCreateModal from "@/app/(auth)/customers/[id]/_components/RemarkLogCreateModal";
 import type { StampLogMeta } from "@/app/_domains/_stamp/_services/stampService";
+import MasterHistoryManagementModal from "@/app/(auth)/customers/[id]/_components/MasterHistoryManagementModal";
+import { updateHistoryMasterMetadata } from "@/app/_domains/_log/_services/logService";
 
 const PAGE_SIZE = 10;
+// 복사 기능은 유지하되, 이력 화면에서는 노출하지 않는다.
+const SHOW_HISTORY_COPY_ACTIONS = false;
 
 const paymentMethodOptions = [
   { label: "전체", value: "" },
@@ -58,6 +62,7 @@ const StampHistories = ({
   const router = useRouter();
   const { isAdmin, user } = useUser();
   const canCopyHistory = user?.oss_role !== "staff";
+  const isMaster = user?.oss_role === "master";
   const { open, close } = useModal();
   const { copyLogsToClipboard } = useCopy();
   const queryClient = useQueryClient();
@@ -100,6 +105,64 @@ const StampHistories = ({
     if (e.nativeEvent.isComposing) return;
     if (e.key === "Enter") handleSearch();
   };
+
+  const handleMasterManage = useCallback(
+    (log: LogsResType) => {
+      const currentWorkerName =
+        typeof log.jsonb?.createdWorkerName === "string"
+          ? log.jsonb.createdWorkerName
+          : log.users?.name ?? "";
+      const handleSubmit = async (values: {
+        customer: { id: string; name: string; phone: string };
+        createdAt: string;
+        workerName: string;
+      }) => {
+        try {
+          const updated = await updateHistoryMasterMetadata({
+            logId: log.id,
+            customerId: values.customer.id,
+            createdAt: values.createdAt,
+            workerName: values.workerName,
+          });
+          updateItem(log.id, (item) => ({
+            ...item,
+            ...updated,
+            customers: {
+              ...item.customers,
+              name: values.customer.name,
+              phone: values.customer.phone,
+            },
+          }));
+          close();
+          toast.success("이력 관리 내용을 저장했습니다.");
+        } catch (error) {
+          console.error(error);
+          toast.error("이력 관리 내용을 저장하지 못했습니다.");
+        }
+      };
+      open({
+        content: (
+          <MasterHistoryManagementModal
+            initialCustomer={{
+              id: String(log.customer_id),
+              name: log.customers.name,
+              phone: log.customers.phone,
+            }}
+            initialCreatedAt={log.created_at}
+            initialWorkerName={currentWorkerName}
+            onSubmit={handleSubmit}
+            onCancel={close}
+          />
+        ),
+        options: {
+          dismissOnBackdrop: false,
+          dismissOnEsc: true,
+          size: "max-w-xl",
+        },
+      });
+    },
+    [close, open, updateItem],
+  );
 
   const handleCopyPeriod = async () => {
     if (!dateRange || isCopyingPeriod) return;
@@ -367,7 +430,7 @@ const StampHistories = ({
               </Dropdown>
             </div>
           </div>
-          {isAdmin && canCopyHistory && !isReservation && (
+          {SHOW_HISTORY_COPY_ACTIONS && isAdmin && canCopyHistory && !isReservation && (
             <Button
               type="button"
               size="sm"
@@ -442,7 +505,13 @@ const StampHistories = ({
                               ? () => confirmReservation(history.log)
                               : undefined
                           }
-                          showCopy={canCopyHistory && !isReservation}
+                          showCopy={
+                            SHOW_HISTORY_COPY_ACTIONS &&
+                            canCopyHistory &&
+                            !isReservation
+                          }
+                          isMaster={isMaster}
+                          onManage={() => handleMasterManage(history.log)}
                         />
                     ))}
                   </div>

@@ -208,7 +208,7 @@ const CustomersDetailRemarkHistories = ({
                       )}
                     </div>
                     <div className="ml-3 flex-shrink-0 flex items-center gap-2">
-                      <Button
+                      {false && <Button
                         variant="secondary"
                         size="xs"
                         onClick={() =>
@@ -217,7 +217,7 @@ const CustomersDetailRemarkHistories = ({
                         disabled={isSaving}
                       >
                         복사
-                      </Button>
+                      </Button>}
                       {isAdmin && (
                         <Button
                           variant="danger"
