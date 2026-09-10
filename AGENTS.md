@@ -80,6 +80,22 @@ These are product-wide UI rules. Apply them to all new UI and keep them consiste
 - The creation/processing flow is canonical: inventory-adjustment edits follow inventory-adjustment processing, demo edits follow demo processing, and X/normal edits follow outbound-history creation.
 - When changing one variant, do not automatically apply the change to the other three variants unless the requirement explicitly calls for a shared change.
 
+## Completion report format
+
+- When the user asks for a title and detailed completion description, provide both in copy-and-paste-ready code blocks.
+- Write the detailed description in Korean using bracketed functional sections (for example, `[종합정산]`, `[재고·원가]`, `[검증]`) followed by concise bullet points.
+- Include only implemented and verified items. Put checks such as tests, lint, type checks, browser checks, and database migration status in a final `[검증]` section.
+- Do not replace the structured detailed description with a one-line summary unless the user explicitly asks for a short version.
+
+## Persistent user instructions
+
+- When the user says to remember a workflow, reporting format, UI convention, or other instruction for future work, record the instruction in this `AGENTS.md` during the same task so it also applies in new conversations.
+- Before recording, preserve the user's intended scope and wording; do not turn a one-off request into a permanent rule unless the user clearly indicates that it should be remembered or applied going forward.
+
+## Gear icon
+
+- For every newly added gear/settings control, reuse the exact gear icon design already used by the tab-order management control. Do not substitute a different gear glyph, emoji, or one-off icon treatment.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 # This is NOT the Next.js you know
