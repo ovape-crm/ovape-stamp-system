@@ -12,7 +12,6 @@ import { usePathname, useRouter } from "next/navigation";
 import Loading from "@/app/_components/Loading";
 import Button from "@/app/_components/Button";
 import { useUser } from "@/app/_contexts/UserContext";
-import { getCurrentWorker } from "@/app/_domains/_workJournal/_utils/currentWorker";
 import {
   acknowledgeOpeningNotice,
   getOpeningCompletionNotice,
@@ -42,6 +41,13 @@ const getTodayInKorea = () =>
     month: "2-digit",
     day: "2-digit",
   }).format(new Date());
+
+const getPreviousDayInKorea = () => {
+  const [year, month, day] = getTodayInKorea().split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day - 1))
+    .toISOString()
+    .slice(0, 10);
+};
 
 const isAllowedPathForStep = (
   pathname: string,
@@ -77,20 +83,19 @@ export const StaffOpeningProvider = ({
     }
 
     const today = getTodayInKorea();
+    const previousDay = getPreviousDayInKorea();
 
     try {
-      const { data: latestReport, error: reportError } = await supabase
+      const { data: previousReport, error: reportError } = await supabase
         .from("daily_closing_reports")
         .select("business_date")
-        .lt("business_date", today)
-        .order("business_date", { ascending: false })
-        .limit(1)
+        .eq("business_date", previousDay)
         .maybeSingle();
 
       if (reportError) throw reportError;
 
-      // 마감 기능을 아직 사용하지 않은 매장은 기존처럼 모든 메뉴를 사용한다.
-      if (!latestReport) {
+      // 전일 마감이 없는 날은 이전 날짜의 시재를 기준으로 오픈을 제한하지 않는다.
+      if (!previousReport) {
         setStep("unlocked");
         setPreviousCash(null);
         return;
@@ -99,9 +104,7 @@ export const StaffOpeningProvider = ({
       const { data: previousClosing, error: previousError } = await supabase
         .from("cash_register_closings")
         .select("actual_cash")
-        .lte("business_date", latestReport.business_date)
-        .order("business_date", { ascending: false })
-        .limit(1)
+        .eq("business_date", previousDay)
         .maybeSingle();
 
       if (previousError) throw previousError;
@@ -173,17 +176,11 @@ export const StaffOpeningProvider = ({
         return;
       }
 
-      const currentWorker = getCurrentWorker();
-      if (!currentWorker) {
-        setStep("attendance");
-        return;
-      }
-
       const { data: journal, error: journalError } = await supabase
         .from("work_journals")
         .select("id")
         .eq("work_date", today)
-        .eq("worker_name", currentWorker.name)
+        .eq("created_by", user.id)
         .eq("status", "working")
         .maybeSingle();
 
