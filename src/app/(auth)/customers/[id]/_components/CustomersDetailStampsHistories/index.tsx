@@ -31,6 +31,9 @@ import { formatHistoryNote } from "@/app/_domains/_log/_utils/formatHistoryNote"
 import type { GenderType } from "@/app/_domains/_customer/_types/customer.types";
 import MasterHistoryManagementModal from "../MasterHistoryManagementModal";
 import { updateHistoryMasterMetadata } from "@/app/_domains/_log/_services/logService";
+import { useQueryClient } from "@tanstack/react-query";
+import { logKeys } from "@/app/_domains/_log/_queryKeys/logKeys";
+import { customerKeys } from "@/app/_domains/_customer/_queryKeys/customerKeys";
 
 const CustomersDetailStampsHistories = ({
   targetUser,
@@ -73,6 +76,7 @@ const CustomersDetailStampsHistories = ({
 }) => {
   const { open, close } = useModal();
   const { copyLogToClipboard } = useCopy();
+  const queryClient = useQueryClient();
 
   const getExtraNote = (log: CustomersLogsResType[number]) => {
     if (typeof log.jsonb?.extraNote === "string" && log.jsonb.extraNote.trim()) {
@@ -113,6 +117,10 @@ const CustomersDetailStampsHistories = ({
           } else {
             onUpdateLog(log.id, (item) => ({ ...item, ...updated }));
           }
+          void Promise.all([
+            queryClient.invalidateQueries({ queryKey: logKeys.all() }),
+            queryClient.invalidateQueries({ queryKey: customerKeys.all() }),
+          ]);
           close();
           toast.success("이력 관리 내용을 저장했습니다.");
         } catch (error) {
@@ -141,7 +149,7 @@ const CustomersDetailStampsHistories = ({
         },
       });
     },
-    [close, onDeleteLog, onUpdateLog, open, targetUser.id, targetUser.name, targetUser.phone],
+    [close, onDeleteLog, onUpdateLog, open, queryClient, targetUser.id, targetUser.name, targetUser.phone],
   );
 
   const handleConfirm = useCallback(

@@ -131,13 +131,6 @@ const schema = z
         });
       }
     }
-    if (values.caseType === "store_product_as" && values.storeProductUnitCost <= 0) {
-      context.addIssue({
-        code: "custom",
-        path: ["storeProductUnitCost"],
-        message: "매장제품 A/S 원가는 1원 이상 입력하세요.",
-      });
-    }
     if (
       values.caseType === "vendor_exchange" &&
       values.costAllocations.reduce((sum, allocation) => sum + allocation.quantity, 0) !== values.quantity

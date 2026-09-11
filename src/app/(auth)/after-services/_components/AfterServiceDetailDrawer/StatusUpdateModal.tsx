@@ -86,6 +86,7 @@ interface StatusUpdateModalProps {
   initialReceiptQuantity?: number;
   initialReceiptMatchType?: "match" | "mismatch";
   isInventoryProcessed: boolean;
+  outboundSupplierId?: string | null;
   supplierName?: string | null;
   customerName?: string | null;
   customerPhone?: string | null;
@@ -110,6 +111,7 @@ const StatusUpdateModal = ({
   initialReceiptQuantity,
   initialReceiptMatchType,
   isInventoryProcessed,
+  outboundSupplierId,
   supplierName,
   customerName,
   customerPhone,
@@ -146,7 +148,10 @@ const StatusUpdateModal = ({
   const [receiptQuantity, setReceiptQuantity] = useState(
     String(
       initialReceiptQuantity ??
-        serviceProgress?.remaining_quantity ??
+        (serviceProgress?.remaining_quantity &&
+        serviceProgress.remaining_quantity > 0
+          ? serviceProgress.remaining_quantity
+          : undefined) ??
         originalQuantity,
     ),
   );
@@ -272,18 +277,22 @@ const StatusUpdateModal = ({
     !hasStoreRepairCost ||
     (Number.isInteger(parsedStoreRepairCostAmount) &&
       parsedStoreRepairCostAmount > 0);
-  const normalizedSupplierName = supplierName?.trim() ?? "";
-  const hasRegisteredSupplier =
-    normalizedSupplierName.length > 0 &&
-    !["나중에 선택", "나중에선택", "나중에 수정", "나중에수정"].includes(
-      normalizedSupplierName,
-    );
-  const parsedReceiptQuantity = Number(receiptQuantity);
   const isInventoryServiceCase =
     serviceCaseType === "vendor_exchange" ||
     serviceCaseType === "store_product_as";
+  const normalizedSupplierName = supplierName?.trim() ?? "";
+  const hasRegisteredSupplier =
+    (normalizedSupplierName.length > 0 &&
+      !["나중에 선택", "나중에선택", "나중에 수정", "나중에수정"].includes(
+        normalizedSupplierName,
+      )) ||
+    (isInventoryServiceCase && Boolean(outboundSupplierId));
+  const parsedReceiptQuantity = Number(receiptQuantity);
   const maximumReceiptQuantity = isInventoryServiceCase
-    ? (serviceProgress?.remaining_quantity ?? originalQuantity)
+    ? serviceProgress?.remaining_quantity &&
+      serviceProgress.remaining_quantity > 0
+      ? serviceProgress.remaining_quantity
+      : originalQuantity
     : null;
   const receiptValuesDiffer =
     receiptItemName.trim() !== originalItemName.trim() ||
@@ -291,14 +300,13 @@ const StatusUpdateModal = ({
   const isRepairReceiptValid =
     !requiresInventoryReceiptConfirmation ||
     editMode ||
-    (hasRegisteredSupplier &&
-      receiptItemName.trim().length > 0 &&
+    (receiptItemName.trim().length > 0 &&
       Number.isInteger(parsedReceiptQuantity) &&
       parsedReceiptQuantity > 0 &&
-      (!isInventoryServiceCase || parsedReceiptQuantity <= maximumReceiptQuantity!) &&
       (isInventoryServiceCase ||
-        (receiptValuesDiffer && receiptMatchType === "mismatch") ||
-        (!receiptValuesDiffer && receiptMatchType === "match")));
+        (hasRegisteredSupplier &&
+          ((receiptValuesDiffer && receiptMatchType === "mismatch") ||
+            (!receiptValuesDiffer && receiptMatchType === "match")))));
   const requiresCustomerContactConfirmation =
     selectedStatus === AfterServiceStatusEnum.REPAIR_RETURNED.value;
   const requiresRentalReturnConfirmation =
@@ -717,7 +725,7 @@ const StatusUpdateModal = ({
                             setIsInventoryReceiptConfirmed(event.target.checked)
                           }
                           className="h-4 w-4 shrink-0 cursor-pointer accent-brand-500"
-                          disabled={isSubmitting || !isRepairReceiptValid}
+                          disabled={isSubmitting}
                         />
                       </label>
                     </>

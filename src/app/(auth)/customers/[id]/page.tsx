@@ -38,7 +38,7 @@ import {
 } from "@/app/_domains/_customer/_utils/specialCustomer";
 import type { GenderType } from "@/app/_domains/_customer/_types/customer.types";
 import { createCustomerFollowUpRemark } from "@/app/_domains/_customer/_services/customerFollowUpRemarkService";
-import { getCurrentWorkerName } from "@/app/_domains/_workJournal/_utils/currentWorker";
+import { resolveCurrentWorkerName } from "@/app/_domains/_workJournal/_utils/currentWorker";
 import { getOpenCustomerFollowUpRemarks } from "@/app/_domains/_customer/_services/customerFollowUpRemarkService";
 import CustomerFollowUpRemarkModal from "./_components/CustomerFollowUpRemarkModal";
 
@@ -178,7 +178,7 @@ export default function CustomerDetailPage() {
 
   const handleCreateFollowUpRemark = async (note: string) => {
     try {
-      const authorName = isAdmin ? '관리자' : getCurrentWorkerName() || '직원';
+      const authorName = isAdmin ? '관리자' : await resolveCurrentWorkerName() || '직원';
       await Promise.all([
         createCustomerFollowUpRemark({ customerId, content: note, authorName }),
         addStamp(customerId, 0, `[처리 필요 등록]\n${note}`, PaymentTypeEnum.REMARK.value),

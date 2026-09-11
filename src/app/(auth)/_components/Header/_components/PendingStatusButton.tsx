@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { getAfterServiceStatusGroups } from "@/app/_utils/utils";
-import { getCurrentWorkerName } from "@/app/_domains/_workJournal/_utils/currentWorker";
+import { resolveCurrentWorkerName } from "@/app/_domains/_workJournal/_utils/currentWorker";
 import { useUser } from "@/app/_contexts/UserContext";
 import supabase from "@/libs/supabaseClient";
 import { showConfirmDialog } from "@/app/_components/AppDialog";
@@ -94,24 +94,7 @@ export default function PendingStatusButton() {
       setActorName("관리자");
       return "관리자";
     }
-    const storedWorkerName = getCurrentWorkerName();
-    if (storedWorkerName) {
-      setActorName(storedWorkerName);
-      return storedWorkerName;
-    }
-    const today = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Asia/Seoul",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(new Date());
-    const { data } = await supabase
-      .from("work_journals")
-      .select("worker_name")
-      .eq("work_date", today)
-      .eq("status", "working")
-      .limit(2);
-    const resolvedName = data?.length === 1 ? data[0].worker_name : "";
+    const resolvedName = await resolveCurrentWorkerName();
     setActorName(resolvedName);
     return resolvedName;
   }, [isAdmin]);

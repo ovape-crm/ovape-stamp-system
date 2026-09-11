@@ -5,6 +5,10 @@ import {
   WorkerDetailType,
   PayrollPaymentHistoryType,
 } from "../_types/workJournal.types";
+import {
+  resolveCurrentWorkerName,
+  setCurrentWorker,
+} from "../_utils/currentWorker";
 
 const getNextMonth = (month: string) => {
   const [year, monthNumber] = month.split("-").map(Number);
@@ -303,10 +307,7 @@ export const createWorkJournal = async (values: {
     }
   }
 
-  window.localStorage.setItem(
-    "current-work-worker",
-    JSON.stringify({ name: normalizedWorkerName, workDate: values.workDate }),
-  );
+  setCurrentWorker({ name: normalizedWorkerName, workDate: values.workDate });
   window.dispatchEvent(new Event("staff-opening-changed"));
 };
 
@@ -370,7 +371,8 @@ export const completeWorkJournal = async (values: {
     .eq("worker_name", values.workerName.trim());
 
   if (error) throw error;
-  window.localStorage.removeItem("current-work-worker");
+  await resolveCurrentWorkerName();
+  window.dispatchEvent(new Event("staff-opening-changed"));
   return completionStatus;
 };
 
