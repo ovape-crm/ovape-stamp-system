@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Button from '@/app/_components/Button';
 import { completeCustomerFollowUpRemark, type CustomerFollowUpRemark } from '@/app/_domains/_customer/_services/customerFollowUpRemarkService';
-import { getCurrentWorkerName } from '@/app/_domains/_workJournal/_utils/currentWorker';
+import { resolveCurrentWorkerName } from '@/app/_domains/_workJournal/_utils/currentWorker';
 import { addStamp } from '@/app/_domains/_stamp/_services/stampService';
 import { PaymentTypeEnum } from '@/app/_enums/enums';
 import toast from 'react-hot-toast';
@@ -35,10 +35,11 @@ const CustomerFollowUpRemarkModal = ({
         `[처리 완료]\n최초 작성: ${new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(remark.created_at))} · ${remark.created_by_name}\n작성 내용: ${remark.content}\n처리일: ${completedAt}\n처리 내용: ${content.trim()}`,
         PaymentTypeEnum.REMARK.value,
       );
+      const workerName = isAdmin ? '관리자' : await resolveCurrentWorkerName() || '직원';
       await completeCustomerFollowUpRemark({
         id: remark.id,
         content: content.trim(),
-        workerName: isAdmin ? '관리자' : getCurrentWorkerName() || '직원',
+        workerName,
       });
       toast.success('처리 내용을 기록했습니다.');
       onSuccess();

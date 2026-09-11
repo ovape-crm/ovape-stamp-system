@@ -133,6 +133,10 @@ const StampHistories = ({
               phone: values.customer.phone,
             },
           }));
+          void Promise.all([
+            queryClient.invalidateQueries({ queryKey: logKeys.all() }),
+            queryClient.invalidateQueries({ queryKey: customerKeys.all() }),
+          ]);
           close();
           toast.success("이력 관리 내용을 저장했습니다.");
         } catch (error) {
@@ -161,7 +165,7 @@ const StampHistories = ({
         },
       });
     },
-    [close, open, updateItem],
+    [close, open, queryClient, updateItem],
   );
 
   const handleCopyPeriod = async () => {

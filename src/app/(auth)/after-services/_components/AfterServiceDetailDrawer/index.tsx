@@ -150,8 +150,8 @@ const AfterServiceDetailDrawer = ({
   const handleSaveManualCost = async () => {
     if (!afterServiceDetail) return;
     const unitPrice = Number(manualCost.replaceAll(",", ""));
-    if (!Number.isInteger(unitPrice) || unitPrice <= 0) {
-      toast.error("실제 단가를 1원 이상 입력해 주세요.");
+    if (!manualCost.trim() || !Number.isInteger(unitPrice) || unitPrice < 0) {
+      toast.error("실제 단가를 0원 이상 입력해 주세요.");
       return;
     }
     try {
@@ -266,6 +266,9 @@ const AfterServiceDetailDrawer = ({
           queryKey: ["settlement-expense-total"],
         });
       }
+      if (isInventoryServiceCase && values.repairReceipt) {
+        queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      }
       close();
       toast.success("상태가 업데이트되었습니다.");
     } catch (err) {
@@ -288,6 +291,8 @@ const AfterServiceDetailDrawer = ({
         toast.error("수리 접수일을 확인해 주세요.");
       } else if (message.includes("STORE_REPAIR_COST_REQUIRED")) {
         toast.error("매장 접수비용 금액을 확인해 주세요.");
+      } else if (message.includes("STORE_PRODUCT_MANUAL_COST_REQUIRED")) {
+        toast.error("매장제품 A/S 원가 정보를 확인하지 못했습니다. 다시 시도해 주세요.");
       } else if (message.includes("SERVICE_INBOUND_QUANTITY_EXCEEDED")) {
         toast.error("남은 출고 수량보다 많이 입고할 수 없습니다.");
       } else if (message.includes("SERVICE_INBOUND_ITEM_MISMATCH")) {
@@ -323,6 +328,7 @@ const AfterServiceDetailDrawer = ({
           isInventoryProcessed={
             afterServiceDetail.is_loaner_device_issued ?? false
           }
+          outboundSupplierId={afterServiceDetail.outbound_supplier_id}
           supplierName={afterServiceDetail.supplier_name}
           customerName={afterServiceDetail.customers?.name}
           customerPhone={afterServiceDetail.customers?.phone}
@@ -408,6 +414,7 @@ const AfterServiceDetailDrawer = ({
           isInventoryProcessed={
             afterServiceDetail.is_loaner_device_issued ?? false
           }
+          outboundSupplierId={afterServiceDetail.outbound_supplier_id}
           supplierName={afterServiceDetail.supplier_name}
           customerName={afterServiceDetail.customers?.name}
           customerPhone={afterServiceDetail.customers?.phone}

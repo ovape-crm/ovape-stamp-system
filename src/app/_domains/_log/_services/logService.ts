@@ -12,7 +12,7 @@ import {
   LogsResType,
 } from "@/app/_domains/_log/_types/log.types";
 import supabase from "@/libs/supabaseClient";
-import { getCurrentWorkerName } from "@/app/_domains/_workJournal/_utils/currentWorker";
+import { resolveCurrentWorkerName as resolveActiveWorkerName } from "@/app/_domains/_workJournal/_utils/currentWorker";
 import { hasAdminAccess, type OssRole } from "@/app/_domains/_user/_utils/userRole";
 
 export type HistoryTransferCustomer = {
@@ -56,7 +56,9 @@ export const updateHistoryMasterMetadata = async (values: {
     p_worker_name: values.workerName,
   });
   if (error) throw error;
-  return data as {
+  const updated = data?.[0];
+  if (!updated) throw new Error("HISTORY_METADATA_UPDATE_NOT_RETURNED");
+  return updated as {
     id: string;
     customer_id: string;
     created_at: string;
@@ -78,22 +80,7 @@ const resolveCurrentWorkerName = async () => {
     if (hasAdminAccess(currentUser?.oss_role as OssRole | undefined)) return currentUser?.oss_role === "master" ? "마스터" : "관리자";
   }
 
-  const storedWorkerName = getCurrentWorkerName();
-  if (storedWorkerName) return storedWorkerName;
-
-  const today = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Seoul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-  const { data } = await supabase
-    .from("work_journals")
-    .select("worker_name")
-    .eq("work_date", today)
-    .eq("status", "working")
-    .limit(2);
-  return data?.length === 1 ? data[0].worker_name : "";
+  return resolveActiveWorkerName();
 };
 
 export const withCreatedWorker = async (

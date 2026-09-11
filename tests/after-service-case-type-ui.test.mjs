@@ -23,6 +23,20 @@ const statusModal = await readFile(
   ),
   "utf8",
 );
+const zeroCostMigration = await readFile(
+  new URL(
+    "../supabase/migrations/20260911000000_allow_zero_cost_store_product_as_inbound.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const missingCostMigration = await readFile(
+  new URL(
+    "../supabase/migrations/20260912000000_default_missing_store_product_as_cost_to_zero.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 test("매장제품 A/S는 원가를 수량 옆에 표시하고 별도 안내 문구를 보이지 않는다", () => {
   assert.match(
     createModal,
@@ -44,6 +58,16 @@ test("매장제품 A/S는 출고 확정 없이 원가 입력 후 수리 입고�
     detailDrawer,
     /afterServiceDetail\?\.service_case_type === "store_product_as" \|\|[\s\S]*?afterServiceDetail\.status === AfterServiceStatusEnum\.SENT_FOR_REPAIR\.value/,
   );
+  assert.doesNotMatch(
+    createModal,
+    /storeProductUnitCost <= 0/,
+  );
+  assert.match(zeroCostMigration, /p_unit_price < 0/);
+  assert.match(zeroCostMigration, /unit_price is not null/);
+  assert.match(
+    missingCostMigration,
+    /insert into public\.after_service_outbound_cost_allocations[\s\S]*?values \(p_after_service_id, null, 0, v_original_quantity\)/,
+  );
   assert.match(
     detailDrawer,
     /if \(requiresOutboundConfirmation && !afterServiceDetail\.outbound_processed_at\)/,
@@ -54,9 +78,42 @@ test("매장제품 A/S는 출고 확정 없이 원가 입력 후 수리 입고�
   );
   assert.match(detailDrawer, /afterServiceDetail\.service_case_type !== "store_product_as"/);
   assert.match(statusModal, /"수리 입고 \(재고처리\)"/);
+  assert.match(statusModal, /isInventoryServiceCase && Boolean\(outboundSupplierId\)/);
+  assert.match(statusModal, /checked=\{isInventoryReceiptConfirmed\}[\s\S]*?disabled=\{isSubmitting\}/);
+  assert.match(
+    statusModal,
+    /parsedReceiptQuantity > 0 &&[\s\S]*?\(isInventoryServiceCase \|\|/,
+  );
+  assert.match(
+    statusModal,
+    /serviceProgress\?\.remaining_quantity &&[\s\S]*?serviceProgress\.remaining_quantity > 0[\s\S]*?: undefined\) \?\?[\s\S]*?originalQuantity/,
+  );
+  assert.match(detailDrawer, /isInventoryServiceCase && values\.repairReceipt[\s\S]*?queryKey: \["inventory"\]/);
   assert.match(
     statusModal,
     /serviceCaseType === "store_product_as"[\s\S]*?REPAIR_RETURNED_COMPLETED/,
+  );
+});
+
+test("매장제품 A/S와 업체 불량교환은 같은 재고 입고 처리 경로를 사용한다", () => {
+  assert.match(
+    detailDrawer,
+    /if \(isInventoryServiceCase\) \{[\s\S]*?processInventoryServiceInbound/,
+  );
+  assert.match(
+    statusModal,
+    /serviceCaseType === "vendor_exchange" \|\|[\s\S]*?serviceCaseType === "store_product_as"/,
+  );
+});
+
+test("일반 고객 A/S는 일치 여부와 관계없이 등록 거래처를 확인한다", () => {
+  assert.match(
+    statusModal,
+    /\(isInventoryServiceCase \|\|\s*\(hasRegisteredSupplier &&\s*\(\(receiptValuesDiffer && receiptMatchType === "mismatch"\) \|\|\s*\(!receiptValuesDiffer && receiptMatchType === "match"\)\)\)\)/,
+  );
+  assert.doesNotMatch(
+    statusModal,
+    /parsedReceiptQuantity <= maximumReceiptQuantity! &&/,
   );
 });
 

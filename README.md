@@ -13,7 +13,7 @@
 | **목적** | 고객 스탬프 관리 및 AS 이력 통합 조회 시스템 |
 | **DB** | Supabase (PostgreSQL) |
 | **배포 플랫폼** | Vercel |
-| **프레임워크** | Next.js 15 (App Router) |
+| **프레임워크** | Next.js 16 (App Router) |
 | **상태 관리 및 폼** | React Hook Form + Zod |
 | **개발 언어** | TypeScript 5 |
 | **스타일링** | Tailwind CSS 4 |
@@ -24,7 +24,7 @@
 
 | 분류 | 기술 |
 |------|------|
-| **Frontend Framework** | [Next.js 15](https://nextjs.org/) |
+| **Frontend Framework** | [Next.js 16](https://nextjs.org/) |
 | **Language** | [TypeScript 5](https://www.typescriptlang.org/) |
 | **UI Framework** | [React 19](https://react.dev/) + [Tailwind CSS 4](https://tailwindcss.com/) |
 | **Form Handling** | [React Hook Form](https://react-hook-form.com/) + [Zod](https://zod.dev/) |

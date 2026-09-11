@@ -580,6 +580,20 @@ test("매장제품 A/S 원가 입력은 접수 상태를 유지하고 재고를 
     0,
   );
 });
+test("0원 매장제품 A/S 원가도 유효한 입고 원가층으로 저장한다", async () => {
+  await fixture();
+  await query(
+    "insert into after_services(id,item_name,quantity,service_case_type,outbound_supplier_id,status) values(53,'무상수리',1,'store_product_as',$1,'received')",
+    [uid(500)],
+  );
+  await query("select set_after_service_manual_cost(53, 0)");
+  assert.deepEqual(
+    await query(
+      "select unit_price, outbound_quantity from after_service_outbound_cost_allocations where after_service_id=53",
+    ),
+    [{ unit_price: 0, outbound_quantity: 1 }],
+  );
+});
 test("기존 수리 발송 매장제품 A/S도 원가를 보정할 수 있다", async () => {
   await fixture();
   await query(
