@@ -53,6 +53,10 @@ export const getActionText = (action: string) => {
     return { text: `쿠폰 사용`, color: "text-blue-700 bg-blue-100" };
   }
 
+  if (action === "refund") {
+    return { text: "환불", color: "text-rose-700 bg-rose-100" };
+  }
+
   if (action === "update-customer-info") {
     return { text: `고객 정보 수정`, color: "text-gray-700 bg-gray-100" };
   }

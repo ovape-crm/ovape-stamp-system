@@ -24,6 +24,8 @@ interface StampHistoryItemProps {
   showCopy?: boolean;
   isMaster?: boolean;
   onManage?: () => void;
+  onRefund?: () => void;
+  onCancelRefund?: () => void;
   isLocked?: boolean;
 }
 
@@ -37,6 +39,8 @@ const StampHistoryItem = ({
   showCopy = true,
   isMaster = false,
   onManage,
+  onRefund,
+  onCancelRefund,
   isLocked = false,
 }: StampHistoryItemProps) => {
   const { copyLogToClipboard } = useCopy();
@@ -50,6 +54,7 @@ const StampHistoryItem = ({
     (typeof log.jsonb?.reservationDate === "string" &&
       log.jsonb.reservationDate.trim()),
   );
+  const hasPrimaryAction = Boolean(onConfirm || (showCopy && !isLocked));
   const customerMode = log.customers?.name
     ? getCustomerMode(log.customers.name, log.customers.phone)
     : "normal";
@@ -116,7 +121,7 @@ const StampHistoryItem = ({
   return (
     <div
       id={`history-${log.id}`}
-      className="grid scroll-mt-6 grid-cols-[125px_128px_minmax(260px,1fr)_115px_auto] items-center gap-2 whitespace-nowrap rounded-lg border border-brand-50 p-2.5 text-xs transition-colors hover:bg-brand-50/30 target:bg-brand-50 target:ring-2 target:ring-brand-300 sm:px-2 sm:py-4 sm:text-sm"
+      className={`grid scroll-mt-6 ${hasPrimaryAction ? "grid-cols-[125px_128px_minmax(260px,1fr)_115px_auto]" : "grid-cols-[125px_128px_minmax(260px,1fr)_auto]"} items-center gap-2 whitespace-nowrap rounded-lg border border-brand-50 p-2.5 text-xs transition-colors hover:bg-brand-50/30 target:bg-brand-50 target:ring-2 target:ring-brand-300 sm:px-2 sm:py-4 sm:text-sm`}
     >
       <div className="flex min-w-0 self-center flex-col items-center text-center">
         {!isCustomerRemark && !isCouponUse && (
@@ -158,7 +163,7 @@ const StampHistoryItem = ({
       </div>
 
       <div className="min-w-0 border-l border-brand-100 pl-3 sm:pl-4">
-        <div className="flex items-start gap-2">
+        <div className="flex items-center gap-2">
           <Button
             variant="secondary"
             size="xs"
@@ -217,20 +222,32 @@ const StampHistoryItem = ({
         </div>
       </div>
 
-      <div className="text-right">
-        {log.users && (
-          <LogActorInfo
-            users={log.users}
-            created_at={log.created_at}
-            updated_at={log.updated_at}
-            jsonb={log.jsonb}
-          />
-        )}
-      </div>
+      {hasPrimaryAction && (
+        <div className="text-right">
+          {log.users && (
+            <LogActorInfo
+              users={log.users}
+              created_at={log.created_at}
+              updated_at={log.updated_at}
+              jsonb={log.jsonb}
+            />
+          )}
+        </div>
+      )}
 
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="grid shrink-0 grid-cols-[115px_56px_56px] grid-rows-2 gap-1">
+        {!hasPrimaryAction && log.users && (
+          <div className="col-start-1 row-span-2 flex w-[115px] items-center justify-end text-right">
+            <LogActorInfo
+              users={log.users}
+              created_at={log.created_at}
+              updated_at={log.updated_at}
+              jsonb={log.jsonb}
+            />
+          </div>
+        )}
         {onConfirm && (
-          <Button variant="primary" size="sm" onClick={onConfirm}>
+          <Button variant="primary" size="sm" className="col-span-2 row-span-2" onClick={onConfirm}>
             출고 확정
           </Button>
         )}
@@ -238,6 +255,7 @@ const StampHistoryItem = ({
           <Button
             variant="secondary"
             size="sm"
+            className="col-span-2 row-span-2"
             onClick={() =>
               copyLogToClipboard(log, {
                 name: log.customers?.name,
@@ -250,14 +268,25 @@ const StampHistoryItem = ({
           </Button>
         )}
         {isMaster && !isLocked && onManage && (
-          <Button variant="secondary" size="sm" onClick={onManage}>
+          <Button variant="secondary" size="sm" className="col-start-3 row-start-1 flex w-full items-center justify-center" onClick={onManage}>
             관리
+          </Button>
+        )}
+        {!isLocked && onRefund && (
+          <Button variant="secondary" size="sm" className="col-start-2 row-span-2 flex w-full items-center justify-center self-center" onClick={onRefund}>
+            환불
+          </Button>
+        )}
+        {isMaster && !isLocked && onCancelRefund && (
+          <Button variant="danger" size="sm" className="col-start-2 row-span-2 flex w-full items-center justify-center self-center" onClick={onCancelRefund}>
+            환불 취소
           </Button>
         )}
         {isAdmin && !isLocked && (
           <Button
             variant="danger"
             size="sm"
+            className="col-start-3 row-start-2 flex w-full items-center justify-center"
             onClick={onDelete}
             aria-label="삭제"
           >

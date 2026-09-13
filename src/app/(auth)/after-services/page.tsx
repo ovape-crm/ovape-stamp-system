@@ -82,7 +82,7 @@ const AfterServicesPage = () => {
   // AS 생성 핸들러
   // ========================================================================
   const handleAfterServiceSubmit = async (values: {
-    caseType: "customer_as" | "vendor_exchange" | "store_product_as";
+    caseType: "customer_as" | "vendor_exchange" | "store_product_as" | "defective_return_as";
     supplierId: string;
     costAllocations: Array<{
       sourceReceiptLineId: string | null;

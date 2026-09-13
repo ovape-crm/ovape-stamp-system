@@ -50,7 +50,7 @@ const isGeneratedExchangeCompletionNote = (line: string) => {
 
 const schema = z
   .object({
-    caseType: z.enum(["customer_as", "vendor_exchange", "store_product_as"]),
+    caseType: z.enum(["customer_as", "vendor_exchange", "store_product_as", "defective_return_as"]),
     supplierId: z.string(),
     costAllocations: z.array(
       z.object({
@@ -229,7 +229,7 @@ export default function AfterServiceCreateModal({
   onCancel: () => void;
   isSubmitting: boolean;
   initialData?: {
-    caseType?: "customer_as" | "vendor_exchange" | "store_product_as";
+    caseType?: "customer_as" | "vendor_exchange" | "store_product_as" | "defective_return_as";
     supplierId?: string | null;
     storeProductUnitCost?: number | null;
     customerId?: string | null;
@@ -274,6 +274,7 @@ export default function AfterServiceCreateModal({
     ? ([
         ["store_product_as", "매장제품 A/S"],
         ["vendor_exchange", "업체 불량교환"],
+        ["defective_return_as", "불량 반품 A/S"],
         ["customer_as", "고객 A/S 추가"],
       ] as const)
     : ([["customer_as", "고객 A/S 추가"]] as const);
@@ -923,7 +924,7 @@ export default function AfterServiceCreateModal({
                       setValue("costAllocations", [], {
                         shouldValidate: true,
                       });
-                      if (value !== "customer_as") {
+                      if (value !== "customer_as" && value !== "defective_return_as") {
                         setSelectedCustomerId(null);
                         setSelectedCustomerInfo(null);
                         setValue("customerId", "");
@@ -941,7 +942,7 @@ export default function AfterServiceCreateModal({
             </div>
           )}
           {/* 고객 검색 */}
-          {caseType === "customer_as" && (
+          {(caseType === "customer_as" || caseType === "defective_return_as") && (
             <CustomerSelector
               value={selectedCustomerId}
               onChange={handleCustomerChange}

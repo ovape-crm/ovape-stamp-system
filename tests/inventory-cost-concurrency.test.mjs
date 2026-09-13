@@ -6,7 +6,6 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import net from "node:net";
-import EmbeddedPostgres from "embedded-postgres";
 import { Client } from "pg";
 import { initializeCostTestDb, master } from "./helpers/cost-db-fixture.mjs";
 
@@ -83,14 +82,11 @@ before(async () => {
     ]);
   }
   started = true;
-  const cluster = new EmbeddedPostgres({
-    databaseDir: directory,
-    port,
-    user: "postgres",
-    persistent: true,
-  });
-  a = cluster.getPgClient("postgres", "127.0.0.1");
-  b = cluster.getPgClient("postgres", "127.0.0.1");
+  // Windows에서는 이미 위에서 독립 PostgreSQL 프로세스를 직접 기동한다.
+  // embedded-postgres 래퍼를 한 번 더 초기화하면 테스트 서버와 다른 클러스터
+  // 상태를 참조해 before 훅이 실패할 수 있으므로 표준 클라이언트를 사용한다.
+  a = new Client({ host: "127.0.0.1", port, user: "postgres", database: "postgres" });
+  b = new Client({ host: "127.0.0.1", port, user: "postgres", database: "postgres" });
   await a.connect();
   await b.connect();
   await initializeCostTestDb({
@@ -130,18 +126,14 @@ after(async () => {
     path.dirname(path.resolve(directory)) === path.resolve(tmpdir()) &&
     path.basename(directory).startsWith("ovape-cost-concurrency-")
   ) {
-    let lastError;
     for (let attempt = 0; attempt < 20; attempt += 1) {
       try {
         await rm(directory, { recursive: true, force: true });
-        lastError = undefined;
         break;
-      } catch (error) {
-        lastError = error;
+      } catch {
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
     }
-    if (lastError) throw lastError;
   }
 });
 

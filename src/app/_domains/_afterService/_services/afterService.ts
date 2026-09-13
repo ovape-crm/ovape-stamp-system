@@ -34,7 +34,7 @@ export const createAfterService = async ({
   receivedNote?: string;
   statusNote?: string;
   status?: AfterServiceStatusEnumType['value'];
-  caseType?: 'customer_as' | 'vendor_exchange' | 'store_product_as';
+  caseType?: 'customer_as' | 'vendor_exchange' | 'store_product_as' | 'defective_return_as';
   supplierId?: string;
   intake?: {
     customerPurchaseDate?: string;
@@ -137,7 +137,7 @@ export const getAfterServicesCount = async (filters?: {
   searchTarget?: 'name' | 'phone' | 'item_name';
   searchKeyword?: string;
   customerId?: string;
-  caseType?: 'customer_as' | 'vendor_exchange' | 'store_product_as';
+  caseType?: 'customer_as' | 'vendor_exchange' | 'store_product_as' | 'defective_return_as';
 }): Promise<number> => {
   // customers 테이블로 필터링할 경우 inner join 사용
   const needsInnerJoin =
@@ -218,7 +218,7 @@ export const getAfterServices = async (
     searchTarget?: 'name' | 'phone' | 'item_name';
     searchKeyword?: string;
     customerId?: string;
-    caseType?: 'customer_as' | 'vendor_exchange' | 'store_product_as';
+    caseType?: 'customer_as' | 'vendor_exchange' | 'store_product_as' | 'defective_return_as';
   }
 ) => {
   const from = offset;

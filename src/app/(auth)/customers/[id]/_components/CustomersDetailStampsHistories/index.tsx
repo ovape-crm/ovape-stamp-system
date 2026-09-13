@@ -34,6 +34,7 @@ import { updateHistoryMasterMetadata } from "@/app/_domains/_log/_services/logSe
 import { useQueryClient } from "@tanstack/react-query";
 import { logKeys } from "@/app/_domains/_log/_queryKeys/logKeys";
 import { customerKeys } from "@/app/_domains/_customer/_queryKeys/customerKeys";
+import RefundModal from "@/app/(auth)/histories/_components/StampHistories/RefundModal";
 
 const CustomersDetailStampsHistories = ({
   targetUser,
@@ -150,6 +151,16 @@ const CustomersDetailStampsHistories = ({
       });
     },
     [close, onDeleteLog, onUpdateLog, open, queryClient, targetUser.id, targetUser.name, targetUser.phone],
+  );
+
+  const openRefundModal = useCallback(
+    (log: CustomersLogsResType[number]) => {
+      open({
+        content: <RefundModal log={{ ...log, customers: targetUser }} onCancel={close} />,
+        options: { dismissOnBackdrop: false, dismissOnEsc: true, size: "max-w-xl" },
+      });
+    },
+    [close, open, targetUser],
   );
 
   const handleConfirm = useCallback(
@@ -423,7 +434,7 @@ const CustomersDetailStampsHistories = ({
                       )}
                   </div>
                   <div className="flex-1 pl-4 ml-4 border-l border-brand-100">
-                    <div className="flex items-start gap-2">
+                    <div className="flex items-center gap-2">
                       <Button
                         variant="secondary"
                         size="xs"
@@ -474,7 +485,7 @@ const CustomersDetailStampsHistories = ({
                       </div>
                     </div>
                   </div>
-                  <div className="ml-3 flex-shrink-0 flex items-center gap-2">
+                  <div className="ml-3 flex shrink-0 items-center gap-1">
                     {isReservation && onConfirmReservation && (
                       <Button
                         variant="primary"
@@ -485,7 +496,7 @@ const CustomersDetailStampsHistories = ({
                       </Button>
                     )}
                     {log.users && (
-                      <div className="mr-1 text-left">
+                      <div className="w-[96px] text-right">
                         <LogActorInfo
                           users={log.users}
                           created_at={log.created_at}
@@ -494,43 +505,61 @@ const CustomersDetailStampsHistories = ({
                         />
                       </div>
                     )}
-                    {!isReservation && showCopyButton && (
-                      <Button
-                        variant="secondary"
-                        size="xs"
-                        onClick={() =>
-                          copyLogToClipboard(log, {
-                            name: targetUser.name,
-                            phone: targetUser.phone,
-                            gender: targetUser.gender,
-                          })
-                        }
-                      >
-                        복사
-                      </Button>
-                    )}
-                    {!isReservation && !showCopyButton && (
-                      <div className="h-7 w-12" aria-hidden="true" />
-                    )}
-                    {isMaster && (
-                      <Button
-                        variant="secondary"
-                        size="xs"
-                        onClick={() => handleMasterManage(log)}
-                      >
-                        관리
-                      </Button>
-                    )}
-                    {isAdmin && (
-                      <Button
-                        variant="danger"
-                        size="xs"
-                        onClick={() => handleDelete(log)}
-                        aria-label="삭제"
-                      >
-                        🗑️
-                      </Button>
-                    )}
+                    <div className="grid grid-cols-[56px_56px] grid-rows-2 gap-1">
+                      {!isReservation && showCopyButton && (
+                        <Button
+                          variant="secondary"
+                          size="xs"
+                          className="row-span-2"
+                          onClick={() =>
+                            copyLogToClipboard(log, {
+                              name: targetUser.name,
+                              phone: targetUser.phone,
+                              gender: targetUser.gender,
+                            })
+                          }
+                        >
+                          복사
+                        </Button>
+                      )}
+                      {!isReservation &&
+                        Array.isArray(log.jsonb?.items) &&
+                        Number(log.jsonb?.totalAmount ?? 0) > 0 && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="col-start-1 row-span-2 flex w-full items-center justify-center self-center"
+                            onClick={() => openRefundModal(log)}
+                          >
+                            환불
+                          </Button>
+                        )}
+                      {(isMaster || isAdmin) && (
+                        <div className="col-start-2 row-span-2 flex flex-col gap-1">
+                        {isMaster && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="flex w-full items-center justify-center"
+                            onClick={() => handleMasterManage(log)}
+                          >
+                            관리
+                          </Button>
+                        )}
+                        {isAdmin && (
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            className="flex w-full items-center justify-center"
+                            onClick={() => handleDelete(log)}
+                            aria-label="삭제"
+                          >
+                            🗑️
+                          </Button>
+                        )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
