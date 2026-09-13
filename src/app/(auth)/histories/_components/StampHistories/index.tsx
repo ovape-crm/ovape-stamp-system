@@ -37,6 +37,9 @@ import RemarkLogCreateModal from "@/app/(auth)/customers/[id]/_components/Remark
 import type { StampLogMeta } from "@/app/_domains/_stamp/_services/stampService";
 import MasterHistoryManagementModal from "@/app/(auth)/customers/[id]/_components/MasterHistoryManagementModal";
 import { updateHistoryMasterMetadata } from "@/app/_domains/_log/_services/logService";
+import RefundModal from "./RefundModal";
+import { cancelCustomerRefund } from "@/app/_domains/_refund/refundService";
+import { showPromptDialog } from "@/app/_components/AppDialog";
 
 const PAGE_SIZE = 10;
 // 복사 기능은 유지하되, 이력 화면에서는 노출하지 않는다.
@@ -167,6 +170,28 @@ const StampHistories = ({
     },
     [close, open, queryClient, updateItem],
   );
+
+  const openRefundModal = useCallback(
+    (log: LogsResType) => {
+      open({
+        content: <RefundModal log={log} onCancel={close} />,
+        options: { dismissOnBackdrop: false, dismissOnEsc: true, size: "max-w-xl" },
+      });
+    },
+    [close, open],
+  );
+
+  const handleCancelRefund = useCallback(async (log: LogsResType) => {
+    const refundId = typeof log.jsonb?.refundId === "string" ? log.jsonb.refundId : "";
+    if (!refundId) return;
+    const reason = await showPromptDialog({ title: "환불 취소", description: "정상 회수로 재고가 이미 복귀한 환불은 취소할 수 없습니다.", inputLabel: "취소 사유", placeholder: "취소 사유를 입력하세요", required: true, confirmLabel: "환불 취소", tone: "danger" });
+    if (!reason) return;
+    try {
+      await cancelCustomerRefund(refundId, reason);
+      await Promise.all([queryClient.invalidateQueries({ queryKey: logKeys.all() }), queryClient.invalidateQueries({ queryKey: customerKeys.all() })]);
+      toast.success("환불을 취소했습니다.");
+    } catch (error) { toast.error(error instanceof Error ? error.message : "환불 취소에 실패했습니다."); }
+  }, [queryClient]);
 
   const handleCopyPeriod = async () => {
     if (!dateRange || isCopyingPeriod) return;
@@ -516,6 +541,18 @@ const StampHistories = ({
                           }
                           isMaster={isMaster}
                           onManage={() => handleMasterManage(history.log)}
+                          onRefund={
+                            !isReservation &&
+                            Array.isArray(history.log.jsonb?.items) &&
+                            Number(history.log.jsonb?.totalAmount ?? 0) > 0
+                              ? () => openRefundModal(history.log)
+                              : undefined
+                          }
+                          onCancelRefund={
+                            isMaster && history.log.action === "refund" && typeof history.log.jsonb?.refundId === "string"
+                              ? () => handleCancelRefund(history.log)
+                              : undefined
+                          }
                         />
                     ))}
                   </div>

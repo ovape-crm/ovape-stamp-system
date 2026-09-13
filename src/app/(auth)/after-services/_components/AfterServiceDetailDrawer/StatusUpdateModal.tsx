@@ -92,7 +92,7 @@ interface StatusUpdateModalProps {
   customerPhone?: string | null;
   originalItemName: string;
   originalQuantity: number;
-  serviceCaseType?: "customer_as" | "vendor_exchange" | "store_product_as";
+  serviceCaseType?: "customer_as" | "vendor_exchange" | "store_product_as" | "defective_return_as";
   serviceProgress?: InventoryServiceProgress;
   rentalItemSummary?: string;
   onSubmit: (values: StatusUpdateFormValues) => Promise<void> | void;

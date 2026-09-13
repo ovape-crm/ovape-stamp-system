@@ -174,6 +174,11 @@ export const AfterServiceStatusEnum = {
     name: '반품 처리',
     group: AfterServiceStatusGroupEnum.COMPLETED.value,
   },
+  SCRAPPED: {
+    value: 'scrapped',
+    name: '자체 폐기',
+    group: AfterServiceStatusGroupEnum.COMPLETED.value,
+  },
   OTHER_COMPLETED: {
     value: 'other',
     name: '기타 (완료)',

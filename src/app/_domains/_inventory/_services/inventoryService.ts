@@ -27,6 +27,67 @@ export const inventoryKeys = {
 export const normalizeInventoryItemName = (value: string) =>
   value.normalize("NFC").trim();
 
+export type DefectiveInventoryHold = {
+  id: string;
+  itemName: string;
+  quantity: number;
+  status: "held" | "after_service" | "returned" | "scrapped";
+  customerName: string | null;
+  createdAt: string;
+};
+
+export type SupplierRefundSettlement = {
+  id: string;
+  itemName: string;
+  quantity: number;
+  supplierName: string | null;
+  settlementType: "supplier_credit" | "bank_refund";
+  amount: number;
+  note: string | null;
+  createdAt: string;
+};
+
+export const getDefectiveInventoryHolds = async (): Promise<DefectiveInventoryHold[]> => {
+  const { data, error } = await supabase
+    .from("defective_inventory_holds")
+    .select("id,item_name,quantity,status,created_at,customers(name)")
+    .in("status", ["held", "after_service"])
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((hold) => {
+    const customer = Array.isArray(hold.customers) ? hold.customers[0] : hold.customers;
+    return {
+      id: String(hold.id), itemName: String(hold.item_name), quantity: Number(hold.quantity),
+      status: hold.status as DefectiveInventoryHold["status"],
+      customerName: customer?.name == null ? null : String(customer.name), createdAt: String(hold.created_at),
+    };
+  });
+};
+
+// 기존 매입 정산과 분리된 도매처 반품 환불 이력이다. 매입 원장 금액을
+// 변경하지 않아 확정된 과거 정산과 현금 흐름을 안전하게 보존한다.
+export const getSupplierRefundSettlements = async (): Promise<SupplierRefundSettlement[]> => {
+  const { data, error } = await supabase
+    .from("supplier_refund_settlements")
+    .select("id,settlement_type,amount,note,created_at,defective_inventory_holds(item_name,quantity),inventory_suppliers(name)")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((settlement) => {
+    const hold = Array.isArray(settlement.defective_inventory_holds)
+      ? settlement.defective_inventory_holds[0]
+      : settlement.defective_inventory_holds;
+    const supplier = Array.isArray(settlement.inventory_suppliers)
+      ? settlement.inventory_suppliers[0]
+      : settlement.inventory_suppliers;
+    return {
+      id: String(settlement.id), itemName: String(hold?.item_name ?? "품목 정보 없음"),
+      quantity: Number(hold?.quantity ?? 0), supplierName: supplier?.name == null ? null : String(supplier.name),
+      settlementType: settlement.settlement_type as SupplierRefundSettlement["settlementType"],
+      amount: Number(settlement.amount), note: settlement.note == null ? null : String(settlement.note), createdAt: String(settlement.created_at),
+    };
+  });
+};
+
 export const getInventoryOverview = async (): Promise<{
   initializedAt: string | null;
   items: InventoryItem[];
