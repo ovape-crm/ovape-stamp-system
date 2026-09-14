@@ -10,6 +10,7 @@ import AfterServiceList from "./_components/AfterServiceList";
 import AfterServiceDetailDrawer from "./_components/AfterServiceDetailDrawer";
 import {
   createAfterService,
+  linkDefectiveReturnAfterService,
   deleteAfterService,
   rollbackAfterServiceCreationLogs,
   setAfterServiceManualCost,
@@ -84,6 +85,7 @@ const AfterServicesPage = () => {
   const handleAfterServiceSubmit = async (values: {
     caseType: "customer_as" | "vendor_exchange" | "store_product_as" | "defective_return_as";
     supplierId: string;
+    defectiveHoldId?: string;
     costAllocations: Array<{
       sourceReceiptLineId: string | null;
       unitPrice: number;
@@ -159,7 +161,10 @@ const AfterServicesPage = () => {
         customerNote: values.customerNote,
         isLoanerDeviceIssued: values.isLoanerDeviceIssued,
         caseType: values.caseType,
-        supplierId: values.caseType === "customer_as" ? undefined : values.supplierId,
+        supplierId:
+          values.caseType === "customer_as" || values.caseType === "defective_return_as"
+            ? undefined
+            : values.supplierId,
         status: values.isExchangeIssued
           ? AfterServiceStatusEnum.EXCHANGE.value
           : values.isRentalIssued
@@ -197,6 +202,10 @@ const AfterServicesPage = () => {
         },
       });
       createdAfterServiceId = Number(createdAfterService.id);
+
+      if (values.caseType === "defective_return_as" && values.defectiveHoldId) {
+        await linkDefectiveReturnAfterService(values.defectiveHoldId, createdAfterServiceId);
+      }
 
       if (values.caseType === "store_product_as") {
         await setAfterServiceManualCost({

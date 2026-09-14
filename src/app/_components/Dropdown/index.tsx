@@ -390,7 +390,7 @@ const DropdownContent = ({
       aria-multiselectable={multiple || undefined}
     >
       <div
-        className={`${compact ? (flush ? "py-0" : "py-0.5") : "py-1"} ${maxHeightClass} overflow-y-auto overscroll-contain`}
+        className={`${flush ? "py-0" : compact ? "py-0.5" : "py-1"} ${maxHeightClass} overflow-y-auto overscroll-contain`}
       >
         {itemsWithIndex}
       </div>
@@ -407,6 +407,7 @@ const DropdownItem = ({
   index = -1,
   compact = false,
   neutral = false,
+  showCheck = true,
   className = '',
   children,
 }: {
@@ -415,6 +416,7 @@ const DropdownItem = ({
   index?: number;
   compact?: boolean;
   neutral?: boolean;
+  showCheck?: boolean;
   className?: string;
   children?: React.ReactNode;
 }) => {
@@ -503,7 +505,7 @@ const DropdownItem = ({
     >
       <div className="flex items-center justify-between">
         <span>{children ?? option.label}</span>
-        {isSelected && (
+        {showCheck && isSelected && (
           <svg
             className={`${compact ? "h-3.5 w-3.5" : "h-5 w-5"} flex-shrink-0 ${neutral ? "text-gray-600" : "text-brand-600"}`}
             fill="currentColor"

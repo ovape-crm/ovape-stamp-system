@@ -36,6 +36,18 @@ export type DefectiveInventoryHold = {
   createdAt: string;
 };
 
+export type DefectiveReturnItemOption = { id: string; itemId: string | null; itemName: string; quantity: number };
+
+export const getDefectiveReturnItemOptions = async (customerId: string): Promise<DefectiveReturnItemOption[]> => {
+  if (!customerId) return [];
+  const { data, error } = await supabase.from("defective_inventory_holds")
+    .select("id,item_id,item_name,quantity")
+    .eq("customer_id", customerId).eq("status", "held").is("after_service_id", null)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((hold) => ({ id: String(hold.id), itemId: hold.item_id == null ? null : String(hold.item_id), itemName: String(hold.item_name), quantity: Number(hold.quantity) }));
+};
+
 export type SupplierRefundSettlement = {
   id: string;
   itemName: string;

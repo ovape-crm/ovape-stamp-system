@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import toast from 'react-hot-toast';
 import TaggedContent from '@/app/_components/TaggedContent';
 
@@ -203,12 +203,16 @@ const toEditorHtml = (value: string) => {
     (_, url, title) =>
       `<a data-note-link-url="${url}" href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-500 underline underline-offset-2">${title}</a>`,
   );
+  html = html.replace(/&lt;divider&gt;&lt;\/divider&gt;/g, '<hr data-note-divider="true" class="my-4 border-0 border-t border-gray-400">');
+  // 이전에 직접 입력한 ----- 구분선도 편집기에서는 실제 실선으로 표시한다.
+  html = html.replace(/(^|<br>)-{3,}(?=<br>|$)/g, '$1<hr data-note-divider="true" class="my-4 border-0 border-t border-gray-400">');
   return html;
 };
 
 const serializeNode = (node: Node): string => {
   if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? '';
   if (!(node instanceof HTMLElement)) return '';
+  if (node.tagName === 'HR' && node.dataset.noteDivider === 'true') return '<divider></divider>';
   if (node.tagName === 'BR') return '\n';
   const content = Array.from(node.childNodes).map(serializeNode).join('');
   const tag = node.dataset.noteTag;
@@ -226,6 +230,14 @@ const RichTextNoteEditor = ({
   placeholder = '고객, 결제 관련 특이사항을 입력하세요. 문장을 선택한 뒤 위 버튼으로 서식을 적용하세요.',
   previewLabel = '표시 미리보기',
   enableLinks = false,
+  compact = false,
+  showPreview = true,
+  enableDividers = false,
+  autoLineBreakAt,
+  editorClassName = '',
+  stickyToolbar = false,
+  spellCheck = true,
+  editorStyle,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -234,6 +246,17 @@ const RichTextNoteEditor = ({
   placeholder?: string;
   previewLabel?: string;
   enableLinks?: boolean;
+  /** 입력 영역을 한 줄 높이로 시작한다. 줄바꿈 시 내용만큼 자연스럽게 늘어난다. */
+  compact?: boolean;
+  showPreview?: boolean;
+  enableDividers?: boolean;
+  /** 문장 가독성을 위해 이 글자 수마다 자동 줄바꿈을 넣는다. */
+  autoLineBreakAt?: number;
+  editorClassName?: string;
+  /** 긴 본문을 스크롤할 때 현재 입력 영역의 서식 도구를 상단에 유지한다. */
+  stickyToolbar?: boolean;
+  spellCheck?: boolean;
+  editorStyle?: CSSProperties;
 }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const lastSerializedRef = useRef('');
@@ -250,12 +273,38 @@ const RichTextNoteEditor = ({
   const emitValue = () => {
     if (!editorRef.current) return;
     removeEmptyFormatting(editorRef.current);
-    const nextValue = Array.from(editorRef.current.childNodes)
+    const serializedValue = Array.from(editorRef.current.childNodes)
       .map(serializeNode)
       .join('')
-      .replace(/\n$/, '');
-    lastSerializedRef.current = nextValue;
-    onChange(nextValue);
+      .replace(/\n+$/, '');
+    lastSerializedRef.current = serializedValue;
+    onChange(serializedValue);
+  };
+
+  const insertAutomaticBreakAtCaret = () => {
+    if (!autoLineBreakAt || !editorRef.current) return;
+    const selection = window.getSelection();
+    if (!selection?.rangeCount || !selection.isCollapsed) return;
+    const textNode = selection.focusNode;
+    if (!(textNode instanceof Text)) return;
+    const caretOffset = selection.focusOffset;
+    const text = textNode.textContent ?? '';
+    const lineStart = text.lastIndexOf('\n', Math.max(0, caretOffset - 1)) + 1;
+    if (caretOffset - lineStart < autoLineBreakAt) return;
+
+    const after = textNode.splitText(lineStart + autoLineBreakAt);
+    const lineBreak = document.createElement('br');
+    after.parentNode?.insertBefore(lineBreak, after);
+    const nextRange = document.createRange();
+    nextRange.setStart(after, Math.max(0, caretOffset - lineStart - autoLineBreakAt));
+    nextRange.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(nextRange);
+  };
+
+  const handleInput = () => {
+    insertAutomaticBreakAtCaret();
+    emitValue();
   };
 
   const applyTag = (tag: string) => {
@@ -312,6 +361,28 @@ const RichTextNoteEditor = ({
     emitValue();
   };
 
+  const insertDivider = () => {
+    if (disabled || !editorRef.current) return;
+    const divider = document.createElement('hr');
+    divider.dataset.noteDivider = 'true';
+    divider.className = 'my-4 border-0 border-t border-gray-400';
+    const selection = window.getSelection();
+    const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+    if (range && editorRef.current.contains(range.commonAncestorContainer)) {
+      range.deleteContents();
+      range.insertNode(divider);
+      const nextRange = document.createRange();
+      nextRange.setStartAfter(divider);
+      nextRange.collapse(true);
+      selection?.removeAllRanges();
+      selection?.addRange(nextRange);
+    } else {
+      if (editorRef.current.childNodes.length) editorRef.current.appendChild(document.createElement('br'));
+      editorRef.current.appendChild(divider);
+    }
+    emitValue();
+  };
+
   const addLink = () => {
     const title = linkTitle.trim();
     const url = linkUrl.trim();
@@ -341,8 +412,8 @@ const RichTextNoteEditor = ({
   };
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-300 bg-white transition hover:border-brand-300 focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-100">
-      <div className="flex flex-wrap items-center gap-1 border-b border-gray-200 bg-gray-50 px-2 py-1.5">
+    <div className={`${stickyToolbar ? 'overflow-visible' : 'overflow-hidden'} rounded-lg border border-gray-300 bg-white transition hover:border-brand-300 focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-100`}>
+      <div className={`flex flex-wrap items-center gap-1 border-b border-gray-200 bg-gray-50 px-2 py-1.5 ${stickyToolbar ? 'sticky top-0 z-10 rounded-t-lg shadow-sm' : ''}`}>
         {actions.map((action) => (
           <button
             key={action.tag ?? action.clearTags?.join('-')}
@@ -371,6 +442,19 @@ const RichTextNoteEditor = ({
             className="flex h-7 items-center justify-center rounded border border-gray-200 bg-white px-2 text-xs font-semibold text-blue-600 transition hover:border-brand-300 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
             링크
+          </button>
+        )}
+        {enableDividers && (
+          <button
+            type="button"
+            aria-label="구분선 삽입"
+            title="구분선 삽입"
+            disabled={disabled}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={insertDivider}
+            className="flex h-7 items-center justify-center rounded border border-gray-200 bg-white px-2 text-xs font-semibold text-gray-600 transition hover:border-brand-300 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            ─
           </button>
         )}
       </div>
@@ -407,11 +491,13 @@ const RichTextNoteEditor = ({
         role="textbox"
         aria-multiline="true"
         aria-invalid={ariaInvalid}
+        spellCheck={spellCheck}
+        style={editorStyle}
         data-placeholder={placeholder}
-        onInput={emitValue}
-        className="min-h-20 w-full whitespace-pre-wrap break-words border-0 bg-white px-3 py-2 text-sm outline-none empty:before:pointer-events-none empty:before:text-gray-400 empty:before:content-[attr(data-placeholder)]"
+        onInput={handleInput}
+        className={`${compact ? 'min-h-10' : 'min-h-20'} w-full whitespace-pre-wrap break-words border-0 bg-white px-3 py-2 text-sm outline-none empty:before:pointer-events-none empty:before:text-gray-400 empty:before:content-[attr(data-placeholder)] ${editorClassName}`}
       />
-      {value.trim() && (
+      {showPreview && value.trim() && (
         <div className="border-t border-gray-100 bg-gray-50 px-3 py-2">
           <p className="mb-1 text-[11px] font-medium text-gray-500">{previewLabel}</p>
           <TaggedContent content={value} className="text-sm text-gray-800" />

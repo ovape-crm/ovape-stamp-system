@@ -22,11 +22,13 @@ const paymentNameByValue = Object.values(PaymentTypeEnum).reduce<Record<string, 
 interface RefundModalProps {
   log: LogBaseType & { customers?: LogCustomerInfo };
   onCancel: () => void;
+  onComplete: () => Promise<void> | void;
 }
 
-const RefundModal = ({ log, onCancel }: RefundModalProps) => {
-  const outboundItems = Array.isArray(log.jsonb?.items)
-    ? log.jsonb.items
+const RefundModal = ({ log, onCancel, onComplete }: RefundModalProps) => {
+  const outboundItems = useMemo(() => (
+    Array.isArray(log.jsonb?.items)
+      ? log.jsonb.items
         .map((item, index) => {
           if (!item || typeof item !== "object") return null;
           const record = item as Record<string, unknown>;
@@ -45,7 +47,8 @@ const RefundModal = ({ log, onCancel }: RefundModalProps) => {
             : null;
         })
         .filter((item): item is { sourceLineIndex: number; key: string; itemId: unknown; name: string; quantity: number; unitPrice: number; amount: number } => item !== null)
-    : [];
+      : []
+  ), [log.jsonb]);
   const totalAmount = Math.max(0, Number(log.jsonb?.totalAmount ?? 0));
   const [refundSummary, setRefundSummary] = useState<RefundSummary>({ refundedAmount: 0, refundedQuantities: {} });
   const [isSummaryLoading, setIsSummaryLoading] = useState(true);
@@ -71,18 +74,20 @@ const RefundModal = ({ log, onCancel }: RefundModalProps) => {
       .catch((error) => toast.error(error instanceof Error ? error.message : "기존 환불 이력을 불러오지 못했습니다."))
       .finally(() => active && setIsSummaryLoading(false));
     return () => { active = false; };
-  }, [log.id, totalAmount]);
+  }, [log.id, outboundItems, totalAmount]);
   const parsedRefundAmount = Math.max(0, Number(refundAmount.replaceAll(",", "")) || 0);
   const refundAvailableAmount = Math.max(0, totalAmount - refundSummary.refundedAmount);
-  const originalPayments = Array.isArray(log.jsonb?.payments)
-    ? log.jsonb.payments.filter(
+  const originalPayments = useMemo(() => (
+    Array.isArray(log.jsonb?.payments)
+      ? log.jsonb.payments.filter(
         (payment): payment is { paymentType: string; amount: number } =>
           typeof payment === "object" &&
           payment !== null &&
           typeof payment.paymentType === "string" &&
           typeof payment.amount === "number",
-      )
-    : [];
+        )
+      : []
+  ), [log.jsonb]);
   const originalPaymentLabel = originalPayments.length > 0
     ? originalPayments
         .map((payment) => `${paymentNameByValue[payment.paymentType] ?? payment.paymentType} ${payment.amount.toLocaleString("ko-KR")}원`)
@@ -102,7 +107,7 @@ const RefundModal = ({ log, onCancel }: RefundModalProps) => {
       remaining -= amount;
       return { paymentType: payment.paymentType, amount };
     }).filter((payment) => payment.amount > 0);
-  }, [log.jsonb, originalPayments, parsedRefundAmount, totalAmount]);
+  }, [log.jsonb?.paymentType, originalPayments, parsedRefundAmount, totalAmount]);
 
   const selectedItems = outboundItems.filter((item) => (selectedQuantities[item.key] ?? 0) > 0);
   const selectedLimitAmount = useMemo(() => {
@@ -122,6 +127,7 @@ const RefundModal = ({ log, onCancel }: RefundModalProps) => {
         lines: selectedItems.map((item) => ({ sourceLineIndex: item.sourceLineIndex, itemId: typeof item.itemId === "string" || typeof item.itemId === "number" ? item.itemId : undefined, itemName: item.name, quantity: selectedQuantities[item.key], grossUnitPrice: item.unitPrice, allocatedDiscountAmount: 0, refundableAmount: Math.round((item.amount || item.unitPrice * item.quantity) * (selectedQuantities[item.key] / item.quantity) * totalAmount / Math.max(1, outboundItems.reduce((sum, sourceItem) => sum + (sourceItem.amount || sourceItem.unitPrice * sourceItem.quantity), 0))) })),
         payments: refundPayments,
       });
+      await onComplete();
       toast.success("환불 이력이 생성되었습니다."); onCancel();
     } catch (error) {
       const message =

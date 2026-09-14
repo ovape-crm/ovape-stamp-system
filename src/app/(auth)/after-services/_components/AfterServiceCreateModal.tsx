@@ -16,9 +16,11 @@ import {
 } from "@/app/_domains/_item/_services/itemService";
 import { itemKeys } from "@/app/_domains/_item/_queryKeys/itemKeys";
 import {
+  getDefectiveReturnItemOptions,
   getInventorySuppliers,
   inventoryKeys,
 } from "@/app/_domains/_inventory/_services/inventoryService";
+import { Dropdown, DropdownOption } from "@/app/_components/Dropdown";
 import { useModal } from "@/app/_contexts/ModalContext";
 import { useUser } from "@/app/_contexts/UserContext";
 import { getItemPurchaseCostOptions } from "@/app/_domains/_afterService/_services/afterService";
@@ -60,6 +62,7 @@ const schema = z
       }),
     ),
     customerId: z.string().trim(),
+    defectiveHoldId: z.string().optional(),
     itemId: z.string().optional(),
     itemType: z.string().trim().min(1, { message: "품목 종류를 선택하세요." }),
     itemName: z
@@ -122,7 +125,7 @@ const schema = z
       .optional(),
   })
   .superRefine((values, context) => {
-    if (values.caseType !== "customer_as") {
+    if (values.caseType !== "customer_as" && values.caseType !== "defective_return_as") {
       if (!values.supplierId) {
         context.addIssue({
           code: "custom",
@@ -130,6 +133,9 @@ const schema = z
           message: "거래처를 정확히 선택하세요.",
         });
       }
+    }
+    if (values.caseType === "defective_return_as" && (!values.customerId || !values.defectiveHoldId)) {
+      context.addIssue({ code: "custom", path: ["defectiveHoldId"], message: "고객의 불량 반품 품목을 선택하세요." });
     }
     if (
       values.caseType === "vendor_exchange" &&
@@ -330,6 +336,7 @@ export default function AfterServiceCreateModal({
       supplierId: "",
       costAllocations: [],
       customerId: initialData?.customerId || "",
+      defectiveHoldId: "",
       itemId: "",
       itemType: initialData?.itemType || "",
       itemName: initialData?.itemName || "",
@@ -359,6 +366,12 @@ export default function AfterServiceCreateModal({
 
   const itemNameKeyword = watch("itemName");
   const caseType = watch("caseType") ?? "customer_as";
+  const defectiveHoldId = watch("defectiveHoldId") ?? "";
+  const defectiveReturnItemsQuery = useQuery({
+    queryKey: [...inventoryKeys.overview, "defective-return-items", selectedCustomerId],
+    queryFn: () => getDefectiveReturnItemOptions(selectedCustomerId ?? ""),
+    enabled: caseType === "defective_return_as" && Boolean(selectedCustomerId),
+  });
   const selectedItemId = watch("itemId") ?? "";
   const selectedItemType = watch("itemType");
   const selectedQuantity = watch("quantity");
@@ -581,6 +594,13 @@ export default function AfterServiceCreateModal({
     // customerId를 string으로 확실히 변환
     const customerIdString = customerId ? String(customerId) : "";
     setValue("customerId", customerIdString, { shouldValidate: true });
+    setValue("defectiveHoldId", "", { shouldValidate: true });
+    if (caseType === "defective_return_as") {
+      setValue("itemId", "");
+      setValue("itemType", "");
+      setValue("itemName", "");
+      setValue("quantity", 1);
+    }
   };
 
   // ========================================================================
@@ -951,6 +971,18 @@ export default function AfterServiceCreateModal({
             />
           )}
 
+          {mode === "create" && caseType === "defective_return_as" && selectedCustomerId && (
+            <div>
+              <label className="mb-1 block text-sm font-medium">불량 반품 품목 <span className="text-rose-600">*</span></label>
+              <Dropdown controlledValue={defectiveHoldId}>
+                <Dropdown.Trigger neutral>{defectiveReturnItemsQuery.isPending ? "반품 이력을 불러오는 중..." : defectiveHoldId ? (() => { const item = defectiveReturnItemsQuery.data?.find((entry) => entry.id === defectiveHoldId); return item ? `${item.itemName} · ${item.quantity}개` : "해당 고객의 불량 반품 품목을 선택하세요"; })() : "해당 고객의 불량 반품 품목을 선택하세요"}</Dropdown.Trigger>
+                <Dropdown.Content neutral>{(defectiveReturnItemsQuery.data ?? []).map((item) => <Dropdown.Item key={item.id} option={{ value: item.id, label: `${item.itemName} · ${item.quantity}개` }} neutral onSelect={(option: DropdownOption) => { const selected = defectiveReturnItemsQuery.data?.find((entry) => entry.id === String(option.value)); if (!selected) return; setValue("defectiveHoldId", selected.id, { shouldValidate: true }); setValue("itemId", selected.itemId ?? ""); setValue("itemType", "불량 반품"); setValue("itemName", selected.itemName, { shouldValidate: true }); setValue("quantity", selected.quantity, { shouldValidate: true }); }} />)}</Dropdown.Content>
+              </Dropdown>
+              {!defectiveReturnItemsQuery.isPending && !(defectiveReturnItemsQuery.data?.length) && <p className="mt-1 text-xs text-amber-700">이 고객에게 처리 대기 중인 불량 반품 품목이 없습니다.</p>}
+              {errors.defectiveHoldId && <p className="mt-1 text-xs text-rose-600">{errors.defectiveHoldId.message}</p>}
+            </div>
+          )}
+
           {/* 품목 관리에서 기기/제품 검색 */}
           <div className="relative">
             <label className="block text-sm font-medium mb-1">
@@ -964,7 +996,7 @@ export default function AfterServiceCreateModal({
                   : "품목 관리에 등록된 이름을 검색하세요"
               }
               autoComplete="off"
-              readOnly={isVendorExchangeInventoryLocked}
+              readOnly={isVendorExchangeInventoryLocked || (mode === "create" && caseType === "defective_return_as")}
               aria-invalid={!!errors.itemName || undefined}
               {...register("itemName", {
                 onChange: () => {

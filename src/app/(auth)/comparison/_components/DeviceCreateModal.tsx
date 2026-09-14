@@ -32,7 +32,7 @@ export default function DeviceCreateModal({
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
-    columns.forEach((col) => {
+    columns.filter((col) => col.key !== 'basic_usage_guide').forEach((col) => {
       if (!values[col.id]?.trim()) {
         newErrors[col.id] = '값을 입력하세요.';
       }
@@ -46,7 +46,7 @@ export default function DeviceCreateModal({
 
     try {
       setIsSubmitting(true);
-      const deviceValues = columns.map((col) => ({
+      const deviceValues = columns.filter((col) => col.key !== 'basic_usage_guide').map((col) => ({
         column_id: col.id,
         value: values[col.id]?.trim() || '',
       }));
@@ -96,7 +96,7 @@ export default function DeviceCreateModal({
             컬럼을 먼저 등록해주세요.
           </p>
         ) : (
-          columns.map((col) => (
+          columns.filter((col) => col.key !== 'basic_usage_guide').map((col) => (
             <div key={col.id}>
               <label className="block text-sm font-medium mb-1">
                 {col.name} <span className="text-rose-600">*</span>

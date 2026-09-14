@@ -1,0 +1,38 @@
+'use client';
+/* eslint-disable @next/next/no-img-element -- 외부 저장소의 기기 사진을 미리보기로 표시한다. */
+
+import { useEffect, useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
+import Button from '@/app/_components/Button';
+import Loading from '@/app/_components/Loading';
+import RichTextNoteEditor from '@/app/_components/RichTextNoteEditor';
+import TaggedContent from '@/app/_components/TaggedContent';
+import supabase from '@/libs/supabaseClient';
+import { getComparisonDevicesWithValues } from '@/app/_domains/_comparison/_services/comparisonDeviceService';
+import DeviceSearchSelect, { type DeviceSearchOption } from './DeviceSearchSelect';
+
+type Photo = { header_content: string; image_urls: string[]; image_width_percent: number; image_alignment: 'left' | 'center' | 'right' };
+const emptyPhoto: Photo = { header_content: '', image_urls: [], image_width_percent: 70, image_alignment: 'center' };
+const isUrl = (value: string) => { try { const url = new URL(value); return url.protocol === 'http:' || url.protocol === 'https:'; } catch { return false; } };
+const source = (value: string) => { const url = new URL(value); return url.hostname === 'pstatic.net' || url.hostname.endsWith('.pstatic.net') ? `/api/naver-image?url=${encodeURIComponent(value)}` : value; };
+
+export default function DevicePhotoManage() {
+  const queryClient = useQueryClient(); const [deviceId, setDeviceId] = useState(''); const [photo, setPhoto] = useState<Photo>(emptyPhoto); const [saving, setSaving] = useState(false);
+  const { data: deviceData, isLoading } = useQuery({ queryKey: ['comparison', 'devices', 'photo-manage'], queryFn: getComparisonDevicesWithValues });
+  const devices = deviceData?.devices ?? []; const columns = deviceData?.columns ?? [];
+  const nameColumn = columns.find((column) => /브랜드.*기기|기기.*(명|이름)|제품.*(명|이름)/.test(column.name)); const photoColumn = columns.find((column) => column.name === '기기 사진');
+  const values = useMemo(() => Object.fromEntries((deviceData?.values ?? []).filter((value) => value.device_id === deviceId).map((value) => [value.column_id, value.value])), [deviceData?.values, deviceId]);
+  const legacyUrl = photoColumn ? (values[photoColumn.id] ?? '').match(/<link url="([^"]+)">/)?.[1] ?? values[photoColumn.id] ?? '' : '';
+  const { data: loaded, isFetching } = useQuery({ enabled: Boolean(deviceId), queryKey: ['comparison', 'device-photos', deviceId], queryFn: async () => { const { data, error } = await supabase.from('comparison_device_photos').select('*').eq('device_id', deviceId).maybeSingle(); if (error) throw error; return data; } });
+  const deviceOptions = useMemo<DeviceSearchOption[]>(() => devices.map((device, index) => {
+    const label = (nameColumn && (deviceData?.values ?? []).find((value) => value.device_id === device.id && value.column_id === nameColumn.id)?.value) || `기기 ${index + 1}`;
+    const searchText = (deviceData?.values ?? []).filter((value) => value.device_id === device.id).map((value) => value.value).join(' ');
+    return { id: device.id, label, searchText: `${label} ${searchText}` };
+  }), [deviceData?.values, devices, nameColumn]);
+  useEffect(() => setPhoto(loaded ? { header_content: loaded.header_content ?? '', image_urls: (Array.isArray(loaded.image_urls) ? loaded.image_urls : []).filter(isUrl), image_width_percent: loaded.image_width_percent, image_alignment: loaded.image_alignment } : { ...emptyPhoto, image_urls: isUrl(legacyUrl) ? [legacyUrl] : [] }), [loaded, deviceId, legacyUrl]);
+  if (isLoading) return <Loading size="sm" text="불러오는 중..." />;
+  const save = async () => { if (!deviceId) return toast.error('기기를 선택하세요.'); if (photo.image_urls.some((url) => !isUrl(url))) return toast.error('http:// 또는 https:// 이미지 링크만 저장할 수 있습니다.'); setSaving(true); try { const { error } = await supabase.rpc('save_comparison_device_photos', { p_device_id: deviceId, p_image_urls: photo.image_urls, p_image_width_percent: photo.image_width_percent, p_image_alignment: photo.image_alignment, p_header_content: photo.header_content }); if (error) throw error; await queryClient.invalidateQueries({ queryKey: ['comparison', 'device-photos', deviceId] }); toast.success('기기 사진을 저장했습니다.'); } catch { toast.error('기기 사진 저장에 실패했습니다.'); } finally { setSaving(false); } };
+  const valid = photo.image_urls.filter(isUrl); const alignment = photo.image_alignment === 'left' ? 'mr-auto' : photo.image_alignment === 'right' ? 'ml-auto' : 'mx-auto';
+  return <div className="flex h-full min-h-0 flex-col"><h2 className="mb-1 text-lg font-semibold">기기 사진 관리</h2><p className="mb-4 text-sm text-gray-500">기기별 사진과 이미지 위 안내를 관리하세요.</p><div className="grid min-h-0 flex-1 gap-5 overflow-y-auto lg:grid-cols-2"><section className="space-y-4"><DeviceSearchSelect options={deviceOptions} value={deviceId} onChange={setDeviceId} />{deviceId && !isFetching && <><div><p className="mb-1 text-sm font-medium text-gray-700">이미지 위 안내</p><RichTextNoteEditor value={photo.header_content} onChange={(header_content) => setPhoto((prev) => ({ ...prev, header_content }))} enableDividers placeholder="사진 위에 보일 안내를 입력하세요." compact showPreview={false} /></div><div><p className="mb-1 text-sm font-medium text-gray-700">기기 사진</p>{photo.image_urls.map((url, index) => <div key={index} className="mb-2 flex gap-2"><input value={url} onChange={(event) => setPhoto((prev) => ({ ...prev, image_urls: prev.image_urls.map((item, itemIndex) => itemIndex === index ? event.target.value : item) }))} placeholder={`네이버 이미지 링크 ${index + 1}`} className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm" /><Button size="xs" variant="danger" onClick={() => setPhoto((prev) => ({ ...prev, image_urls: prev.image_urls.filter((_, itemIndex) => itemIndex !== index) }))}>삭제</Button></div>)}<Button size="sm" variant="secondary" onClick={() => setPhoto((prev) => ({ ...prev, image_urls: [...prev.image_urls, ''] }))}>이미지 추가</Button></div><div><label className="text-sm font-medium text-gray-700">이미지 크기: {photo.image_width_percent}%</label><input type="range" min="20" max="100" value={photo.image_width_percent} onChange={(event) => setPhoto((prev) => ({ ...prev, image_width_percent: Number(event.target.value) }))} className="mt-2 w-full cursor-pointer accent-brand-500" /></div><label className="block text-sm font-medium text-gray-700">이미지 정렬<select value={photo.image_alignment} onChange={(event) => setPhoto((prev) => ({ ...prev, image_alignment: event.target.value as Photo['image_alignment'] }))} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"><option value="left">왼쪽</option><option value="center">가운데</option><option value="right">오른쪽</option></select></label><Button disabled={saving} onClick={save}>저장</Button></>}</section><section className="rounded-xl border border-gray-300 bg-white p-5"><p className="mb-4 text-sm font-medium text-gray-500">기기 사진 미리보기</p>{deviceId ? <article>{photo.header_content && <div className="mb-4 border-b border-gray-300 pb-4"><TaggedContent content={photo.header_content} /></div>}{valid.map((url, index) => <img key={`${url}-${index}`} src={source(url)} referrerPolicy="no-referrer" alt={`기기 사진 ${index + 1}`} className={`mb-4 h-auto ${alignment}`} style={{ width: `${photo.image_width_percent}%` }} />)}</article> : <p className="text-sm text-gray-400">기기를 선택하면 미리보기가 표시됩니다.</p>}</section></div></div>;
+}

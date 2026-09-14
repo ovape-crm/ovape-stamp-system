@@ -54,6 +54,8 @@ export const getDailyCashSales = async (
 
   for (const log of data ?? []) {
     const jsonb = (log.jsonb ?? {}) as Record<string, unknown>;
+    const totalAmount = Number(jsonb.totalAmount ?? 0);
+    const paymentSign = totalAmount < 0 ? -1 : 1;
     const splitPayments = Array.isArray(jsonb.payments)
       ? (jsonb.payments as Array<{
           paymentType?: unknown;
@@ -63,7 +65,7 @@ export const getDailyCashSales = async (
     if (splitPayments.length) {
       for (const payment of splitPayments) {
         const splitType = String(payment.paymentType ?? "");
-        const splitAmount = Number(payment.amount ?? 0);
+        const splitAmount = Math.abs(Number(payment.amount ?? 0)) * paymentSign;
         if (!CASH_PAYMENT_TYPES.has(splitType) || !Number.isFinite(splitAmount))
           continue;
         if (splitType.startsWith("egu_")) eguVape += splitAmount;
@@ -133,6 +135,8 @@ export const getDailyPaymentSales = async (
 
   for (const log of data ?? []) {
     const jsonb = (log.jsonb ?? {}) as Record<string, unknown>;
+    const totalAmount = Number(jsonb.totalAmount ?? 0);
+    const paymentSign = totalAmount < 0 ? -1 : 1;
     const splitPayments = Array.isArray(jsonb.payments)
       ? (jsonb.payments as Array<{
           paymentType?: unknown;
@@ -142,7 +146,7 @@ export const getDailyPaymentSales = async (
     if (splitPayments.length) {
       for (const payment of splitPayments) {
         const splitType = String(payment.paymentType ?? "").trim();
-        const splitAmount = Number(payment.amount ?? 0);
+        const splitAmount = Math.abs(Number(payment.amount ?? 0)) * paymentSign;
         if (
           !splitType ||
           NON_PAYMENT_TYPES.has(splitType) ||

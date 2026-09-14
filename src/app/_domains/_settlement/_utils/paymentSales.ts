@@ -39,6 +39,8 @@ export const aggregatePaymentSales = ({
       continue;
     }
     const jsonb = (row.jsonb ?? {}) as Record<string, unknown>;
+    const totalAmount = Number(jsonb.totalAmount ?? 0);
+    const paymentSign = totalAmount < 0 ? -1 : 1;
     const payments = Array.isArray(jsonb.payments)
       ? (jsonb.payments as Array<Record<string, unknown>>)
       : [];
@@ -46,7 +48,7 @@ export const aggregatePaymentSales = ({
       for (const payment of payments) {
         addPayment(
           String(payment.paymentType ?? ""),
-          Number(payment.amount ?? 0),
+          Math.abs(Number(payment.amount ?? 0)) * paymentSign,
         );
       }
     } else {

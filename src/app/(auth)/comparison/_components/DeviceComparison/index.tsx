@@ -9,7 +9,11 @@ import { comparisonKeys } from "@/app/_domains/_comparison/_queryKeys/comparison
 import { EmptySlot, FilledSlot } from "./ComparisonSlot";
 import DeviceSelectModal from "../DeviceSelectModal";
 import ComparisonExpandView from "./ComparisonExpandView";
+import BasicUsageGuideView from "../BasicUsageGuideView";
+import DeviceUsageGuideView from "../DeviceUsageGuideView";
+import DevicePhotoView from "../DevicePhotoView";
 import Button from "@/app/_components/Button";
+import { getComparisonDeviceName } from '../../_utils/deviceName';
 
 type ValueMap = Record<string, string>;
 
@@ -29,6 +33,9 @@ export default function DeviceComparison() {
   const [slots, setSlots] = useState<Slot[]>(
     Array.from({ length: INITIAL_SLOTS }, () => ({ type: "empty" })),
   );
+  const [isBasicGuideOpen, setIsBasicGuideOpen] = useState(false);
+  const [deviceUsageTarget, setDeviceUsageTarget] = useState<Extract<Slot, { type: "filled" }> | null>(null);
+  const [devicePhotoTarget, setDevicePhotoTarget] = useState<Extract<Slot, { type: "filled" }> | null>(null);
 
   // 모달에서 선택된 슬롯 인덱스를 클로저 없이 참조하기 위해 ref 사용
   const targetSlotRef = useRef<number | null>(null);
@@ -91,6 +98,9 @@ export default function DeviceComparison() {
               columns={columns}
               valueMap={slot.valueMap}
               onRemove={() => handleRemoveSlot(index)}
+              onOpenBasicGuide={() => setIsBasicGuideOpen(true)}
+              onOpenDeviceUsage={() => setDeviceUsageTarget(slot)}
+              onOpenDevicePhoto={() => setDevicePhotoTarget(slot)}
             />
           ),
         )}
@@ -128,6 +138,9 @@ export default function DeviceComparison() {
           onClose={() => setIsExpanded(false)}
         />
       )}
+      {isBasicGuideOpen && <BasicUsageGuideView devices={filledSlots.map((slot, index) => ({ id: slot.device.id, name: getComparisonDeviceName(columns, slot.valueMap, `기기 ${index + 1}`) }))} onClose={() => setIsBasicGuideOpen(false)} />}
+      {deviceUsageTarget && <DeviceUsageGuideView deviceId={deviceUsageTarget.device.id} deviceName={getComparisonDeviceName(columns, deviceUsageTarget.valueMap, '기기 사용법')} legacyImageUrl={columns.find((column) => column.name === '기기 사용법') ? deviceUsageTarget.valueMap[columns.find((column) => column.name === '기기 사용법')!.id] : ''} onClose={() => setDeviceUsageTarget(null)} />}
+      {devicePhotoTarget && <DevicePhotoView deviceId={devicePhotoTarget.device.id} deviceName={getComparisonDeviceName(columns, devicePhotoTarget.valueMap)} onClose={() => setDevicePhotoTarget(null)} />}
     </div>
   );
 }

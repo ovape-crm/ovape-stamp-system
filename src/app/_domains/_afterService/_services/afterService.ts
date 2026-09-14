@@ -128,6 +128,11 @@ export const createAfterService = async ({
   return data;
 };
 
+export const linkDefectiveReturnAfterService = async (holdId: string, afterServiceId: number) => {
+  const { error } = await supabase.rpc("link_defective_return_after_service", { p_hold_id: holdId, p_after_service_id: afterServiceId });
+  if (error) throw error;
+};
+
 /**
  * 전체 AS 수 조회
  */

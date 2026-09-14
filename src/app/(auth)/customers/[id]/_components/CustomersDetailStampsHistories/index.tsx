@@ -156,11 +156,14 @@ const CustomersDetailStampsHistories = ({
   const openRefundModal = useCallback(
     (log: CustomersLogsResType[number]) => {
       open({
-        content: <RefundModal log={{ ...log, customers: targetUser }} onCancel={close} />,
+        content: <RefundModal log={{ ...log, customers: targetUser }} onCancel={close} onComplete={() => Promise.all([
+          queryClient.invalidateQueries({ queryKey: logKeys.all() }),
+          queryClient.invalidateQueries({ queryKey: customerKeys.all() }),
+        ]).then(() => undefined)} />,
         options: { dismissOnBackdrop: false, dismissOnEsc: true, size: "max-w-xl" },
       });
     },
-    [close, open, targetUser],
+    [close, open, queryClient, targetUser],
   );
 
   const handleConfirm = useCallback(
@@ -524,6 +527,7 @@ const CustomersDetailStampsHistories = ({
                       )}
                       {!isReservation &&
                         Array.isArray(log.jsonb?.items) &&
+                        log.jsonb.items.length > 0 &&
                         Number(log.jsonb?.totalAmount ?? 0) > 0 && (
                           <Button
                             variant="secondary"

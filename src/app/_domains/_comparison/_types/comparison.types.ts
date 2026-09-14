@@ -4,6 +4,7 @@ export type ComparisonColumnType = {
   key: string;
   sort_order: number;
   is_active: boolean;
+  is_visible_in_comparison: boolean;
   created_at: string;
   updated_at: string;
 };
