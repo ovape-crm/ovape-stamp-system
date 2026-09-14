@@ -40,9 +40,10 @@ const LogActorInfo = ({
       confirmedAt,
   );
   const userDisplay =
-    users?.oss_role === "master" || users?.oss_role === "admin"
+    createdWorkerName ||
+    (users?.oss_role === "master" || users?.oss_role === "admin"
       ? users.oss_role === "master" ? "마스터" : "관리자"
-      : createdWorkerName || users?.name || users?.email || "알 수 없음";
+      : users?.name || users?.email || "알 수 없음");
 
   const storedModificationHistory = Array.isArray(jsonb?.modificationHistory)
     ? jsonb.modificationHistory.filter(

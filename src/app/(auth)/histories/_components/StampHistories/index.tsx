@@ -174,23 +174,29 @@ const StampHistories = ({
   const openRefundModal = useCallback(
     (log: LogsResType) => {
       open({
-        content: <RefundModal log={log} onCancel={close} />,
+        content: <RefundModal log={log} onCancel={close} onComplete={() => Promise.all([
+          queryClient.invalidateQueries({ queryKey: logKeys.all() }),
+          queryClient.invalidateQueries({ queryKey: customerKeys.all() }),
+        ]).then(() => undefined)} />,
         options: { dismissOnBackdrop: false, dismissOnEsc: true, size: "max-w-xl" },
       });
     },
-    [close, open],
+    [close, open, queryClient],
   );
 
   const handleCancelRefund = useCallback(async (log: LogsResType) => {
     const refundId = typeof log.jsonb?.refundId === "string" ? log.jsonb.refundId : "";
     if (!refundId) return;
-    const reason = await showPromptDialog({ title: "환불 취소", description: "정상 회수로 재고가 이미 복귀한 환불은 취소할 수 없습니다.", inputLabel: "취소 사유", placeholder: "취소 사유를 입력하세요", required: true, confirmLabel: "환불 취소", tone: "danger" });
+    const reason = await showPromptDialog({ title: "환불 취소", description: "정상 재입고 또는 불량품 후속 처리(A/S·도매처 반품·폐기)가 시작된 환불은 취소할 수 없습니다.", inputLabel: "취소 사유", placeholder: "취소 사유를 입력하세요", required: true, confirmLabel: "환불 취소", tone: "danger" });
     if (!reason) return;
     try {
       await cancelCustomerRefund(refundId, reason);
       await Promise.all([queryClient.invalidateQueries({ queryKey: logKeys.all() }), queryClient.invalidateQueries({ queryKey: customerKeys.all() })]);
       toast.success("환불을 취소했습니다.");
-    } catch (error) { toast.error(error instanceof Error ? error.message : "환불 취소에 실패했습니다."); }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      toast.error(message.includes("REFUND_FOLLOW_UP_ALREADY_PROCESSED") ? "A/S·도매처 반품·폐기 후속 처리가 시작된 환불은 취소할 수 없습니다." : message.includes("REFUND_INVENTORY_ALREADY_RECEIVED") ? "정상 재입고로 재고가 복귀한 환불은 취소할 수 없습니다." : message || "환불 취소에 실패했습니다.");
+    }
   }, [queryClient]);
 
   const handleCopyPeriod = async () => {
@@ -350,7 +356,8 @@ const StampHistories = ({
           toast.success("로그를 삭제했습니다.");
         } catch (e) {
           console.error("Failed to delete log:", e);
-          toast.error("로그 삭제에 실패했습니다. 다시 시도해 주세요.");
+          const message = e instanceof Error ? e.message : "";
+          toast.error(message.includes("REFUND_FOLLOW_UP_ALREADY_PROCESSED") ? "환불 후 A/S·도매처 반품·폐기 처리가 시작된 출고 이력은 삭제할 수 없습니다." : message.includes("REFUND_ALREADY_EXISTS") ? "환불이 연결된 출고 이력은 환불을 취소한 뒤에만 삭제할 수 있습니다." : "로그 삭제에 실패했습니다. 다시 시도해 주세요.");
           close();
         }
       };
@@ -544,6 +551,7 @@ const StampHistories = ({
                           onRefund={
                             !isReservation &&
                             Array.isArray(history.log.jsonb?.items) &&
+                            history.log.jsonb.items.length > 0 &&
                             Number(history.log.jsonb?.totalAmount ?? 0) > 0
                               ? () => openRefundModal(history.log)
                               : undefined

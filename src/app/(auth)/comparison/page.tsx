@@ -8,13 +8,19 @@ import ColumnManageModal from './_components/ColumnManageModal';
 import DeviceCreateModal from './_components/DeviceCreateModal';
 import DeviceList from './_components/DeviceList';
 import DeviceComparison from './_components/DeviceComparison';
+import BasicUsageGuideManageModal from './_components/BasicUsageGuideManageModal';
+import DeviceUsageGuideManage from './_components/DeviceUsageGuideManage';
+import DevicePhotoManage from './_components/DevicePhotoManage';
+import ComparisonPrintVisibilityModal from './_components/ComparisonPrintVisibilityModal';
+import { useUser } from '@/app/_contexts/UserContext';
 
-type TabType = 'comparison' | 'list';
+type TabType = 'comparison' | 'list' | 'basic-usage-guide' | 'device-usage-guide' | 'device-photo-manage';
 
 export default function ComparisonPage() {
   const [tab, setTab] = useState<TabType>('comparison');
   const [deviceRefreshKey, setDeviceRefreshKey] = useState(0);
   const { open, close } = useModal();
+  const { isAdmin } = useUser();
 
   const handleOpenColumnManage = () => {
     open({
@@ -29,6 +35,7 @@ export default function ComparisonPage() {
       options: { dismissOnBackdrop: false, dismissOnEsc: true },
     });
   };
+  const handleOpenPrintVisibility = () => open({ content: <ComparisonPrintVisibilityModal onCancel={close} />, options: { dismissOnBackdrop: true, dismissOnEsc: true } });
 
   return (
     <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 h-[calc(100vh-3.5rem)] sm:h-[calc(100vh-5rem)] flex flex-col">
@@ -47,10 +54,35 @@ export default function ComparisonPage() {
             >
               기기 목록
             </Button>
+            {isAdmin && (
+              <Button
+                variant={tab === 'basic-usage-guide' ? 'primary' : 'secondary'}
+                onClick={() => setTab('basic-usage-guide')}
+              >
+                기초 사용법 관리
+              </Button>
+            )}
+            {isAdmin && (
+              <Button
+                variant={tab === 'device-photo-manage' ? 'primary' : 'secondary'}
+                onClick={() => setTab('device-photo-manage')}
+              >
+                기기 사진 관리
+              </Button>
+            )}
+            {isAdmin && (
+              <Button
+                variant={tab === 'device-usage-guide' ? 'primary' : 'secondary'}
+                onClick={() => setTab('device-usage-guide')}
+              >
+                기기 사용법 관리
+              </Button>
+            )}
           </div>
           <MenuPopover
             items={[
               { label: '컬럼 관리', onClick: handleOpenColumnManage },
+              ...(isAdmin ? [{ label: '표 출력 여부', onClick: handleOpenPrintVisibility }] : []),
               { label: '기기 추가', onClick: handleOpenDeviceCreate },
             ]}
           />
@@ -58,6 +90,13 @@ export default function ComparisonPage() {
         <div className="flex-1 overflow-auto">
           {tab === 'comparison' && <DeviceComparison />}
           {tab === 'list' && <DeviceList refreshKey={deviceRefreshKey} />}
+          {tab === 'basic-usage-guide' && (
+            <div className="flex h-full min-h-0 flex-col">
+              <BasicUsageGuideManageModal onCancel={() => setTab('comparison')} />
+            </div>
+          )}
+          {tab === 'device-usage-guide' && <DeviceUsageGuideManage />}
+          {tab === 'device-photo-manage' && <DevicePhotoManage />}
         </div>
       </div>
     </section>

@@ -2,6 +2,8 @@
 
 import { ComparisonColumnType } from "@/app/_domains/_comparison/_types/comparison.types";
 import TaggedContent from "@/app/_components/TaggedContent";
+import Button from "@/app/_components/Button";
+import { getComparisonDeviceName } from '../../_utils/deviceName';
 
 function isUrl(value: string): boolean {
   try {
@@ -88,6 +90,9 @@ interface FilledSlotProps {
   columns: ComparisonColumnType[];
   valueMap: ValueMap;
   onRemove: () => void;
+  onOpenBasicGuide: () => void;
+  onOpenDeviceUsage: () => void;
+  onOpenDevicePhoto: () => void;
 }
 
 export function EmptySlot({ onAdd }: EmptySlotProps) {
@@ -104,7 +109,8 @@ export function EmptySlot({ onAdd }: EmptySlotProps) {
   );
 }
 
-export function FilledSlot({ columns, valueMap, onRemove }: FilledSlotProps) {
+export function FilledSlot({ columns, valueMap, onRemove, onOpenBasicGuide, onOpenDeviceUsage, onOpenDevicePhoto }: FilledSlotProps) {
+  const deviceName = getComparisonDeviceName(columns, valueMap);
   return (
     <div className="flex-1 min-w-[220px] flex flex-col border border-brand-100 rounded-xl shadow-sm bg-white overflow-hidden">
       {/* 카드 헤더 */}
@@ -129,7 +135,7 @@ export function FilledSlot({ columns, valueMap, onRemove }: FilledSlotProps) {
               {col.name}
             </span>
             <span className="text-sm text-gray-800 break-words">
-              {valueMap[col.id] ? (
+              {col.key === "basic_usage_guide" ? <Button size="xs" variant="secondary" onClick={onOpenBasicGuide}>기초 사용법 보러가기</Button> : col.name === '기기 사진' ? <Button size="xs" variant="secondary" onClick={onOpenDevicePhoto}>{deviceName} 사진 보러가기</Button> : col.name === '기기 사용법' ? <Button size="xs" variant="secondary" onClick={onOpenDeviceUsage}>{deviceName} 사용법 보러가기</Button> : valueMap[col.id] ? (
                 renderValue(valueMap[col.id])
               ) : (
                 <span className="text-gray-300 font-normal">-</span>

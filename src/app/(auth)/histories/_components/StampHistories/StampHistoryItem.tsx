@@ -1,6 +1,7 @@
 "use client";
 
 import Button from "@/app/_components/Button";
+import { Dropdown } from "@/app/_components/Dropdown";
 import { LogsResType } from "@/app/_domains/_log/_types/log.types";
 import {
   ActionInfoLabel,
@@ -235,7 +236,7 @@ const StampHistoryItem = ({
         </div>
       )}
 
-      <div className="grid shrink-0 grid-cols-[115px_56px_56px] grid-rows-2 gap-1">
+      <div className="grid shrink-0 grid-cols-[115px_68px_68px] grid-rows-2 gap-1">
         {!hasPrimaryAction && log.users && (
           <div className="col-start-1 row-span-2 flex w-[115px] items-center justify-end text-right">
             <LogActorInfo
@@ -247,7 +248,7 @@ const StampHistoryItem = ({
           </div>
         )}
         {onConfirm && (
-          <Button variant="primary" size="sm" className="col-span-2 row-span-2" onClick={onConfirm}>
+          <Button variant="primary" size="sm" className="col-span-2 justify-self-end self-center" onClick={onConfirm}>
             출고 확정
           </Button>
         )}
@@ -267,31 +268,26 @@ const StampHistoryItem = ({
             복사
           </Button>
         )}
-        {isMaster && !isLocked && onManage && (
-          <Button variant="secondary" size="sm" className="col-start-3 row-start-1 flex w-full items-center justify-center" onClick={onManage}>
-            관리
-          </Button>
-        )}
         {!isLocked && onRefund && (
           <Button variant="secondary" size="sm" className="col-start-2 row-span-2 flex w-full items-center justify-center self-center" onClick={onRefund}>
             환불
           </Button>
         )}
         {isMaster && !isLocked && onCancelRefund && (
-          <Button variant="danger" size="sm" className="col-start-2 row-span-2 flex w-full items-center justify-center self-center" onClick={onCancelRefund}>
+          <Button variant="secondary" size="sm" className="col-start-2 row-span-2 flex w-full items-center justify-center self-center" onClick={onCancelRefund}>
             환불 취소
           </Button>
         )}
-        {isAdmin && !isLocked && (
-          <Button
-            variant="danger"
-            size="sm"
-            className="col-start-3 row-start-2 flex w-full items-center justify-center"
-            onClick={onDelete}
-            aria-label="삭제"
-          >
-            🗑️
-          </Button>
+        {!isLocked && ((isMaster && Boolean(onManage)) || isAdmin) && (
+          <div className="col-start-3 row-span-2 h-full min-w-[68px] [&>div]:h-full [&>div]:w-full">
+            <Dropdown controlledValue="history-actions">
+              <Dropdown.Trigger className="relative h-full justify-center !bg-brand-100 px-3 py-1.5 text-xs text-brand-700 hover:!bg-brand-200 focus:ring-0 focus:ring-offset-0 sm:px-4 sm:py-2 sm:text-sm [&>span]:hidden [&>svg]:absolute [&>svg]:left-1/2 [&>svg]:-translate-x-1/2">{null}</Dropdown.Trigger>
+              <Dropdown.Content neutral flush>
+                {isMaster && onManage && <Dropdown.Item option={{ value: "manage", label: "관리" }} neutral showCheck={false} className="flex justify-center whitespace-nowrap px-3 py-1.5 text-center text-xs hover:!bg-brand-50 focus:!ring-0 sm:px-4 sm:py-2 sm:text-sm" onSelect={onManage} />}
+                {isAdmin && <Dropdown.Item option={{ value: "delete", label: "🗑️" }} neutral showCheck={false} className="flex justify-center whitespace-nowrap px-3 py-1.5 text-center text-xs text-rose-600 hover:!bg-rose-50 focus:!ring-0 sm:px-4 sm:py-2 sm:text-sm" onSelect={onDelete} />}
+              </Dropdown.Content>
+            </Dropdown>
+          </div>
         )}
         {isLocked && (
           <Button

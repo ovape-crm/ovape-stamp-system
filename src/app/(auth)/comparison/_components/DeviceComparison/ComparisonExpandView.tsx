@@ -98,6 +98,7 @@ export default function ComparisonExpandView({
   filledSlots,
   onClose,
 }: ComparisonExpandViewProps) {
+  const visibleColumns = columns.filter((column) => column.is_visible_in_comparison);
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -133,7 +134,7 @@ export default function ComparisonExpandView({
               alt=""
               fill
               sizes="256px"
-              className="select-none object-contain opacity-[0.06] mix-blend-multiply"
+              className="select-none object-contain opacity-20 mix-blend-multiply"
               draggable={false}
             />
           </div>
@@ -169,20 +170,20 @@ export default function ComparisonExpandView({
               </tr>
             </thead>
             <tbody>
-              {columns.map((col, colIdx) => (
+              {visibleColumns.map((col, colIdx) => (
                 <tr
                   key={col.id}
                   className={colIdx % 2 === 1 ? "bg-gray-50/60" : "bg-white"}
                 >
                   <td
-                    className={`sticky left-0 z-10 px-3 py-3.5 text-xs font-semibold text-gray-500 whitespace-nowrap border-b border-r border-brand-50 w-[80px] ${colIdx % 2 === 1 ? "bg-gray-50" : "bg-white"}`}
+                    className={`sticky left-0 z-10 px-3 py-3.5 text-xs font-semibold text-gray-500 whitespace-nowrap border-b border-r border-gray-200 w-[80px] ${colIdx % 2 === 1 ? "bg-gray-50" : "bg-white"}`}
                   >
                     {col.name}
                   </td>
                   {filledSlots.map((slot) => (
                     <td
                       key={slot.device.id}
-                      className="px-5 py-3.5 text-gray-800 font-medium whitespace-nowrap border-b border-r border-brand-50"
+                      className="bg-brand-50/30 px-5 py-3.5 text-gray-800 font-medium whitespace-nowrap border-b border-r border-brand-200"
                     >
                       {slot.valueMap[col.id] ? (
                         renderValue(slot.valueMap[col.id])

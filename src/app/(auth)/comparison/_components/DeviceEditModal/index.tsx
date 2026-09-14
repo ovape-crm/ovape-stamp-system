@@ -22,7 +22,7 @@ export default function DeviceEditModal({
 }: DeviceEditModalProps) {
   const { columns, isLoading } = useComparisonColumns();
   const [values, setValues] = useState<Record<string, string>>(initialValues);
-  const isDirty = columns.some((col) => (values[col.id] ?? '') !== (initialValues[col.id] ?? ''));
+  const isDirty = columns.filter((col) => col.key !== 'basic_usage_guide').some((col) => (values[col.id] ?? '') !== (initialValues[col.id] ?? ''));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -33,7 +33,7 @@ export default function DeviceEditModal({
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
-    columns.forEach((col) => {
+    columns.filter((col) => col.key !== 'basic_usage_guide').forEach((col) => {
       if (!values[col.id]?.trim()) newErrors[col.id] = '값을 입력하세요.';
     });
     setErrors(newErrors);
@@ -44,7 +44,7 @@ export default function DeviceEditModal({
     if (!validate()) return;
     try {
       setIsSubmitting(true);
-      const deviceValues = columns.map((col) => ({
+      const deviceValues = columns.filter((col) => col.key !== 'basic_usage_guide').map((col) => ({
         column_id: col.id,
         value: values[col.id]?.trim() || '',
       }));
@@ -80,7 +80,7 @@ export default function DeviceEditModal({
         {isLoading ? (
           <p className="text-sm text-gray-500 text-center py-6">불러오는 중...</p>
         ) : (
-          columns.map((col) => (
+          columns.filter((col) => col.key !== 'basic_usage_guide').map((col) => (
             <div key={col.id}>
               <label className="block text-sm font-medium mb-1">
                 {col.name} <span className="text-rose-600">*</span>

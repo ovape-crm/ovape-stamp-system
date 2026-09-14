@@ -6,8 +6,8 @@ type NoteNode = {
   children: Array<NoteNode | string>;
 };
 
-const noteTagRegex = /<\/?(?:red|blue|green|bold|line|yellow-bg|pink-bg|blue-bg|link)(?: url="[^"]*")?>/g;
-const openingNoteTagRegex = /^<(red|blue|green|bold|line|yellow-bg|pink-bg|blue-bg|link)(?: url="([^"]*)")?>$/;
+const noteTagRegex = /<\/?(?:red|blue|green|bold|line|yellow-bg|pink-bg|blue-bg|divider|link)(?: url="[^"]*")?>/g;
+const openingNoteTagRegex = /^<(red|blue|green|bold|line|yellow-bg|pink-bg|blue-bg|divider|link)(?: url="([^"]*)")?>$/;
 
 const parseNoteNodes = (value: string): NoteNode => {
   const root: NoteNode = { children: [] };
@@ -96,32 +96,54 @@ const renderNoteChildren = (
     if (child.tag === 'link' && child.url) {
       return <a key={key} href={child.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline underline-offset-2 hover:text-blue-700">{content}</a>;
     }
+    if (child.tag === 'divider') return <hr key={key} className="my-4 border-0 border-t border-gray-400" />;
     return <span key={key} className={noteTagClassName[child.tag ?? '']}>{content}</span>;
   });
 
 const renderLine = (line: string, lineKey: string, keyword: string) =>
   renderNoteChildren(parseNoteNodes(line).children, keyword, lineKey);
 
+const isDividerLine = (line: string) => /^(?:<divider><\/divider>|-{3,})$/.test(line.trim());
+
 interface TaggedContentProps {
   content: string;
   className?: string;
   highlightKeyword?: string;
+  inline?: boolean;
 }
 
 const TaggedContent = ({
   content,
   className = '',
   highlightKeyword = '',
+  inline = false,
 }: TaggedContentProps) => {
   const lines = content.split('\n');
 
+  if (inline) {
+    return (
+      <span className={className}>
+        {lines.map((line, index) => (
+          <Fragment key={index}>
+            {index > 0 && <br />}
+            {line ? renderLine(line, String(index), highlightKeyword) : ' '}
+          </Fragment>
+        ))}
+      </span>
+    );
+  }
+
   return (
     <div className={className}>
-      {lines.map((line, i) => (
-        <p key={i}>
-          {line ? renderLine(line, String(i), highlightKeyword) : ' '}
-        </p>
-      ))}
+      {lines.map((line, i) =>
+        isDividerLine(line) ? (
+          <hr key={i} className="my-4 border-0 border-t border-gray-400" />
+        ) : line.includes('<divider>') ? (
+          <div key={i}>{renderLine(line, String(i), highlightKeyword)}</div>
+        ) : (
+          <p key={i}>{line ? renderLine(line, String(i), highlightKeyword) : ' '}</p>
+        ),
+      )}
     </div>
   );
 };

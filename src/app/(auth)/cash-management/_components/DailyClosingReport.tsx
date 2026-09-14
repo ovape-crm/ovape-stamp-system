@@ -447,12 +447,23 @@ export default function DailyClosingReport({
   const cancelMutation = useMutation({
     mutationFn: () => cancelDailyClosingReport(businessDate),
     onSuccess: async () => {
-      window.sessionStorage.removeItem(getChecklistDraftKey(businessDate));
+      // 마감을 다시 열어도 작성했던 체크와 메모를 그대로 이어서 검토·재마감할 수
+      // 있도록, 완료 보고서의 값을 해당 날짜 초안으로 보존한다.
+      const restoredDraft = {
+        openingChecks: reportQuery.data?.opening_checklist ?? openingChecks,
+        closingChecks: reportQuery.data?.closing_checklist ?? closingChecks,
+        cleaningNote: reportQuery.data?.cleaning_note ?? cleaningNote,
+        specialNote: reportQuery.data?.special_note ?? specialNote,
+      };
+      window.sessionStorage.setItem(
+        getChecklistDraftKey(businessDate),
+        JSON.stringify(restoredDraft),
+      );
       toast.success("마감 처리를 취소했습니다.");
-      setOpeningChecks({});
-      setClosingChecks({});
-      setCleaningNote("");
-      setSpecialNote("");
+      setOpeningChecks(restoredDraft.openingChecks);
+      setClosingChecks(restoredDraft.closingChecks);
+      setCleaningNote(restoredDraft.cleaningNote);
+      setSpecialNote(restoredDraft.specialNote);
       close();
       await Promise.all([
         reportQuery.refetch(),
