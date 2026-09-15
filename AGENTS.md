@@ -95,6 +95,7 @@ These are product-wide UI rules. Apply them to all new UI and keep them consiste
 - Do not change an existing control's label, icon, visual treatment, or behavior unless the user explicitly requests that exact change. When restructuring existing controls, preserve their current visible labels and icons by default.
 - Action-menu dropdown triggers and every label or icon within their menus must be horizontally and vertically centered by default.
 - This project must be deployed to `https://ovape-system.vercel.app/` after the relevant changes are merged to `main`.
+- When the user asks to commit and push the work completed today, merge the current work branch into `main` and push `main`; do not only push the work branch.
 
 ## Gear icon
 
