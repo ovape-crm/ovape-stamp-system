@@ -111,4 +111,3 @@ begin
   if not found then raise exception 'DEFECT_STEP_NOT_FOUND'; end if;
 end;
 $$;
-
