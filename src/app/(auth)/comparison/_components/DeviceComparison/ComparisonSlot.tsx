@@ -93,6 +93,7 @@ interface FilledSlotProps {
   onOpenBasicGuide: () => void;
   onOpenDeviceUsage: () => void;
   onOpenDevicePhoto: () => void;
+  onOpenDeviceDefect: () => void;
 }
 
 export function EmptySlot({ onAdd }: EmptySlotProps) {
@@ -109,7 +110,7 @@ export function EmptySlot({ onAdd }: EmptySlotProps) {
   );
 }
 
-export function FilledSlot({ columns, valueMap, onRemove, onOpenBasicGuide, onOpenDeviceUsage, onOpenDevicePhoto }: FilledSlotProps) {
+export function FilledSlot({ columns, valueMap, onRemove, onOpenBasicGuide, onOpenDeviceUsage, onOpenDevicePhoto, onOpenDeviceDefect }: FilledSlotProps) {
   const deviceName = getComparisonDeviceName(columns, valueMap);
   return (
     <div className="flex-1 min-w-[220px] flex flex-col border border-brand-100 rounded-xl shadow-sm bg-white overflow-hidden">
@@ -135,7 +136,7 @@ export function FilledSlot({ columns, valueMap, onRemove, onOpenBasicGuide, onOp
               {col.name}
             </span>
             <span className="text-sm text-gray-800 break-words">
-              {col.key === "basic_usage_guide" ? <Button size="xs" variant="secondary" onClick={onOpenBasicGuide}>기초 사용법 보러가기</Button> : col.name === '기기 사진' ? <Button size="xs" variant="secondary" onClick={onOpenDevicePhoto}>{deviceName} 사진 보러가기</Button> : col.name === '기기 사용법' ? <Button size="xs" variant="secondary" onClick={onOpenDeviceUsage}>{deviceName} 사용법 보러가기</Button> : valueMap[col.id] ? (
+              {col.key === "basic_usage_guide" ? <Button size="xs" variant="secondary" onClick={onOpenBasicGuide}>기초 사용법 보러가기</Button> : col.name === '기기 사진' ? <Button size="xs" variant="secondary" onClick={onOpenDevicePhoto}>{deviceName} 사진 보러가기</Button> : col.name === '기기 사용법' ? <Button size="xs" variant="secondary" onClick={onOpenDeviceUsage}>{deviceName} 사용법 보러가기</Button> : col.key === 'device_defect_symptoms' ? <Button size="xs" variant="secondary" onClick={onOpenDeviceDefect}>{deviceName} 불량 증상 보러가기</Button> : valueMap[col.id] ? (
                 renderValue(valueMap[col.id])
               ) : (
                 <span className="text-gray-300 font-normal">-</span>

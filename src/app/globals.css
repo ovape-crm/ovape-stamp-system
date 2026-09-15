@@ -37,6 +37,18 @@
   --color-brand-900: var(--brand-900);
 }
 
+img[alt$='사진 미리보기'],
+img[alt$='사용법 미리보기'] {
+  width: 100% !important;
+}
+
+img[alt*=' 사진 ']:not([alt$='미리보기']) {
+  width: auto !important;
+  max-width: 100%;
+  max-height: calc(90vh - 8rem);
+  object-fit: contain;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);

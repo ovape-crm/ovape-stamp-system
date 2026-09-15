@@ -32,6 +32,10 @@ export default function DeviceSelectModal({
   });
 
   const columns: ComparisonColumnType[] = data?.columns ?? [];
+  const selectionColumns = columns.filter(
+    (column) =>
+      column.name === '브랜드/기기명' || column.name === '호흡방식',
+  );
   const valueMapByDevice: Record<string, ValueMap> = {};
   data?.values.forEach((v) => {
     if (!valueMapByDevice[v.device_id]) valueMapByDevice[v.device_id] = {};
@@ -39,6 +43,7 @@ export default function DeviceSelectModal({
   });
 
   const availableDevices = (data?.devices ?? [])
+    .filter((device) => device.is_active)
     .filter((d) => !excludeDeviceIds.includes(d.id))
     .filter((d) => {
       if (!query.trim()) return true;
@@ -68,7 +73,7 @@ export default function DeviceSelectModal({
           <p className="rounded-lg bg-rose-50 px-4 py-8 text-center text-sm text-rose-600">
             기기 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.
           </p>
-        ) : columns.length === 0 ? (
+        ) : selectionColumns.length === 0 ? (
           <p className="rounded-lg bg-amber-50 px-4 py-8 text-center text-sm text-amber-700">
             표시할 기기 비교 항목이 없습니다. 먼저 컬럼 관리에서 항목을 등록해 주세요.
           </p>
@@ -81,7 +86,7 @@ export default function DeviceSelectModal({
             <table className="min-w-full text-xs sm:text-sm">
               <thead>
                 <tr className="border-b border-brand-100">
-                  {columns.map((col) => (
+                  {selectionColumns.map((col) => (
                     <th
                       key={col.id}
                       className="px-3 py-2 text-left font-semibold text-gray-500 whitespace-nowrap"
@@ -100,7 +105,7 @@ export default function DeviceSelectModal({
                       onSelect(device, valueMapByDevice[device.id] ?? {})
                     }
                   >
-                    {columns.map((col) => (
+                    {selectionColumns.map((col) => (
                       <td
                         key={col.id}
                         className="px-3 py-2.5 text-gray-700 whitespace-nowrap"

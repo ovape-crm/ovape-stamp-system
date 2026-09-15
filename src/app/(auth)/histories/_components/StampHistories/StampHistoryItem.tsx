@@ -18,7 +18,7 @@ import { formatHistoryNote } from "@/app/_domains/_log/_utils/formatHistoryNote"
 interface StampHistoryItemProps {
   log: LogsResType;
   onEdit: () => void;
-  onNavigate: () => void;
+  onNavigate?: () => void;
   isAdmin: boolean;
   onDelete: () => void;
   onConfirm?: () => void;
@@ -28,6 +28,8 @@ interface StampHistoryItemProps {
   onRefund?: () => void;
   onCancelRefund?: () => void;
   isLocked?: boolean;
+  /** 고객 상세에서는 이미 대상 고객이 표시되므로 이름·번호를 생략한다. */
+  showCustomerInfo?: boolean;
 }
 
 const StampHistoryItem = ({
@@ -43,6 +45,7 @@ const StampHistoryItem = ({
   onRefund,
   onCancelRefund,
   isLocked = false,
+  showCustomerInfo = true,
 }: StampHistoryItemProps) => {
   const { copyLogToClipboard } = useCopy();
   const isSplitPayment =
@@ -56,6 +59,17 @@ const StampHistoryItem = ({
       log.jsonb.reservationDate.trim()),
   );
   const hasPrimaryAction = Boolean(onConfirm || (showCopy && !isLocked));
+  const hasActionMenu =
+    !isLocked && ((isMaster && Boolean(onManage)) || isAdmin);
+  const hasReservationAction = Boolean(onConfirm);
+  const actionColumnClass = hasPrimaryAction ? "col-start-1" : "col-start-2";
+  const actionButton = !isLocked
+    ? isMaster && onCancelRefund
+      ? { label: "환불 취소", onClick: onCancelRefund }
+      : onRefund
+        ? { label: "환불", onClick: onRefund }
+        : undefined
+    : undefined;
   const customerMode = log.customers?.name
     ? getCustomerMode(log.customers.name, log.customers.phone)
     : "normal";
@@ -118,11 +132,37 @@ const StampHistoryItem = ({
       스탬프 조정
     </span>
   ) : null;
+  const transactionSummary = (
+    <>
+      {!isCouponUse && customerBadge}
+      {(isCouponUse || (log.jsonb && "storeName" in log.jsonb)) && (
+        <StoreLabel jsonb={historyLabelJsonb} />
+      )}
+      {!isCustomerRemark &&
+        (isCouponUse || (log.jsonb && "paymentType" in log.jsonb)) && (
+          <PaymentTypeLabel jsonb={historyLabelJsonb} />
+        )}
+      {isCouponUse && customerBadge}
+      {typeof log.jsonb?.totalAmount === "number" &&
+        log.jsonb.totalAmount !== 0 && (
+          <span className="flex h-7 w-full items-center justify-center whitespace-nowrap rounded-full bg-emerald-100 px-2 text-xs font-semibold text-emerald-700">
+            {log.jsonb.totalAmount.toLocaleString("ko-KR")}원
+          </span>
+        )}
+    </>
+  );
+  const gridColumns = showCustomerInfo
+    ? hasPrimaryAction
+      ? "grid-cols-[125px_128px_minmax(260px,1fr)_115px_auto]"
+      : "grid-cols-[125px_128px_minmax(260px,1fr)_auto]"
+    : hasPrimaryAction
+      ? "grid-cols-[128px_minmax(260px,1fr)_115px_auto]"
+      : "grid-cols-[128px_minmax(260px,1fr)_auto]";
 
   return (
     <div
       id={`history-${log.id}`}
-      className={`grid scroll-mt-6 ${hasPrimaryAction ? "grid-cols-[125px_128px_minmax(260px,1fr)_115px_auto]" : "grid-cols-[125px_128px_minmax(260px,1fr)_auto]"} items-center gap-2 whitespace-nowrap rounded-lg border border-brand-50 p-2.5 text-xs transition-colors hover:bg-brand-50/30 target:bg-brand-50 target:ring-2 target:ring-brand-300 sm:px-2 sm:py-4 sm:text-sm`}
+      className={`grid scroll-mt-6 ${gridColumns} items-center gap-2 whitespace-nowrap rounded-lg border border-brand-50 p-2.5 text-xs transition-colors hover:bg-brand-50/30 target:bg-brand-50 target:ring-2 target:ring-brand-300 sm:px-2 sm:py-4 sm:text-sm`}
     >
       <div className="flex min-w-0 self-center flex-col items-center text-center">
         {!isCustomerRemark && !isCouponUse && (
@@ -136,32 +176,23 @@ const StampHistoryItem = ({
             )}
           </div>
         )}
-        <CustomerInfo
-          name={log.customers?.name}
-          phone={log.customers?.phone}
-          onClick={onNavigate}
-          singleLineLabel={specialCustomerLabel}
-          disabled={isLocked}
-        />
+        {showCustomerInfo && (
+          <CustomerInfo
+            name={log.customers?.name}
+            phone={log.customers?.phone}
+            onClick={onNavigate ?? (() => undefined)}
+            singleLineLabel={specialCustomerLabel}
+            disabled={isLocked || !onNavigate}
+          />
+        )}
+        {!showCustomerInfo && transactionSummary}
       </div>
 
-      <div className="flex min-w-0 self-center flex-col items-center gap-1.5 text-center">
-        {!isCouponUse && customerBadge}
-        {(isCouponUse || (log.jsonb && "storeName" in log.jsonb)) && (
-          <StoreLabel jsonb={historyLabelJsonb} />
-        )}
-        {!isCustomerRemark &&
-          (isCouponUse || (log.jsonb && "paymentType" in log.jsonb)) && (
-            <PaymentTypeLabel jsonb={historyLabelJsonb} />
-          )}
-        {isCouponUse && customerBadge}
-        {typeof log.jsonb?.totalAmount === "number" &&
-          log.jsonb.totalAmount !== 0 && (
-            <span className="flex h-7 w-full items-center justify-center whitespace-nowrap rounded-full bg-emerald-100 px-2 text-xs font-semibold text-emerald-700">
-              {log.jsonb.totalAmount.toLocaleString("ko-KR")}원
-            </span>
-          )}
-      </div>
+      {showCustomerInfo && (
+        <div className="flex min-w-0 self-center flex-col items-center gap-1.5 text-center">
+          {transactionSummary}
+        </div>
+      )}
 
       <div className="min-w-0 border-l border-brand-100 pl-3 sm:pl-4">
         <div className="flex items-center gap-2">
@@ -236,7 +267,17 @@ const StampHistoryItem = ({
         </div>
       )}
 
-      <div className="grid shrink-0 grid-cols-[115px_68px_68px] grid-rows-2 gap-1">
+      <div
+        className={`ml-2 grid shrink-0 grid-rows-2 gap-1 ${
+          hasReservationAction
+            ? "grid-cols-[max-content]"
+            : hasPrimaryAction
+            ? hasActionMenu
+              ? "grid-cols-[68px_68px]"
+              : "grid-cols-[68px]"
+            : "grid-cols-[115px_68px]"
+        }`}
+      >
         {!hasPrimaryAction && log.users && (
           <div className="col-start-1 row-span-2 flex w-[115px] items-center justify-end text-right">
             <LogActorInfo
@@ -248,7 +289,7 @@ const StampHistoryItem = ({
           </div>
         )}
         {onConfirm && (
-          <Button variant="primary" size="sm" className="col-span-2 justify-self-end self-center" onClick={onConfirm}>
+          <Button variant="primary" size="sm" className={`${hasActionMenu ? "row-start-1" : "row-span-2 self-center"} w-full justify-self-center`} onClick={onConfirm}>
             출고 확정
           </Button>
         )}
@@ -256,7 +297,7 @@ const StampHistoryItem = ({
           <Button
             variant="secondary"
             size="sm"
-            className="col-span-2 row-span-2"
+            className={hasActionMenu ? "col-span-2 row-span-2" : "col-span-1 row-span-2"}
             onClick={() =>
               copyLogToClipboard(log, {
                 name: log.customers?.name,
@@ -268,23 +309,29 @@ const StampHistoryItem = ({
             복사
           </Button>
         )}
-        {!isLocked && onRefund && (
-          <Button variant="secondary" size="sm" className="col-start-2 row-span-2 flex w-full items-center justify-center self-center" onClick={onRefund}>
-            환불
+        {actionButton && (
+          <Button
+            variant="secondary"
+            size="sm"
+            className={`${actionColumnClass} ${
+              hasActionMenu ? "row-start-1" : "row-start-2"
+            } flex w-full items-center justify-center self-center`}
+            onClick={actionButton.onClick}
+          >
+            {actionButton.label}
           </Button>
         )}
-        {isMaster && !isLocked && onCancelRefund && (
-          <Button variant="secondary" size="sm" className="col-start-2 row-span-2 flex w-full items-center justify-center self-center" onClick={onCancelRefund}>
-            환불 취소
-          </Button>
-        )}
-        {!isLocked && ((isMaster && Boolean(onManage)) || isAdmin) && (
-          <div className="col-start-3 row-span-2 h-full min-w-[68px] [&>div]:h-full [&>div]:w-full">
+        {hasActionMenu && (
+          <div className={`${actionColumnClass} ${
+            hasReservationAction || actionButton
+              ? "row-start-2"
+              : "row-span-2 self-center"
+          } min-w-[68px] [&>div]:w-full`}>
             <Dropdown controlledValue="history-actions">
-              <Dropdown.Trigger className="relative h-full justify-center !bg-brand-100 px-3 py-1.5 text-xs text-brand-700 hover:!bg-brand-200 focus:ring-0 focus:ring-offset-0 sm:px-4 sm:py-2 sm:text-sm [&>span]:hidden [&>svg]:absolute [&>svg]:left-1/2 [&>svg]:-translate-x-1/2">{null}</Dropdown.Trigger>
+              <Dropdown.Trigger className="relative h-[30px] justify-center !border-brand-200 !bg-brand-100 px-3 py-1.5 text-xs text-brand-700 hover:!border-brand-300 hover:!bg-brand-200 active:!border-brand-300 active:!bg-brand-200 focus:ring-0 focus:ring-offset-0 sm:h-[38px] sm:px-4 sm:py-2 sm:text-sm [&>span]:hidden [&>svg]:absolute [&>svg]:left-1/2 [&>svg]:-translate-x-1/2">{null}</Dropdown.Trigger>
               <Dropdown.Content neutral flush>
-                {isMaster && onManage && <Dropdown.Item option={{ value: "manage", label: "관리" }} neutral showCheck={false} className="flex justify-center whitespace-nowrap px-3 py-1.5 text-center text-xs hover:!bg-brand-50 focus:!ring-0 sm:px-4 sm:py-2 sm:text-sm" onSelect={onManage} />}
-                {isAdmin && <Dropdown.Item option={{ value: "delete", label: "🗑️" }} neutral showCheck={false} className="flex justify-center whitespace-nowrap px-3 py-1.5 text-center text-xs text-rose-600 hover:!bg-rose-50 focus:!ring-0 sm:px-4 sm:py-2 sm:text-sm" onSelect={onDelete} />}
+                {isMaster && onManage && <Dropdown.Item option={{ value: "manage", label: "관리" }} neutral showCheck={false} className="flex justify-center whitespace-nowrap !bg-white px-3 py-1.5 text-center text-xs hover:!bg-brand-100 focus:!ring-0 sm:px-4 sm:py-2 sm:text-sm" onSelect={onManage} />}
+                {isAdmin && <Dropdown.Item option={{ value: "delete", label: "🗑️" }} neutral showCheck={false} className={`flex justify-center whitespace-nowrap !bg-white px-3 py-1.5 text-center text-xs text-rose-600 hover:!bg-brand-100 focus:!ring-0 sm:px-4 sm:py-2 sm:text-sm ${isMaster && onManage ? "border-t border-brand-200" : ""}`} onSelect={onDelete} />}
               </Dropdown.Content>
             </Dropdown>
           </div>

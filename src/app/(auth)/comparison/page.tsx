@@ -11,10 +11,11 @@ import DeviceComparison from './_components/DeviceComparison';
 import BasicUsageGuideManageModal from './_components/BasicUsageGuideManageModal';
 import DeviceUsageGuideManage from './_components/DeviceUsageGuideManage';
 import DevicePhotoManage from './_components/DevicePhotoManage';
+import DeviceDefectManage from './_components/DeviceDefectManage';
 import ComparisonPrintVisibilityModal from './_components/ComparisonPrintVisibilityModal';
 import { useUser } from '@/app/_contexts/UserContext';
 
-type TabType = 'comparison' | 'list' | 'basic-usage-guide' | 'device-usage-guide' | 'device-photo-manage';
+type TabType = 'comparison' | 'list' | 'basic-usage-guide' | 'device-usage-guide' | 'device-photo-manage' | 'device-defect-manage';
 
 export default function ComparisonPage() {
   const [tab, setTab] = useState<TabType>('comparison');
@@ -54,35 +55,17 @@ export default function ComparisonPage() {
             >
               기기 목록
             </Button>
-            {isAdmin && (
-              <Button
-                variant={tab === 'basic-usage-guide' ? 'primary' : 'secondary'}
-                onClick={() => setTab('basic-usage-guide')}
-              >
-                기초 사용법 관리
-              </Button>
-            )}
-            {isAdmin && (
-              <Button
-                variant={tab === 'device-photo-manage' ? 'primary' : 'secondary'}
-                onClick={() => setTab('device-photo-manage')}
-              >
-                기기 사진 관리
-              </Button>
-            )}
-            {isAdmin && (
-              <Button
-                variant={tab === 'device-usage-guide' ? 'primary' : 'secondary'}
-                onClick={() => setTab('device-usage-guide')}
-              >
-                기기 사용법 관리
-              </Button>
-            )}
           </div>
           <MenuPopover
             items={[
               { label: '컬럼 관리', onClick: handleOpenColumnManage },
               ...(isAdmin ? [{ label: '표 출력 여부', onClick: handleOpenPrintVisibility }] : []),
+              ...(isAdmin ? [
+                { label: '기초 사용법 관리', onClick: () => setTab('basic-usage-guide') },
+                { label: '기기 사진 관리', onClick: () => setTab('device-photo-manage') },
+                { label: '기기 사용법 관리', onClick: () => setTab('device-usage-guide') },
+                { label: '기기 불량 관리', onClick: () => setTab('device-defect-manage') },
+              ] : []),
               { label: '기기 추가', onClick: handleOpenDeviceCreate },
             ]}
           />
@@ -96,6 +79,7 @@ export default function ComparisonPage() {
             </div>
           )}
           {tab === 'device-usage-guide' && <DeviceUsageGuideManage />}
+          {tab === 'device-defect-manage' && <DeviceDefectManage />}
           {tab === 'device-photo-manage' && <DevicePhotoManage />}
         </div>
       </div>

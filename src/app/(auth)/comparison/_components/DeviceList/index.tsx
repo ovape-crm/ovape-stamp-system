@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import {
   getComparisonDevicesWithValues,
   deleteComparisonDevice,
+  updateComparisonDeviceActive,
 } from '@/app/_domains/_comparison/_services/comparisonDeviceService';
 import { useModal } from '@/app/_contexts/ModalContext';
 import Loading from '@/app/_components/Loading';
@@ -68,6 +69,15 @@ const DeviceList = ({ refreshKey }: DeviceListProps) => {
       toast.success('기기가 삭제됐습니다.');
     },
     onError: () => toast.error('기기 삭제에 실패했습니다.'),
+  });
+
+  const activeMutation = useMutation({
+    mutationFn: ({ deviceId, isActive }: { deviceId: string; isActive: boolean }) =>
+      updateComparisonDeviceActive(deviceId, isActive),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: comparisonKeys.devices() });
+    },
+    onError: () => toast.error('기기 사용 여부를 변경하지 못했습니다.'),
   });
 
   const handleDelete = (deviceId: string) => {
@@ -171,6 +181,9 @@ const DeviceList = ({ refreshKey }: DeviceListProps) => {
             <th className="px-3 py-2.5 text-left font-semibold text-gray-500 whitespace-nowrap border-b border-r border-brand-100">
               작업
             </th>
+            <th className="px-3 py-2.5 text-left font-semibold text-gray-500 whitespace-nowrap border-b border-r border-brand-100">
+              사용 여부
+            </th>
             {columns.map((col) => (
               <th
                 key={col.id}
@@ -207,6 +220,21 @@ const DeviceList = ({ refreshKey }: DeviceListProps) => {
                   </Button>
                 )}
               </td>
+              <td className="px-3 py-2.5 whitespace-nowrap border-b border-r border-brand-50">
+                <Button
+                  size="xs"
+                  variant={device.is_active ? 'primary' : 'gray'}
+                  disabled={activeMutation.isPending}
+                  onClick={() =>
+                    activeMutation.mutate({
+                      deviceId: device.id,
+                      isActive: !device.is_active,
+                    })
+                  }
+                >
+                  {device.is_active ? '사용' : '미사용'}
+                </Button>
+              </td>
               {columns.map((col) => (
                 <td key={col.id} className="border-b border-r border-brand-50 px-3 py-2.5 text-gray-700">
                   {valueMap[device.id]?.[col.id] ? (
@@ -221,7 +249,7 @@ const DeviceList = ({ refreshKey }: DeviceListProps) => {
           {filteredDevices.length === 0 && (
             <tr>
               <td
-                colSpan={columns.length + 2}
+                colSpan={columns.length + 3}
                 className="px-4 py-10 text-center text-gray-500"
               >
                 검색 결과가 없습니다.

@@ -1,17 +1,12 @@
-import {
-  ActionInfoLabel,
-  LogActorInfo,
-  ChangeFields,
-} from '@/app/(auth)/_components/HistoriesComponents';
-import Button from '@/app/_components/Button';
 import Loading from '@/app/_components/Loading';
-import { CustomersLogsResType } from '@/app/_domains/_log/_types/log.types';
+import { CustomersLogsResType, LogsResType } from '@/app/_domains/_log/_types/log.types';
 import { deleteLog } from '@/app/_domains/_log/_services/logService';
 import { useCallback } from 'react';
 import { groupLogsByDate, formatDateKey } from '@/app/_utils/utils';
 import { toast } from 'react-hot-toast';
 import { useModal } from '@/app/_contexts/ModalContext';
 import DeleteConfirmModal from '@/app/(auth)/_components/DeleteConfirmModal';
+import CustomerHistoryItem from '@/app/(auth)/histories/_components/CustomerHistories/CustomerHistoryItem';
 
 const CustomersDetailUpdateHistories = ({
   logs,
@@ -90,37 +85,13 @@ const CustomersDetailUpdateHistories = ({
 
               {/* 해당 날짜의 로그들 */}
               {logsOfDate.map((log) => (
-                <div
+                <CustomerHistoryItem
                   key={log.id}
-                  className="flex items-center justify-between p-3 rounded border border-brand-50 hover:bg-brand-50/30 transition-colors whitespace-nowrap"
-                >
-                  <div className="flex items-center gap-4 sm:gap-6">
-                    <ActionInfoLabel action={log.action} />
-
-                    {log.users && (
-                      <div className="text-left">
-                        <LogActorInfo
-                          users={log.users}
-                          created_at={log.created_at}
-                          updated_at={log.updated_at}
-                          jsonb={log.jsonb}
-                        />
-                      </div>
-                    )}
-
-                    {log.jsonb && <ChangeFields jsonb={log.jsonb} />}
-                  </div>
-                  {isAdmin && (
-                    <Button
-                      variant="danger"
-                      size="xs"
-                      onClick={() => handleDelete(log)}
-                      aria-label="삭제"
-                    >
-                      🗑️
-                    </Button>
-                  )}
-                </div>
+                  log={{ ...log, customers: { name: '', phone: '' } } as LogsResType}
+                  isAdmin={isAdmin}
+                  onDelete={() => handleDelete(log)}
+                  showCustomerInfo={false}
+                />
               ))}
             </div>
           );

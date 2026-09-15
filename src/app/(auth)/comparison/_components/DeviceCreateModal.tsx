@@ -7,6 +7,9 @@ import DeviceValueInput from '@/app/_components/DeviceValueInput';
 import { useComparisonColumns } from '@/app/_domains/_comparison/_hooks/useComparisonColumns';
 import { createComparisonDevice } from '@/app/_domains/_comparison/_services/comparisonDeviceService';
 
+const isDeviceFormColumn = (key: string, name: string) =>
+  key !== 'basic_usage_guide' && !['기기 사진', '기기 사용법', '기기 불량 증상'].includes(name);
+
 export default function DeviceCreateModal({
   onCancel,
   onSuccess,
@@ -32,7 +35,7 @@ export default function DeviceCreateModal({
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
-    columns.filter((col) => col.key !== 'basic_usage_guide').forEach((col) => {
+    columns.filter((col) => isDeviceFormColumn(col.key, col.name)).forEach((col) => {
       if (!values[col.id]?.trim()) {
         newErrors[col.id] = '값을 입력하세요.';
       }
@@ -46,7 +49,7 @@ export default function DeviceCreateModal({
 
     try {
       setIsSubmitting(true);
-      const deviceValues = columns.filter((col) => col.key !== 'basic_usage_guide').map((col) => ({
+      const deviceValues = columns.filter((col) => isDeviceFormColumn(col.key, col.name)).map((col) => ({
         column_id: col.id,
         value: values[col.id]?.trim() || '',
       }));
@@ -96,7 +99,7 @@ export default function DeviceCreateModal({
             컬럼을 먼저 등록해주세요.
           </p>
         ) : (
-          columns.filter((col) => col.key !== 'basic_usage_guide').map((col) => (
+          columns.filter((col) => isDeviceFormColumn(col.key, col.name)).map((col) => (
             <div key={col.id}>
               <label className="block text-sm font-medium mb-1">
                 {col.name} <span className="text-rose-600">*</span>

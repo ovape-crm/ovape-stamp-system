@@ -7,6 +7,12 @@ import DeviceValueInput from '@/app/_components/DeviceValueInput';
 import { useComparisonColumns } from '@/app/_domains/_comparison/_hooks/useComparisonColumns';
 import { updateComparisonDevice } from '@/app/_domains/_comparison/_services/comparisonDeviceService';
 
+const isManagedDeviceContentColumn = (key: string, name: string) =>
+  key !== 'basic_usage_guide' && ['기기 사진', '기기 사용법', '기기 불량 증상'].includes(name);
+
+const isDeviceFormColumn = (key: string, name: string) =>
+  key !== 'basic_usage_guide' && !isManagedDeviceContentColumn(key, name);
+
 interface DeviceEditModalProps {
   deviceId: string;
   initialValues: Record<string, string>; // column_id -> value
@@ -22,7 +28,7 @@ export default function DeviceEditModal({
 }: DeviceEditModalProps) {
   const { columns, isLoading } = useComparisonColumns();
   const [values, setValues] = useState<Record<string, string>>(initialValues);
-  const isDirty = columns.filter((col) => col.key !== 'basic_usage_guide').some((col) => (values[col.id] ?? '') !== (initialValues[col.id] ?? ''));
+  const isDirty = columns.filter((col) => isDeviceFormColumn(col.key, col.name)).some((col) => (values[col.id] ?? '') !== (initialValues[col.id] ?? ''));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -33,7 +39,7 @@ export default function DeviceEditModal({
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
-    columns.filter((col) => col.key !== 'basic_usage_guide').forEach((col) => {
+    columns.filter((col) => isDeviceFormColumn(col.key, col.name)).forEach((col) => {
       if (!values[col.id]?.trim()) newErrors[col.id] = '값을 입력하세요.';
     });
     setErrors(newErrors);
@@ -44,10 +50,16 @@ export default function DeviceEditModal({
     if (!validate()) return;
     try {
       setIsSubmitting(true);
-      const deviceValues = columns.filter((col) => col.key !== 'basic_usage_guide').map((col) => ({
-        column_id: col.id,
-        value: values[col.id]?.trim() || '',
-      }));
+      const deviceValues = [
+        ...columns.filter((col) => isDeviceFormColumn(col.key, col.name)).map((col) => ({
+          column_id: col.id,
+          value: values[col.id]?.trim() || '',
+        })),
+        ...columns.filter((col) => isManagedDeviceContentColumn(col.key, col.name) && initialValues[col.id] !== undefined).map((col) => ({
+          column_id: col.id,
+          value: initialValues[col.id],
+        })),
+      ];
       await updateComparisonDevice(deviceId, deviceValues);
       toast.success('기기 정보가 수정됐습니다.');
       onSuccess();
@@ -80,7 +92,7 @@ export default function DeviceEditModal({
         {isLoading ? (
           <p className="text-sm text-gray-500 text-center py-6">불러오는 중...</p>
         ) : (
-          columns.filter((col) => col.key !== 'basic_usage_guide').map((col) => (
+          columns.filter((col) => isDeviceFormColumn(col.key, col.name)).map((col) => (
             <div key={col.id}>
               <label className="block text-sm font-medium mb-1">
                 {col.name} <span className="text-rose-600">*</span>
