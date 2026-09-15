@@ -87,6 +87,19 @@ export const updateComparisonDevice = async (
   if (insertError) throw insertError;
 };
 
+/** 기기 사용 여부 변경 */
+export const updateComparisonDeviceActive = async (
+  deviceId: string,
+  isActive: boolean,
+): Promise<void> => {
+  const { error } = await supabase
+    .from('comparison_devices')
+    .update({ is_active: isActive })
+    .eq('id', deviceId);
+
+  if (error) throw error;
+};
+
 /**
  * 기기 삭제
  */

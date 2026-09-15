@@ -91,8 +91,11 @@ These are product-wide UI rules. Apply them to all new UI and keep them consiste
 
 - When the user says to remember a workflow, reporting format, UI convention, or other instruction for future work, record the instruction in this `AGENTS.md` during the same task so it also applies in new conversations.
 - Before recording, preserve the user's intended scope and wording; do not turn a one-off request into a permanent rule unless the user clearly indicates that it should be remembered or applied going forward.
+- When the user asks for a modification, change only the explicitly requested content. Do not independently add, remove, or alter any other feature, UI, label, icon, layout, or behavior.
 - Do not change an existing control's label, icon, visual treatment, or behavior unless the user explicitly requests that exact change. When restructuring existing controls, preserve their current visible labels and icons by default.
 - Action-menu dropdown triggers and every label or icon within their menus must be horizontally and vertically centered by default.
+- This project must be deployed to `https://ovape-system.vercel.app/` after the relevant changes are merged to `main`.
+- When the user asks to commit and push the work completed today, commit and push the current work branch only. Then provide a GitHub pull request URL and copy-and-paste-ready title and detail so the user can create and merge the PR through GitHub's green pull-request and merge buttons. Do not directly merge or push the work branch into `main` unless the user explicitly asks to bypass the PR workflow.
 
 ## Gear icon
 

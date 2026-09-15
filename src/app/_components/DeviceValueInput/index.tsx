@@ -18,8 +18,9 @@ const DeviceValueInput = ({
     onChange={onChange}
     disabled={disabled}
     enableLinks
+    compact
+    showPreview={false}
     placeholder={`${placeholder} 문장을 선택한 뒤 위 버튼으로 서식을 적용하세요.`}
-    previewLabel="기기 사용법 표시 미리보기"
   />
 );
 

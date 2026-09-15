@@ -1,13 +1,5 @@
-import {
-  ActionInfoLabel,
-  LogActorInfo,
-  PaymentTypeLabel,
-  StoreLabel,
-} from "@/app/(auth)/_components/HistoriesComponents";
-import Button from "@/app/_components/Button";
 import Loading from "@/app/_components/Loading";
-import useCopy from "@/app/_domains/_log/_hooks/useCopy";
-import { CustomersLogsResType } from "@/app/_domains/_log/_types/log.types";
+import { CustomersLogsResType, LogsResType } from "@/app/_domains/_log/_types/log.types";
 import {
   updateLogNote,
   deleteLog,
@@ -16,7 +8,6 @@ import { useCallback } from "react";
 import {
   PaymentTypeEnum,
   PaymentTypeEnumType,
-  StoreTypeEnum,
   StoreTypeEnumType,
 } from "@/app/_enums/enums";
 import { groupLogsByDate, formatDateKey } from "@/app/_utils/utils";
@@ -27,7 +18,6 @@ import ConfirmModal from "@/app/(auth)/_components/ConfirmModal";
 import StampLogEditModal from "@/app/(auth)/_components/StampLogEditModal";
 import RemarkLogCreateModal from "../RemarkLogCreateModal";
 import type { StampLogMeta } from "@/app/_domains/_stamp/_services/stampService";
-import { formatHistoryNote } from "@/app/_domains/_log/_utils/formatHistoryNote";
 import type { GenderType } from "@/app/_domains/_customer/_types/customer.types";
 import MasterHistoryManagementModal from "../MasterHistoryManagementModal";
 import { updateHistoryMasterMetadata } from "@/app/_domains/_log/_services/logService";
@@ -35,6 +25,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { logKeys } from "@/app/_domains/_log/_queryKeys/logKeys";
 import { customerKeys } from "@/app/_domains/_customer/_queryKeys/customerKeys";
 import RefundModal from "@/app/(auth)/histories/_components/StampHistories/RefundModal";
+import StampHistoryItem from "@/app/(auth)/histories/_components/StampHistories/StampHistoryItem";
 
 const CustomersDetailStampsHistories = ({
   targetUser,
@@ -76,24 +67,7 @@ const CustomersDetailStampsHistories = ({
   onConfirmReservation?: (logId: string) => Promise<void>;
 }) => {
   const { open, close } = useModal();
-  const { copyLogToClipboard } = useCopy();
   const queryClient = useQueryClient();
-
-  const getExtraNote = (log: CustomersLogsResType[number]) => {
-    if (typeof log.jsonb?.extraNote === "string" && log.jsonb.extraNote.trim()) {
-      return log.jsonb.extraNote.trim();
-    }
-    if (typeof log.jsonb?.xTransfer !== "object" || log.jsonb.xTransfer === null) {
-      return "";
-    }
-    const transfer = log.jsonb.xTransfer as Record<string, unknown>;
-    const name = typeof transfer.name === "string" ? transfer.name : "X";
-    const phoneLastDigits =
-      typeof transfer.phoneLastDigits === "string"
-        ? transfer.phoneLastDigits
-        : "미입력";
-    return `X 통합 계정 이전, 이름 : ${name}, 핸드폰 뒷번호 : ${phoneLastDigits}`;
-  };
 
   const handleMasterManage = useCallback(
     (log: CustomersLogsResType[number]) => {
@@ -386,186 +360,19 @@ const CustomersDetailStampsHistories = ({
 
               {/* 해당 날짜의 로그들 */}
               {logsOfDate.map((log) => (
-                <div
+                <StampHistoryItem
                   key={log.id}
-                  className="flex items-center justify-between p-3 rounded border border-brand-50 hover:bg-brand-50/30 transition-colors whitespace-nowrap"
-                >
-                  <div className="flex w-[128px] shrink-0 flex-col items-stretch justify-center gap-1 text-center">
-                    {!(
-                      targetUser.name.trim() === "X" &&
-                      targetUser.phone.trim() === "X"
-                    ) &&
-                      log.jsonb?.paymentType !== PaymentTypeEnum.REMARK.value &&
-                      !log.action.startsWith("coupon-") && (
-                        <ActionInfoLabel action={log.action} matchStoreLabel />
-                      )}
-                    {(log.action.startsWith("coupon-") ||
-                      (log.jsonb && "storeName" in log.jsonb)) && (
-                      <StoreLabel
-                        jsonb={{
-                          ...(log.jsonb ?? {}),
-                          ...(log.action.startsWith("coupon-") &&
-                          !log.jsonb?.storeName
-                            ? { storeName: StoreTypeEnum.OVAPE.value }
-                            : {}),
-                        }}
-                      />
-                    )}
-                    {(log.action.startsWith("coupon-") ||
-                      (log.jsonb && "paymentType" in log.jsonb)) && (
-                      <PaymentTypeLabel
-                        jsonb={{
-                          ...(log.jsonb ?? {}),
-                          ...(log.action.startsWith("coupon-") &&
-                          !log.jsonb?.paymentType
-                            ? {
-                                paymentType:
-                                  PaymentTypeEnum.SHIPMENT_REMARK.value,
-                              }
-                            : {}),
-                        }}
-                      />
-                    )}
-                    {log.action.startsWith("coupon-") && (
-                      <ActionInfoLabel action={log.action} matchStoreLabel />
-                    )}
-                    {typeof log.jsonb?.totalAmount === "number" &&
-                      log.jsonb.totalAmount !== 0 && (
-                        <span className="flex h-7 w-full items-center justify-center whitespace-nowrap rounded-full bg-emerald-100 px-2 text-center text-xs font-semibold text-emerald-700">
-                          {log.jsonb.totalAmount.toLocaleString("ko-KR")}원
-                        </span>
-                      )}
-                  </div>
-                  <div className="flex-1 pl-4 ml-4 border-l border-brand-100">
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="secondary"
-                        size="xs"
-                        onClick={() => handleEdit(log)}
-                      >
-                        ✏️
-                      </Button>
-                      <div className="min-w-[240px] flex-1 break-words whitespace-normal text-xs text-gray-600 sm:text-sm">
-                        <p className="whitespace-pre-line">
-                          {log.note ? (
-                            formatHistoryNote(log.note, log.jsonb)
-                          ) : (
-                            <span className="text-gray-400"> - </span>
-                          )}
-                        </p>
-                        {getExtraNote(log) && (
-                            <p className="mt-1 italic text-gray-400">
-                              출고 특이사항: &quot;{getExtraNote(log)}
-                              &quot;
-                            </p>
-                          )}
-                        {typeof log.jsonb?.xCustomerName === "string" &&
-                          log.jsonb.xCustomerName.trim() && (
-                            <p className="mt-1 italic text-gray-400">
-                              이름: {log.jsonb.xCustomerName.trim()}
-                            </p>
-                          )}
-                        {typeof log.jsonb?.xPhoneLastDigits === "string" &&
-                          log.jsonb.xPhoneLastDigits.trim() && (
-                            <p className="mt-1 italic text-gray-400">
-                              핸드폰 뒷번호: {log.jsonb.xPhoneLastDigits.trim()}
-                            </p>
-                          )}
-                        {(log.jsonb?.xCustomerGender === "male" ||
-                          log.jsonb?.xCustomerGender === "female") && (
-                          <p className="mt-1 italic text-gray-400">
-                            성별: {log.jsonb.xCustomerGender === "female" ? "여자" : "남자"}
-                          </p>
-                        )}
-                        {(log.jsonb?.deliveryMethod === "parcel" ||
-                          log.jsonb?.deliveryMethod === "delivery") &&
-                          typeof log.jsonb?.deliveryAddress === "string" &&
-                          log.jsonb.deliveryAddress.trim() && (
-                            <p className="mt-1 break-words italic text-gray-400">
-                              주소: {log.jsonb.deliveryAddress.trim()}
-                            </p>
-                          )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="ml-3 flex shrink-0 items-center gap-1">
-                    {isReservation && onConfirmReservation && (
-                      <Button
-                        variant="primary"
-                        size="xs"
-                        onClick={() => handleConfirm(log)}
-                      >
-                        출고 확정
-                      </Button>
-                    )}
-                    {log.users && (
-                      <div className="w-[96px] text-right">
-                        <LogActorInfo
-                          users={log.users}
-                          created_at={log.created_at}
-                          updated_at={log.updated_at}
-                          jsonb={log.jsonb}
-                        />
-                      </div>
-                    )}
-                    <div className="grid grid-cols-[56px_56px] grid-rows-2 gap-1">
-                      {!isReservation && showCopyButton && (
-                        <Button
-                          variant="secondary"
-                          size="xs"
-                          className="row-span-2"
-                          onClick={() =>
-                            copyLogToClipboard(log, {
-                              name: targetUser.name,
-                              phone: targetUser.phone,
-                              gender: targetUser.gender,
-                            })
-                          }
-                        >
-                          복사
-                        </Button>
-                      )}
-                      {!isReservation &&
-                        Array.isArray(log.jsonb?.items) &&
-                        log.jsonb.items.length > 0 &&
-                        Number(log.jsonb?.totalAmount ?? 0) > 0 && (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            className="col-start-1 row-span-2 flex w-full items-center justify-center self-center"
-                            onClick={() => openRefundModal(log)}
-                          >
-                            환불
-                          </Button>
-                        )}
-                      {(isMaster || isAdmin) && (
-                        <div className="col-start-2 row-span-2 flex flex-col gap-1">
-                        {isMaster && (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            className="flex w-full items-center justify-center"
-                            onClick={() => handleMasterManage(log)}
-                          >
-                            관리
-                          </Button>
-                        )}
-                        {isAdmin && (
-                          <Button
-                            variant="danger"
-                            size="sm"
-                            className="flex w-full items-center justify-center"
-                            onClick={() => handleDelete(log)}
-                            aria-label="삭제"
-                          >
-                            🗑️
-                          </Button>
-                        )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                  log={{ ...log, customers: targetUser } as LogsResType}
+                  onEdit={() => handleEdit(log)}
+                  isAdmin={isAdmin}
+                  onDelete={() => handleDelete(log)}
+                  onConfirm={isReservation ? () => handleConfirm(log) : undefined}
+                  showCopy={showCopyButton && !isReservation}
+                  isMaster={isMaster}
+                  onManage={() => handleMasterManage(log)}
+                  onRefund={!isReservation && Array.isArray(log.jsonb?.items) && log.jsonb.items.length > 0 && Number(log.jsonb?.totalAmount ?? 0) > 0 ? () => openRefundModal(log) : undefined}
+                  showCustomerInfo={false}
+                />
               ))}
             </div>
           );

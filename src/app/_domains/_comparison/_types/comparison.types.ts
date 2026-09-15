@@ -11,6 +11,7 @@ export type ComparisonColumnType = {
 
 export type ComparisonDeviceType = {
   id: string;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
 };
