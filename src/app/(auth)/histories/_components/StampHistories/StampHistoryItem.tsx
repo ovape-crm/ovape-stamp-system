@@ -166,13 +166,16 @@ const StampHistoryItem = ({
     >
       <div className="flex min-w-0 self-center flex-col items-center text-center">
         {!isCustomerRemark && !isCouponUse && (
-          <div>
+          <div className={showCustomerInfo ? undefined : "w-full"}>
             {specialCustomerLabel ? (
               <span className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-gray-100 px-3 py-1 text-center text-xs font-semibold text-gray-600">
                 특수계정
               </span>
             ) : (
-              <ActionInfoLabel action={log.action} />
+              <ActionInfoLabel
+                action={log.action}
+                matchStoreLabel={!showCustomerInfo}
+              />
             )}
           </div>
         )}
