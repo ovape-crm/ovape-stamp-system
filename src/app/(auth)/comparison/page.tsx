@@ -9,13 +9,14 @@ import DeviceCreateModal from './_components/DeviceCreateModal';
 import DeviceList from './_components/DeviceList';
 import DeviceComparison from './_components/DeviceComparison';
 import BasicUsageGuideManageModal from './_components/BasicUsageGuideManageModal';
+import CustomerRequiredGuideManage from './_components/CustomerRequiredGuideManage';
 import DeviceUsageGuideManage from './_components/DeviceUsageGuideManage';
 import DevicePhotoManage from './_components/DevicePhotoManage';
 import DeviceDefectManage from './_components/DeviceDefectManage';
 import ComparisonPrintVisibilityModal from './_components/ComparisonPrintVisibilityModal';
 import { useUser } from '@/app/_contexts/UserContext';
 
-type TabType = 'comparison' | 'list' | 'basic-usage-guide' | 'device-usage-guide' | 'device-photo-manage' | 'device-defect-manage';
+type TabType = 'comparison' | 'list' | 'basic-usage-guide' | 'customer-required-guide' | 'device-usage-guide' | 'device-photo-manage' | 'device-defect-manage';
 
 export default function ComparisonPage() {
   const [tab, setTab] = useState<TabType>('comparison');
@@ -62,6 +63,7 @@ export default function ComparisonPage() {
               ...(isAdmin ? [{ label: '표 출력 여부', onClick: handleOpenPrintVisibility }] : []),
               ...(isAdmin ? [
                 { label: '기초 사용법 관리', onClick: () => setTab('basic-usage-guide') },
+                { label: '고객 필수 안내 관리', onClick: () => setTab('customer-required-guide') },
                 { label: '기기 사진 관리', onClick: () => setTab('device-photo-manage') },
                 { label: '기기 사용법 관리', onClick: () => setTab('device-usage-guide') },
                 { label: '기기 불량 관리', onClick: () => setTab('device-defect-manage') },
@@ -78,6 +80,7 @@ export default function ComparisonPage() {
               <BasicUsageGuideManageModal onCancel={() => setTab('comparison')} />
             </div>
           )}
+          {tab === 'customer-required-guide' && <div className="flex h-full min-h-0 flex-col"><CustomerRequiredGuideManage onCancel={() => setTab('comparison')} /></div>}
           {tab === 'device-usage-guide' && <DeviceUsageGuideManage />}
           {tab === 'device-defect-manage' && <DeviceDefectManage />}
           {tab === 'device-photo-manage' && <DevicePhotoManage />}

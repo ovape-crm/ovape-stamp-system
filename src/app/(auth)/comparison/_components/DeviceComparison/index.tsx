@@ -15,6 +15,7 @@ import DevicePhotoView from "../DevicePhotoView";
 import DeviceDefectView from "../DeviceDefectView";
 import Button from "@/app/_components/Button";
 import { getComparisonDeviceName } from '../../_utils/deviceName';
+import type { GuideView } from '../GuideNavigationDropdown';
 
 type ValueMap = Record<string, string>;
 
@@ -34,7 +35,8 @@ export default function DeviceComparison() {
   const [slots, setSlots] = useState<Slot[]>(
     Array.from({ length: INITIAL_SLOTS }, () => ({ type: "empty" })),
   );
-  const [isBasicGuideOpen, setIsBasicGuideOpen] = useState(false);
+  const [basicGuideTarget, setBasicGuideTarget] = useState<Extract<Slot, { type: "filled" }> | null>(null);
+  const [customerRequiredGuideTarget, setCustomerRequiredGuideTarget] = useState<Extract<Slot, { type: "filled" }> | null>(null);
   const [deviceUsageTarget, setDeviceUsageTarget] = useState<Extract<Slot, { type: "filled" }> | null>(null);
   const [devicePhotoTarget, setDevicePhotoTarget] = useState<Extract<Slot, { type: "filled" }> | null>(null);
   const [deviceDefectTarget, setDeviceDefectTarget] = useState<Extract<Slot, { type: "filled" }> | null>(null);
@@ -87,6 +89,14 @@ export default function DeviceComparison() {
     setSlots((prev) => prev.slice(0, -1));
   };
 
+  const openGuide = (target: Extract<Slot, { type: "filled" }>, view: GuideView) => {
+    setBasicGuideTarget(view === 'basic' ? target : null);
+    setCustomerRequiredGuideTarget(view === 'customerRequired' ? target : null);
+    setDevicePhotoTarget(view === 'photo' ? target : null);
+    setDeviceUsageTarget(view === 'usage' ? target : null);
+    setDeviceDefectTarget(view === 'defect' ? target : null);
+  };
+
   return (
     <div className="flex flex-col gap-3 h-full">
       {/* 슬롯 영역 */}
@@ -100,10 +110,11 @@ export default function DeviceComparison() {
               columns={columns}
               valueMap={slot.valueMap}
               onRemove={() => handleRemoveSlot(index)}
-              onOpenBasicGuide={() => setIsBasicGuideOpen(true)}
-              onOpenDeviceUsage={() => setDeviceUsageTarget(slot)}
-              onOpenDevicePhoto={() => setDevicePhotoTarget(slot)}
-              onOpenDeviceDefect={() => setDeviceDefectTarget(slot)}
+              onOpenBasicGuide={() => openGuide(slot, 'basic')}
+              onOpenCustomerRequiredGuide={() => openGuide(slot, 'customerRequired')}
+              onOpenDeviceUsage={() => openGuide(slot, 'usage')}
+              onOpenDevicePhoto={() => openGuide(slot, 'photo')}
+              onOpenDeviceDefect={() => openGuide(slot, 'defect')}
             />
           ),
         )}
@@ -141,10 +152,11 @@ export default function DeviceComparison() {
           onClose={() => setIsExpanded(false)}
         />
       )}
-      {isBasicGuideOpen && <BasicUsageGuideView devices={filledSlots.map((slot, index) => ({ id: slot.device.id, name: getComparisonDeviceName(columns, slot.valueMap, `기기 ${index + 1}`) }))} onClose={() => setIsBasicGuideOpen(false)} />}
-      {deviceUsageTarget && <DeviceUsageGuideView deviceId={deviceUsageTarget.device.id} deviceName={getComparisonDeviceName(columns, deviceUsageTarget.valueMap, '기기 사용법')} legacyImageUrl={columns.find((column) => column.name === '기기 사용법') ? deviceUsageTarget.valueMap[columns.find((column) => column.name === '기기 사용법')!.id] : ''} onClose={() => setDeviceUsageTarget(null)} />}
-      {devicePhotoTarget && <DevicePhotoView deviceId={devicePhotoTarget.device.id} deviceName={getComparisonDeviceName(columns, devicePhotoTarget.valueMap)} onClose={() => setDevicePhotoTarget(null)} />}
-      {deviceDefectTarget && <DeviceDefectView deviceId={deviceDefectTarget.device.id} deviceName={getComparisonDeviceName(columns, deviceDefectTarget.valueMap)} onClose={() => setDeviceDefectTarget(null)} />}
+      {basicGuideTarget && <BasicUsageGuideView devices={[{ id: basicGuideTarget.device.id, name: getComparisonDeviceName(columns, basicGuideTarget.valueMap, '기기 사용법') }]} onNavigate={(view) => openGuide(basicGuideTarget, view)} onClose={() => setBasicGuideTarget(null)} />}
+      {customerRequiredGuideTarget && <BasicUsageGuideView devices={[{ id: customerRequiredGuideTarget.device.id, name: getComparisonDeviceName(columns, customerRequiredGuideTarget.valueMap, '기기 사용법') }]} kind="customerRequired" title="고객 필수 안내" onNavigate={(view) => openGuide(customerRequiredGuideTarget, view)} onClose={() => setCustomerRequiredGuideTarget(null)} />}
+      {deviceUsageTarget && <DeviceUsageGuideView deviceId={deviceUsageTarget.device.id} deviceName={getComparisonDeviceName(columns, deviceUsageTarget.valueMap, '기기 사용법')} legacyImageUrl={columns.find((column) => column.name === '기기 사용법') ? deviceUsageTarget.valueMap[columns.find((column) => column.name === '기기 사용법')!.id] : ''} onNavigate={(view) => openGuide(deviceUsageTarget, view)} onClose={() => setDeviceUsageTarget(null)} />}
+      {devicePhotoTarget && <DevicePhotoView deviceId={devicePhotoTarget.device.id} deviceName={getComparisonDeviceName(columns, devicePhotoTarget.valueMap)} onNavigate={(view) => openGuide(devicePhotoTarget, view)} onClose={() => setDevicePhotoTarget(null)} />}
+      {deviceDefectTarget && <DeviceDefectView deviceId={deviceDefectTarget.device.id} deviceName={getComparisonDeviceName(columns, deviceDefectTarget.valueMap)} onNavigate={(view) => openGuide(deviceDefectTarget, view)} onClose={() => setDeviceDefectTarget(null)} />}
     </div>
   );
 }

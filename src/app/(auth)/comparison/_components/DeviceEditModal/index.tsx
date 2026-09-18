@@ -8,10 +8,10 @@ import { useComparisonColumns } from '@/app/_domains/_comparison/_hooks/useCompa
 import { updateComparisonDevice } from '@/app/_domains/_comparison/_services/comparisonDeviceService';
 
 const isManagedDeviceContentColumn = (key: string, name: string) =>
-  key !== 'basic_usage_guide' && ['기기 사진', '기기 사용법', '기기 불량 증상'].includes(name);
+  !['basic_usage_guide', 'customer_required_guide'].includes(key) && ['기기 사진', '기기 사용법', '기기 불량 증상'].includes(name);
 
 const isDeviceFormColumn = (key: string, name: string) =>
-  key !== 'basic_usage_guide' && !isManagedDeviceContentColumn(key, name);
+  !['basic_usage_guide', 'customer_required_guide'].includes(key) && !isManagedDeviceContentColumn(key, name);
 
 interface DeviceEditModalProps {
   deviceId: string;

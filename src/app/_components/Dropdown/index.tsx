@@ -378,7 +378,7 @@ const DropdownContent = ({
   const content = (
     <div
       ref={contentRef}
-      className={`fixed z-[3000] overflow-hidden rounded-lg border bg-white opacity-100 shadow-lg transition-all duration-200 translate-y-0 ${
+      className={`fixed z-[4200] overflow-hidden rounded-lg border bg-white opacity-100 shadow-lg transition-all duration-200 translate-y-0 ${
         compact || neutral ? "border-gray-300" : "border-brand-200"
       }`}
       style={{

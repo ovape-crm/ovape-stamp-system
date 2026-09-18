@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import toast from 'react-hot-toast';
 import TaggedContent from '@/app/_components/TaggedContent';
 
@@ -307,6 +307,26 @@ const RichTextNoteEditor = ({
     emitValue();
   };
 
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Enter' || event.nativeEvent.isComposing || disabled || !editorRef.current) return;
+    const selection = window.getSelection();
+    if (!selection?.rangeCount) return;
+    const range = selection.getRangeAt(0);
+    if (!editorRef.current.contains(range.commonAncestorContainer)) return;
+
+    // 브라우저별 DIV/P 생성 대신 BR을 직접 넣어 저장값에도 항상 줄바꿈을 남긴다.
+    event.preventDefault();
+    range.deleteContents();
+    const lineBreak = document.createElement('br');
+    range.insertNode(lineBreak);
+    const nextRange = document.createRange();
+    nextRange.setStartAfter(lineBreak);
+    nextRange.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(nextRange);
+    emitValue();
+  };
+
   const applyTag = (tag: string) => {
     if (disabled || !editorRef.current) return;
     const selection = window.getSelection();
@@ -495,6 +515,7 @@ const RichTextNoteEditor = ({
         style={editorStyle}
         data-placeholder={placeholder}
         onInput={handleInput}
+        onKeyDown={handleKeyDown}
         className={`${compact ? 'min-h-10' : 'min-h-20'} w-full whitespace-pre-wrap break-words border-0 bg-white px-3 py-2 text-sm outline-none empty:before:pointer-events-none empty:before:text-gray-400 empty:before:content-[attr(data-placeholder)] ${editorClassName}`}
       />
       {showPreview && value.trim() && (
