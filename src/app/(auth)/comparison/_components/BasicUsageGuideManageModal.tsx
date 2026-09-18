@@ -13,9 +13,14 @@ import { getComparisonDevicesWithValues } from '@/app/_domains/_comparison/_serv
 type Step = { id: string; step_order: number; title: string; content: string };
 type Note = { device_id: string; step_id: string; content: string };
 
-const guideKey = ['comparison', 'basic-usage-guide-manage'];
+const guideConfig = {
+  basic: { stepsTable: 'comparison_usage_guide_steps', notesTable: 'comparison_device_usage_notes', saveStepRpc: 'save_comparison_usage_guide_step', saveNoteRpc: 'save_comparison_device_usage_note', deleteStepRpc: 'delete_comparison_usage_guide_step' },
+  customerRequired: { stepsTable: 'comparison_customer_required_guide_steps', notesTable: 'comparison_customer_required_guide_notes', saveStepRpc: 'save_comparison_customer_required_guide_step', saveNoteRpc: 'save_comparison_customer_required_guide_note', deleteStepRpc: 'delete_comparison_customer_required_guide_step' },
+} as const;
 
-export default function BasicUsageGuideManageModal({ onCancel }: { onCancel: () => void }) {
+export default function BasicUsageGuideManageModal({ onCancel, kind = 'basic', title = '기초 사용법' }: { onCancel: () => void; kind?: keyof typeof guideConfig; title?: string }) {
+  const config = guideConfig[kind];
+  const guideKey = ['comparison', `${kind}-guide-manage`];
   const queryClient = useQueryClient();
   const [newTitle, setNewTitle] = useState('');
   const [newContent, setNewContent] = useState('');
@@ -27,8 +32,8 @@ export default function BasicUsageGuideManageModal({ onCancel }: { onCancel: () 
     queryKey: guideKey,
     queryFn: async () => {
       const [stepsResult, notesResult, deviceData] = await Promise.all([
-        supabase.from('comparison_usage_guide_steps').select('id,step_order,title,content').order('step_order'),
-        supabase.from('comparison_device_usage_notes').select('device_id,step_id,content'),
+        supabase.from(config.stepsTable).select('id,step_order,title,content').order('step_order'),
+        supabase.from(config.notesTable).select('device_id,step_id,content'),
         getComparisonDevicesWithValues(),
       ]);
       if (stepsResult.error) throw stepsResult.error;
@@ -46,7 +51,7 @@ export default function BasicUsageGuideManageModal({ onCancel }: { onCancel: () 
 
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: guideKey, refetchType: 'none' });
-    await queryClient.invalidateQueries({ queryKey: ['comparison', 'basic-usage-guide'] });
+    await queryClient.invalidateQueries({ queryKey: ['comparison', `${kind}-guide`] });
     await refetch();
   };
 
@@ -58,16 +63,16 @@ export default function BasicUsageGuideManageModal({ onCancel }: { onCancel: () 
   const saveStep = async (step: Step) => {
     setSaving(true);
     try {
-      const { data: savedStep, error } = await supabase.rpc('save_comparison_usage_guide_step', {
+      const { data: savedStep, error } = await supabase.rpc(config.saveStepRpc, {
         p_id: step.id, p_step_order: step.step_order, p_title: step.title, p_content: step.content,
       });
       if (error) throw error;
       queryClient.setQueryData<typeof data>(guideKey, (previous) => previous ? { ...previous, steps: previous.steps.map((item) => item.id === savedStep.id ? savedStep as Step : item) } : previous);
       await refresh();
-      toast.success('공통 사용법을 저장했습니다.');
+      toast.success(`공통 ${title}을 저장했습니다.`);
       return true;
     } catch {
-      toast.error('공통 사용법 저장에 실패했습니다.');
+      toast.error(`공통 ${title} 저장에 실패했습니다.`);
       return false;
     } finally { setSaving(false); }
   };
@@ -76,19 +81,19 @@ export default function BasicUsageGuideManageModal({ onCancel }: { onCancel: () 
     if (!newTitle.trim() || !newContent.trim()) { toast.error('제목과 내용을 입력하세요.'); return; }
     setSaving(true);
     try {
-      const { error } = await supabase.rpc('save_comparison_usage_guide_step', {
+      const { error } = await supabase.rpc(config.saveStepRpc, {
         p_id: null, p_step_order: Math.max(0, ...(data?.steps.map((step) => step.step_order) ?? [])) + 1, p_title: newTitle, p_content: newContent,
       });
       if (error) throw error;
-      setNewTitle(''); setNewContent(''); await refresh(); toast.success('공통 사용법을 추가했습니다.');
-    } catch { toast.error('공통 사용법 추가에 실패했습니다.'); } finally { setSaving(false); }
+      setNewTitle(''); setNewContent(''); await refresh(); toast.success(`공통 ${title}을 추가했습니다.`);
+    } catch { toast.error(`공통 ${title} 추가에 실패했습니다.`); } finally { setSaving(false); }
   };
 
   const saveNote = async () => {
     if (!selectedDeviceId || !selectedStepId || !noteContent.trim()) { toast.error('기기, 삽입 위치, 내용을 모두 선택하세요.'); return; }
     setSaving(true);
     try {
-      const { data: savedNote, error } = await supabase.rpc('save_comparison_device_usage_note', {
+      const { data: savedNote, error } = await supabase.rpc(config.saveNoteRpc, {
         p_device_id: selectedDeviceId, p_step_id: selectedStepId, p_content: noteContent,
       });
       if (error) throw error;
@@ -101,7 +106,7 @@ export default function BasicUsageGuideManageModal({ onCancel }: { onCancel: () 
     if (step.step_order === 1 || !window.confirm(`${step.step_order}단계를 삭제하시겠습니까?\n연결된 기기별 안내도 함께 삭제됩니다.`)) return;
     setSaving(true);
     try {
-      const { error } = await supabase.rpc('delete_comparison_usage_guide_step', { p_id: step.id });
+      const { error } = await supabase.rpc(config.deleteStepRpc, { p_id: step.id });
       if (error) throw error;
       await refresh();
       toast.success(`${step.step_order}단계를 삭제했습니다.`);
@@ -113,7 +118,7 @@ export default function BasicUsageGuideManageModal({ onCancel }: { onCancel: () 
   if (isLoading || !data) return <Loading size="sm" text="불러오는 중..." />;
 
   return <div className="flex min-h-0 w-full flex-1 flex-col">
-    <h2 className="mb-1 text-lg font-semibold">기초 사용법 관리</h2>
+    <h2 className="mb-1 text-lg font-semibold">{title} 관리</h2>
     <p className="mb-4 text-sm text-gray-500">공통 단계 아래에 기기별 안내를 넣으면, 해당 단계 바로 다음에 표시됩니다.</p>
     <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pr-1">
       <section className="rounded-xl border border-gray-200 bg-gray-50/70 p-3">

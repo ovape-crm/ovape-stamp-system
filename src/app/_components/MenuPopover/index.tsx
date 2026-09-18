@@ -22,8 +22,8 @@ export default function MenuPopover({ items }: MenuPopoverProps) {
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
     setPosition({
-      top: rect.bottom + window.scrollY + 6,
-      right: window.innerWidth - rect.right - window.scrollX,
+      top: rect.bottom + 6,
+      right: window.innerWidth - rect.right,
     });
   };
 
@@ -80,7 +80,7 @@ export default function MenuPopover({ items }: MenuPopoverProps) {
         createPortal(
           <div
             ref={popoverRef}
-            className="fixed z-[3000] min-w-[140px] rounded-lg shadow-lg bg-white border border-brand-100 overflow-hidden py-1"
+            className="fixed z-[3000] min-w-[240px] w-[min(40vw,400px)] rounded-lg border border-brand-100 bg-white py-1 shadow-lg"
             style={{ top: `${position.top}px`, right: `${position.right}px` }}
           >
             {items.map((item) => (

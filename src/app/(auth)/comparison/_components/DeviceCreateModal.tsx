@@ -8,7 +8,7 @@ import { useComparisonColumns } from '@/app/_domains/_comparison/_hooks/useCompa
 import { createComparisonDevice } from '@/app/_domains/_comparison/_services/comparisonDeviceService';
 
 const isDeviceFormColumn = (key: string, name: string) =>
-  key !== 'basic_usage_guide' && !['기기 사진', '기기 사용법', '기기 불량 증상'].includes(name);
+  !['basic_usage_guide', 'customer_required_guide'].includes(key) && !['기기 사진', '기기 사용법', '기기 불량 증상'].includes(name);
 
 export default function DeviceCreateModal({
   onCancel,
