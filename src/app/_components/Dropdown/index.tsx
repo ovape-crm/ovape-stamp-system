@@ -408,6 +408,7 @@ const DropdownItem = ({
   compact = false,
   neutral = false,
   showCheck = true,
+  actionOnly = false,
   className = '',
   children,
 }: {
@@ -417,11 +418,13 @@ const DropdownItem = ({
   compact?: boolean;
   neutral?: boolean;
   showCheck?: boolean;
+  actionOnly?: boolean;
   className?: string;
   children?: React.ReactNode;
 }) => {
   const {
     handleSelect,
+    closeDropdown,
     selectedOption,
     focusedIndex,
     setFocusedIndex,
@@ -454,7 +457,11 @@ const DropdownItem = ({
   }, [isOpen, isSelected]);
 
   const handleClick = () => {
-    handleSelect(option);
+    if (actionOnly) {
+      closeDropdown();
+    } else {
+      handleSelect(option);
+    }
     onSelect?.(option);
   };
 
