@@ -15,6 +15,7 @@ export const inventoryKeys = {
   all: ["inventory"] as const,
   overview: ["inventory", "overview"] as const,
   movements: ["inventory", "movements"] as const,
+  movementSummarySettings: ["inventory", "movement-summary-settings"] as const,
   valuation: ["inventory", "valuation"] as const,
   suppliers: ["inventory", "suppliers"] as const,
   purchaseOrders: ["inventory", "purchase-orders"] as const,
@@ -494,6 +495,27 @@ export const getInventoryMovementCount = async (options: InventoryMovementQuery 
   const { count, error } = await query;
   if (error) throw error;
   return count ?? 0;
+};
+
+export type InventoryMovementSummaryGroup = "all" | "out" | "in";
+
+export const getInventoryMovementSummaryDefaultGroup = async (): Promise<InventoryMovementSummaryGroup> => {
+  const { data, error } = await supabase
+    .from("inventory_movement_summary_settings")
+    .select("default_group")
+    .eq("id", "default")
+    .maybeSingle();
+  if (error) throw error;
+  return data?.default_group === "out" || data?.default_group === "in" ? data.default_group : "all";
+};
+
+export const saveInventoryMovementSummaryDefaultGroup = async (
+  defaultGroup: InventoryMovementSummaryGroup,
+) => {
+  const { error } = await supabase.rpc("save_inventory_movement_summary_default_group", {
+    p_default_group: defaultGroup,
+  });
+  if (error) throw error;
 };
 
 export const getInventoryMovements = async (

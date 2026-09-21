@@ -15,6 +15,8 @@ interface RemarkLogCreateModalProps {
   label?: string;
   placeholder?: string;
   onSubmitFollowUp?: (note: string) => Promise<void>;
+  initialRemarkType?: 'general' | 'follow_up';
+  showRemarkTypeTabs?: boolean;
 }
 
 const RemarkLogCreateModal = ({
@@ -27,15 +29,19 @@ const RemarkLogCreateModal = ({
   label = '특이사항',
   placeholder = '특이사항을 입력하세요',
   onSubmitFollowUp,
+  initialRemarkType = 'general',
+  showRemarkTypeTabs = false,
 }: RemarkLogCreateModalProps) => {
   const [note, setNote] = useState(initialNote);
   const [revisedNote, setRevisedNote] = useState<string | null>(null);
   const [spellCheckError, setSpellCheckError] = useState<string | null>(null);
   const [isChecking, setIsChecking] = useState(false);
   const [isLocalSubmitting, setIsLocalSubmitting] = useState(false);
-  const [remarkType, setRemarkType] = useState<'general' | 'follow_up'>('general');
+  const [remarkType, setRemarkType] = useState<'general' | 'follow_up'>(initialRemarkType);
   const submitLockRef = useRef(false);
   const isPending = isSubmitting || isLocalSubmitting;
+  const canChangeRemarkType = Boolean(onSubmitFollowUp) && mode === 'create';
+  const shouldShowRemarkTypeTabs = canChangeRemarkType || showRemarkTypeTabs;
 
   const handleSpellCheck = async () => {
     const content = note.trim();
@@ -102,19 +108,21 @@ const RemarkLogCreateModal = ({
       </h2>
 
       <div className="space-y-3">
-        {onSubmitFollowUp && mode === 'create' && (
+        {shouldShowRemarkTypeTabs && (
           <div className="grid grid-cols-2 gap-2 rounded-xl border border-gray-200 bg-gray-50/70 p-1.5">
             <button
               type="button"
               onClick={() => setRemarkType('general')}
-              className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${remarkType === 'general' ? 'bg-white text-brand-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              disabled={!canChangeRemarkType || isPending}
+              className={`rounded-lg px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-100 ${remarkType === 'general' ? 'bg-white text-brand-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
             >
               일반 특이사항
             </button>
             <button
               type="button"
               onClick={() => setRemarkType('follow_up')}
-              className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${remarkType === 'follow_up' ? 'bg-amber-100 text-amber-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              disabled={!canChangeRemarkType || isPending}
+              className={`rounded-lg px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-100 ${remarkType === 'follow_up' ? 'bg-amber-100 text-amber-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
             >
               처리 필요
             </button>

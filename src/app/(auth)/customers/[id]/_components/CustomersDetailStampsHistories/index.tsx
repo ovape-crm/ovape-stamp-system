@@ -202,6 +202,8 @@ const CustomersDetailStampsHistories = ({
     (log: CustomersLogsResType[number]) => {
       const isRemarkLog =
         log.jsonb?.paymentType === PaymentTypeEnum.REMARK.value;
+      const isFollowUpRemarkLog =
+        isRemarkLog && (log.note ?? '').startsWith('[처리 필요 등록]');
       const hasStampLogItems =
         Array.isArray(log.jsonb?.items) && log.jsonb.items.length > 0;
       const shouldEditMemoOnly = isRemarkLog || !hasStampLogItems;
@@ -234,6 +236,8 @@ const CustomersDetailStampsHistories = ({
               title={isRemarkLog ? undefined : "메모 수정"}
               label={isRemarkLog ? undefined : "메모"}
               placeholder={isRemarkLog ? undefined : "메모를 입력하세요"}
+              initialRemarkType={isFollowUpRemarkLog ? "follow_up" : "general"}
+              showRemarkTypeTabs={isRemarkLog}
               onSubmit={handleRemarkSubmit}
               onCancel={close}
             />

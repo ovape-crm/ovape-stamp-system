@@ -56,10 +56,13 @@ import {
   getReservationHistories,
   getDefectiveInventoryHolds,
   getSupplierRefundSettlements,
+  getInventoryMovementSummaryDefaultGroup,
+  saveInventoryMovementSummaryDefaultGroup,
 } from "@/app/_domains/_inventory/_services/inventoryService";
 import { deactivateTaxInvoiceOption, getTaxInvoiceOptions, saveTaxInvoiceOption, type TaxInvoiceOption } from "@/app/_domains/_inventory/_services/taxInvoiceOptionService";
 import type {
   InventoryItem,
+  InventoryMovement,
   InventorySupplier,
   PurchaseAdjustmentCategory,
   PurchaseAdjustmentKind,
@@ -67,6 +70,27 @@ import type {
   PurchaseOrderAdjustment,
   PurchaseOrderLine,
 } from "@/app/_domains/_inventory/_types/inventory.types";
+
+type MovementView = "period" | "monthly" | "annual";
+type MovementSummaryGroup = "all" | "out" | "in";
+type MovementSummarySortKey = "code" | "name";
+type MovementSummarySort = { key: MovementSummarySortKey; direction: "asc" | "desc" };
+
+const movementSummaryGroupOptions: { value: MovementSummaryGroup; label: string }[] = [
+  { value: "all", label: "전체" },
+  { value: "out", label: "출고" },
+  { value: "in", label: "입고" },
+];
+
+const getSeoulDateParts = (value: string) => {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(value));
+  return Object.fromEntries(parts.map((part) => [part.type, part.value]));
+};
 
 type Tab = "stock" | "cost" | "untracked" | "receive" | "movements" | "initial";
 const defaultTabOrder: Tab[] = [
@@ -720,8 +744,10 @@ export function InventoryPageContent({
         />
       ) : (
         <MovementHistory
+          key={`${searchParams.get("item") ?? ""}-${searchParams.get("date") ?? ""}-${searchParams.get("reference") ?? ""}`}
           isAdmin={isAdmin}
           isMaster={isMaster}
+          items={items}
           onSaved={refresh}
           initialItemName={searchParams.get("item") ?? ""}
           initialDate={searchParams.get("date") ?? ""}
@@ -7320,6 +7346,7 @@ function SupplierManageOverlay({
 function MovementHistory({
   isAdmin,
   isMaster,
+  items,
   onSaved,
   onOpenPurchaseOrder,
   initialItemName,
@@ -7328,6 +7355,7 @@ function MovementHistory({
 }: {
   isAdmin: boolean;
   isMaster: boolean;
+  items: InventoryItem[];
   onSaved: () => Promise<void>;
   onOpenPurchaseOrder: (orderId: string) => void;
   initialItemName: string;
@@ -7335,6 +7363,36 @@ function MovementHistory({
   initialReferenceId: string;
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth() + 1;
+  const [movementView, setMovementView] = useState<MovementView>("period");
+  const [summaryYear, setSummaryYear] = useState(currentYear);
+  const [summaryMonth, setSummaryMonth] = useState(currentMonth);
+  const [summaryGroup, setSummaryGroup] = useState<MovementSummaryGroup>("all");
+  const [defaultSummaryGroupDialogOpen, setDefaultSummaryGroupDialogOpen] = useState(false);
+  const [defaultSummaryGroupCandidate, setDefaultSummaryGroupCandidate] = useState<MovementSummaryGroup>("all");
+  const [summaryVisibleCount, setSummaryVisibleCount] = useState(20);
+  const [summarySearch, setSummarySearch] = useState("");
+  const [summarySort, setSummarySort] = useState<MovementSummarySort>({ key: "code", direction: "asc" });
+  const [summaryDetail, setSummaryDetail] = useState<{
+    itemName: string;
+    direction: "in" | "out";
+    columnLabel: string;
+    movements: InventoryMovement[];
+    total: number;
+  } | null>(null);
+  const [summaryTotalDetail, setSummaryTotalDetail] = useState<{
+    itemName: string;
+    direction: "in" | "out";
+    total: number;
+    columns: Array<{ label: string; total: number; movements: InventoryMovement[] }>;
+  } | null>(null);
+  const summaryTopScrollRef = useRef<HTMLDivElement>(null);
+  const summaryTableScrollRef = useRef<HTMLDivElement>(null);
+  const summaryTableRef = useRef<HTMLTableElement>(null);
+  const [summaryTableScrollWidth, setSummaryTableScrollWidth] = useState(0);
+  const hasLoadedSummaryDefaultGroup = useRef(false);
   const [search, setSearch] = useState(initialItemName);
   const [dateMode, setDateMode] = useState<"today" | "custom">(
     initialDate ? "custom" : "today",
@@ -7355,8 +7413,7 @@ function MovementHistory({
   };
   const today = localDate(new Date().toISOString());
   const queryStartDate = dateMode === "today" ? today : startDate || undefined;
-  const queryEndDate =
-    dateMode === "today" ? today : endDate || startDate || undefined;
+  const queryEndDate = dateMode === "today" ? today : endDate || startDate || undefined;
   useEffect(() => {
     const timer = window.setTimeout(
       () => setDebouncedSearch(search.trim()),
@@ -7393,6 +7450,144 @@ function MovementHistory({
     enabled: dateMode === "today" || Boolean(startDate),
   });
   const movements = movementsQuery.data?.pages.flat() ?? [];
+  const summaryDefaultGroupQuery = useQuery({
+    queryKey: inventoryKeys.movementSummarySettings,
+    queryFn: getInventoryMovementSummaryDefaultGroup,
+  });
+  const saveSummaryDefaultGroupMutation = useMutation({
+    mutationFn: saveInventoryMovementSummaryDefaultGroup,
+    onSuccess: (_result, defaultGroup) => {
+      setSummaryGroup(defaultGroup);
+      setDefaultSummaryGroupDialogOpen(false);
+      void queryClient.invalidateQueries({ queryKey: inventoryKeys.movementSummarySettings });
+      toast.success("기본 구분을 저장했습니다.");
+    },
+    onError: () => toast.error("기본 구분을 저장하지 못했습니다."),
+  });
+  useEffect(() => {
+    if (!hasLoadedSummaryDefaultGroup.current && summaryDefaultGroupQuery.data) {
+      hasLoadedSummaryDefaultGroup.current = true;
+      setSummaryGroup(summaryDefaultGroupQuery.data);
+    }
+  }, [summaryDefaultGroupQuery.data]);
+  const daysInSummaryMonth = new Date(summaryYear, summaryMonth, 0).getDate();
+  const summaryStartDate = movementView === "monthly"
+    ? `${summaryYear}-${String(summaryMonth).padStart(2, "0")}-01`
+    : `${summaryYear}-01-01`;
+  const summaryEndDate = movementView === "monthly"
+    ? `${summaryYear}-${String(summaryMonth).padStart(2, "0")}-${String(daysInSummaryMonth).padStart(2, "0")}`
+    : `${summaryYear}-12-31`;
+  const summaryMovementsQuery = useQuery({
+    queryKey: [...inventoryKeys.movements, "summary", movementView, summaryYear, summaryMonth, summaryGroup],
+    queryFn: () => getInventoryMovements({
+      startDate: summaryStartDate,
+      endDate: summaryEndDate,
+      movementGroup: summaryGroup === "all" ? undefined : summaryGroup,
+    }),
+    enabled: movementView !== "period",
+  });
+  const summaryColumns = movementView === "monthly"
+    ? Array.from({ length: daysInSummaryMonth }, (_, index) => index + 1)
+    : Array.from({ length: 12 }, (_, index) => index + 1);
+  const inventoryItemByMovementName = useMemo(() => {
+    const exactItems = new Map(items.map((item) => [normalizeInventoryItemName(item.item_name), item]));
+    const compactName = (value: string) => normalizeInventoryItemName(value)
+      .toLocaleLowerCase("ko-KR")
+      .replace(/[^\p{L}\p{N}]/gu, "");
+    return (movementItemName: string) => {
+      const normalizedName = normalizeInventoryItemName(movementItemName);
+      const exactItem = exactItems.get(normalizedName);
+      if (exactItem?.item_code.trim()) return exactItem;
+      const movementKey = compactName(normalizedName);
+      if (movementKey.length < 4) return exactItem;
+      const matches = items.filter((item) => {
+        const itemKey = compactName(item.item_name);
+        return item.item_code.trim() && (itemKey.includes(movementKey) || movementKey.includes(itemKey));
+      });
+      return matches.length === 1 ? matches[0] : exactItem;
+    };
+  }, [items]);
+  const summaryRows = useMemo(() => {
+    const rows = new Map<string, { itemCode: string; itemName: string; direction: "in" | "out"; values: number[]; movementsByColumn: InventoryMovement[][] }>();
+    for (const movement of summaryMovementsQuery.data ?? []) {
+      const parts = getSeoulDateParts(movement.created_at);
+      const columnIndex = movementView === "monthly"
+        ? Number(parts.day) - 1
+        : Number(parts.month) - 1;
+      if (columnIndex < 0 || columnIndex >= summaryColumns.length) continue;
+      const linkedItem = inventoryItemByMovementName(movement.item_name);
+      const itemName = linkedItem?.item_name ?? normalizeInventoryItemName(movement.item_name);
+      const direction = movement.quantity_delta >= 0 ? "in" : "out";
+      const key = `${itemName}\u0000${direction}`;
+      const row = rows.get(key) ?? {
+        itemCode: linkedItem?.item_code ?? "",
+        itemName,
+        direction,
+        values: Array(summaryColumns.length).fill(0),
+        movementsByColumn: Array.from({ length: summaryColumns.length }, (): InventoryMovement[] => []),
+      };
+      row.values[columnIndex] += movement.quantity_delta;
+      row.movementsByColumn[columnIndex].push(movement);
+      rows.set(key, row);
+    }
+    const searchText = summarySearch.trim().toLocaleLowerCase("ko-KR");
+    return [...rows.values()]
+      .filter((row) => !searchText || `${row.itemCode} ${row.itemName}`.toLocaleLowerCase("ko-KR").includes(searchText))
+      .sort((left, right) => {
+      const leftValue = summarySort.key === "code" ? left.itemCode : left.itemName;
+      const rightValue = summarySort.key === "code" ? right.itemCode : right.itemName;
+      const comparison = leftValue.localeCompare(rightValue, "ko-KR", { numeric: true, sensitivity: "base" });
+      if (comparison) return summarySort.direction === "asc" ? comparison : -comparison;
+      const nameComparison = left.itemName.localeCompare(right.itemName, "ko-KR");
+      return nameComparison || left.direction.localeCompare(right.direction);
+    });
+  }, [inventoryItemByMovementName, movementView, summaryColumns.length, summaryMovementsQuery.data, summarySearch, summarySort]);
+  const visibleSummaryRows = summaryRows.slice(0, summaryVisibleCount);
+  useEffect(() => {
+    setSummaryVisibleCount(20);
+  }, [movementView, summaryYear, summaryMonth, summaryGroup, summarySearch, summarySort]);
+  const cycleSummarySort = (key: MovementSummarySortKey) => {
+    setSummarySort((current) => {
+      if (current.key !== key) return { key, direction: "asc" };
+      if (current.direction === "asc") return { key, direction: "desc" };
+      return { key: "code", direction: "asc" };
+    });
+  };
+  const summarySortLabel = (label: string, key: MovementSummarySortKey) => {
+    const state = summarySort.key === key ? (summarySort.direction === "asc" ? "↑" : "↓") : "↕";
+    return <button type="button" onClick={() => cycleSummarySort(key)} className="inline-flex items-center gap-1 cursor-pointer">{label}<span aria-hidden="true">{state}</span></button>;
+  };
+  useEffect(() => {
+    const topScroll = summaryTopScrollRef.current;
+    const tableScroll = summaryTableScrollRef.current;
+    const table = summaryTableRef.current;
+    if (!topScroll || !tableScroll || !table) return;
+
+    let syncing = false;
+    const syncFromTop = () => {
+      if (syncing) return;
+      syncing = true;
+      tableScroll.scrollLeft = topScroll.scrollLeft;
+      syncing = false;
+    };
+    const syncFromTable = () => {
+      if (syncing) return;
+      syncing = true;
+      topScroll.scrollLeft = tableScroll.scrollLeft;
+      syncing = false;
+    };
+    const updateWidth = () => setSummaryTableScrollWidth(table.scrollWidth);
+    updateWidth();
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(table);
+    topScroll.addEventListener("scroll", syncFromTop);
+    tableScroll.addEventListener("scroll", syncFromTable);
+    return () => {
+      observer.disconnect();
+      topScroll.removeEventListener("scroll", syncFromTop);
+      tableScroll.removeEventListener("scroll", syncFromTable);
+    };
+  }, [movementView, summaryColumns.length, visibleSummaryRows.length]);
   const loading = movementsQuery.isPending;
   const reversedIds = new Set(
     movements.map((movement) => movement.reversed_movement_id).filter(Boolean),
@@ -7505,6 +7700,23 @@ function MovementHistory({
   });
   return (
     <div className="space-y-4">
+      <div className="flex w-full gap-1 overflow-x-auto rounded-xl border border-gray-200 bg-gray-50/70 p-1.5">
+        {([
+          ["period", "변동 기간 조회"],
+          ["monthly", "월간 변동"],
+          ["annual", "연간 변동"],
+        ] as const).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setMovementView(value)}
+            className={`min-h-10 shrink-0 rounded-lg px-4 text-sm font-semibold transition ${movementView === value ? "bg-white text-brand-700 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <div className={movementView === "period" ? "space-y-4" : "hidden"}>
       <section className="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
         <div className="flex flex-col gap-2 lg:flex-row lg:items-stretch lg:gap-3">
           <div className="flex w-full flex-col rounded-xl border border-gray-200 bg-gray-50/70 p-2.5 sm:w-[120px] sm:shrink-0">
@@ -7791,6 +8003,195 @@ function MovementHistory({
             </div>
           )}
       </section>
+      </div>
+      {movementView !== "period" && (
+        <section className="space-y-4">
+          <div className="flex flex-col gap-2 rounded-xl border border-gray-200 bg-white p-3 shadow-sm sm:flex-row sm:items-end">
+            <div className="w-full sm:w-[120px]">
+              <p className="mb-1 text-xs font-semibold text-gray-600">년도</p>
+              <Dropdown controlledValue={String(summaryYear)}>
+                <Dropdown.Trigger compact>{summaryYear}년</Dropdown.Trigger>
+                <Dropdown.Content compact>
+                  {Array.from({ length: 21 }, (_, index) => 2020 + index).map((year) => (
+                    <Dropdown.Item key={year} option={{ value: String(year), label: `${year}년` }} compact onSelect={(selected) => setSummaryYear(Number(selected.value))} />
+                  ))}
+                </Dropdown.Content>
+              </Dropdown>
+            </div>
+            {movementView === "monthly" && (
+              <div className="w-full sm:w-[120px]">
+                <p className="mb-1 text-xs font-semibold text-gray-600">월</p>
+                <Dropdown controlledValue={String(summaryMonth)}>
+                  <Dropdown.Trigger compact>{summaryMonth}월</Dropdown.Trigger>
+                  <Dropdown.Content compact>
+                    {Array.from({ length: 12 }, (_, index) => index + 1).map((month) => (
+                      <Dropdown.Item key={month} option={{ value: String(month), label: `${month}월` }} compact onSelect={(selected) => setSummaryMonth(Number(selected.value))} />
+                    ))}
+                  </Dropdown.Content>
+                </Dropdown>
+              </div>
+            )}
+            <div className="w-full sm:w-[120px]">
+              <p className="mb-1 text-xs font-semibold text-gray-600">구분</p>
+              <Dropdown controlledValue={summaryGroup}>
+                <Dropdown.Trigger compact>{movementSummaryGroupOptions.find((option) => option.value === summaryGroup)?.label}</Dropdown.Trigger>
+                <Dropdown.Content compact>
+                  {movementSummaryGroupOptions.map((option) => <Dropdown.Item key={option.value} option={option} compact onSelect={(selected) => setSummaryGroup(selected.value as MovementSummaryGroup)} />)}
+                  {isMaster && <Dropdown.Item
+                    option={{ value: "save-default-summary-group", label: "기본 구분 저장" }}
+                    compact
+                    actionOnly
+                    showCheck={false}
+                    className="mt-1 border-t border-gray-200 !bg-gray-50 !py-1.5 hover:!bg-gray-100"
+                    onSelect={() => {
+                      setDefaultSummaryGroupCandidate(summaryDefaultGroupQuery.data ?? summaryGroup);
+                      setDefaultSummaryGroupDialogOpen(true);
+                    }}
+                  >
+                    <span className="flex w-full justify-center text-slate-700"><SettingsGearIcon /></span>
+                  </Dropdown.Item>
+                  }
+                </Dropdown.Content>
+              </Dropdown>
+            </div>
+            <div className="h-px w-full bg-gray-200 sm:h-12 sm:w-px" />
+            <div className="w-full sm:w-[260px]">
+              <label className="block w-full">
+                <span className="mb-1 block text-xs font-semibold text-gray-600">품목명·코드</span>
+                <span className="relative block">
+                  <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m21 21-4.35-4.35m2.1-5.4a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z" /></svg>
+                  <input value={summarySearch} onChange={(event) => setSummarySearch(event.target.value)} placeholder="품목명 또는 코드 검색" className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-9 pr-10 text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100" />
+                  {summarySearch && <button type="button" onClick={() => setSummarySearch("")} aria-label="품목명·코드 검색어 지우기" className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-gray-100 text-base font-medium text-gray-500 transition hover:bg-gray-200 hover:text-gray-700">×</button>}
+                </span>
+              </label>
+            </div>
+          </div>
+          <div className="mb-3 flex items-center justify-start gap-3 text-xs text-gray-600 sm:text-sm"><span><b className="font-semibold text-brand-600">{visibleSummaryRows.length.toLocaleString()}</b>/{summaryRows.length.toLocaleString()}개 품목</span></div>
+          <div ref={summaryTableScrollRef} className="max-h-[calc(100vh-11rem)] overflow-auto rounded-xl border border-gray-200 bg-white">
+            <div ref={summaryTopScrollRef} className="sticky left-0 top-0 z-40 h-4 w-full overflow-x-auto border-b border-gray-200 bg-gray-50" aria-label="표 가로 스크롤">
+              <div className="h-px" style={{ width: summaryTableScrollWidth ? `${summaryTableScrollWidth}px` : "100%" }} />
+            </div>
+            {summaryMovementsQuery.isPending ? <div className="p-12"><Loading size="sm" text="변동 데이터를 불러오는 중..." /></div> : summaryMovementsQuery.isError ? <div className="p-12 text-center text-sm font-medium text-rose-700">변동 데이터를 불러오지 못했습니다.</div> : (
+              <table ref={summaryTableRef} className="w-full min-w-max border-collapse text-sm"><thead className="bg-brand-50 text-brand-700"><tr><th className="sticky left-0 top-4 z-30 w-32 border border-brand-200 bg-brand-50 px-3 py-3 text-left">{summarySortLabel("품목 코드", "code")}</th><th className="sticky left-32 top-4 z-30 border border-brand-200 bg-brand-50 px-3 py-3 text-left">{summarySortLabel("품목명", "name")}</th><th className="sticky top-4 z-20 min-w-20 border border-brand-200 bg-brand-50 px-3 py-3 text-center">총 수량</th>{summaryColumns.map((column) => <th key={column} className="sticky top-4 z-20 min-w-14 border border-brand-200 bg-brand-50 px-3 py-3 text-center">{movementView === "monthly" ? `${column}일` : `${column}월`}</th>)}</tr></thead><tbody>{visibleSummaryRows.length ? visibleSummaryRows.map((row) => { const total = row.values.reduce((sum, value) => sum + value, 0); const columnDetails = row.values.map((value, index) => ({ label: movementView === "monthly" ? `${index + 1}일` : `${index + 1}월`, total: value, movements: row.movementsByColumn[index] })).filter((column) => column.total !== 0); return <tr key={`${row.itemName}-${row.direction}`}><td className="sticky left-0 z-10 w-32 whitespace-nowrap border border-gray-200 bg-white px-3 py-3 font-mono text-xs text-gray-500">{row.itemCode || "-"}</td><td className="sticky left-32 z-10 whitespace-nowrap border border-gray-200 bg-white px-3 py-3 font-semibold">{row.itemName} <span className={row.direction === "in" ? "text-blue-600" : "text-rose-600"}>({row.direction === "in" ? "입고" : "출고"})</span></td><td className={`border border-gray-200 px-3 py-3 text-right font-bold ${total > 0 ? "text-blue-600" : total < 0 ? "text-rose-600" : "text-gray-400"}`}>{total ? <button type="button" onClick={() => setSummaryTotalDetail({ itemName: row.itemName, direction: row.direction, total, columns: columnDetails })} className="cursor-pointer underline decoration-current/30 underline-offset-4 hover:decoration-current">{`${total > 0 ? "+" : ""}${total.toLocaleString()}`}</button> : "-"}</td>{row.values.map((value, index) => <td key={index} className={`border border-gray-200 px-3 py-3 text-right font-semibold ${value > 0 ? "text-blue-600" : value < 0 ? "text-rose-600" : "text-gray-400"}`}>{value ? <button type="button" onClick={() => setSummaryDetail({ itemName: row.itemName, direction: row.direction, columnLabel: movementView === "monthly" ? `${index + 1}일` : `${index + 1}월`, movements: row.movementsByColumn[index], total: value })} className="cursor-pointer underline decoration-current/30 underline-offset-4 hover:decoration-current">{`${value > 0 ? "+" : ""}${value.toLocaleString()}`}</button> : "-"}</td>)}</tr>; }) : <tr><td colSpan={summaryColumns.length + 3} className="px-4 py-12 text-center text-gray-400">조건에 맞는 재고 변동이 없습니다.</td></tr>}</tbody></table>
+            )}
+          </div>
+          {visibleSummaryRows.length < summaryRows.length && (
+            <div className="flex justify-center">
+              <button
+                type="button"
+                onClick={() => setSummaryVisibleCount((count) => count + 20)}
+                className="min-h-10 rounded-lg border border-gray-300 bg-white px-5 text-sm font-semibold text-gray-700 shadow-sm hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
+              >
+                더 불러오기
+              </button>
+            </div>
+          )}
+        </section>
+      )}
+      {defaultSummaryGroupDialogOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-gray-950/50 p-4">
+          <section className="w-full max-w-xs rounded-xl bg-white p-4 shadow-2xl">
+            <h4 className="text-base font-bold text-gray-900">기본 구분 설정</h4>
+            <p className="mt-1 text-xs text-gray-500">월간·연간 변동을 열 때 기본으로 사용할 구분을 선택하세요.</p>
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              {movementSummaryGroupOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setDefaultSummaryGroupCandidate(option.value)}
+                  className={`h-9 rounded-lg border text-sm font-bold ${
+                    defaultSummaryGroupCandidate === option.value
+                      ? "border-brand-500 bg-brand-50 text-brand-700"
+                      : "border-gray-200 text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button size="sm" variant="gray" onClick={() => setDefaultSummaryGroupDialogOpen(false)}>취소</Button>
+              <Button
+                size="sm"
+                onClick={() => {
+                  saveSummaryDefaultGroupMutation.mutate(defaultSummaryGroupCandidate);
+                }}
+                disabled={saveSummaryDefaultGroupMutation.isPending}
+              >
+                저장
+              </Button>
+            </div>
+          </section>
+        </div>
+      )}
+      {summaryDetail && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-gray-950/50 p-4">
+          <section className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-4 shadow-2xl">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h4 className="text-base font-bold text-gray-900">{summaryDetail.itemName} · {summaryDetail.columnLabel}</h4>
+                <p className="mt-1 text-xs text-gray-500">{summaryDetail.direction === "in" ? "입고" : "출고"} 변동 상세</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {summaryTotalDetail && <Button size="sm" variant="gray" onClick={() => setSummaryDetail(null)}>뒤로가기</Button>}
+                <Button size="sm" variant="gray" onClick={() => { setSummaryDetail(null); setSummaryTotalDetail(null); }}>닫기</Button>
+              </div>
+            </div>
+            <div className="mt-4 divide-y divide-gray-100 rounded-lg border border-gray-200">
+              {summaryDetail.movements.map((movement) => {
+                const canOpenCustomer = Boolean(movement.counterparty_id);
+                const canOpenPurchaseOrder = Boolean(movement.purchase_order_id);
+                return (
+                  <div key={movement.id} className="flex items-center justify-between gap-3 px-3 py-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-gray-900">{getMovementRoute(movement)}</p>
+                      {getDetailMemo(movement.note) !== "-" && <p className="mt-0.5 truncate text-xs text-gray-500">{getDetailMemo(movement.note)}</p>}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className={movement.quantity_delta > 0 ? "font-bold text-blue-600" : "font-bold text-rose-600"}>{movement.quantity_delta > 0 ? "+" : ""}{movement.quantity_delta.toLocaleString()}</span>
+                      <button type="button" onClick={() => {
+                        if (movement.counterparty_id) {
+                          router.push(`/customers/${movement.counterparty_id}`);
+                          return;
+                        }
+                        if (movement.purchase_order_id) {
+                          onOpenPurchaseOrder(movement.purchase_order_id);
+                          return;
+                        }
+                        const parts = getSeoulDateParts(movement.created_at);
+                        router.push(`/inventory/stock?tab=movements&item=${encodeURIComponent(movement.item_name)}&date=${parts.year}-${parts.month}-${parts.day}`);
+                      }} className="rounded-md border border-gray-300 px-2 py-1 text-xs font-semibold text-gray-700 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700">바로가기</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-4 flex justify-end border-t border-gray-200 pt-3 text-sm font-bold text-gray-900">합계&nbsp;<span className={summaryDetail.total > 0 ? "text-blue-600" : "text-rose-600"}>{summaryDetail.total > 0 ? "+" : ""}{summaryDetail.total.toLocaleString()}</span></div>
+          </section>
+        </div>
+      )}
+      {summaryTotalDetail && !summaryDetail && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-gray-950/50 p-4">
+          <section className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-4 shadow-2xl">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h4 className="text-base font-bold text-gray-900">{summaryTotalDetail.itemName} · 총 수량</h4>
+                <p className="mt-1 text-xs text-gray-500">{summaryTotalDetail.direction === "in" ? "입고" : "출고"} 날짜별 변동 합계</p>
+              </div>
+              <Button size="sm" variant="gray" onClick={() => setSummaryTotalDetail(null)}>닫기</Button>
+            </div>
+            <div className="mt-4 divide-y divide-gray-100 rounded-lg border border-gray-200">
+              {summaryTotalDetail.columns.map((column) => (
+                <button key={column.label} type="button" onClick={() => setSummaryDetail({ itemName: summaryTotalDetail.itemName, direction: summaryTotalDetail.direction, columnLabel: column.label, movements: column.movements, total: column.total })} className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left transition hover:bg-gray-50">
+                  <span className="text-sm font-semibold text-gray-900">{column.label}</span>
+                  <span className={column.total > 0 ? "font-bold text-blue-600" : "font-bold text-rose-600"}>{column.total > 0 ? "+" : ""}{column.total.toLocaleString()}</span>
+                </button>
+              ))}
+            </div>
+            <div className="mt-4 flex justify-end border-t border-gray-200 pt-3 text-sm font-bold text-gray-900">총 수량&nbsp;<span className={summaryTotalDetail.total > 0 ? "text-blue-600" : "text-rose-600"}>{summaryTotalDetail.total > 0 ? "+" : ""}{summaryTotalDetail.total.toLocaleString()}</span></div>
+          </section>
+        </div>
+      )}
       {movementToReverse && (
         <ConfirmOverlay
           title="입고를 취소하시겠습니까?"
