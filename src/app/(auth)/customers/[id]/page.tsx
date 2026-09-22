@@ -185,9 +185,10 @@ export default function CustomerDetailPage() {
       ]);
       toast.success('처리 필요 특이사항이 등록되었습니다.');
       close();
+      // 등록 직후에는 현재 화면의 처리 선택을 다시 열지 않는다.
+      // 고객 상세에 다시 진입할 때 초기 알림이 미처리 항목을 안내한다.
       setIsFollowUpAlertOpen(false);
-      const result = await followUpQuery.refetch();
-      setIsFollowUpAlertOpen((result.data?.length ?? 0) > 0);
+      await followUpQuery.refetch();
       handleUpdate();
     } catch (error) {
       console.error('Failed to create customer follow-up remark:', error);

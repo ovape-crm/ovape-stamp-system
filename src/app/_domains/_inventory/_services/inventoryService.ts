@@ -809,7 +809,7 @@ export const getPurchaseOrders = async (
   isMaster = false,
 ): Promise<PurchaseOrder[]> => {
   const lineColumns =
-    "id, order_id, item_name, ordered_quantity, received_quantity, pending_quantity, note, quantity_checked_by, quantity_check_note, quantity_checked_at, handling_type, handling_note, customer_id, reservation_log_id, after_service_id, inbound_type";
+    "id, order_id, sort_order, item_name, ordered_quantity, received_quantity, pending_quantity, note, quantity_checked_by, quantity_check_note, quantity_checked_at, handling_type, handling_note, customer_id, reservation_log_id, after_service_id, inbound_type";
   const { data, error } = await supabase
     .from("inventory_purchase_orders")
     .select(
@@ -826,7 +826,7 @@ export const getPurchaseOrders = async (
   // adjustment / receipt-note migrations are still pending. Keep the saved
   // handling state instead of falling all the way back to `none`.
   const compatibleLineColumns =
-    "id, order_id, item_name, ordered_quantity, received_quantity, pending_quantity, note, quantity_checked_at, handling_type, handling_note, customer_id, reservation_log_id, after_service_id, inbound_type";
+    "id, order_id, sort_order, item_name, ordered_quantity, received_quantity, pending_quantity, note, quantity_checked_at, handling_type, handling_note, customer_id, reservation_log_id, after_service_id, inbound_type";
   const { data: compatibleData, error: compatibleError } = await supabase
     .from("inventory_purchase_orders")
     .select(
@@ -858,7 +858,7 @@ export const getPurchaseOrders = async (
 
   // 신규 메모 열을 아직 적용하지 않은 DB에서도 입고 목록은 계속 표시한다.
   const legacyLineColumns =
-    "id, order_id, item_name, ordered_quantity, received_quantity, pending_quantity, note, quantity_checked_at";
+    "id, order_id, sort_order, item_name, ordered_quantity, received_quantity, pending_quantity, note, quantity_checked_at";
   const { data: legacyData, error: legacyError } = await supabase
     .from("inventory_purchase_orders")
     .select(

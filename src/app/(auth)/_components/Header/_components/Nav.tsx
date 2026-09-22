@@ -72,6 +72,7 @@ const defaultMenuItems: MenuItem[] = [
     sort_order: 3,
   },
   { href: "/manuals", label: "매뉴얼", group_key: "store", sort_order: 4 },
+  { href: "/system-notices", label: "공지", group_key: "store", sort_order: 5 },
 ];
 
 type NavProps = {
@@ -139,6 +140,7 @@ const Nav = ({ orientation = "horizontal", onNavigate }: NavProps) => {
         (item) =>
           (isAdmin || item.href !== "/items") &&
           (isMaster || item.href !== "/settlement") &&
+          (isMaster || item.href !== "/system-notices") &&
           (!isLocked ||
             item.href === "/work-journal" ||
             item.href === "/cash-management" ||

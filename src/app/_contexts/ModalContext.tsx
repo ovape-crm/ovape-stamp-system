@@ -107,7 +107,7 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
               }}
             />
             <div
-              className={`relative z-[2001] max-h-[90vh] w-[90vw] ${size} flex flex-col rounded-lg bg-white p-4 shadow-xl`}
+              className={`relative z-[2001] max-h-[90vh] w-[90vw] ${size} flex flex-col overflow-y-auto rounded-lg bg-white p-4 shadow-xl`}
             >
               {content}
             </div>

@@ -4,6 +4,7 @@ import { UserProvider } from '@/app/_contexts/UserContext';
 import { StaffOpeningProvider } from '@/app/_contexts/StaffOpeningContext';
 import { ModalProvider } from '@/app/_contexts/ModalContext';
 import ManualPlacementManager from '@/app/_components/ManualPlacementManager';
+import RequiredSystemNoticeProvider from './_components/RequiredSystemNoticeProvider';
 
 export default function CustomersLayout({
   children,
@@ -14,11 +15,13 @@ export default function CustomersLayout({
     <UserProvider requireAuth>
       <ModalProvider>
         <StaffOpeningProvider>
-          <div className="hidden header:block">
-            <Header />
-          </div>
-          <SideMenu>{children}</SideMenu>
-          <ManualPlacementManager />
+          <RequiredSystemNoticeProvider>
+            <div className="hidden header:block">
+              <Header />
+            </div>
+            <SideMenu>{children}</SideMenu>
+            <ManualPlacementManager />
+          </RequiredSystemNoticeProvider>
         </StaffOpeningProvider>
       </ModalProvider>
     </UserProvider>

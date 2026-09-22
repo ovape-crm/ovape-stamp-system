@@ -71,6 +71,7 @@ export type InventorySupplier = {
 };
 export type PurchaseOrderLine = {
   id: string;
+  sort_order: number;
   item_name: string;
   ordered_quantity: number;
   received_quantity: number;

@@ -567,7 +567,7 @@ export default function WorkJournalPage() {
   const handleWorkerSalaryPayment = async (group: (typeof paymentGroups)[number]) => {
     if (!group.unpaid.length) return;
     const journals = group.unpaid;
-    open({ content: <PayrollCalculationModal title="월급 지급" journals={journals} onCancel={close} onSubmit={(hourlyRate, mealAllowance, amountOverride) => { payrollMutation.mutate({ journalIds: group.unpaid.map((journal) => journal.id), kind: "salary", hourlyRate, mealAllowance, paidOn: today, amountOverride }); close(); }} />, options: { dismissOnBackdrop: false } });
+    open({ content: <PayrollCalculationModal title="월급 지급" journals={journals} includeOtherExpenses onCancel={close} onSubmit={(hourlyRate, mealAllowance, otherExpenses, amountOverride) => { payrollMutation.mutate({ journalIds: group.unpaid.map((journal) => journal.id), kind: "salary", hourlyRate, mealAllowance, otherExpenses, paidOn: today, amountOverride }); close(); }} />, options: { dismissOnBackdrop: false } });
   };
 
   const toggleAdvanceSelection = (journalId: string) => {
@@ -583,7 +583,7 @@ export default function WorkJournalPage() {
       .filter((id) => selectedAdvanceJournalIds.includes(id));
     if (!journalIds.length) return;
     const journals = group.unpaid.filter((journal) => journalIds.includes(journal.id));
-    open({ content: <PayrollCalculationModal title={`급여 선지급 (${journals.length}건)`} journals={journals} onCancel={close} onSubmit={(hourlyRate, mealAllowance, amountOverride) => { payrollMutation.mutate({ journalIds, kind: "advance", hourlyRate, mealAllowance, paidOn: today, amountOverride }); close(); }} />, options: { dismissOnBackdrop: false } });
+    open({ content: <PayrollCalculationModal title={`급여 선지급 (${journals.length}건)`} journals={journals} onCancel={close} onSubmit={(hourlyRate, mealAllowance, otherExpenses, amountOverride) => { payrollMutation.mutate({ journalIds, kind: "advance", hourlyRate, mealAllowance, otherExpenses, paidOn: today, amountOverride }); close(); }} />, options: { dismissOnBackdrop: false } });
   };
 
   const handleWorkerSalaryCancel = async (group: (typeof paymentGroups)[number]) => {
@@ -1856,20 +1856,56 @@ const SummaryCard = ({ label, value }: { label: string; value: string }) => (
   </div>
 );
 
-function PayrollCalculationModal({ title, journals, onCancel, onSubmit }: { title: string; journals: WorkJournalType[]; onCancel: () => void; onSubmit: (hourlyRate: number, mealAllowance: number, amountOverride?: number) => void }) {
+function PayrollCalculationModal({ title, journals, includeOtherExpenses = false, onCancel, onSubmit }: { title: string; journals: WorkJournalType[]; includeOtherExpenses?: boolean; onCancel: () => void; onSubmit: (hourlyRate: number, mealAllowance: number, otherExpenses: Array<{ name: string; amount: number }>, amountOverride?: number) => void }) {
   const [hourlyRate, setHourlyRate] = useState("");
   const [mealAllowance, setMealAllowance] = useState("");
-  const [amountOverrideText, setAmountOverrideText] = useState("");
+  const [otherExpenseInputs, setOtherExpenseInputs] = useState([
+    { id: crypto.randomUUID(), name: "", amount: "" },
+  ]);
   const hours = journals.reduce((sum, journal) => sum + getPayableHours(journal), 0);
   const count = journals.length;
   const rate = Number(hourlyRate);
   const meal = Number(mealAllowance);
   const wage = Number.isFinite(rate) && rate > 0 ? Math.floor(hours * rate * 0.991) : 0;
-  const calculatedTotal = wage + (Number.isFinite(meal) && meal >= 0 ? count * meal : 0);
-  const hasAmountOverride = amountOverrideText.trim() !== "";
-  const finalAmount = hasAmountOverride ? Number(amountOverrideText) : calculatedTotal;
-  const isFinalAmountValid = Number.isInteger(finalAmount) && finalAmount >= 0;
-  return <div className="p-5"><h2 className="text-lg font-bold text-gray-900">{title}</h2><div className="mt-4 grid gap-3 sm:grid-cols-2"><Field label="입력시간"><div className="h-10 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-800">{formatHours(hours)}</div></Field><Field label="시급"><input autoFocus type="number" min="1" value={hourlyRate} onChange={(event) => setHourlyRate(event.target.value)} placeholder="시급 입력" className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100" /></Field><Field label="총 근무 횟수"><div className="h-10 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-800">{count}회</div></Field><Field label="식대 (1회당)"><input type="number" min="0" value={mealAllowance} onChange={(event) => setMealAllowance(event.target.value)} placeholder="식대 입력" className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100" /></Field></div><div className="mt-4 rounded-xl border border-brand-200 bg-brand-50 p-3"><div className="flex items-center justify-between gap-3"><label className="text-xs font-semibold text-brand-700" htmlFor="payroll-final-amount">최종 지급액 (수정 가능)</label>{hasAmountOverride && <button type="button" onClick={() => setAmountOverrideText("")} className="cursor-pointer text-xs font-semibold text-brand-700 underline">계산값으로 되돌리기</button>}</div><div className="mt-1 flex items-center gap-1"><input id="payroll-final-amount" type="number" min="0" value={hasAmountOverride ? amountOverrideText : String(calculatedTotal)} onChange={(event) => setAmountOverrideText(event.target.value)} className="min-w-0 flex-1 bg-transparent text-2xl font-bold text-brand-800 outline-none" /><span className="text-2xl font-bold text-brand-800">원</span></div><p className="mt-1 text-xs text-brand-700">계산값 {calculatedTotal.toLocaleString("ko-KR")}원 · 필요하면 실제 지급액으로 수정하세요.</p></div><div className="mt-5 flex justify-end gap-2"><Button variant="gray" onClick={onCancel}>취소</Button><Button disabled={!Number.isInteger(rate) || rate <= 0 || !Number.isInteger(meal) || meal < 0 || !isFinalAmountValid} onClick={() => onSubmit(rate, meal, hasAmountOverride ? finalAmount : undefined)}>지급 확정</Button></div></div>;
+  const otherExpenses = otherExpenseInputs
+    .filter((expense) => expense.name.trim() || expense.amount.trim())
+    .map((expense) => ({ name: expense.name.trim(), amount: Number(expense.amount) }));
+  const areOtherExpensesValid = otherExpenses.every(
+    (expense) => expense.name && Number.isInteger(expense.amount) && expense.amount >= 0,
+  );
+  const otherExpenseTotal = areOtherExpensesValid
+    ? otherExpenses.reduce((sum, expense) => sum + expense.amount, 0)
+    : 0;
+  const calculatedTotal = wage + (Number.isFinite(meal) && meal >= 0 ? count * meal : 0) + otherExpenseTotal;
+  return (
+    <div className="p-5">
+      <h2 className="text-lg font-bold text-gray-900">{title}</h2>
+      <div className="mt-4 max-h-[calc(90vh-17rem)] overflow-y-auto pr-1">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="입력시간"><div className="h-10 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-800">{formatHours(hours)}</div></Field>
+        <Field label="시급"><input autoFocus type="number" min="1" value={hourlyRate} onChange={(event) => setHourlyRate(event.target.value)} placeholder="시급 입력" className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm" /></Field>
+        <Field label="총 근무 횟수"><div className="h-10 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-800">{count}회</div></Field>
+        <Field label="식대 (1회당)"><input type="number" min="0" value={mealAllowance} onChange={(event) => setMealAllowance(event.target.value)} placeholder="식대 입력" className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm" /></Field>
+      </div>
+      {includeOtherExpenses && (
+        <div className="mt-3 space-y-3">
+          {otherExpenseInputs.map((expense, index) => (
+            <div key={expense.id} className="grid gap-3 sm:grid-cols-2">
+              <Field label="카테고리 입력"><input value={expense.name} onChange={(event) => setOtherExpenseInputs((current) => current.map((item) => item.id === expense.id ? { ...item, name: event.target.value } : item))} placeholder="카테고리 입력" className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm" /></Field>
+              <Field label={expense.name.trim() || "금액"}><input type="number" min="0" value={expense.amount} onChange={(event) => setOtherExpenseInputs((current) => current.map((item) => item.id === expense.id ? { ...item, amount: event.target.value } : item))} placeholder="금액 입력" className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm" /></Field>
+              {index > 0 && <div className="flex justify-end sm:col-span-2"><Button size="xs" variant="gray" onClick={() => setOtherExpenseInputs((current) => current.filter((item) => item.id !== expense.id))}>삭제</Button></div>}
+            </div>
+          ))}
+          <div className="flex justify-end"><Button size="xs" variant="secondary" onClick={() => setOtherExpenseInputs((current) => [...current, { id: crypto.randomUUID(), name: "", amount: "" }])}>기타 추가</Button></div>
+        </div>
+      )}
+      </div>
+      <div className="mt-4 shrink-0 border-t border-gray-200 bg-white pt-3">
+        <div className="rounded-xl border border-brand-200 bg-brand-50 p-3"><p className="text-xs font-semibold text-brand-700">최종 지급액</p><p className="mt-1 text-2xl font-bold text-brand-800">{calculatedTotal.toLocaleString("ko-KR")}원</p></div>
+        <div className="mt-3 flex justify-end gap-2"><Button variant="gray" onClick={onCancel}>취소</Button><Button disabled={!Number.isInteger(rate) || rate <= 0 || !Number.isInteger(meal) || meal < 0 || !areOtherExpensesValid} onClick={() => onSubmit(rate, meal, otherExpenses)}>지급 확정</Button></div>
+      </div>
+    </div>
+  );
 }
 
 function ManualPayrollHistoryModal({

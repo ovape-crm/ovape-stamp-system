@@ -538,6 +538,7 @@ export const processWorkJournalPayroll = async (values: {
   mealAllowance: number;
   paidOn: string;
   amountOverride?: number;
+  otherExpenses: Array<{ name: string; amount: number }>;
 }) => {
   const { data, error } = await supabase.rpc("process_work_journal_payroll", {
     p_journal_ids: values.journalIds,
@@ -546,6 +547,7 @@ export const processWorkJournalPayroll = async (values: {
     p_meal_allowance: values.mealAllowance,
     p_paid_on: values.paidOn,
     p_amount_override: values.amountOverride ?? null,
+    p_other_expenses: values.otherExpenses,
   });
   if (error) throw error;
   return (data ?? [])[0] as { batch_id: string; amount: number; memo: string };
@@ -566,7 +568,7 @@ export const getPayrollPaymentHistory = async (): Promise<
     supabase
       .from("work_journal_payroll_batches")
       .select(
-        "id, worker_name, payroll_month, payment_kind, hourly_rate, meal_allowance, amount, paid_on, work_hours, work_count, created_at",
+        "id, worker_name, payroll_month, payment_kind, hourly_rate, meal_allowance, other_expenses, amount, paid_on, work_hours, work_count, created_at",
       )
       .gte("paid_on", "2026-08-01"),
     supabase
@@ -582,7 +584,14 @@ export const getPayrollPaymentHistory = async (): Promise<
     ...(automaticResult.data ?? []).map((payment) => {
       const wageAmount = Math.floor(Number(payment.work_hours) * payment.hourly_rate * 0.991);
       const mealAmount = payment.work_count * payment.meal_allowance;
-      const calculatedAmount = wageAmount + mealAmount;
+      const otherExpenses = (payment.other_expenses ?? []) as Array<{
+        name: string;
+        amount: number;
+      }>;
+      const calculatedAmount = wageAmount + mealAmount + otherExpenses.reduce(
+        (sum, expense) => sum + Number(expense.amount),
+        0,
+      );
       const amount = Number(payment.amount);
       return {
       ...payment,
@@ -590,6 +599,7 @@ export const getPayrollPaymentHistory = async (): Promise<
       note: null,
       wage_amount: wageAmount,
       meal_amount: mealAmount,
+      other_expenses: otherExpenses,
       calculated_amount: calculatedAmount,
       adjustment_amount: amount - calculatedAmount,
       work_hours: Number(payment.work_hours),
@@ -598,6 +608,7 @@ export const getPayrollPaymentHistory = async (): Promise<
     ...(manualResult.data ?? []).map((payment) => ({
       ...payment,
       source: "manual" as const,
+      other_expenses: [],
       work_hours: null,
       work_count: null,
       calculated_amount: Number(payment.amount),
