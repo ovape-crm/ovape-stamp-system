@@ -4839,6 +4839,21 @@ function PurchaseOrderList({
           : closedMissingLines;
         const orderNote = splitPurchaseOrderNote(order.note);
         const showPartialDetails = order.status === "partial";
+        const orderLinesInRegistrationOrder = [
+          ...order.inventory_purchase_order_lines,
+        ].sort((left, right) => left.sort_order - right.sort_order);
+        const displayedOrderLines =
+          listTab === "waiting"
+            ? orderLinesInRegistrationOrder
+                .map((line, index) => ({ line, index }))
+                .sort(
+                  (left, right) =>
+                    Number(Boolean(left.line.quantity_checked_at)) -
+                      Number(Boolean(right.line.quantity_checked_at)) ||
+                    left.index - right.index,
+                )
+                .map(({ line }) => line)
+            : orderLinesInRegistrationOrder;
         const hasCheckedItems = order.inventory_purchase_order_lines.some(
           (line) => line.quantity_checked_at,
         );
@@ -5114,7 +5129,7 @@ function PurchaseOrderList({
                     </tr>
                   </thead>
                   <tbody>
-                    {order.inventory_purchase_order_lines.map((line) => {
+                    {displayedOrderLines.map((line) => {
                       const lineRemaining = Math.max(
                         0,
                         line.ordered_quantity - line.received_quantity,
@@ -8139,8 +8154,6 @@ function MovementHistory({
             </div>
             <div className="mt-4 divide-y divide-gray-100 rounded-lg border border-gray-200">
               {summaryDetail.movements.map((movement) => {
-                const canOpenCustomer = Boolean(movement.counterparty_id);
-                const canOpenPurchaseOrder = Boolean(movement.purchase_order_id);
                 return (
                   <div key={movement.id} className="flex items-center justify-between gap-3 px-3 py-3">
                     <div className="min-w-0">

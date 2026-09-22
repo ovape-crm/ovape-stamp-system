@@ -317,7 +317,7 @@ const StampHistoryItem = ({
             variant="secondary"
             size="sm"
             className={`${actionColumnClass} ${
-              hasActionMenu ? "row-start-1" : "row-start-2"
+              hasActionMenu ? "row-start-1" : "row-span-2 self-center"
             } flex w-full items-center justify-center self-center`}
             onClick={actionButton.onClick}
           >

@@ -43,6 +43,7 @@ export type PayrollPaymentHistoryType = {
   payment_kind: "advance" | "salary";
   wage_amount: number;
   meal_amount: number;
+  other_expenses: Array<{ name: string; amount: number }>;
   amount: number;
   paid_on: string;
   note: string | null;

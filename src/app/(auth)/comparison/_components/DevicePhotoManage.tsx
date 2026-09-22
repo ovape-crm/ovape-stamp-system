@@ -20,14 +20,14 @@ const source = (value: string) => { const url = new URL(value); return url.hostn
 export default function DevicePhotoManage() {
   const queryClient = useQueryClient(); const [deviceId, setDeviceId] = useState(''); const [photo, setPhoto] = useState<Photo>(emptyPhoto); const [saving, setSaving] = useState(false);
   const { data: deviceData, isLoading } = useQuery({ queryKey: ['comparison', 'devices', 'photo-manage'], queryFn: getComparisonDevicesWithValues });
-  const devices = deviceData?.devices ?? []; const columns = deviceData?.columns ?? [];
+  const devices = deviceData?.devices; const columns = deviceData?.columns ?? [];
   const nameColumn = columns.find((column) => /브랜드.*기기|기기.*(명|이름)|제품.*(명|이름)/.test(column.name)); const photoColumn = columns.find((column) => column.name === '기기 사진');
   const { data: savedPhotos = [] } = useQuery({ queryKey: ['comparison', 'device-photos', 'saved-status'], queryFn: async () => { const { data, error } = await supabase.from('comparison_device_photos').select('device_id,header_content,image_urls'); if (error) throw error; return data ?? []; } });
   const savedPhotoDeviceIds = useMemo(() => new Set(savedPhotos.filter((savedPhoto) => Boolean(savedPhoto.header_content?.trim()) || (Array.isArray(savedPhoto.image_urls) && savedPhoto.image_urls.some((url) => typeof url === 'string' && url.trim()))).map((savedPhoto) => savedPhoto.device_id)), [savedPhotos]);
   const values = useMemo(() => Object.fromEntries((deviceData?.values ?? []).filter((value) => value.device_id === deviceId).map((value) => [value.column_id, value.value])), [deviceData?.values, deviceId]);
   const legacyUrl = photoColumn ? (values[photoColumn.id] ?? '').match(/<link url="([^"]+)">/)?.[1] ?? values[photoColumn.id] ?? '' : '';
   const { data: loaded, isFetching } = useQuery({ enabled: Boolean(deviceId), queryKey: ['comparison', 'device-photos', deviceId], queryFn: async () => { const { data, error } = await supabase.from('comparison_device_photos').select('*').eq('device_id', deviceId).maybeSingle(); if (error) throw error; return data; } });
-  const deviceOptions = useMemo<DeviceSearchOption[]>(() => devices.map((device, index) => {
+  const deviceOptions = useMemo<DeviceSearchOption[]>(() => (devices ?? []).map((device, index) => {
     const label = (nameColumn && (deviceData?.values ?? []).find((value) => value.device_id === device.id && value.column_id === nameColumn.id)?.value) || `기기 ${index + 1}`;
     const searchText = (deviceData?.values ?? []).filter((value) => value.device_id === device.id).map((value) => value.value).join(' ');
     const legacyValue = photoColumn ? (deviceData?.values ?? []).find((value) => value.device_id === device.id && value.column_id === photoColumn.id)?.value : '';

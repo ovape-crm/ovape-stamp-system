@@ -38,6 +38,13 @@ const targetCustomerCard = await readFile(
   ),
   'utf8',
 );
+const changeFields = await readFile(
+  new URL(
+    '../src/app/(auth)/_components/HistoriesComponents/ChangeFields.tsx',
+    import.meta.url,
+  ),
+  'utf8',
+);
 const editModalLayout = editModal;
 
 test('고객 특이사항 편집기는 굵게·글자색·배경색 선택 서식을 제공한다', () => {
@@ -84,4 +91,10 @@ test('서식 본문은 문단 태그 안에 중첩하지 않아 하이드레이�
     targetCustomerCard,
     /<div[\s\S]*?\{noteText \? \([\s\S]*?<TaggedContent/,
   );
+});
+
+test('고객 수정 이력의 특이사항도 저장된 서식 태그를 해석해 표시한다', () => {
+  assert.match(changeFields, /import TaggedContent/);
+  assert.match(changeFields, /fieldName === 'note' && typeof value === 'string'/);
+  assert.match(changeFields, /<TaggedContent content=\{value\} inline \/>/);
 });

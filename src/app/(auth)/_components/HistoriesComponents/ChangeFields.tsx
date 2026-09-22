@@ -1,3 +1,5 @@
+import TaggedContent from '@/app/_components/TaggedContent';
+
 const fieldMap = {
   name: '이름',
   phone: '전화번호',
@@ -66,6 +68,10 @@ const ChangeFields = ({ jsonb }: { jsonb: Record<string, unknown> }) => {
 
   const formatValue = (value: unknown, fieldName?: string) => {
     if (value === null || value === undefined || value === '') return '-';
+
+    if (fieldName === 'note' && typeof value === 'string') {
+      return <TaggedContent content={value} inline />;
+    }
 
     if (fieldName === 'gender') {
       if (value === 'male') return '남자';

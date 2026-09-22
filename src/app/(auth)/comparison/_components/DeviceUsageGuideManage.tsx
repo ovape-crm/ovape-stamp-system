@@ -25,7 +25,7 @@ export default function DeviceUsageGuideManage() {
   const [commonHeaderContent, setCommonHeaderContent] = useState('');
   const [savingCommonHeader, setSavingCommonHeader] = useState(false);
   const { data: deviceData, isLoading } = useQuery({ queryKey: ['comparison', 'devices', 'usage-guide-manage'], queryFn: getComparisonDevicesWithValues });
-  const devices = deviceData?.devices ?? [];
+  const devices = deviceData?.devices;
   const columns = deviceData?.columns ?? [];
   const selectedValues = useMemo(() => Object.fromEntries((deviceData?.values ?? []).filter((value) => value.device_id === deviceId).map((value) => [value.column_id, value.value])), [deviceData?.values, deviceId]);
   const nameColumn = columns.find((column) => /브랜드.*기기|기기.*(명|이름)|제품.*(명|이름)/.test(column.name));
@@ -36,7 +36,7 @@ export default function DeviceUsageGuideManage() {
   const savedGuideDeviceIds = useMemo(() => new Set(savedGuides.filter((guide) => Boolean(guide.header_content?.trim()) || Boolean(guide.body_content?.trim()) || Boolean(guide.image_url?.trim()) || (Array.isArray(guide.image_urls) && guide.image_urls.some((url) => typeof url === 'string' && url.trim()))).map((guide) => guide.device_id)), [savedGuides]);
   const legacyImageUrl = legacyUsageColumn ? (selectedValues[legacyUsageColumn.id] ?? '').match(/<link url="([^"]+)">/)?.[1] ?? selectedValues[legacyUsageColumn.id] ?? '' : '';
   const { data: loadedGuide, isFetching } = useQuery({ enabled: Boolean(deviceId), queryKey: ['comparison', 'device-usage-guide', deviceId], queryFn: async () => { const { data, error } = await supabase.from('comparison_device_usage_guides').select('*').eq('device_id', deviceId).maybeSingle(); if (error) throw error; return data; } });
-  const deviceOptions = useMemo<DeviceSearchOption[]>(() => devices.map((device, index) => {
+  const deviceOptions = useMemo<DeviceSearchOption[]>(() => (devices ?? []).map((device, index) => {
     const label = (nameColumn && (deviceData?.values ?? []).find((value) => value.device_id === device.id && value.column_id === nameColumn.id)?.value) || `기기 ${index + 1}`;
     const searchText = (deviceData?.values ?? []).filter((value) => value.device_id === device.id).map((value) => value.value).join(' ');
     const legacyValue = legacyUsageColumn ? (deviceData?.values ?? []).find((value) => value.device_id === device.id && value.column_id === legacyUsageColumn.id)?.value : '';
