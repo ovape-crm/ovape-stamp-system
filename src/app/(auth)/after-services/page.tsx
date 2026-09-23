@@ -87,7 +87,7 @@ const AfterServicesPage = () => {
     supplierId: string;
     defectiveHoldId?: string;
     costAllocations: Array<{
-      sourceReceiptLineId: string | null;
+      sourceCostLayerId: string;
       unitPrice: number;
       quantity: number;
     }>;
