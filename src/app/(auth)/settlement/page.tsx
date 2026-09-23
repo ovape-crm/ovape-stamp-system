@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Loading from "@/app/_components/Loading";
+import NotFoundView from "@/app/_components/NotFoundView";
 import { useUser } from "@/app/_contexts/UserContext";
 import SettlementReport from "../cash-management/_components/SettlementReport";
 import SettlementExpenseManager from "./_components/SettlementExpenseManager";
@@ -20,13 +21,25 @@ const settlementTabs: ReadonlyArray<readonly [SettlementTab, string]> = [
 
 export default function SettlementPage() {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, isLoading } = useUser();
   const [activeTab, setActiveTab] = useState<SettlementTab>("report");
+  useEffect(() => {
+    const tab = pathname?.split("/").pop();
+    const resolved = tab === "expenses" || tab === "cost-management" || tab === "comprehensive" || tab === "report" ? tab : "report";
+    if (pathname === "/settlement" || resolved !== tab) {
+      router.replace(`/settlement/${resolved}`);
+      return;
+    }
+    setActiveTab(resolved);
+  }, [pathname, router]);
   const [tabOrder, setTabOrder] = useState<SettlementTab[]>(() =>
     settlementTabs.map(([tab]) => tab),
   );
   const [editingTabOrder, setEditingTabOrder] = useState(false);
   const [hiddenTabs, setHiddenTabs] = useState<SettlementTab[]>([]);
+  const [hiddenAccessReady, setHiddenAccessReady] = useState(false);
+  const [hiddenRouteAccess, setHiddenRouteAccess] = useState(false);
 
   useEffect(() => {
     const defaultOrder = settlementTabs.map(([tab]) => tab);
@@ -50,14 +63,22 @@ export default function SettlementPage() {
   useEffect(() => {
     try {
       const saved = JSON.parse(window.localStorage.getItem("settlement-hidden-tabs") ?? "[]") as unknown;
-      if (Array.isArray(saved)) setHiddenTabs(saved.filter((tab): tab is SettlementTab => settlementTabs.some(([value]) => value === tab)));
+      if (Array.isArray(saved)) {
+        const validHidden = saved.filter((tab): tab is SettlementTab => settlementTabs.some(([value]) => value === tab));
+        setHiddenTabs(validHidden);
+        const routeTab = pathname?.split("/").filter(Boolean)[1] as SettlementTab | undefined;
+        setHiddenRouteAccess(Boolean(routeTab && validHidden.includes(routeTab)));
+      }
     } catch { window.localStorage.removeItem("settlement-hidden-tabs"); }
-  }, []);
+    setHiddenAccessReady(true);
+  }, [pathname]);
   const toggleTabVisibility = (tab: SettlementTab) => {
     setHiddenTabs((current) => {
       const next = current.includes(tab) ? current.filter((value) => value !== tab) : [...current, tab];
       window.localStorage.setItem("settlement-hidden-tabs", JSON.stringify(next));
-      if (tab === activeTab && !current.includes(tab)) setActiveTab(tabOrder.find((value) => value !== tab && !next.includes(value)) ?? "report");
+      if (tab === activeTab && !current.includes(tab)) {
+        router.replace(`/settlement/${tabOrder.find((value) => value !== tab && !next.includes(value)) ?? "report"}`);
+      }
       return next;
     });
   };
@@ -73,6 +94,7 @@ export default function SettlementPage() {
   };
 
   if (isLoading) return <Loading text="권한을 확인하는 중..." />;
+  if (hiddenAccessReady && hiddenRouteAccess) return <NotFoundView />;
   if (user?.oss_role !== "master") {
     return (
       <main className="mx-auto max-w-xl px-4 py-16 text-center">
@@ -121,7 +143,7 @@ export default function SettlementPage() {
                   type="button"
                   role="tab"
                   aria-selected={activeTab === tab}
-                  onClick={() => setActiveTab(tab)}
+                  onClick={() => router.push(`/settlement/${tab}`)}
                   className={`border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${activeTab === tab ? "border-brand-500 text-brand-700" : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"}`}
                 >
                   {label}

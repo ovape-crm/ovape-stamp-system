@@ -1069,7 +1069,7 @@ export default function StampLogForm({
           : isExchange
             ? `${exchangeLabel}${exchangeMemo.trim() ? `,${exchangeMemo.trim()}` : ""}`
             : remarkType === "service"
-              ? `서비스${customRemark.trim() ? `(${customRemark.trim()})` : ""}`
+              ? `서비스${customRemark.trim() ? `(${customRemark.trim().replace(/^\((.*)\)$/, "$1")})` : ""}`
               : remarkType === "custom"
                 ? customRemark.trim()
                 : remarkType === "price_adjust"
@@ -1089,7 +1089,7 @@ export default function StampLogForm({
       remarkType === "price_adjust"
         ? `${remark}, ${formatAmount(adjustedPrice)}원`
         : remarkType === "service"
-          ? `서비스${customRemark.trim() ? `,${customRemark.trim()}` : ""}`
+          ? `서비스${customRemark.trim() ? `,${customRemark.trim().replace(/^\((.*)\)$/, "$1")}` : ""}`
           : remark;
     const lineText = `${selectedItem.item_name} ${quantity}개${
       remarkText ? ` (${remarkText})` : ""

@@ -50,12 +50,12 @@ export const cancelCustomerRefund = async (refundId: string, reason: string) => 
 };
 
 export const processDefectiveInventoryHold = async (values: {
-  holdId: string; action: "after_service" | "supplier_return" | "scrap"; supplierId?: string; settlementType?: "supplier_credit" | "bank_refund"; settlementAmount?: number; note?: string;
+  holdId: string; action: "after_service" | "supplier_return" | "scrap" | "service"; supplierId?: string; serviceCustomerId?: string; settlementType?: "supplier_credit" | "bank_refund"; settlementAmount?: number; note?: string;
 }) => {
   const { data, error } = await supabase.rpc("process_defective_inventory_hold", {
     p_hold_id: values.holdId, p_action: values.action, p_supplier_id: values.supplierId ?? null,
     p_settlement_type: values.settlementType ?? null, p_settlement_amount: values.settlementAmount ?? null,
-    p_note: values.note?.trim() || null,
+    p_note: values.note?.trim() || null, p_service_customer_id: values.serviceCustomerId ?? null,
   });
   if (error) throw error;
   return data;

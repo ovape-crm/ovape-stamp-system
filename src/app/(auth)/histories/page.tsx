@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import StampHistories from './_components/StampHistories';
 import { LogCategoryEnum, LogCategoryEnumType } from '@/app/_enums/enums';
 import Button from '@/app/_components/Button';
@@ -9,18 +9,21 @@ import CustomerHistories from './_components/CustomerHistories';
 // import RemarkHistories from './_components/RemarkHistories';
 
 export default function HistoriesPage() {
-  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
   const [logType, setLogType] = useState<LogCategoryEnumType['value']>(
-    searchParams.get('tab') === 'reservation'
-      ? LogCategoryEnum.RESERVATION.value
-      : LogCategoryEnum.STAMP.value,
+    LogCategoryEnum.STAMP.value,
   );
 
   useEffect(() => {
-    if (searchParams.get('tab') === 'reservation') {
-      setLogType(LogCategoryEnum.RESERVATION.value);
+    const tab = pathname?.split('/').pop();
+    if (pathname === '/histories' || !['integrated', 'reservations', 'customers'].includes(tab ?? '')) {
+      router.replace('/histories/integrated');
+      return;
     }
-  }, [searchParams]);
+    setLogType(tab === 'reservations' ? LogCategoryEnum.RESERVATION.value : tab === 'customers' ? LogCategoryEnum.CUSTOMER.value : LogCategoryEnum.STAMP.value);
+  }, [pathname, router]);
+  const selectTab = (next: LogCategoryEnumType['value']) => router.push(next === LogCategoryEnum.RESERVATION.value ? '/histories/reservations' : next === LogCategoryEnum.CUSTOMER.value ? '/histories/customers' : '/histories/integrated');
 
   return (
     <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10 mb-10">
@@ -28,7 +31,7 @@ export default function HistoriesPage() {
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between mb-4 pb-3 border-b border-brand-100">
           <div className="flex gap-1 sm:gap-3">
             <Button
-              onClick={() => setLogType(LogCategoryEnum.STAMP.value)}
+              onClick={() => selectTab(LogCategoryEnum.STAMP.value)}
               variant={
                 logType === LogCategoryEnum.STAMP.value
                   ? 'primary'
@@ -38,7 +41,7 @@ export default function HistoriesPage() {
               통합 이력
             </Button>
             <Button
-              onClick={() => setLogType(LogCategoryEnum.RESERVATION.value)}
+              onClick={() => selectTab(LogCategoryEnum.RESERVATION.value)}
               variant={
                 logType === LogCategoryEnum.RESERVATION.value
                   ? 'primary'
@@ -48,7 +51,7 @@ export default function HistoriesPage() {
               예약 이력
             </Button>
             <Button
-              onClick={() => setLogType(LogCategoryEnum.CUSTOMER.value)}
+              onClick={() => selectTab(LogCategoryEnum.CUSTOMER.value)}
               variant={
                 logType === LogCategoryEnum.CUSTOMER.value
                   ? 'primary'
