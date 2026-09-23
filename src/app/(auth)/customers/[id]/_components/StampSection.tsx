@@ -423,7 +423,7 @@ const StampSection = ({
               <Button
                 size="sm"
                 variant="tertiary"
-                className="flex-1"
+                className="min-h-12 flex-[1.45] text-base"
                 onClick={() =>
                   open({
                     content: (
