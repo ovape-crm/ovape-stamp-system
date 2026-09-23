@@ -49,7 +49,7 @@ export default function ZoomableImage({ src, alt, className, zoomClassName, styl
   return (
     <div
       className={`max-w-full overflow-hidden ${isZoomed ? "cursor-grab" : "cursor-zoom-in"}`}
-      style={isZoomed && baseSize.height ? { height: `${baseSize.height}px`, touchAction: "none" } : { touchAction: "none" }}
+      style={isZoomed && baseSize.height ? { height: `${baseSize.height}px`, touchAction: "none" } : { touchAction: "pan-y" }}
       onWheel={(event) => { event.preventDefault(); captureBaseSize(); updateZoom(zoomRef.current + (event.deltaY < 0 ? 0.1 : -0.1), event.clientX, event.clientY); }}
       onPointerDown={(event) => {
         captureBaseSize();
