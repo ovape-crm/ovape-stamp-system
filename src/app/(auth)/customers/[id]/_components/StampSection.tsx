@@ -414,7 +414,7 @@ const StampSection = ({
             <div className="flex gap-2">
               <Button
                 size="sm"
-                className="flex-1"
+                className="min-h-12 flex-1 text-base"
                 onClick={openOutboundModal}
                 disabled={isLoading}
               >
@@ -423,7 +423,7 @@ const StampSection = ({
               <Button
                 size="sm"
                 variant="tertiary"
-                className="min-h-12 flex-[1.45] text-base"
+                className="min-h-12 flex-1 text-base"
                 onClick={() =>
                   open({
                     content: (
@@ -464,7 +464,7 @@ const StampSection = ({
               <Button
                 size="sm"
                 variant="secondary"
-                className="flex-1"
+                className="min-h-12 flex-1 text-base"
                 onClick={onAddRemark}
                 disabled={isLoading}
               >

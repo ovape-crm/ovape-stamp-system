@@ -281,6 +281,7 @@ export default function CashManagementPage() {
     outboundTypeSummary: [],
     inboundSummary: [],
     deliverySummary: [],
+    transferDetails: [],
     total: 0,
   };
   const workJournals = dayQuery.data?.workJournals ?? [];

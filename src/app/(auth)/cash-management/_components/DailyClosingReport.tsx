@@ -12,7 +12,9 @@ import {
   getDailyClosingChecklistItems,
   getDailyOpeningChecklistProgress,
   getDailyClosingReport,
+  getDailyClosingTransferVerification,
   saveDailyOpeningChecklistProgress,
+  saveDailyClosingTransferVerification,
 } from "@/app/_domains/_dailyClosing/_services/dailyClosingService";
 import { cashManagementKeys } from "@/app/_domains/_cashManagement/_queryKeys/cashManagementKeys";
 import type { DailyPaymentSales } from "@/app/_domains/_cashManagement/_types/cashManagement.types";
@@ -122,6 +124,8 @@ const formatReportDate = (date: string) => {
 const PHOTO_SAVE_ENABLED = false;
 const getChecklistDraftKey = (businessDate: string) =>
   `daily-closing-checklist-draft:${businessDate}`;
+const getTransferVerificationDraftKey = (businessDate: string) =>
+  `daily-closing-transfer-verification:${businessDate}`;
 
 export default function DailyClosingReport({
   businessDate,
@@ -142,7 +146,7 @@ export default function DailyClosingReport({
   showDatePicker?: boolean;
   onDateChange?: (date: string) => void;
 }) {
-  const { isAdmin } = useUser();
+  const { isAdmin, user } = useUser();
   const captureRef = useRef<HTMLDivElement>(null);
   const { open, close } = useModal();
   const queryClient = useQueryClient();
@@ -155,11 +159,18 @@ export default function DailyClosingReport({
   const [checksDraftDate, setChecksDraftDate] = useState("");
   const [cleaningNote, setCleaningNote] = useState("");
   const [specialNote, setSpecialNote] = useState("");
+  const [checkedTransfers, setCheckedTransfers] = useState<Record<string, boolean>>({});
+  const [savedTransfers, setSavedTransfers] = useState<Record<string, boolean>>({});
+  const [isViewingSavedTransfers, setIsViewingSavedTransfers] = useState(false);
   const usesSeparatedOutboundSummary = businessDate >= "2026-07-31";
 
   const reportQuery = useQuery({
     queryKey: ["daily-closing-report", businessDate],
     queryFn: () => getDailyClosingReport(businessDate),
+  });
+  const transferVerificationQuery = useQuery({
+    queryKey: ["daily-closing-transfer-verification", businessDate],
+    queryFn: () => getDailyClosingTransferVerification(businessDate),
   });
   const checklistQuery = useQuery({
     queryKey: ["daily-closing-checklist-items"],
@@ -237,6 +248,23 @@ export default function DailyClosingReport({
   }, [businessDate]);
 
   useEffect(() => {
+    const savedDraft = window.sessionStorage.getItem(
+      getTransferVerificationDraftKey(businessDate),
+    );
+    if (!savedDraft) {
+      setSavedTransfers({});
+      return;
+    }
+    try {
+      const parsed = JSON.parse(savedDraft) as Record<string, boolean>;
+      setCheckedTransfers(parsed);
+    } catch {
+      window.sessionStorage.removeItem(getTransferVerificationDraftKey(businessDate));
+      setSavedTransfers({});
+    }
+  }, [businessDate]);
+
+  useEffect(() => {
     if (checksDraftDate !== businessDate || reportQuery.data) return;
     window.sessionStorage.setItem(
       getChecklistDraftKey(businessDate),
@@ -266,6 +294,37 @@ export default function DailyClosingReport({
   }, [reportQuery.data]);
 
   useEffect(() => {
+    const savedEntryIds = reportQuery.data?.report_snapshot?.transferVerification
+      ?.flatMap((store) => store.entryIds) ?? [];
+    if (!savedEntryIds.length) return;
+    const saved = Object.fromEntries(savedEntryIds.map((id) => [id, true]));
+    setSavedTransfers(saved);
+    setCheckedTransfers(saved);
+  }, [reportQuery.data]);
+
+  useEffect(() => {
+    const savedEntries = transferVerificationQuery.data?.entries;
+    if (!savedEntries?.length) return;
+    const saved = Object.fromEntries(
+      paymentSales.transferDetails
+        .filter((entry) =>
+          savedEntries.some(
+            (savedEntry) =>
+              savedEntry.logId === entry.logId &&
+              savedEntry.paymentIndex === entry.paymentIndex &&
+              savedEntry.paymentType === entry.paymentType &&
+              savedEntry.store === entry.store &&
+              savedEntry.payerName === entry.payerName &&
+              savedEntry.amount === entry.amount,
+          ),
+        )
+        .map((entry) => [entry.id, true]),
+    );
+    setSavedTransfers(saved);
+    setCheckedTransfers(saved);
+  }, [paymentSales.transferDetails, transferVerificationQuery.data]);
+
+  useEffect(() => {
     if (reportQuery.data || !openingProgressQuery.data) return;
     setOpeningChecks(openingProgressQuery.data);
   }, [openingProgressQuery.data, reportQuery.data]);
@@ -278,6 +337,51 @@ export default function DailyClosingReport({
       (item.phase === "opening" ? openingChecks : closingChecks)[item.id],
   );
   const difference = actualCash - expectedCash;
+  const transferStores = (["ovape", "eguVape"] as const).map((store) => ({
+    store,
+    label: store === "ovape" ? "오베이프" : "이구베이프",
+    entries: paymentSales.transferDetails.filter((entry) => entry.store === store),
+  }));
+  const allTransfersChecked = transferStores.every(({ entries }) => entries.every((entry) => checkedTransfers[entry.id]));
+  const hasTransferEntries = transferStores.some(({ entries }) => entries.length > 0);
+  const isTransferVerificationSaved =
+    !hasTransferEntries ||
+    transferStores.every(({ entries }) =>
+      entries.every((entry) => savedTransfers[entry.id]),
+    );
+  const toggleTransfer = (id: string) => setCheckedTransfers((current) => ({ ...current, [id]: !current[id] }));
+  const saveTransferVerification = async () => {
+    if (!allTransfersChecked) return;
+    const entries = transferStores.flatMap(({ entries }) => entries).map(
+      ({ logId, paymentIndex, paymentType, store, payerName, amount }) => ({
+        logId,
+        paymentIndex,
+        paymentType,
+        store,
+        payerName,
+        amount,
+      }),
+    );
+    try {
+      await saveDailyClosingTransferVerification({ businessDate, entries });
+      const next = Object.fromEntries(
+        transferStores.flatMap(({ entries: storeEntries }) =>
+          storeEntries.map((entry) => [entry.id, true]),
+        ),
+      );
+      setSavedTransfers(next);
+      window.sessionStorage.setItem(getTransferVerificationDraftKey(businessDate), JSON.stringify(next));
+      setIsViewingSavedTransfers(false);
+      await transferVerificationQuery.refetch();
+      toast.success("이체 내역 확인을 저장했습니다.");
+    } catch (error) {
+      toast.error(
+        error instanceof Error && error.message.includes("TRANSFER_VERIFICATION_STALE")
+          ? "이체 내역이 변경되었습니다. 목록을 다시 확인해 주세요."
+          : "이체 내역 확인 저장에 실패했습니다.",
+      );
+    }
+  };
   const isClosed = Boolean(reportQuery.data);
   const createReportImage = async () => {
     if (!captureRef.current) throw new Error("CAPTURE_TARGET_NOT_FOUND");
@@ -318,6 +422,7 @@ export default function DailyClosingReport({
       if (difference !== 0) {
         throw new Error("CASH_BALANCE_MISMATCH");
       }
+      if (!isTransferVerificationSaved) throw new Error("TRANSFER_CHECK_REQUIRED");
       return completeDailyClosingReport({
         businessDate,
         openingChecklist: openingChecks,
@@ -371,6 +476,18 @@ export default function DailyClosingReport({
           })),
           cleaningNote: cleaningNote.trim(),
           specialNote: specialNote.trim(),
+          transferVerification: transferStores.map(({ store, entries }) => ({
+            store,
+            entryIds: entries.filter((entry) => savedTransfers[entry.id]).map((entry) => entry.id),
+            total: entries.reduce((sum, entry) => sum + entry.amount, 0),
+          })),
+          transferVerificationDetail: {
+            entries: transferStores.flatMap(({ entries }) => entries)
+              .filter((entry) => savedTransfers[entry.id])
+              .map(({ logId, paymentIndex, paymentType, store, payerName, amount }) => ({ logId, paymentIndex, paymentType, store, payerName, amount })),
+            verifiedAt: transferVerificationQuery.data?.verifiedAt ?? new Date().toISOString(),
+            verifiedByName: transferVerificationQuery.data?.verifiedByName ?? user?.name ?? "직원",
+          },
           capturedAt: new Date().toISOString(),
         },
       });
@@ -414,6 +531,12 @@ export default function DailyClosingReport({
       }
       if (message.includes("CASH_BALANCE_MISMATCH")) {
         toast.error("시재 현황이 일치해야 마감할 수 있습니다.");
+        return;
+      }
+      if (message.includes("TRANSFER_VERIFICATION_REQUIRED") || message.includes("TRANSFER_VERIFICATION_STALE")) {
+        toast.error("이체 내역이 변경되었거나 저장되지 않았습니다. 이체 내역을 다시 확인해 저장해 주세요.");
+        void transferVerificationQuery.refetch();
+        queryClient.invalidateQueries({ queryKey: cashManagementKeys.day(businessDate) });
         return;
       }
       if (message.includes("WORK_JOURNAL_NOT_FOUND")) {
@@ -643,23 +766,10 @@ export default function DailyClosingReport({
           </div>
         </section>
         <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[170px_170px_140px_minmax(0,1fr)]">
-            <SalesBreakdownCard
-              title="오베이프 매출"
-              items={paymentSales.ovapeBreakdown}
-              rowCount={Math.max(
-                paymentSales.ovapeBreakdown.length,
-                paymentSales.eguVapeBreakdown.length,
-              )}
-            />
-            <SalesBreakdownCard
-              title="이구베이프 매출"
-              items={paymentSales.eguVapeBreakdown}
-              rowCount={Math.max(
-                paymentSales.ovapeBreakdown.length,
-                paymentSales.eguVapeBreakdown.length,
-              )}
-            />
+          {(!isTransferVerificationSaved || isViewingSavedTransfers) && <TransferVerificationCards stores={transferStores} checkedTransfers={checkedTransfers} onToggle={toggleTransfer} disabled={isClosed || isTransferVerificationSaved} onSave={saveTransferVerification} canSave={allTransfersChecked} onClose={isTransferVerificationSaved ? () => setIsViewingSavedTransfers(false) : undefined} />}
+          <div className={`${isTransferVerificationSaved && !isViewingSavedTransfers ? "grid" : "hidden"} gap-3 md:grid-cols-2 xl:grid-cols-[170px_170px_140px_minmax(0,1fr)]`}>
+            <SalesBreakdownCard title="오베이프 매출" items={paymentSales.ovapeBreakdown} rowCount={Math.max(paymentSales.ovapeBreakdown.length, paymentSales.eguVapeBreakdown.length)} transferVerified={transferStores[0].entries.length > 0 && transferStores[0].entries.every((entry) => savedTransfers[entry.id])} onTransferVerifiedClick={() => setIsViewingSavedTransfers(true)} />
+            <SalesBreakdownCard title="이구베이프 매출" items={paymentSales.eguVapeBreakdown} rowCount={Math.max(paymentSales.ovapeBreakdown.length, paymentSales.eguVapeBreakdown.length)} transferVerified={transferStores[1].entries.length > 0 && transferStores[1].entries.every((entry) => savedTransfers[entry.id])} onTransferVerifiedClick={() => setIsViewingSavedTransfers(true)} />
             <div className="flex min-h-36 flex-col overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
               <div className="flex min-h-0 flex-1 flex-col p-4">
                 <h2 className="border-b border-gray-200 pb-2 text-sm font-bold text-gray-800">
@@ -887,7 +997,8 @@ export default function DailyClosingReport({
             closeMutation.isPending ||
             !hasCashClosing ||
             !allRequiredChecked ||
-            difference !== 0
+            difference !== 0 ||
+            !allTransfersChecked
           }
         >
           {isClosed
@@ -907,6 +1018,48 @@ export default function DailyClosingReport({
           시재 현황이 일치해야 종합보고서를 마감할 수 있습니다.
         </p>
       )}
+      {hasCashClosing && !allTransfersChecked && !isClosed && (
+        <p className="text-right text-xs font-medium text-rose-600">모든 이체 내역을 확인해야 마감할 수 있습니다.</p>
+      )}
+    </div>
+  );
+}
+
+function TransferVerificationCards({
+  stores,
+  checkedTransfers,
+  onToggle,
+  disabled,
+  onSave,
+  canSave,
+  onClose,
+}: {
+  stores: Array<{ store: "ovape" | "eguVape"; label: string; entries: DailyPaymentSales["transferDetails"] }>;
+  checkedTransfers: Record<string, boolean>;
+  onToggle: (id: string) => void;
+  disabled: boolean;
+  onSave: () => void | Promise<void>;
+  canSave: boolean;
+  onClose?: () => void;
+}) {
+  return (
+    <div className="w-full rounded-xl border border-gray-200 bg-gray-50 p-4">
+      <div className="flex items-center justify-between gap-3"><h2 className="text-base font-bold text-gray-900">개별 이체 내역 확인</h2>{onClose && <button type="button" onClick={onClose} className="flex h-7 w-7 items-center justify-center rounded-md text-lg leading-none text-gray-500 hover:bg-gray-200 hover:text-gray-900" aria-label="개별 이체 내역 확인 닫기">×</button>}</div>
+      <p className="mt-1 text-sm text-gray-600">네모구역을 클릭하여 개별 이체 내역을 체크해주세요.</p>
+      <div className="mt-3 grid gap-3 md:grid-cols-2">
+        {stores.map(({ store, label, entries }) => {
+          const checkedCount = entries.filter((entry) => checkedTransfers[entry.id]).length;
+          const total = entries.reduce((sum, entry) => sum + entry.amount, 0);
+          return <div key={store} className="rounded-xl border border-gray-200 bg-white p-3">
+            <div className="flex items-center justify-between border-b border-gray-200 pb-2"><h2 className="text-sm font-bold text-gray-800">{label} 이체</h2><span className="text-xs text-gray-500">{checkedCount}/{entries.length}건 확인</span></div>
+            <div className="mt-2 space-y-2">
+              {entries.length ? entries.map((entry) => <button key={entry.id} type="button" onClick={() => onToggle(entry.id)} disabled={disabled} className={`grid w-full grid-cols-[auto_minmax(0,1fr)_120px] items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm ${checkedTransfers[entry.id] ? "border-emerald-200 bg-emerald-50" : "border-gray-200 bg-white"} ${disabled ? "cursor-not-allowed opacity-70" : "cursor-pointer hover:border-brand-300"}`}><span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs font-bold ${checkedTransfers[entry.id] ? "border-emerald-600 bg-emerald-600 text-white" : "border-gray-300 text-transparent"}`}>✓</span><span className="min-w-0 truncate text-gray-700">{entry.payerName}</span><strong className="whitespace-nowrap text-right text-gray-900">{formatWon(entry.amount)}</strong></button>) : <p className="py-2 text-xs text-gray-400">확인할 이체 내역이 없습니다.</p>}
+            </div>
+            <div className="mt-3 grid grid-cols-[minmax(0,1fr)_120px] border-t border-gray-200 pt-2 text-sm font-bold"><span>합계</span><span className="text-right text-brand-700">{formatWon(total)}</span></div>
+          </div>;
+        })}
+      </div>
+      {!onClose && <div className="mt-4 flex justify-end"><Button type="button" size="sm" onClick={onSave} disabled={!canSave}>저장</Button></div>}
     </div>
   );
 }
@@ -988,10 +1141,14 @@ function SalesBreakdownCard({
   title,
   items,
   rowCount,
+  transferVerified,
+  onTransferVerifiedClick,
 }: {
   title: string;
   items: DailyPaymentSales["breakdown"];
   rowCount: number;
+  transferVerified: boolean;
+  onTransferVerifiedClick: () => void;
 }) {
   const total = items.reduce((sum, item) => sum + item.amount, 0);
   return (
@@ -1008,7 +1165,7 @@ function SalesBreakdownCard({
                 key={item.paymentType}
                 className="flex items-center justify-between gap-2 border-b border-gray-200 pb-1.5 text-sm last:border-b-0"
               >
-                <span className="text-gray-600">{item.label}</span>
+                <span className="flex items-center gap-1.5 text-gray-600">{item.label}{item.label === "이체" && transferVerified && <button type="button" onClick={onTransferVerifiedClick} className="font-bold text-rose-500 hover:text-rose-700" aria-label="저장된 개별 이체 내역 확인">✓</button>}</span>
                 <strong className="whitespace-nowrap text-gray-900">
                   {formatWon(item.amount)}
                 </strong>

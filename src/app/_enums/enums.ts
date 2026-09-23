@@ -65,6 +65,10 @@ export const PaymentTypeEnum = {
     value: 'egu_cash_receipt',
     name: '현금영수증',
   },
+  EGU_TRANSFER_CASH_RECEIPT: {
+    value: 'egu_transfer_cash_receipt',
+    name: '이체현금영수증',
+  },
 } as const;
 
 export type PaymentTypeEnumType =

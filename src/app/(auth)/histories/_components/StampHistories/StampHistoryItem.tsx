@@ -128,7 +128,7 @@ const StampHistoryItem = ({
       쿠폰 사용
     </span>
   ) : isStampAdjustment ? (
-    <span className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-gray-100 px-2 py-1 text-center text-xs font-medium text-gray-600">
+    <span className="flex h-7 w-full items-center justify-center whitespace-nowrap rounded-full bg-gray-100 px-2 text-center text-xs font-medium text-gray-600">
       스탬프 조정
     </span>
   ) : null;

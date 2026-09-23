@@ -13,7 +13,7 @@ const CHUNK_SIZE = 200;
 const PAYMENT_TYPE_BY_LABEL: Record<string, string> = {
   카드: "card", 이체: "transfer", 현금: "cash", 현금영수증: "cash_receipt",
   이체현금영수증: "transfer_cash_receipt", 카카오톡: "kakaotalk",
-  이구베이프카드: "egu_card", 이구베이프이체: "egu_transfer",
+  이구베이프카드: "egu_card", 이구베이프이체: "egu_transfer", 이구베이프이체현금영수증: "egu_transfer_cash_receipt",
 };
 
 const CLASSIFICATION_BY_LABEL: Record<string, string> = {

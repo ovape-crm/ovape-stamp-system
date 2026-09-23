@@ -23,7 +23,6 @@ import { afterServiceKeys } from "@/app/_domains/_afterService/_queryKeys/afterS
 import { addStamp } from "@/app/_domains/_stamp/_services/stampService";
 import { logKeys } from "@/app/_domains/_log/_queryKeys/logKeys";
 import { searchItemOptions } from "@/app/_domains/_item/_services/itemService";
-import { getStoreProductAfterServiceAccountId } from "@/app/_domains/_customer/_services/customerService";
 
 const getReceivedValue = (note: string | undefined, label: string) =>
   note
@@ -145,14 +144,13 @@ const AfterServicesPage = () => {
         throw new Error('품목 관리에서 "A/S 비용" 품목을 찾을 수 없습니다.');
       }
 
-      const specialAccountId =
-        values.caseType === "vendor_exchange"
-          ? await getStoreProductAfterServiceAccountId()
-          : null;
       const createdAfterService = await createAfterService({
         customerId:
-          specialAccountId ??
-          (values.customerId.length > 0 ? String(values.customerId) : null),
+          values.caseType === "vendor_exchange"
+            ? null
+            : values.customerId.length > 0
+              ? String(values.customerId)
+              : null,
         itemType: values.itemType,
         itemName: values.itemName,
         quantity: values.quantity,

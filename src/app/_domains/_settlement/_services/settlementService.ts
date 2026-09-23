@@ -62,6 +62,7 @@ const fetchPaged = async <T>(
 };
 
 type PurchaseOrderSummary = {
+  id: string;
   ordered_on: string;
   status: string;
   note: string | null;
@@ -70,12 +71,7 @@ type PurchaseOrderSummary = {
     { name: string | null } | { name: string | null }[] | null;
   inventory_purchase_order_adjustments:
     { kind: "discount" | "payment"; amount: number | null }[] | null;
-  inventory_purchase_order_lines:
-    {
-      ordered_quantity: number | null;
-      unit_price: number | null;
-      inbound_type?: string | null;
-    }[] | null;
+  inventory_purchase_receipts: PurchaseReceiptForCostReplay[] | null;
 };
 
 type PurchaseSourceLine = {
@@ -96,6 +92,16 @@ type PurchaseReceiptForCostReplay = {
   reversed_at: string | null;
   inventory_purchase_receipt_lines: PurchaseReceiptLineSummary[] | null;
 };
+
+const getPurchaseReceiptGross = (
+  lines: PurchaseReceiptLineSummary[] | null | undefined,
+  unitPrices: Record<string, number | null>,
+) =>
+  (lines ?? []).reduce((total, line) => {
+    const sourceLine = getOne(line.inventory_purchase_order_lines);
+    if (sourceLine?.inbound_type === "as_exchange_in") return total;
+    return total + Number(line.quantity ?? 0) * Number(unitPrices[line.id] ?? 0);
+  }, 0);
 
 type SettlementSaleLog = {
   id: number;
@@ -212,10 +218,16 @@ export const getSettlementSummary = async (
           const { data, error } = await supabase
             .from("inventory_purchase_orders")
             .select(
-              `ordered_on, status, note, entered_total_amount,
+              `id, ordered_on, status, note, entered_total_amount,
               inventory_suppliers(name),
               inventory_purchase_order_adjustments(kind, amount),
-              inventory_purchase_order_lines(ordered_quantity, unit_price, inbound_type)`,
+              inventory_purchase_receipts(
+                id, arrived_on, created_at, reversed_at,
+                inventory_purchase_receipt_lines(
+                  id, item_name, quantity,
+                  inventory_purchase_order_lines(inbound_type, handling_type)
+                )
+              )`,
             )
             .gte("ordered_on", livePurchaseStart)
             .lte("ordered_on", endDate)
@@ -351,14 +363,20 @@ export const getSettlementSummary = async (
     purchases[label] = (purchases[label] ?? 0) + amount;
   };
   for (const order of orders) {
-    const orderedProductAmount = (order.inventory_purchase_order_lines ?? [])
-      .filter((line) => line.inbound_type !== "as_exchange_in")
-      .reduce(
-        (total, line) =>
-          total +
-          Number(line.ordered_quantity ?? 0) * Number(line.unit_price ?? 0),
-        0,
-      );
+    const activeOrderReceipts = (order.inventory_purchase_receipts ?? [])
+      .filter((receipt) => !receipt.reversed_at)
+      .map((receipt) => ({
+        id: receipt.id,
+        gross: getPurchaseReceiptGross(
+          receipt.inventory_purchase_receipt_lines,
+          receiptUnitPrices,
+        ),
+      }))
+      .filter((receipt) => receipt.gross > 0);
+    const orderedProductAmount = activeOrderReceipts.reduce(
+      (total, receipt) => total + receipt.gross,
+      0,
+    );
     if (orderedProductAmount <= 0 && order.entered_total_amount == null) continue;
     const netAdjustment = (
       order.inventory_purchase_order_adjustments ?? []
@@ -369,7 +387,8 @@ export const getSettlementSummary = async (
           Number(adjustment.amount ?? 0),
       0,
     );
-    const amount = order.entered_total_amount ?? orderedProductAmount + netAdjustment;
+    const amount =
+      order.entered_total_amount ?? orderedProductAmount + netAdjustment;
     const marker =
       String(order.note ?? "")
         .match(PURCHASE_NOTE_MARKER)?.[1]

@@ -99,6 +99,47 @@ export const cancelDailyClosingReport = async (
   if (error) throw error;
 };
 
+export type DailyClosingTransferVerification = {
+  entries: Array<{
+    logId: string;
+    paymentIndex: number;
+    paymentType: string;
+    store: "ovape" | "eguVape";
+    payerName: string;
+    amount: number;
+  }>;
+  verifiedByName: string;
+  verifiedAt: string;
+};
+
+export const getDailyClosingTransferVerification = async (
+  businessDate: string,
+): Promise<DailyClosingTransferVerification | null> => {
+  const { data, error } = await supabase.rpc(
+    "get_daily_closing_transfer_verification",
+    { p_business_date: businessDate },
+  );
+  if (error) throw error;
+  const row = (data ?? [])[0];
+  if (!row) return null;
+  return {
+    entries: Array.isArray(row.entries) ? row.entries : [],
+    verifiedByName: String(row.verified_by_name ?? "직원"),
+    verifiedAt: String(row.verified_at ?? ""),
+  };
+};
+
+export const saveDailyClosingTransferVerification = async (values: {
+  businessDate: string;
+  entries: DailyClosingTransferVerification["entries"];
+}) => {
+  const { error } = await supabase.rpc(
+    "save_daily_closing_transfer_verification",
+    { p_business_date: values.businessDate, p_entries: values.entries },
+  );
+  if (error) throw error;
+};
+
 export const getDailyClosingChecklistItems = async (): Promise<
   DailyClosingChecklistItem[]
 > => {
