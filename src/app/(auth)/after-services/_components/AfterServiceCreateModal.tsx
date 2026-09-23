@@ -753,49 +753,53 @@ export default function AfterServiceCreateModal({
                   {formData.symptom}
                 </p>
               </div>
-              <div>
-                <span className="text-sm font-medium text-gray-600">
-                  재고처리 여부:
-                </span>
-                <p className="text-base font-semibold text-gray-900">
-                  {formData.isLoanerDeviceIssued ? "예" : "아니오"}
-                </p>
-              </div>
-              <div>
-                <span className="text-sm font-medium text-gray-600">
-                  대여 여부:
-                </span>
-                <p className="text-base font-semibold text-gray-900">
-                  {formData.isRentalIssued ? "예" : "아니오"}
-                </p>
-              </div>
-              {formData.isRentalIssued && (
-                <div>
-                  <span className="text-sm font-medium text-gray-600">
-                    대여일:
-                  </span>
-                  <p className="text-base font-semibold text-gray-900">
-                    {formatReceivedNoteDate(formData.rentalDate ?? "")}
-                  </p>
-                </div>
-              )}
-              <div>
-                <span className="text-sm font-medium text-gray-600">
-                  A/S 교환출고:
-                </span>
-                <p className="text-base font-semibold text-gray-900">
-                  {formData.isExchangeIssued ? "예" : "아니오"}
-                </p>
-              </div>
-              {formData.isExchangeIssued && (
-                <div>
-                  <span className="text-sm font-medium text-gray-600">
-                    교환일:
-                  </span>
-                  <p className="text-base font-semibold text-gray-900">
-                    {formatReceivedNoteDate(formData.exchangeDate ?? "")}
-                  </p>
-                </div>
+              {formData.caseType === "customer_as" && (
+                <>
+                  <div>
+                    <span className="text-sm font-medium text-gray-600">
+                      재고처리 여부:
+                    </span>
+                    <p className="text-base font-semibold text-gray-900">
+                      {formData.isLoanerDeviceIssued ? "예" : "아니오"}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-gray-600">
+                      대여 여부:
+                    </span>
+                    <p className="text-base font-semibold text-gray-900">
+                      {formData.isRentalIssued ? "예" : "아니오"}
+                    </p>
+                  </div>
+                  {formData.isRentalIssued && (
+                    <div>
+                      <span className="text-sm font-medium text-gray-600">
+                        대여일:
+                      </span>
+                      <p className="text-base font-semibold text-gray-900">
+                        {formatReceivedNoteDate(formData.rentalDate ?? "")}
+                      </p>
+                    </div>
+                  )}
+                  <div>
+                    <span className="text-sm font-medium text-gray-600">
+                      A/S 교환출고:
+                    </span>
+                    <p className="text-base font-semibold text-gray-900">
+                      {formData.isExchangeIssued ? "예" : "아니오"}
+                    </p>
+                  </div>
+                  {formData.isExchangeIssued && (
+                    <div>
+                      <span className="text-sm font-medium text-gray-600">
+                        교환일:
+                      </span>
+                      <p className="text-base font-semibold text-gray-900">
+                        {formatReceivedNoteDate(formData.exchangeDate ?? "")}
+                      </p>
+                    </div>
+                  )}
+                </>
               )}
               {formData.customerNote && (
                 <div>
