@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCustomer } from "@/app/_domains/_customer/_hooks/useCustomer";
 import { useLogsByCustomerId } from "@/app/_domains/_log/_hooks/useLogsByCustomerId";
@@ -17,7 +17,7 @@ import {
 } from "@/app/_domains/_customer/_services/customerService";
 import Button from "@/app/_components/Button";
 import { useUser } from "@/app/_contexts/UserContext";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { LogCategoryEnum, LogCategoryEnumType } from "@/app/_enums/enums";
 import CustomersDetailStampsHistories from "./_components/CustomersDetailStampsHistories";
 import CustomersDetailUpdateHistories from "./_components/CustomersDetailUpdateHistories";
@@ -47,12 +47,16 @@ const PAGE_SIZE = 10;
 export default function CustomerDetailPage() {
   const { isAdmin, user } = useUser();
   const params = useParams();
+  const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
   const customerId = params.id as string;
   const { open, close } = useModal();
   const queryClient = useQueryClient();
   const { customer, isLoading, error } = useCustomer(customerId);
+  const isSpecialCustomer = customer
+    ? checkSpecialCustomer(customer.name, customer.phone, customer.is_stamp_eligible ?? true)
+    : false;
   const [isFollowUpAlertOpen, setIsFollowUpAlertOpen] = useState(true);
   const [followUpDecision, setFollowUpDecision] = useState<'later' | 'now' | null>(null);
   const followUpQuery = useQuery({
@@ -64,6 +68,29 @@ export default function CustomerDetailPage() {
   const [logCategory, setLogCategory] = useState<LogCategoryEnumType["value"]>(
     LogCategoryEnum.STAMP.value,
   );
+  const [historySearch, setHistorySearch] = useState("");
+  useEffect(() => {
+    const current = pathname?.split("/").pop();
+    const allowed = isSpecialCustomer
+      ? ["integrated"]
+      : ["integrated", "reservations", "customers"];
+    if (!pathname?.includes("/history/")) return;
+    if (!current || !allowed.includes(current)) {
+      router.replace(`/customers/${customerId}/history/integrated`);
+      return;
+    }
+    setLogCategory(
+      current === "reservations"
+        ? LogCategoryEnum.RESERVATION.value
+        : current === "customers"
+          ? LogCategoryEnum.CUSTOMER.value
+          : LogCategoryEnum.STAMP.value,
+    );
+  }, [customerId, isSpecialCustomer, pathname, router]);
+  const selectHistoryTab = (next: LogCategoryEnumType["value"]) => {
+    const route = next === LogCategoryEnum.RESERVATION.value ? "reservations" : next === LogCategoryEnum.CUSTOMER.value ? "customers" : "integrated";
+    router.push(`/customers/${customerId}/history/${route}`);
+  };
 
   const {
     logs,
@@ -225,11 +252,25 @@ export default function CustomerDetailPage() {
   const stampCount = isXCustomer(customer.name, customer.phone)
     ? 0
     : customer.stamps?.[0]?.count || 0;
-  const isSpecialCustomer = checkSpecialCustomer(
-    customer.name,
-    customer.phone,
-    customer.is_stamp_eligible ?? true,
-  );
+  const normalizedHistorySearch = historySearch
+    .normalize("NFC")
+    .trim()
+    .toLocaleLowerCase("ko-KR");
+  const filteredLogs = normalizedHistorySearch
+    ? logs.filter((log) =>
+        [
+          log.action,
+          log.note,
+          log.users?.name,
+          JSON.stringify(log.jsonb ?? {}),
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .normalize("NFC")
+          .toLocaleLowerCase("ko-KR")
+          .includes(normalizedHistorySearch),
+      )
+    : logs;
   if (
     (customer.name.trim() === "재고조정" && user?.oss_role !== "master") ||
     (customer.name.trim() === "매장제품 A/S" &&
@@ -361,7 +402,7 @@ export default function CustomerDetailPage() {
                   : "secondary"
               }
               size="sm"
-              onClick={() => setLogCategory(LogCategoryEnum.STAMP.value)}
+              onClick={() => selectHistoryTab(LogCategoryEnum.STAMP.value)}
             >
               통합 이력
             </Button>
@@ -373,9 +414,7 @@ export default function CustomerDetailPage() {
                     : "secondary"
                 }
                 size="sm"
-                onClick={() =>
-                  setLogCategory(LogCategoryEnum.RESERVATION.value)
-                }
+                onClick={() => selectHistoryTab(LogCategoryEnum.RESERVATION.value)}
               >
                 예약 이력
               </Button>
@@ -395,11 +434,42 @@ export default function CustomerDetailPage() {
                     : "secondary"
                 }
                 size="sm"
-                onClick={() => setLogCategory(LogCategoryEnum.CUSTOMER.value)}
+                onClick={() => selectHistoryTab(LogCategoryEnum.CUSTOMER.value)}
               >
                 고객 이력
               </Button>
             )}
+          </div>
+          <div className="mb-3">
+            <div className="relative">
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+              >
+                <path strokeLinecap="round" d="m21 21-4.35-4.35m2.1-5.4a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z" />
+              </svg>
+              <input
+                value={historySearch}
+                onChange={(event) => setHistorySearch(event.target.value)}
+                placeholder="품목명, 메모, 이력 내용 검색"
+                aria-label="고객 이력 검색"
+                className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-9 pr-10 text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+              />
+              {historySearch && (
+                <button
+                  type="button"
+                  onClick={() => setHistorySearch("")}
+                  aria-label="이력 검색어 지우기"
+                  className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-gray-100 text-base font-medium text-gray-500 transition hover:bg-gray-200 hover:text-gray-700 active:bg-gray-300"
+                >
+                  ×
+                </button>
+              )}
+            </div>
           </div>
           <div className="space-y-2.5">
             {(logCategory === LogCategoryEnum.STAMP.value ||
@@ -414,7 +484,7 @@ export default function CustomerDetailPage() {
                   address: customer.address,
                   note: customer.note,
                 }}
-                logs={logs}
+                logs={filteredLogs}
                 isLoading={logsLoading}
                 error={logsError}
                 isAdmin={isAdmin}
@@ -430,7 +500,7 @@ export default function CustomerDetailPage() {
             )}
             {logCategory === LogCategoryEnum.CUSTOMER.value && (
               <CustomersDetailUpdateHistories
-                logs={logs}
+                logs={filteredLogs}
                 isLoading={logsLoading}
                 error={logsError}
                 isAdmin={isAdmin}

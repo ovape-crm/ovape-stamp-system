@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import Button from "@/app/_components/Button";
 import Loading from "@/app/_components/Loading";
@@ -42,6 +42,11 @@ type CashManagementTab =
   | "reportLookup"
   | "checklist";
 
+const cashTabPath: Record<CashManagementTab, string> = {
+  save: "/cash-management/save", history: "/cash-management/history",
+  report: "/reports/closing", reportLookup: "/reports/history", checklist: "/reports/checklists",
+};
+
 const getTodayInKorea = () =>
   new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Seoul",
@@ -71,8 +76,9 @@ const getMonthDateRange = (month: string) => {
 
 export default function CashManagementPage() {
   const pathname = usePathname();
+  const router = useRouter();
   const isReportsPage = pathname?.startsWith("/reports");
-  const { isAdmin } = useUser();
+  const { isAdmin, isLoading: isUserLoading } = useUser();
   const {
     step: staffOpeningStep,
     previousCash: requiredOpeningCash,
@@ -83,6 +89,19 @@ export default function CashManagementPage() {
   const [activeTab, setActiveTab] = useState<CashManagementTab>(
     isReportsPage ? "report" : "save",
   );
+  useEffect(() => {
+    const match = (Object.entries(cashTabPath) as [CashManagementTab, string][]).find(([, path]) => pathname === path)?.[0];
+    const fallback = isReportsPage ? "report" : "save";
+    if (!match) {
+      router.replace(cashTabPath[fallback]);
+      return;
+    }
+    if (!isUserLoading && !isAdmin && (match === "reportLookup" || match === "checklist")) {
+      router.replace(cashTabPath[isReportsPage ? "report" : "save"]);
+      return;
+    }
+    setActiveTab(match);
+  }, [isAdmin, isReportsPage, isUserLoading, pathname, router]);
   const [tabOrder, setTabOrder] = useState<CashManagementTab[]>([
     "save",
     "history",
@@ -466,7 +485,7 @@ export default function CashManagementPage() {
                     if (tab === "report") {
                       setBusinessDate(today);
                     }
-                    setActiveTab(tab);
+                    router.push(cashTabPath[tab]);
                   }}
                   className={`cursor-pointer border-b-2 px-5 py-3 text-sm font-semibold transition-colors ${
                     activeTab === tab

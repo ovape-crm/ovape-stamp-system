@@ -63,7 +63,7 @@ export type SupplierRefundSettlement = {
 export const getDefectiveInventoryHolds = async (): Promise<DefectiveInventoryHold[]> => {
   const { data, error } = await supabase
     .from("defective_inventory_holds")
-    .select("id,item_name,quantity,status,created_at,customers(name)")
+    .select("id,item_name,quantity,status,created_at,customers!defective_inventory_holds_customer_id_fkey(name)")
     .in("status", ["held", "after_service"])
     .order("created_at", { ascending: false });
   if (error) throw error;
@@ -495,6 +495,13 @@ export const getInventoryMovementCount = async (options: InventoryMovementQuery 
   const { count, error } = await query;
   if (error) throw error;
   return count ?? 0;
+};
+
+export type ReturnHoldProcessingHistory = { id: string; action: string; note: string | null; createdAt: string; itemName: string; quantity: number; customerName: string | null };
+export const getReturnHoldProcessingHistory = async (): Promise<ReturnHoldProcessingHistory[]> => {
+  const { data, error } = await supabase.from("return_hold_processing_history").select("id,action,note,created_at,defective_inventory_holds(item_name,quantity,customers!defective_inventory_holds_customer_id_fkey(name))").order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((row: Record<string, unknown>) => { const hold = Array.isArray(row.defective_inventory_holds) ? row.defective_inventory_holds[0] as Record<string, unknown> : row.defective_inventory_holds as Record<string, unknown> | undefined; const customer = Array.isArray(hold?.customers) ? hold?.customers[0] as Record<string, unknown> : hold?.customers as Record<string, unknown> | undefined; return { id: String(row.id), action: String(row.action), note: row.note == null ? null : String(row.note), createdAt: String(row.created_at), itemName: String(hold?.item_name ?? "품목 정보 없음"), quantity: Number(hold?.quantity ?? 0), customerName: customer?.name == null ? null : String(customer.name) }; });
 };
 
 export type InventoryMovementSummaryGroup = "all" | "out" | "in";

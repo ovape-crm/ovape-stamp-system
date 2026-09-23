@@ -32,6 +32,7 @@ import WorkerCreateModal from "./_components/WorkerCreateModal";
 import AttendanceRecordModal from "./_components/AttendanceRecordModal";
 import { useUser } from "@/app/_contexts/UserContext";
 import { useModal } from "@/app/_contexts/ModalContext";
+import { usePathname, useRouter } from "next/navigation";
 import StaffOpeningProgressBanner from "@/app/(auth)/_components/StaffOpeningProgressBanner";
 import { showConfirmDialog, showPromptDialog } from "@/app/_components/AppDialog";
 import {
@@ -205,12 +206,27 @@ const getWorkStatusLabel = (status?: WorkJournalType["status"]) => {
 };
 
 export default function WorkJournalPage() {
+  const pathname = usePathname();
+  const router = useRouter();
   const queryClient = useQueryClient();
-  const { isAdmin } = useUser();
+  const { isAdmin, isLoading: isUserLoading } = useUser();
   const today = getTodayInKorea();
   const [activeTab, setActiveTab] = useState<"records" | "payment" | "workers">(
     "records",
   );
+  useEffect(() => {
+    const valid = pathname === "/work-journal/records" || pathname === "/work-journal/workers" || pathname === "/work-journal/payment/scheduled" || pathname === "/work-journal/payment/history";
+    if (!valid) {
+      router.replace("/work-journal/records");
+      return;
+    }
+    const next = pathname.includes("/workers") ? "workers" : pathname.includes("/payment") ? "payment" : "records";
+    if (!isUserLoading && !isAdmin && next !== "records") {
+      router.replace("/work-journal/records");
+      return;
+    }
+    setActiveTab(next);
+  }, [isAdmin, isUserLoading, pathname, router]);
   const [tabOrder, setTabOrder] = useState<
     ("records" | "workers" | "payment")[]
   >(["records", "workers", "payment"]);
@@ -238,6 +254,7 @@ export default function WorkJournalPage() {
   const [paymentView, setPaymentView] = useState<"scheduled" | "history">(
     "scheduled",
   );
+  useEffect(() => { if (pathname?.includes("/payment/")) setPaymentView(pathname.endsWith("/history") ? "history" : "scheduled"); }, [pathname]);
   const [selectedAdvanceJournalIds, setSelectedAdvanceJournalIds] = useState<string[]>([]);
   const { open, close } = useModal();
   const [workDate, setWorkDate] = useState(today);
@@ -705,7 +722,7 @@ export default function WorkJournalPage() {
       setStartDate(`${today.slice(0, 7)}-01`);
       setEndDate(today);
     }
-    setActiveTab(tab);
+    router.push(tab === "workers" ? "/work-journal/workers" : tab === "payment" ? "/work-journal/payment/scheduled" : "/work-journal/records");
   };
 
   if (
@@ -1511,7 +1528,7 @@ export default function WorkJournalPage() {
               type="button"
               role="tab"
               aria-selected={paymentView === "scheduled"}
-              onClick={() => setPaymentView("scheduled")}
+              onClick={() => router.push("/work-journal/payment/scheduled")}
               className={`cursor-pointer border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${
                 paymentView === "scheduled"
                   ? "border-brand-500 text-brand-700"
@@ -1524,7 +1541,7 @@ export default function WorkJournalPage() {
               type="button"
               role="tab"
               aria-selected={paymentView === "history"}
-              onClick={() => setPaymentView("history")}
+              onClick={() => router.push("/work-journal/payment/history")}
               className={`cursor-pointer border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${
                 paymentView === "history"
                   ? "border-brand-500 text-brand-700"
