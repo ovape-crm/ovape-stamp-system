@@ -795,7 +795,13 @@ const attachPurchaseOrderUnitPrices = async (
     "get_inventory_purchase_order_unit_prices",
     { p_line_ids: lineIds },
   );
-  if (error) throw error;
+  // Unit prices are an optional master-only enhancement. Do not hide every
+  // inbound order when that protected RPC is temporarily unavailable (for
+  // example, while the API schema cache is catching up after a deployment).
+  if (error) {
+    console.error("입고 단가를 불러오지 못했습니다:", error);
+    return orders;
+  }
   const prices = (data ?? {}) as Record<string, number | null>;
   return orders.map((order) => ({
     ...order,
@@ -804,6 +810,19 @@ const attachPurchaseOrderUnitPrices = async (
     ),
   }));
 };
+
+// `sort_order` was added after purchase orders were already in use. A database
+// that has not received that migration must still be able to show its inbound
+// history, so preserve the returned line order as a temporary display order.
+const addFallbackPurchaseLineSortOrder = <
+  T extends { inventory_purchase_order_lines?: Record<string, unknown>[] },
+>(orders: T[]) =>
+  orders.map((order) => ({
+    ...order,
+    inventory_purchase_order_lines: (
+      (order.inventory_purchase_order_lines ?? []) as Record<string, unknown>[]
+    ).map((line, index) => ({ ...line, sort_order: index + 1 })),
+  }));
 
 export const getPurchaseOrders = async (
   isMaster = false,
@@ -826,7 +845,7 @@ export const getPurchaseOrders = async (
   // adjustment / receipt-note migrations are still pending. Keep the saved
   // handling state instead of falling all the way back to `none`.
   const compatibleLineColumns =
-    "id, order_id, sort_order, item_name, ordered_quantity, received_quantity, pending_quantity, note, quantity_checked_at, handling_type, handling_note, customer_id, reservation_log_id, after_service_id, inbound_type";
+    "id, order_id, item_name, ordered_quantity, received_quantity, pending_quantity, note, quantity_checked_at, handling_type, handling_note, customer_id, reservation_log_id, after_service_id, inbound_type";
   const { data: compatibleData, error: compatibleError } = await supabase
     .from("inventory_purchase_orders")
     .select(
@@ -834,7 +853,7 @@ export const getPurchaseOrders = async (
     )
     .order("created_at", { ascending: false });
   if (!compatibleError) {
-    const compatibleOrders = (compatibleData ?? []).map((order) => ({
+    const compatibleOrders = addFallbackPurchaseLineSortOrder(compatibleData ?? []).map((order) => ({
       ...order,
       inventory_purchase_order_adjustments: [],
       inventory_purchase_receipts: order.inventory_purchase_receipts.map(
@@ -858,7 +877,7 @@ export const getPurchaseOrders = async (
 
   // 신규 메모 열을 아직 적용하지 않은 DB에서도 입고 목록은 계속 표시한다.
   const legacyLineColumns =
-    "id, order_id, sort_order, item_name, ordered_quantity, received_quantity, pending_quantity, note, quantity_checked_at";
+    "id, order_id, item_name, ordered_quantity, received_quantity, pending_quantity, note, quantity_checked_at";
   const { data: legacyData, error: legacyError } = await supabase
     .from("inventory_purchase_orders")
     .select(
@@ -866,7 +885,7 @@ export const getPurchaseOrders = async (
     )
     .order("created_at", { ascending: false });
   if (legacyError) throw legacyError;
-  const legacyOrders = (legacyData ?? []).map((order) => ({
+  const legacyOrders = addFallbackPurchaseLineSortOrder(legacyData ?? []).map((order) => ({
     ...order,
     inventory_purchase_order_adjustments: [],
     inventory_purchase_order_lines: order.inventory_purchase_order_lines.map(
