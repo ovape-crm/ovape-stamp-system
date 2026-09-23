@@ -290,6 +290,20 @@ export default function SettlementReport() {
       {(summaryQuery.isPending || expensesQuery.isPending) && (
         <Loading size="sm" text="정산 금액을 불러오는 중..." />
       )}
+      {summaryQuery.isError && (
+        <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          정산 금액을 불러오지 못했습니다: {summaryQuery.error instanceof Error
+            ? summaryQuery.error.message
+            : String((summaryQuery.error as { message?: string } | null)?.message ?? "조회 오류")}
+        </p>
+      )}
+      {expensesQuery.isError && (
+        <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          기타비용을 불러오지 못했습니다: {expensesQuery.error instanceof Error
+            ? expensesQuery.error.message
+            : String((expensesQuery.error as { message?: string } | null)?.message ?? "조회 오류")}
+        </p>
+      )}
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         {[

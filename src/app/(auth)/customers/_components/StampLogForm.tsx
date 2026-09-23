@@ -46,6 +46,7 @@ const eguVapePaymentTypes = [
   PaymentTypeEnum.EGU_TRANSFER,
   PaymentTypeEnum.EGU_CASH,
   PaymentTypeEnum.EGU_CASH_RECEIPT,
+  PaymentTypeEnum.EGU_TRANSFER_CASH_RECEIPT,
 ];
 
 const paymentTypesByStore = {
@@ -73,9 +74,9 @@ type RemarkOptionValue =
   | "as_exchange_out";
 
 const discountOptions = [
-  { value: "special", name: "특별" },
-  { value: "transfer", name: "이체" },
-  { value: "cash", name: "현금" },
+  { value: "special", name: "특별할인" },
+  { value: "transfer", name: "이체할인" },
+  { value: "cash", name: "현금할인" },
 ] as const;
 
 type DiscountOptionValue = (typeof discountOptions)[number]["value"];
@@ -261,6 +262,8 @@ export default function StampLogForm({
         ? "remark"
         : "single",
   );
+  const [transferPayerName, setTransferPayerName] = useState("");
+  const [sameCustomerTransfer, setSameCustomerTransfer] = useState(false);
   const [splitPayments, setSplitPayments] = useState<
     Array<{
       paymentType: PaymentTypeEnumType["value"];
@@ -587,6 +590,21 @@ export default function StampLogForm({
     .filter(Boolean)
     .join(" ");
   const hasSelectedSplitPayments = splitPayments.length >= 2;
+  const isTransferPaymentSelected =
+    paymentMode === "single"
+      ? ["transfer", "transfer_cash_receipt", "egu_transfer", "egu_transfer_cash_receipt"].includes(paymentType)
+      : splitPayments.some((payment) => ["transfer", "transfer_cash_receipt", "egu_transfer", "egu_transfer_cash_receipt"].includes(payment.paymentType));
+  const hasValidTransferPayer =
+    !isTransferPaymentSelected ||
+    customerMode === "x" ||
+    (sameCustomerTransfer ? Boolean(customerSummary?.name?.trim()) : Boolean(transferPayerName.trim()));
+  const isSameCustomerSelected =
+    sameCustomerTransfer ||
+    Boolean(
+      transferPayerName.trim() &&
+        customerSummary?.name?.trim() &&
+        transferPayerName.trim() === customerSummary.name.trim(),
+    );
   const hasValidPayment =
     paymentMode === "remark"
       ? true
@@ -603,6 +621,7 @@ export default function StampLogForm({
     (value) =>
       value === PaymentTypeEnum.TRANSFER.value ||
       value === PaymentTypeEnum.EGU_TRANSFER.value ||
+      value === PaymentTypeEnum.EGU_TRANSFER_CASH_RECEIPT.value ||
       value === PaymentTypeEnum.TRANSFER_CASH_RECEIPT.value,
   );
   const canUseCashDiscount = selectedPaymentTypes.some(
@@ -718,6 +737,12 @@ export default function StampLogForm({
           : undefined,
       xCustomerGender:
         customerMode === "x" ? xCustomerGender : undefined,
+      transferPayerName:
+        isTransferPaymentSelected && customerMode !== "x"
+          ? (isSameCustomerSelected ? customerSummary?.name?.trim() : transferPayerName.trim()) || undefined
+          : customerMode === "x"
+            ? xCustomerName?.trim() || undefined
+            : undefined,
       deliveryMethod,
       deliveryType:
         deliveryMethod === "delivery" ? deliveryType || undefined : undefined,
@@ -851,6 +876,9 @@ export default function StampLogForm({
     customerMode,
     paymentMode,
     splitPayments,
+    transferPayerName,
+    sameCustomerTransfer,
+    isSameCustomerSelected,
     hasValidPayment,
     hasSelectedSplitPayments,
     useCouponAfterShipment,
@@ -865,7 +893,7 @@ export default function StampLogForm({
 
   useEffect(() => {
     onValidityChangeRef.current?.({
-      hasPaymentType: hasValidPayment,
+      hasPaymentType: hasValidPayment && hasValidTransferPayer,
       hasItems: draftLines.length > 0,
       hasDeliveryInfo: hasValidDeliveryInfo,
       hasCompletedBasicSequence:
@@ -873,10 +901,12 @@ export default function StampLogForm({
         hasConfirmedDeliveryMethod &&
         hasValidDeliveryInfo &&
         hasValidPayment &&
+        hasValidTransferPayer &&
         hasValidCouponSelection,
     });
   }, [
     hasValidPayment,
+    hasValidTransferPayer,
     hasValidDeliveryInfo,
     hasConfirmedStore,
     hasConfirmedDeliveryMethod,
@@ -1607,6 +1637,22 @@ export default function StampLogForm({
                 );
               })}
             </div>
+            {isTransferPaymentSelected && customerMode !== "x" && (
+              <div className="mt-2 grid grid-cols-3 gap-[10px] border-t border-gray-200 pt-2">
+                <label className="flex h-8 items-center justify-center whitespace-nowrap rounded-lg border border-gray-300 bg-white text-sm font-semibold text-gray-700">이체 고객명</label>
+                <div>
+                  <input
+                    type="text"
+                    value={sameCustomerTransfer ? customerSummary?.name ?? "" : transferPayerName}
+                    onChange={(event) => setTransferPayerName(event.target.value)}
+                    disabled={isSameCustomerSelected}
+                    placeholder="이름을 입력하세요."
+                    className="h-8 w-full min-w-0 rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:bg-gray-100 disabled:text-gray-500"
+                  />
+                </div>
+                <button type="button" className={`h-8 rounded-lg border px-3 text-sm font-semibold ${isSameCustomerSelected ? "border-brand-500 bg-brand-50 text-brand-700" : "border-gray-300 bg-white text-gray-700 hover:border-brand-300"}`} onClick={() => { if (isSameCustomerSelected) { setSameCustomerTransfer(false); setTransferPayerName(""); } else { setSameCustomerTransfer(true); } }}>{isSameCustomerSelected ? "이름 수정하기" : "동일고객"}</button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -2808,11 +2854,7 @@ export default function StampLogForm({
   );
 
   const discountField = (
-    <div className="grid h-full grid-cols-[72px_minmax(0,1fr)] items-center overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
-      <span className="flex h-full items-center justify-center whitespace-nowrap border-r border-gray-200 px-2 text-center text-sm font-semibold text-gray-800">
-        할인 종류
-      </span>
-      <div className="grid grid-cols-[minmax(0,1fr)_82px] items-center gap-2 p-2">
+    <div className="grid h-full grid-cols-[minmax(0,1fr)_82px] items-center overflow-hidden rounded-lg border border-gray-200 bg-gray-50 gap-2 p-2">
         <div className="grid grid-cols-3 gap-2">
           {discountOptions.map((option) => (
             <Button
@@ -2853,7 +2895,6 @@ export default function StampLogForm({
             <span className="text-sm text-gray-600">원</span>
           </div>
         </div>
-      </div>
     </div>
   );
 
@@ -2986,7 +3027,7 @@ export default function StampLogForm({
           value={extraNote}
           onChange={(e) => setExtraNote(e.target.value)}
           className="h-8 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-500"
-          placeholder="전체 특이사항을 입력하세요. (선택)"
+          placeholder="출고 특이사항을 입력하세요. (선택)"
         />
       </div>
     </div>
@@ -3066,7 +3107,7 @@ export default function StampLogForm({
                     <div ref={stepOnePaymentRef} className="scroll-mb-16">
                       {stepOnePaymentField}
                     </div>}
-                  {hasValidPayment && stepOneAfterPaymentSlot && (
+                  {hasValidPayment && hasValidTransferPayer && stepOneAfterPaymentSlot && (
                     <div ref={stepOneAfterPaymentRef} className="scroll-mb-16">
                       {stepOneAfterPaymentSlot}
                     </div>
@@ -3075,6 +3116,7 @@ export default function StampLogForm({
                     hasConfirmedDeliveryMethod &&
                     hasValidDeliveryInfo &&
                     hasValidPayment &&
+                    hasValidTransferPayer &&
                     stepOneReservationField && (
                       <div ref={stepOneReservationRef} className="scroll-mb-16">
                         {stepOneReservationField}
@@ -3084,6 +3126,7 @@ export default function StampLogForm({
                     hasConfirmedDeliveryMethod &&
                     hasValidDeliveryInfo &&
                     hasValidPayment &&
+                    hasValidTransferPayer &&
                     hasSelectedShipmentTiming &&
                     showStampAccrual &&
                     customerMode !== "x" &&

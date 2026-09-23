@@ -77,6 +77,23 @@ export type DailyClosingReportSnapshot = {
   }>;
   cleaningNote: string;
   specialNote: string;
+  transferVerification?: Array<{
+    store: "ovape" | "eguVape";
+    entryIds: string[];
+    total: number;
+  }>;
+  transferVerificationDetail?: {
+    entries: Array<{
+      logId: string;
+      paymentIndex: number;
+      paymentType: string;
+      store: "ovape" | "eguVape";
+      payerName: string;
+      amount: number;
+    }>;
+    verifiedAt: string;
+    verifiedByName: string;
+  };
   capturedAt: string;
 };
 

@@ -37,6 +37,15 @@ export type DailyCashSales = {
 };
 
 export type DailyPaymentSales = {
+  transferDetails: {
+    id: string;
+    logId: string;
+    paymentIndex: number;
+    paymentType: string;
+    store: "ovape" | "eguVape";
+    payerName: string;
+    amount: number;
+  }[];
   breakdown: {
     paymentType: string;
     label: string;

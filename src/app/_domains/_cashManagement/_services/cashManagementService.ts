@@ -28,6 +28,7 @@ const EGU_PAYMENT_TYPES = [
   { paymentType: "egu_transfer", label: "이체" },
   { paymentType: "egu_cash", label: "현금" },
   { paymentType: "egu_cash_receipt", label: "현금영수증" },
+  { paymentType: "egu_transfer_cash_receipt", label: "이체현금영수증" },
 ] as const;
 
 const getKoreaDateRange = (date: string) => {
@@ -97,10 +98,11 @@ export const getDailyPaymentSales = async (
   const [logsResult, receiptsResult] = await Promise.all([
     supabase
       .from("logs")
-      .select("jsonb")
+      .select("id, jsonb, customers(name)")
       .eq("category", "stamp")
       .gte("created_at", start)
-      .lt("created_at", end),
+      .lt("created_at", end)
+      .order("created_at", { ascending: true }),
     supabase
       .from("inventory_purchase_receipts")
       .select(
@@ -115,6 +117,12 @@ export const getDailyPaymentSales = async (
   const data = logsResult.data;
 
   const amountByPaymentType = new Map<string, number>();
+  const transferDetails: DailyPaymentSales["transferDetails"] = [];
+  const getPayerName = (jsonb: Record<string, unknown>, customerName?: string) => {
+    const note = String(jsonb.extraNote ?? jsonb.extra_note ?? "");
+    const notedName = note.match(/입금자명\s*:\s*([^\n,]+)/)?.[1]?.trim();
+    return notedName || String(jsonb.transferPayerName ?? jsonb.xCustomerName ?? customerName ?? jsonb.customerName ?? jsonb.customer_name ?? jsonb.name ?? "입금자명 미확인");
+  };
   const quantityByCategory = new Map<string, number>();
   const quantityByOtherOutboundType = new Map<
     string,
@@ -133,8 +141,10 @@ export const getDailyPaymentSales = async (
     { orderCount: number; quantity: number; fee: number }
   >();
 
-  for (const log of data ?? []) {
+  for (const [logIndex, log] of (data ?? []).entries()) {
     const jsonb = (log.jsonb ?? {}) as Record<string, unknown>;
+    const customer = Array.isArray(log.customers) ? log.customers[0] : log.customers;
+    const customerName = customer?.name == null ? undefined : String(customer.name);
     const totalAmount = Number(jsonb.totalAmount ?? 0);
     const paymentSign = totalAmount < 0 ? -1 : 1;
     const splitPayments = Array.isArray(jsonb.payments)
@@ -144,7 +154,7 @@ export const getDailyPaymentSales = async (
         }>)
       : [];
     if (splitPayments.length) {
-      for (const payment of splitPayments) {
+      for (const [paymentIndex, payment] of splitPayments.entries()) {
         const splitType = String(payment.paymentType ?? "").trim();
         const splitAmount = Math.abs(Number(payment.amount ?? 0)) * paymentSign;
         if (
@@ -157,6 +167,18 @@ export const getDailyPaymentSales = async (
           splitType,
           (amountByPaymentType.get(splitType) ?? 0) + splitAmount,
         );
+        if (["transfer", "transfer_cash_receipt", "egu_transfer", "egu_transfer_cash_receipt"].includes(splitType)) {
+          const payerName = getPayerName(jsonb, customerName);
+          transferDetails.push({
+            id: JSON.stringify([log.id ?? `${date}-${logIndex}`, paymentIndex, splitType, Math.abs(splitAmount), payerName]),
+            logId: String(log.id ?? `${date}-${logIndex}`),
+            paymentIndex,
+            paymentType: splitType,
+            store: splitType.startsWith("egu_") ? "eguVape" : "ovape",
+            payerName,
+            amount: Math.abs(splitAmount),
+          });
+        }
       }
     }
     const paymentType = String(jsonb.paymentType ?? "").trim();
@@ -171,6 +193,18 @@ export const getDailyPaymentSales = async (
           paymentType,
           (amountByPaymentType.get(paymentType) ?? 0) + amount,
         );
+      }
+      if (["transfer", "transfer_cash_receipt", "egu_transfer", "egu_transfer_cash_receipt"].includes(paymentType) && Number.isFinite(amount)) {
+        const payerName = getPayerName(jsonb, customerName);
+        transferDetails.push({
+          id: JSON.stringify([log.id ?? `${date}-${logIndex}`, paymentType, amount, payerName]),
+          logId: String(log.id ?? `${date}-${logIndex}`),
+          paymentIndex: 0,
+          paymentType,
+          store: paymentType.startsWith("egu_") ? "eguVape" : "ovape",
+          payerName,
+          amount: Math.abs(amount),
+        });
       }
     }
 
@@ -312,6 +346,7 @@ export const getDailyPaymentSales = async (
   const breakdown = [...ovapeBreakdown, ...eguVapeBreakdown];
 
   return {
+    transferDetails,
     breakdown,
     ovapeBreakdown,
     eguVapeBreakdown,
