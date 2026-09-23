@@ -497,11 +497,19 @@ export const getInventoryMovementCount = async (options: InventoryMovementQuery 
   return count ?? 0;
 };
 
-export type ReturnHoldProcessingHistory = { id: string; action: string; note: string | null; createdAt: string; itemName: string; quantity: number; customerName: string | null };
+export type ReturnHoldProcessingHistory = {
+  id: string; action: string; itemName: string; quantity: number;
+  returnedAt: string | null; returnCustomerName: string | null; returnCustomerPhone: string | null; returnNote: string | null;
+  processedAt: string; serviceCustomerName: string | null; serviceCustomerPhone: string | null; processingNote: string | null;
+};
 export const getReturnHoldProcessingHistory = async (): Promise<ReturnHoldProcessingHistory[]> => {
-  const { data, error } = await supabase.from("return_hold_processing_history").select("id,action,note,created_at,defective_inventory_holds(item_name,quantity,customers!defective_inventory_holds_customer_id_fkey(name))").order("created_at", { ascending: false });
+  const { data, error } = await supabase.from("return_hold_processing_history_details").select("id,action,item_name,quantity,returned_at,return_customer_name,return_customer_phone,return_note,processed_at,service_customer_name,service_customer_phone,processing_note").order("processed_at", { ascending: false });
   if (error) throw error;
-  return (data ?? []).map((row: Record<string, unknown>) => { const hold = Array.isArray(row.defective_inventory_holds) ? row.defective_inventory_holds[0] as Record<string, unknown> : row.defective_inventory_holds as Record<string, unknown> | undefined; const customer = Array.isArray(hold?.customers) ? hold?.customers[0] as Record<string, unknown> : hold?.customers as Record<string, unknown> | undefined; return { id: String(row.id), action: String(row.action), note: row.note == null ? null : String(row.note), createdAt: String(row.created_at), itemName: String(hold?.item_name ?? "품목 정보 없음"), quantity: Number(hold?.quantity ?? 0), customerName: customer?.name == null ? null : String(customer.name) }; });
+  return (data ?? []).map((row: Record<string, unknown>) => ({
+    id: String(row.id), action: String(row.action), itemName: String(row.item_name ?? "품목 정보 없음"), quantity: Number(row.quantity ?? 0),
+    returnedAt: row.returned_at == null ? null : String(row.returned_at), returnCustomerName: row.return_customer_name == null ? null : String(row.return_customer_name), returnCustomerPhone: row.return_customer_phone == null ? null : String(row.return_customer_phone), returnNote: row.return_note == null ? null : String(row.return_note),
+    processedAt: String(row.processed_at), serviceCustomerName: row.service_customer_name == null ? null : String(row.service_customer_name), serviceCustomerPhone: row.service_customer_phone == null ? null : String(row.service_customer_phone), processingNote: row.processing_note == null ? null : String(row.processing_note),
+  }));
 };
 
 export type InventoryMovementSummaryGroup = "all" | "out" | "in";
