@@ -61,6 +61,23 @@ const fetchPaged = async <T>(
   return rows;
 };
 
+type PurchaseOrderSummary = {
+  ordered_on: string;
+  status: string;
+  note: string | null;
+  entered_total_amount?: number | null;
+  inventory_suppliers:
+    { name: string | null } | { name: string | null }[] | null;
+  inventory_purchase_order_adjustments:
+    { kind: "discount" | "payment"; amount: number | null }[] | null;
+  inventory_purchase_order_lines:
+    {
+      ordered_quantity: number | null;
+      unit_price: number | null;
+      inbound_type?: string | null;
+    }[] | null;
+};
+
 type PurchaseSourceLine = {
   inbound_type?: string | null;
   handling_type?: string | null;
@@ -72,25 +89,12 @@ type PurchaseReceiptLineSummary = {
   inventory_purchase_order_lines:
     PurchaseSourceLine | PurchaseSourceLine[] | null;
 };
-type PurchaseReceiptForAllocation = {
+type PurchaseReceiptForCostReplay = {
   id: string;
-  reversed_at: string | null;
-  inventory_purchase_receipt_lines: PurchaseReceiptLineSummary[] | null;
-};
-type PurchaseOrderSummary = {
-  note: string | null;
-  entered_total_amount?: number | null;
-  inventory_suppliers:
-    { name: string | null } | { name: string | null }[] | null;
-  inventory_purchase_order_adjustments:
-    { kind: "discount" | "payment"; amount: number | null }[] | null;
-  inventory_purchase_receipts: PurchaseReceiptForAllocation[] | null;
-};
-type PurchaseReceiptSummary = PurchaseReceiptForAllocation & {
   arrived_on: string;
   created_at: string;
-  inventory_purchase_orders:
-    PurchaseOrderSummary | PurchaseOrderSummary[] | null;
+  reversed_at: string | null;
+  inventory_purchase_receipt_lines: PurchaseReceiptLineSummary[] | null;
 };
 
 type SettlementSaleLog = {
@@ -126,18 +130,6 @@ const consumeCostLots = (lots: CostLot[], quantity: number) => {
 const getOne = <T>(value: T | T[] | null | undefined): T | null =>
   Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
 
-const getPurchaseReceiptGross = (
-  lines: PurchaseReceiptLineSummary[] | null | undefined,
-  unitPrices: Record<string, number | null>,
-) =>
-  (lines ?? []).reduce((total, line) => {
-    const sourceLine = getOne(line.inventory_purchase_order_lines);
-    if (sourceLine?.inbound_type === "as_exchange_in") return total;
-    return (
-      total + Number(line.quantity ?? 0) * Number(unitPrices[line.id] ?? 0)
-    );
-  }, 0);
-
 export const getSettlementSummary = async (
   startDate: string,
   endDate: string,
@@ -157,8 +149,9 @@ export const getSettlementSummary = async (
   const [
     logs,
     historicalSales,
-    receipts,
+    orders,
     historicalPurchases,
+    costReceipts,
     receiptUnitPrices,
     costBases,
     inventoryOverview,
@@ -215,40 +208,27 @@ export const getSettlementSummary = async (
           }[],
         ),
     LIVE_PURCHASE_START_DATE <= endDate
-      ? fetchPaged<PurchaseReceiptSummary>(async (from, to) => {
+      ? fetchPaged<PurchaseOrderSummary>(async (from, to) => {
           const { data, error } = await supabase
-            .from("inventory_purchase_receipts")
+            .from("inventory_purchase_orders")
             .select(
-              `id, arrived_on, created_at, reversed_at,
-              inventory_purchase_orders(
-                note,
-                inventory_suppliers(name),
-                inventory_purchase_order_adjustments(kind, amount),
-                inventory_purchase_receipts(
-                  id, reversed_at,
-                  inventory_purchase_receipt_lines(
-                    id, item_name, quantity,
-                    inventory_purchase_order_lines(inbound_type, handling_type)
-                  )
-                )
-              ),
-              inventory_purchase_receipt_lines(
-                id, item_name, quantity,
-                inventory_purchase_order_lines(inbound_type, handling_type)
-              )`,
+              `ordered_on, status, note, entered_total_amount,
+              inventory_suppliers(name),
+              inventory_purchase_order_adjustments(kind, amount),
+              inventory_purchase_order_lines(ordered_quantity, unit_price, inbound_type)`,
             )
-            .gte("arrived_on", LIVE_PURCHASE_START_DATE)
-            .lte("arrived_on", endDate)
-            .is("reversed_at", null)
-            .order("created_at")
+            .gte("ordered_on", livePurchaseStart)
+            .lte("ordered_on", endDate)
+            .neq("status", "cancelled")
+            .order("ordered_on")
             .order("id")
             .range(from, to);
           return {
-            data: data as unknown as PurchaseReceiptSummary[] | null,
+            data: data as unknown as PurchaseOrderSummary[] | null,
             error,
           };
         })
-      : Promise.resolve([] as PurchaseReceiptSummary[]),
+      : Promise.resolve([] as PurchaseOrderSummary[]),
     startDate <= historicalPurchaseEnd
       ? fetchPaged<{
           store: string;
@@ -289,6 +269,29 @@ export const getSettlementSummary = async (
               { name: string | null } | { name: string | null }[] | null;
           }[],
         ),
+    LIVE_PURCHASE_START_DATE <= endDate
+      ? fetchPaged<PurchaseReceiptForCostReplay>(async (from, to) => {
+          const { data, error } = await supabase
+            .from("inventory_purchase_receipts")
+            .select(
+              `id, arrived_on, created_at, reversed_at,
+              inventory_purchase_receipt_lines(
+                id, item_name, quantity,
+                inventory_purchase_order_lines(inbound_type, handling_type)
+              )`,
+            )
+            .gte("arrived_on", LIVE_PURCHASE_START_DATE)
+            .lte("arrived_on", endDate)
+            .is("reversed_at", null)
+            .order("created_at")
+            .order("id")
+            .range(from, to);
+          return {
+            data: data as unknown as PurchaseReceiptForCostReplay[] | null,
+            error,
+          };
+        })
+      : Promise.resolve([] as PurchaseReceiptForCostReplay[]),
     LIVE_PURCHASE_START_DATE <= endDate
       ? (async () => {
           const { data, error } = await supabase.rpc(
@@ -347,30 +350,16 @@ export const getSettlementSummary = async (
   const addPurchase = (label: string, amount: number) => {
     purchases[label] = (purchases[label] ?? 0) + amount;
   };
-  for (const receipt of receipts) {
-    if (receipt.arrived_on < livePurchaseStart) continue;
-    const order = getOne(receipt.inventory_purchase_orders);
-    const receiptGross = getPurchaseReceiptGross(
-      receipt.inventory_purchase_receipt_lines,
-      receiptUnitPrices,
-    );
-    if (!order || receiptGross <= 0) continue;
-
-    const activeOrderReceipts = (order.inventory_purchase_receipts ?? [])
-      .filter((item) => !item.reversed_at)
-      .map((item) => ({
-        id: item.id,
-        gross: getPurchaseReceiptGross(
-          item.inventory_purchase_receipt_lines,
-          receiptUnitPrices,
-        ),
-      }))
-      .filter((item) => item.gross > 0)
-      .sort((a, b) => a.id.localeCompare(b.id));
-    const totalOrderGross = activeOrderReceipts.reduce(
-      (total, item) => total + item.gross,
-      0,
-    );
+  for (const order of orders) {
+    const orderedProductAmount = (order.inventory_purchase_order_lines ?? [])
+      .filter((line) => line.inbound_type !== "as_exchange_in")
+      .reduce(
+        (total, line) =>
+          total +
+          Number(line.ordered_quantity ?? 0) * Number(line.unit_price ?? 0),
+        0,
+      );
+    if (orderedProductAmount <= 0 && order.entered_total_amount == null) continue;
     const netAdjustment = (
       order.inventory_purchase_order_adjustments ?? []
     ).reduce(
@@ -380,26 +369,7 @@ export const getSettlementSummary = async (
           Number(adjustment.amount ?? 0),
       0,
     );
-    const receiptIndex = activeOrderReceipts.findIndex(
-      (item) => item.id === receipt.id,
-    );
-    const previousGross = activeOrderReceipts
-      .slice(0, Math.max(0, receiptIndex))
-      .reduce((total, item) => total + item.gross, 0);
-    const adjustmentShare =
-      totalOrderGross > 0 && receiptIndex >= 0
-        ? Math.round(
-            (netAdjustment * (previousGross + receiptGross)) / totalOrderGross,
-          ) - Math.round((netAdjustment * previousGross) / totalOrderGross)
-        : 0;
-    const calculatedOrderAmount = totalOrderGross + netAdjustment;
-    const orderAmount = order.entered_total_amount ?? calculatedOrderAmount;
-    const amount =
-      totalOrderGross > 0
-        ? Math.round(
-            (orderAmount * (previousGross + receiptGross)) / totalOrderGross,
-          ) - Math.round((orderAmount * previousGross) / totalOrderGross)
-        : receiptGross + adjustmentShare;
+    const amount = order.entered_total_amount ?? orderedProductAmount + netAdjustment;
     const marker =
       String(order.note ?? "")
         .match(PURCHASE_NOTE_MARKER)?.[1]
@@ -512,7 +482,7 @@ export const getSettlementSummary = async (
         included: boolean;
       };
   const events: CostEvent[] = [];
-  for (const receipt of receipts) {
+  for (const receipt of costReceipts) {
     const at = new Date(`${receipt.arrived_on}T00:00:00+09:00`).toISOString();
     for (const line of receipt.inventory_purchase_receipt_lines ?? []) {
       const sourceLine = getOne(line.inventory_purchase_order_lines);

@@ -303,7 +303,7 @@ export default function SettlementReport() {
           {
             label: "기간 매입액",
             value: totalPurchases,
-            description: "해당 기간에 입고된 상품 금액",
+            description: "해당 기간에 주문된 상품 금액",
           },
           {
             label: "판매품목 매출원가",
