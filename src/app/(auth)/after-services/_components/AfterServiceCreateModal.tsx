@@ -56,7 +56,7 @@ const schema = z
     supplierId: z.string(),
     costAllocations: z.array(
       z.object({
-        sourceReceiptLineId: z.string().nullable(),
+        sourceCostLayerId: z.string().uuid(),
         unitPrice: z.number().min(0),
         quantity: z.number().min(0),
       }),
@@ -440,9 +440,8 @@ export default function AfterServiceCreateModal({
     queryFn: () => getItemPurchaseCostOptions(itemNameKeyword),
     enabled: caseType === "vendor_exchange" && Boolean(selectedSupplierId) && selectedSupplierId !== "later" && itemNameKeyword.trim().length > 0,
   });
-  const vendorCostOptions = (purchaseCostOptionsQuery.data ?? []).filter(
-    (option) => option.supplier_name === supplierSearch,
-  );
+  // 업체는 A/S를 보내는 곳이고, 원가층은 실제 현재 재고 FIFO에서 고른다.
+  const vendorCostOptions = purchaseCostOptionsQuery.data ?? [];
   const buildReceivedNote = useCallback((supplierName = supplierSearch.trim()) => {
     if (caseType !== "customer_as") {
       return `매장접수일 : ${formatReceivedNoteDate(receivedDate)}\n도매처 : ${supplierName}`;
@@ -1344,23 +1343,23 @@ export default function AfterServiceCreateModal({
 
               {caseType === "vendor_exchange" && selectedSupplierId && selectedSupplierId !== "later" && (
                 <div className="rounded-xl border border-gray-200 bg-gray-50/70 p-3">
-                  <p className="text-sm font-semibold text-gray-800">매입 원가층 배정</p>
-                  <p className="mt-1 text-xs text-gray-600">출고 수량만큼 사용할 매입 이력별 수량을 입력하세요.</p>
+                  <p className="text-sm font-semibold text-gray-800">FIFO 원가층 배정</p>
+                  <p className="mt-1 text-xs text-gray-600">현재 재고에 실제 남아 있는 FIFO 원가층만 표시됩니다.</p>
                   <div className="mt-3 space-y-2">
                     {vendorCostOptions.map((option, index) => (
-                      <div key={option.source_receipt_line_id} className="grid grid-cols-[1fr_5rem] items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs">
+                      <div key={option.cost_layer_id} className="grid grid-cols-[1fr_5rem] items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs">
                         <span>{option.arrived_on} · {option.unit_price.toLocaleString("ko-KR")}원 · 잔여 {option.received_quantity}개</span>
                         <input
                           type="number"
                           min="0"
                           max={option.received_quantity}
-                          value={costAllocations.find((allocation) => allocation.sourceReceiptLineId === option.source_receipt_line_id)?.quantity ?? 0}
+                          value={costAllocations.find((allocation) => allocation.sourceCostLayerId === option.cost_layer_id)?.quantity ?? 0}
                           onChange={(event) => {
                             const quantity = Math.min(option.received_quantity, Math.max(0, Number(event.target.value) || 0));
                             const next = vendorCostOptions.map((source, sourceIndex) => ({
-                              sourceReceiptLineId: source.source_receipt_line_id,
+                              sourceCostLayerId: source.cost_layer_id,
                               unitPrice: source.unit_price,
-                              quantity: sourceIndex === index ? quantity : costAllocations.find((allocation) => allocation.sourceReceiptLineId === source.source_receipt_line_id)?.quantity ?? 0,
+                              quantity: sourceIndex === index ? quantity : costAllocations.find((allocation) => allocation.sourceCostLayerId === source.cost_layer_id)?.quantity ?? 0,
                             }));
                             setValue("costAllocations", next, { shouldValidate: true });
                           }}
@@ -1369,7 +1368,7 @@ export default function AfterServiceCreateModal({
                       </div>
                     ))}
                     {!purchaseCostOptionsQuery.isPending && vendorCostOptions.length === 0 && (
-                      <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">선택한 거래처에 배정 가능한 매입 이력이 없습니다.</p>
+                      <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">현재 재고에 배정 가능한 확정 FIFO 원가층이 없습니다.</p>
                     )}
                   </div>
                   <p className="mt-2 text-right text-xs text-gray-600">배정 {costAllocations.reduce((sum, allocation) => sum + allocation.quantity, 0)} / 출고 {selectedQuantity}</p>

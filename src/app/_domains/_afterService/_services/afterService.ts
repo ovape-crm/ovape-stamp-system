@@ -449,9 +449,9 @@ export const editAfterServiceStatusProcessing = async (values: {
 };
 
 export type ItemPurchaseCostOption = {
-  source_receipt_line_id: string;
+  cost_layer_id: string;
   arrived_on: string;
-  supplier_name: string;
+  supplier_name: string | null;
   unit_price: number;
   received_quantity: number;
 };
@@ -469,7 +469,7 @@ export const processInventoryServiceOutbound = async (values: {
   caseType: 'vendor_exchange' | 'store_product_as';
   supplierId: string;
   allocations: Array<{
-    sourceReceiptLineId: string | null;
+    sourceCostLayerId: string;
     unitPrice: number;
     quantity: number;
   }>;
