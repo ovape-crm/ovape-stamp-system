@@ -6,7 +6,7 @@ import supabase from '@/libs/supabaseClient';
 import toast from 'react-hot-toast';
 
 interface RemarkLogCreateModalProps {
-  onSubmit: (note: string) => Promise<void>;
+  onSubmit: (note: string, remarkType?: 'general' | 'follow_up') => Promise<void>;
   onCancel: () => void;
   isSubmitting?: boolean;
   initialNote?: string;
@@ -40,7 +40,7 @@ const RemarkLogCreateModal = ({
   const [remarkType, setRemarkType] = useState<'general' | 'follow_up'>(initialRemarkType);
   const submitLockRef = useRef(false);
   const isPending = isSubmitting || isLocalSubmitting;
-  const canChangeRemarkType = Boolean(onSubmitFollowUp) && mode === 'create';
+  const canChangeRemarkType = Boolean(onSubmitFollowUp);
   const shouldShowRemarkTypeTabs = canChangeRemarkType || showRemarkTypeTabs;
 
   const handleSpellCheck = async () => {
@@ -92,7 +92,7 @@ const RemarkLogCreateModal = ({
       if (remarkType === 'follow_up' && onSubmitFollowUp) {
         await onSubmitFollowUp(note.trim());
       } else {
-        await onSubmit(note.trim());
+        await onSubmit(note.trim(), remarkType);
       }
       if (mode === 'create') setNote('');
     } finally {

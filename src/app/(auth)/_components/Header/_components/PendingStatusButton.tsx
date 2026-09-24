@@ -335,13 +335,13 @@ export default function PendingStatusButton() {
                 <StatusCard
                   title="출고 예약"
                   count={reservations.length}
-                  href="/histories?tab=reservation"
+                  href="/histories/reservations"
                 >
                   <div className="grid gap-2 pt-3 sm:grid-cols-2">
                     {reservations.slice(0, 6).map((reservation) => (
                       <Link
                         key={reservation.id}
-                        href={`/histories?tab=reservation#history-${reservation.id}`}
+                        href={`/histories/reservations#history-${reservation.id}`}
                         onClick={() => setIsOpen(false)}
                         className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5 transition hover:border-brand-300 hover:bg-brand-50/60 hover:shadow-sm"
                       >
@@ -436,7 +436,7 @@ export default function PendingStatusButton() {
                       {followUpRemarks.slice(0, 9).map((remark) => (
                         <Link
                           key={remark.id}
-                          href={`/customers/${remark.customer_id}`}
+                          href={`/customers/${remark.customer_id}?followUpRemarkId=${remark.id}`}
                           onClick={() => setIsOpen(false)}
                           className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2.5 transition hover:border-amber-300 hover:bg-amber-50"
                         >

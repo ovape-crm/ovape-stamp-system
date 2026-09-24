@@ -67,3 +67,31 @@ export const completeCustomerFollowUpRemark = async ({
     .eq('is_completed', false);
   if (error) throw error;
 };
+
+export const updateOpenCustomerFollowUpRemark = async ({
+  customerId,
+  previousContent,
+  content,
+  complete,
+}: {
+  customerId: string;
+  previousContent: string;
+  content: string;
+  complete?: boolean;
+}) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  const query = supabase
+    .from('customer_follow_up_remarks')
+    .update(complete ? {
+      is_completed: true,
+      completed_content: '일반 특이사항으로 변경',
+      completed_by: user?.id ?? null,
+      completed_by_name: '직원',
+      completed_at: new Date().toISOString(),
+    } : { content })
+    .eq('customer_id', customerId)
+    .eq('content', previousContent)
+    .eq('is_completed', false);
+  const { error } = await query;
+  if (error) throw error;
+};

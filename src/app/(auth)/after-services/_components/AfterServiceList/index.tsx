@@ -172,18 +172,14 @@ const AfterServiceList = ({
                     <td className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm text-gray-700">
                       <div className="flex w-full flex-col items-start gap-1.5 text-left">
                         <DetailPreview text={as.shop_note} />
-                        <div className="flex items-center justify-start gap-1.5 text-[11px] text-gray-500 sm:text-xs">
-                          <span>재고처리 :</span>
-                          <span
-                            className={`font-bold ${
-                              as.is_loaner_device_issued
-                                ? 'text-brand-600'
-                                : 'text-gray-500'
-                            }`}
-                          >
-                            {as.is_loaner_device_issued ? 'O' : 'X'}
-                          </span>
-                        </div>
+                        {as.service_case_type === 'customer_as' && (
+                          <div className="flex items-center justify-start gap-1.5 text-[11px] text-gray-500 sm:text-xs">
+                            <span>재고처리 :</span>
+                            <span className={`font-bold ${as.is_loaner_device_issued ? 'text-brand-600' : 'text-gray-500'}`}>
+                              {as.is_loaner_device_issued ? 'O' : 'X'}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap align-middle">

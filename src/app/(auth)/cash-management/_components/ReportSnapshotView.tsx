@@ -474,6 +474,10 @@ export default function ReportSnapshotView({
             </p>
           </ReportSection>
         </div>
+
+        {snapshot.businessDate >= "2026-09-23" && (
+          <TransferVerificationSnapshot detail={snapshot.transferVerificationDetail} />
+        )}
       </div>
     </div>
   );
@@ -492,6 +496,27 @@ function ReportSection({
       {children}
     </section>
   );
+}
+
+function TransferVerificationSnapshot({ detail }: { detail: DailyClosingReportSnapshot["transferVerificationDetail"] }) {
+  const entries = detail?.entries ?? [];
+  const stores = [{ key: "ovape" as const, label: "오베이프" }, { key: "eguVape" as const, label: "이구베이프" }];
+  return <ReportSection title="개별 이체 확인 내역">
+    {entries.length ? <>
+      <p className="-mt-1 mb-3 text-xs text-gray-500">확인 {detail?.verifiedByName ?? "직원"} · {detail?.verifiedAt ? new Date(detail.verifiedAt).toLocaleString("ko-KR") : "저장 시각 없음"}</p>
+      <div className="grid gap-3 md:grid-cols-2">
+        {stores.map(({ key, label }) => {
+          const storeEntries = entries.filter((entry) => entry.store === key);
+          return <div key={key} className="overflow-hidden rounded-xl border border-gray-200">
+            <div className="border-b border-gray-200 bg-gray-50 px-3 py-2 text-sm font-bold text-gray-800">{label} 이체</div>
+            <div className="divide-y divide-gray-100">
+              {storeEntries.length ? storeEntries.map((entry) => <div key={`${entry.logId}-${entry.paymentIndex}`} className="flex items-center justify-between gap-3 px-3 py-2 text-sm"><span className="min-w-0 truncate text-gray-700">✓ {entry.payerName}</span><strong className="shrink-0 text-gray-900">{formatWon(entry.amount)}</strong></div>) : <p className="px-3 py-3 text-sm text-gray-400">확인 내역 없음</p>}
+            </div>
+          </div>;
+        })}
+      </div>
+    </> : <p className="text-sm text-gray-400">저장된 개별 이체 확인 내역이 없습니다.</p>}
+  </ReportSection>;
 }
 
 function SnapshotListSection({

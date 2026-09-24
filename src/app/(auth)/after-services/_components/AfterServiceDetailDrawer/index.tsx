@@ -1039,9 +1039,7 @@ const AfterServiceDetailDrawer = ({
                     itemName={afterServiceDetail.item_name}
                     quantity={afterServiceDetail.quantity}
                     createdAt={afterServiceDetail.created_at}
-                    isLoanerDeviceIssued={
-                      afterServiceDetail.is_loaner_device_issued
-                    }
+                    isLoanerDeviceIssued={afterServiceDetail.service_case_type === "customer_as" ? afterServiceDetail.is_loaner_device_issued : null}
                     user={afterServiceDetail.users}
                   />
 
