@@ -59,11 +59,15 @@ export default function CustomerDetailPage() {
     : false;
   const [isFollowUpAlertOpen, setIsFollowUpAlertOpen] = useState(true);
   const [followUpDecision, setFollowUpDecision] = useState<'later' | 'now' | null>(null);
+  const [selectedFollowUpRemarkId, setSelectedFollowUpRemarkId] = useState<string | null>(null);
   const followUpQuery = useQuery({
     queryKey: ['customer-follow-up-remarks', customerId],
     queryFn: () => getOpenCustomerFollowUpRemarks(customerId),
     enabled: Boolean(customerId),
   });
+  const selectedFollowUpRemark = followUpQuery.data?.find(
+    (remark) => remark.id === searchParams.get('followUpRemarkId') || remark.id === selectedFollowUpRemarkId,
+  ) ?? followUpQuery.data?.[0];
 
   const [logCategory, setLogCategory] = useState<LogCategoryEnumType["value"]>(
     LogCategoryEnum.STAMP.value,
@@ -289,14 +293,24 @@ export default function CustomerDetailPage() {
             {followUpDecision ? (
               <>
                 <h2 id="follow-up-alert-title" className="text-lg font-bold text-gray-900">{followUpDecision === 'later' ? '나중에 처리하시겠습니까?' : '지금 처리하시겠습니까?'}</h2>
-                <p className="mt-2 text-sm text-gray-600">{followUpDecision === 'later' ? '미처리 현황과 고객 상세에서 다시 확인할 수 있습니다.' : '첫 번째 미처리 특이사항의 처리 내용을 입력하는 화면으로 이동합니다.'}</p>
+                <p className="mt-2 text-sm text-gray-600">{followUpDecision === 'later' ? '미처리 현황과 고객 상세에서 다시 확인할 수 있습니다.' : '처리할 특이사항을 선택해 주세요.'}</p>
+                {followUpDecision === 'now' && (
+                  <div className="mt-4 max-h-56 space-y-2 overflow-y-auto">
+                    {followUpQuery.data?.map((remark) => (
+                      <button key={remark.id} type="button" onClick={() => setSelectedFollowUpRemarkId(remark.id)} className={`w-full rounded-xl border p-3 text-left transition ${selectedFollowUpRemark?.id === remark.id ? 'border-amber-400 bg-amber-50' : 'border-gray-200 bg-white hover:border-amber-300'}`}>
+                        <p className="text-xs font-bold text-gray-700">{new Intl.DateTimeFormat('ko-KR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(remark.created_at))} · {remark.created_by_name}</p>
+                        <p className="mt-1 whitespace-pre-wrap break-words text-sm text-gray-900">{remark.content}</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <div className="mt-5 flex justify-end gap-2">
                   <Button size="sm" variant="gray" onClick={() => setFollowUpDecision(null)}>취소</Button>
-                  <Button size="sm" onClick={() => {
+                  <Button size="sm" disabled={followUpDecision === 'now' && !selectedFollowUpRemark} onClick={() => {
                     if (followUpDecision === 'later') setIsFollowUpAlertOpen(false);
                     else {
                       setIsFollowUpAlertOpen(false);
-                      openFollowUpProcessing(followUpQuery.data![0]);
+                      if (selectedFollowUpRemark) openFollowUpProcessing(selectedFollowUpRemark);
                     }
                     setFollowUpDecision(null);
                   }}>확인</Button>
@@ -331,7 +345,10 @@ export default function CustomerDetailPage() {
             <p className="text-sm font-bold text-amber-900">처리 필요 특이사항 {followUpQuery.data?.length}건</p>
             <p className="mt-0.5 text-xs text-amber-800">미처리 건은 고객 상세를 나가기 전에도 여기서 바로 처리할 수 있습니다.</p>
           </div>
-          <Button size="sm" onClick={() => openFollowUpProcessing(followUpQuery.data![0])}>처리하기</Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {(followUpQuery.data?.length ?? 0) > 1 && followUpQuery.data?.map((remark, index) => <button key={remark.id} type="button" onClick={() => setSelectedFollowUpRemarkId(remark.id)} className={`cursor-pointer rounded-lg border px-2.5 py-1.5 text-xs font-semibold ${selectedFollowUpRemark?.id === remark.id ? 'border-amber-500 bg-white text-amber-800' : 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-white'}`}>{index + 1}번</button>)}
+            <Button size="sm" onClick={() => selectedFollowUpRemark && openFollowUpProcessing(selectedFollowUpRemark)}>처리하기</Button>
+          </div>
         </div>
       )}
 

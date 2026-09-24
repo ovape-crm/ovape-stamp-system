@@ -40,6 +40,8 @@ import { updateHistoryMasterMetadata } from "@/app/_domains/_log/_services/logSe
 import RefundModal from "./RefundModal";
 import { cancelCustomerRefund } from "@/app/_domains/_refund/refundService";
 import { showPromptDialog } from "@/app/_components/AppDialog";
+import { createCustomerFollowUpRemark, updateOpenCustomerFollowUpRemark } from "@/app/_domains/_customer/_services/customerFollowUpRemarkService";
+import { resolveCurrentWorkerName } from "@/app/_domains/_workJournal/_utils/currentWorker";
 
 const PAGE_SIZE = 10;
 // 복사 기능은 유지하되, 이력 화면에서는 노출하지 않는다.
@@ -237,13 +239,26 @@ const StampHistories = ({
     (log: LogsResType) => {
       const isRemarkLog =
         log.jsonb?.paymentType === PaymentTypeEnum.REMARK.value;
+      const isFollowUpRemarkLog =
+        isRemarkLog && (log.note ?? "").startsWith("[처리 필요 등록]");
       const hasStampLogItems =
         Array.isArray(log.jsonb?.items) && log.jsonb.items.length > 0;
       const shouldEditMemoOnly = isRemarkLog || !hasStampLogItems;
 
       if (shouldEditMemoOnly) {
-        const handleRemarkSubmit = async (note: string) => {
+        const originalFollowUpContent = isFollowUpRemarkLog
+          ? (log.note ?? "").replace(/^\[처리 필요 등록\]\n?/, "")
+          : "";
+        const handleRemarkSubmit = async (note: string, remarkType = "general") => {
           try {
+            if (isFollowUpRemarkLog && remarkType === "general") {
+              await updateOpenCustomerFollowUpRemark({
+                customerId: String(log.customer_id),
+                previousContent: originalFollowUpContent,
+                content: note,
+                complete: true,
+              });
+            }
             const updated = await updateLogNote(log.id, note);
             updateItem(log.id, (item) => ({
               ...item,
@@ -260,6 +275,27 @@ const StampHistories = ({
             toast.error("저장에 실패했습니다. 다시 시도해 주세요.");
           }
         };
+        const handleFollowUpRemarkSubmit = async (note: string) => {
+          try {
+            if (isFollowUpRemarkLog) {
+              await updateOpenCustomerFollowUpRemark({
+                customerId: String(log.customer_id),
+                previousContent: originalFollowUpContent,
+                content: note,
+              });
+            } else {
+              const authorName = isAdmin ? "관리자" : await resolveCurrentWorkerName() || "직원";
+              await createCustomerFollowUpRemark({ customerId: String(log.customer_id), content: note, authorName });
+            }
+            const updated = await updateLogNote(log.id, `[처리 필요 등록]\n${note}`);
+            updateItem(log.id, (item) => ({ ...item, note: updated.note, jsonb: updated.jsonb, updated_at: updated.updated_at }));
+            close();
+            toast.success("처리 필요 특이사항을 저장했습니다.");
+          } catch (e) {
+            console.error("Failed to save follow-up note:", e);
+            toast.error("저장에 실패했습니다. 다시 시도해 주세요.");
+          }
+        };
 
         open({
           content: (
@@ -269,7 +305,10 @@ const StampHistories = ({
               title={isRemarkLog ? undefined : "메모 수정"}
               label={isRemarkLog ? undefined : "메모"}
               placeholder={isRemarkLog ? undefined : "메모를 입력하세요"}
+              initialRemarkType={isFollowUpRemarkLog ? "follow_up" : "general"}
+              showRemarkTypeTabs={isRemarkLog}
               onSubmit={handleRemarkSubmit}
+              onSubmitFollowUp={isRemarkLog ? handleFollowUpRemarkSubmit : undefined}
               onCancel={close}
             />
           ),

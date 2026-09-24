@@ -162,6 +162,7 @@ export default function DailyClosingReport({
   const [checkedTransfers, setCheckedTransfers] = useState<Record<string, boolean>>({});
   const [savedTransfers, setSavedTransfers] = useState<Record<string, boolean>>({});
   const [isViewingSavedTransfers, setIsViewingSavedTransfers] = useState(false);
+  const usesTransferVerification = businessDate >= "2026-09-23";
   const usesSeparatedOutboundSummary = businessDate >= "2026-07-31";
 
   const reportQuery = useQuery({
@@ -171,6 +172,7 @@ export default function DailyClosingReport({
   const transferVerificationQuery = useQuery({
     queryKey: ["daily-closing-transfer-verification", businessDate],
     queryFn: () => getDailyClosingTransferVerification(businessDate),
+    enabled: usesTransferVerification,
   });
   const checklistQuery = useQuery({
     queryKey: ["daily-closing-checklist-items"],
@@ -340,7 +342,9 @@ export default function DailyClosingReport({
   const transferStores = (["ovape", "eguVape"] as const).map((store) => ({
     store,
     label: store === "ovape" ? "오베이프" : "이구베이프",
-    entries: paymentSales.transferDetails.filter((entry) => entry.store === store),
+    entries: usesTransferVerification
+      ? paymentSales.transferDetails.filter((entry) => entry.store === store)
+      : [],
   }));
   const allTransfersChecked = transferStores.every(({ entries }) => entries.every((entry) => checkedTransfers[entry.id]));
   const hasTransferEntries = transferStores.some(({ entries }) => entries.length > 0);
@@ -476,18 +480,17 @@ export default function DailyClosingReport({
           })),
           cleaningNote: cleaningNote.trim(),
           specialNote: specialNote.trim(),
-          transferVerification: transferStores.map(({ store, entries }) => ({
+          ...(usesTransferVerification ? { transferVerification: transferStores.map(({ store, entries }) => ({
             store,
             entryIds: entries.filter((entry) => savedTransfers[entry.id]).map((entry) => entry.id),
             total: entries.reduce((sum, entry) => sum + entry.amount, 0),
-          })),
-          transferVerificationDetail: {
+          })), transferVerificationDetail: {
             entries: transferStores.flatMap(({ entries }) => entries)
               .filter((entry) => savedTransfers[entry.id])
               .map(({ logId, paymentIndex, paymentType, store, payerName, amount }) => ({ logId, paymentIndex, paymentType, store, payerName, amount })),
             verifiedAt: transferVerificationQuery.data?.verifiedAt ?? new Date().toISOString(),
             verifiedByName: transferVerificationQuery.data?.verifiedByName ?? user?.name ?? "직원",
-          },
+          } } : {}),
           capturedAt: new Date().toISOString(),
         },
       });
@@ -766,7 +769,7 @@ export default function DailyClosingReport({
           </div>
         </section>
         <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
-          {(!isTransferVerificationSaved || isViewingSavedTransfers) && <TransferVerificationCards stores={transferStores} checkedTransfers={checkedTransfers} onToggle={toggleTransfer} disabled={isClosed || isTransferVerificationSaved} onSave={saveTransferVerification} canSave={allTransfersChecked} onClose={isTransferVerificationSaved ? () => setIsViewingSavedTransfers(false) : undefined} />}
+          {usesTransferVerification && (!isTransferVerificationSaved || isViewingSavedTransfers) && <TransferVerificationCards stores={transferStores} checkedTransfers={checkedTransfers} onToggle={toggleTransfer} disabled={isClosed || isTransferVerificationSaved} onSave={saveTransferVerification} canSave={allTransfersChecked} onClose={isTransferVerificationSaved ? () => setIsViewingSavedTransfers(false) : undefined} />}
           <div className={`${isTransferVerificationSaved && !isViewingSavedTransfers ? "grid" : "hidden"} gap-3 md:grid-cols-2 xl:grid-cols-[170px_170px_140px_minmax(0,1fr)]`}>
             <SalesBreakdownCard title="오베이프 매출" items={paymentSales.ovapeBreakdown} rowCount={Math.max(paymentSales.ovapeBreakdown.length, paymentSales.eguVapeBreakdown.length)} transferVerified={transferStores[0].entries.length > 0 && transferStores[0].entries.every((entry) => savedTransfers[entry.id])} onTransferVerifiedClick={() => setIsViewingSavedTransfers(true)} />
             <SalesBreakdownCard title="이구베이프 매출" items={paymentSales.eguVapeBreakdown} rowCount={Math.max(paymentSales.ovapeBreakdown.length, paymentSales.eguVapeBreakdown.length)} transferVerified={transferStores[1].entries.length > 0 && transferStores[1].entries.every((entry) => savedTransfers[entry.id])} onTransferVerifiedClick={() => setIsViewingSavedTransfers(true)} />
@@ -1018,7 +1021,7 @@ export default function DailyClosingReport({
           시재 현황이 일치해야 종합보고서를 마감할 수 있습니다.
         </p>
       )}
-      {hasCashClosing && !allTransfersChecked && !isClosed && (
+      {usesTransferVerification && hasCashClosing && !allTransfersChecked && !isClosed && (
         <p className="text-right text-xs font-medium text-rose-600">모든 이체 내역을 확인해야 마감할 수 있습니다.</p>
       )}
     </div>
