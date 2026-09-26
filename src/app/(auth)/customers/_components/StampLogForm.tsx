@@ -147,6 +147,7 @@ export default function StampLogForm({
   step,
   onValidityChange,
   reservationSlot,
+  transferPayerSlot,
   stepOneReservationSlot,
   stepOneAfterPaymentSlot,
   hasSelectedShipmentTiming = true,
@@ -158,6 +159,9 @@ export default function StampLogForm({
   currentStampCount = 0,
   customerAddress,
   customerSummary,
+  transferPayerName = "",
+  sameCustomerTransfer = false,
+  onTransferPaymentSelectedChange,
   compactStepOneSpacing = false,
   hideRemoteDeliveryMethods = false,
 }: {
@@ -189,6 +193,8 @@ export default function StampLogForm({
   }) => void;
   /** step 모드에서 2번 스텝의 출고 특이사항 입력 오른쪽에 함께 렌더링할 요소 (예: 출고 예약 토글) */
   reservationSlot?: React.ReactNode;
+  /** 일반 고객 이체 시 2단계 고객 정보 자리에 표시할 이체자명 확인 UI */
+  transferPayerSlot?: React.ReactNode;
   /** step 1 기본정보에 표시할 출고일 선택 UI */
   stepOneReservationSlot?: React.ReactNode;
   /** step 1 결제 정보 바로 다음에 표시할 추가 UI */
@@ -213,6 +219,10 @@ export default function StampLogForm({
     address?: string | null;
     note?: string | null;
   };
+  /** 일반 고객 이체자명은 모달의 대상 고객 정보 카드에서 제어한다. */
+  transferPayerName?: string;
+  sameCustomerTransfer?: boolean;
+  onTransferPaymentSelectedChange?: (value: boolean) => void;
 }) {
   const [paymentType, setPaymentType] = useState<
     PaymentTypeEnumType["value"] | ""
@@ -262,8 +272,6 @@ export default function StampLogForm({
         ? "remark"
         : "single",
   );
-  const [transferPayerName, setTransferPayerName] = useState("");
-  const [sameCustomerTransfer, setSameCustomerTransfer] = useState(false);
   const [splitPayments, setSplitPayments] = useState<
     Array<{
       paymentType: PaymentTypeEnumType["value"];
@@ -356,18 +364,29 @@ export default function StampLogForm({
       })) ?? [],
   );
   const exchangeSaleOptionsQuery = useQuery({
-    queryKey: ["customer-exchange-sale-options", customerSummary?.name, customerSummary?.phone, selectedItem?.item_name],
-    queryFn: () => getCustomerExchangeSaleOptions({
-      customerName: customerSummary?.name ?? "",
-      customerPhone: customerSummary?.phone ?? "",
-      itemName: selectedItem?.item_name ?? "",
-    }),
-    enabled: remarkType === "exchange_in" && Boolean(customerSummary?.name && customerSummary?.phone && selectedItem?.item_name),
+    queryKey: [
+      "customer-exchange-sale-options",
+      customerSummary?.name,
+      customerSummary?.phone,
+      selectedItem?.item_name,
+    ],
+    queryFn: () =>
+      getCustomerExchangeSaleOptions({
+        customerName: customerSummary?.name ?? "",
+        customerPhone: customerSummary?.phone ?? "",
+        itemName: selectedItem?.item_name ?? "",
+      }),
+    enabled:
+      remarkType === "exchange_in" &&
+      Boolean(
+        customerSummary?.name &&
+        customerSummary?.phone &&
+        selectedItem?.item_name,
+      ),
   });
   const adjustmentCostOptionsQuery = useQuery({
     queryKey: ["adjustment-in-cost-options", selectedItem?.item_name],
-    queryFn: () =>
-      getAdjustmentInCostOptions(selectedItem?.item_name ?? ""),
+    queryFn: () => getAdjustmentInCostOptions(selectedItem?.item_name ?? ""),
     enabled:
       (remarkType === "correction_in" || remarkType === "free_in") &&
       Boolean(selectedItem?.item_name),
@@ -535,7 +554,7 @@ export default function StampLogForm({
           : deliveryFee;
   const discountTag =
     discountLabel && activeDiscountAmount > 0
-      ? `${discountLabel}할인${activeDiscountAmount}`
+      ? `${discountLabel}${activeDiscountAmount}`
       : "";
   const discountLine = discountTag ? `${discountTag})` : "";
   const deliveryFeeLabel =
@@ -592,19 +611,37 @@ export default function StampLogForm({
   const hasSelectedSplitPayments = splitPayments.length >= 2;
   const isTransferPaymentSelected =
     paymentMode === "single"
-      ? ["transfer", "transfer_cash_receipt", "egu_transfer", "egu_transfer_cash_receipt"].includes(paymentType)
-      : splitPayments.some((payment) => ["transfer", "transfer_cash_receipt", "egu_transfer", "egu_transfer_cash_receipt"].includes(payment.paymentType));
-  const hasValidTransferPayer =
-    !isTransferPaymentSelected ||
-    customerMode === "x" ||
-    (sameCustomerTransfer ? Boolean(customerSummary?.name?.trim()) : Boolean(transferPayerName.trim()));
+      ? [
+          "transfer",
+          "transfer_cash_receipt",
+          "egu_transfer",
+          "egu_transfer_cash_receipt",
+        ].includes(paymentType)
+      : splitPayments.some((payment) =>
+          [
+            "transfer",
+            "transfer_cash_receipt",
+            "egu_transfer",
+            "egu_transfer_cash_receipt",
+          ].includes(payment.paymentType),
+        );
   const isSameCustomerSelected =
     sameCustomerTransfer ||
     Boolean(
       transferPayerName.trim() &&
-        customerSummary?.name?.trim() &&
-        transferPayerName.trim() === customerSummary.name.trim(),
+      customerSummary?.name?.trim() &&
+      transferPayerName.trim() === customerSummary.name.trim(),
     );
+
+  useEffect(() => {
+    onTransferPaymentSelectedChange?.(
+      isTransferPaymentSelected && customerMode === "normal",
+    );
+  }, [
+    customerMode,
+    isTransferPaymentSelected,
+    onTransferPaymentSelectedChange,
+  ]);
   const hasValidPayment =
     paymentMode === "remark"
       ? true
@@ -735,11 +772,12 @@ export default function StampLogForm({
         customerMode === "x"
           ? xPhoneLastDigits?.trim() || undefined
           : undefined,
-      xCustomerGender:
-        customerMode === "x" ? xCustomerGender : undefined,
+      xCustomerGender: customerMode === "x" ? xCustomerGender : undefined,
       transferPayerName:
         isTransferPaymentSelected && customerMode !== "x"
-          ? (isSameCustomerSelected ? customerSummary?.name?.trim() : transferPayerName.trim()) || undefined
+          ? (isSameCustomerSelected
+              ? customerSummary?.name?.trim()
+              : transferPayerName.trim()) || undefined
           : customerMode === "x"
             ? xCustomerName?.trim() || undefined
             : undefined,
@@ -893,7 +931,7 @@ export default function StampLogForm({
 
   useEffect(() => {
     onValidityChangeRef.current?.({
-      hasPaymentType: hasValidPayment && hasValidTransferPayer,
+      hasPaymentType: hasValidPayment,
       hasItems: draftLines.length > 0,
       hasDeliveryInfo: hasValidDeliveryInfo,
       hasCompletedBasicSequence:
@@ -901,12 +939,10 @@ export default function StampLogForm({
         hasConfirmedDeliveryMethod &&
         hasValidDeliveryInfo &&
         hasValidPayment &&
-        hasValidTransferPayer &&
         hasValidCouponSelection,
     });
   }, [
     hasValidPayment,
-    hasValidTransferPayer,
     hasValidDeliveryInfo,
     hasConfirmedStore,
     hasConfirmedDeliveryMethod,
@@ -1056,14 +1092,17 @@ export default function StampLogForm({
     if (
       remarkType === "correction_in" &&
       adjustmentUnitCost !== "" &&
-      (!Number.isInteger(parsedAdjustmentUnitCost) || parsedAdjustmentUnitCost < 0)
+      (!Number.isInteger(parsedAdjustmentUnitCost) ||
+        parsedAdjustmentUnitCost < 0)
     ) {
       toast.error("재고조정 입고 원가를 확인해 주세요.");
       return;
     }
     if (
       customerMode === "adjustment" &&
-      !["correction_in", "correction_out", "free_in", "loss_out"].includes(remarkType)
+      !["correction_in", "correction_out", "free_in", "loss_out"].includes(
+        remarkType,
+      )
     ) {
       toast.error("재고조정-입고 또는 재고조정-출고를 선택해 주세요.");
       return;
@@ -1107,9 +1146,12 @@ export default function StampLogForm({
                   : "";
     const isFreeRemark =
       isNonSalesSpecialCustomer || remarkType === "service" || isExchange;
-    const parsedExchangeAdditionalAmount = Number(exchangeAdditionalAmount || 0);
+    const parsedExchangeAdditionalAmount = Number(
+      exchangeAdditionalAmount || 0,
+    );
     const lineAmount = isFreeRemark
-      ? remarkType === "exchange_out" && Number.isFinite(parsedExchangeAdditionalAmount)
+      ? remarkType === "exchange_out" &&
+        Number.isFinite(parsedExchangeAdditionalAmount)
         ? Math.max(0, Math.floor(parsedExchangeAdditionalAmount))
         : 0
       : remarkType === "price_adjust"
@@ -1151,10 +1193,17 @@ export default function StampLogForm({
             ? parsedAdjustmentUnitCost
             : undefined,
       adjustmentReason:
-        remarkType === "loss_out" ? adjustmentReason : remarkType === "correction_out" ? "correction" : undefined,
+        remarkType === "loss_out"
+          ? adjustmentReason
+          : remarkType === "correction_out"
+            ? "correction"
+            : undefined,
       adjustmentType:
         customerMode === "adjustment"
-          ? remarkType === "correction_in" || remarkType === "correction_out" || remarkType === "free_in" || remarkType === "loss_out"
+          ? remarkType === "correction_in" ||
+            remarkType === "correction_out" ||
+            remarkType === "free_in" ||
+            remarkType === "loss_out"
             ? remarkType
             : undefined
           : undefined,
@@ -1171,11 +1220,11 @@ export default function StampLogForm({
               ? "exchange_out"
               : remarkType === "as_exchange_out"
                 ? "as_exchange_out"
-              : remarkType === "correction_in" || remarkType === "free_in"
-                ? "adjustment_in"
-                : remarkType === "correction_out" || remarkType === "loss_out"
-                  ? "adjustment_out"
-                  : "out",
+                : remarkType === "correction_in" || remarkType === "free_in"
+                  ? "adjustment_in"
+                  : remarkType === "correction_out" || remarkType === "loss_out"
+                    ? "adjustment_out"
+                    : "out",
     };
 
     setDraftLines((prev) =>
@@ -1223,9 +1272,7 @@ export default function StampLogForm({
         ? `${line.costSourceSaleLogId}:${line.costSourceSaleLineIndex}`
         : "",
     );
-    setAdjustmentCostSource(
-      line.adjustmentCostSourceReceiptLineId ?? "",
-    );
+    setAdjustmentCostSource(line.adjustmentCostSourceReceiptLineId ?? "");
     setAdjustmentUnitCost(
       line.adjustmentUnitCost == null ? "" : String(line.adjustmentUnitCost),
     );
@@ -1252,7 +1299,8 @@ export default function StampLogForm({
       );
     } else if (line.inventoryAction === "adjustment_out") {
       setRemarkType(
-        line.adjustmentType === "loss_out" || line.adjustmentReason !== "correction"
+        line.adjustmentType === "loss_out" ||
+          line.adjustmentReason !== "correction"
           ? "loss_out"
           : "correction_out",
       );
@@ -1637,22 +1685,6 @@ export default function StampLogForm({
                 );
               })}
             </div>
-            {isTransferPaymentSelected && customerMode !== "x" && (
-              <div className="mt-2 grid grid-cols-3 gap-[10px] border-t border-gray-200 pt-2">
-                <label className="flex h-8 items-center justify-center whitespace-nowrap rounded-lg border border-gray-300 bg-white text-sm font-semibold text-gray-700">이체 고객명</label>
-                <div>
-                  <input
-                    type="text"
-                    value={sameCustomerTransfer ? customerSummary?.name ?? "" : transferPayerName}
-                    onChange={(event) => setTransferPayerName(event.target.value)}
-                    disabled={isSameCustomerSelected}
-                    placeholder="이름을 입력하세요."
-                    className="h-8 w-full min-w-0 rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:bg-gray-100 disabled:text-gray-500"
-                  />
-                </div>
-                <button type="button" className={`h-8 rounded-lg border px-3 text-sm font-semibold ${isSameCustomerSelected ? "border-brand-500 bg-brand-50 text-brand-700" : "border-gray-300 bg-white text-gray-700 hover:border-brand-300"}`} onClick={() => { if (isSameCustomerSelected) { setSameCustomerTransfer(false); setTransferPayerName(""); } else { setSameCustomerTransfer(true); } }}>{isSameCustomerSelected ? "이름 수정하기" : "동일고객"}</button>
-              </div>
-            )}
           </div>
         )}
       </div>
@@ -1671,14 +1703,13 @@ export default function StampLogForm({
         <div
           className={`grid gap-[10px] ${hideRemoteDeliveryMethods ? "grid-cols-1" : "grid-cols-3"}`}
         >
-          {(
-            hideRemoteDeliveryMethods
-              ? ([{ value: "store_visit", label: "매장방문" }] as const)
-              : ([
-                  { value: "store_visit", label: "매장방문" },
-                  { value: "parcel", label: "택배" },
-                  { value: "delivery", label: "배달" },
-                ] as const)
+          {(hideRemoteDeliveryMethods
+            ? ([{ value: "store_visit", label: "매장방문" }] as const)
+            : ([
+                { value: "store_visit", label: "매장방문" },
+                { value: "parcel", label: "택배" },
+                { value: "delivery", label: "배달" },
+              ] as const)
           ).map((option) => (
             <div key={option.value} className="relative min-w-0">
               <Button
@@ -2248,7 +2279,12 @@ export default function StampLogForm({
                   quantity < 1 ||
                   (isSelectedMemoRequired && !selectedRuleMemo.trim()) ||
                   (customerMode === "adjustment" &&
-                    !["correction_in", "correction_out", "free_in", "loss_out"].includes(remarkType))
+                    ![
+                      "correction_in",
+                      "correction_out",
+                      "free_in",
+                      "loss_out",
+                    ].includes(remarkType))
                 }
               >
                 {editingLineId ? "수정" : "추가"}
@@ -2274,9 +2310,11 @@ export default function StampLogForm({
                     key={option.value}
                     type="button"
                     onClick={() => handleRemarkTypeChange(option.value)}
-                    className={`h-8 cursor-pointer rounded-lg border px-2 text-center transition ${selected ? isLoss ? "border-rose-500 bg-rose-500 text-white" : "border-brand-500 bg-brand-500 text-white" : "border-gray-300 bg-white text-gray-700 hover:border-brand-300"}`}
+                    className={`h-8 cursor-pointer rounded-lg border px-2 text-center transition ${selected ? (isLoss ? "border-rose-500 bg-rose-500 text-white" : "border-brand-500 bg-brand-500 text-white") : "border-gray-300 bg-white text-gray-700 hover:border-brand-300"}`}
                   >
-                    <span className="block text-xs font-semibold">{option.name.replace("재고조정-", "")}</span>
+                    <span className="block text-xs font-semibold">
+                      {option.name.replace("재고조정-", "")}
+                    </span>
                   </button>
                 );
               })}
@@ -2290,7 +2328,13 @@ export default function StampLogForm({
             />
           </section>
         ) : (
-          <div className={customerMode === "demo" ? "grid grid-cols-[minmax(0,1fr)_minmax(0,5fr)] gap-1.5" : "grid grid-cols-6 gap-1.5"}>
+          <div
+            className={
+              customerMode === "demo"
+                ? "grid grid-cols-[minmax(0,1fr)_minmax(0,5fr)] gap-1.5"
+                : "grid grid-cols-6 gap-1.5"
+            }
+          >
             {visibleRemarkOptions.map((option) => (
               <Button
                 key={option.value}
@@ -2316,10 +2360,23 @@ export default function StampLogForm({
         )}
         {customerMode === "adjustment" && remarkType === "loss_out" && (
           <div className="rounded-xl border border-gray-200 bg-gray-50/70 p-3">
-            <p className="mb-2 text-xs font-semibold text-gray-700">손실 사유</p>
+            <p className="mb-2 text-xs font-semibold text-gray-700">
+              손실 사유
+            </p>
             <div className="grid grid-cols-3 gap-2">
-              {([ ["damage", "파손"], ["loss", "분실"], ["disposal", "폐기"] ] as const).map(([value, label]) => (
-                <button key={value} type="button" onClick={() => setAdjustmentReason(value)} className={`min-h-10 cursor-pointer rounded-lg border px-2 text-xs font-semibold ${adjustmentReason === value ? "border-rose-500 bg-rose-500 text-white" : "border-gray-300 bg-white text-gray-600 hover:border-rose-300"}`}>
+              {(
+                [
+                  ["damage", "파손"],
+                  ["loss", "분실"],
+                  ["disposal", "폐기"],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setAdjustmentReason(value)}
+                  className={`min-h-10 cursor-pointer rounded-lg border px-2 text-xs font-semibold ${adjustmentReason === value ? "border-rose-500 bg-rose-500 text-white" : "border-gray-300 bg-white text-gray-600 hover:border-rose-300"}`}
+                >
                   {label}
                 </button>
               ))}
@@ -2343,7 +2400,8 @@ export default function StampLogForm({
                     value={adjustmentUnitCost}
                     onChange={(event) => {
                       setAdjustmentUnitCost(event.target.value);
-                      if (event.target.value !== "") setAdjustmentCostSource("");
+                      if (event.target.value !== "")
+                        setAdjustmentCostSource("");
                     }}
                     placeholder="개당 원가"
                     className="h-10 w-40 rounded-lg border border-gray-300 bg-white px-3 text-right text-sm font-medium shadow-sm outline-none hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
@@ -2371,9 +2429,13 @@ export default function StampLogForm({
                       className={`cursor-pointer rounded-lg border px-3 py-2 text-left text-xs transition ${adjustmentCostSource === option.source_receipt_line_id ? "border-brand-500 bg-brand-50 text-brand-700" : "border-gray-200 bg-white text-gray-600 hover:border-brand-300"}`}
                     >
                       <span className="block font-semibold">
-                        {new Date(option.arrived_on).toLocaleDateString("ko-KR", {
-                          timeZone: "Asia/Seoul",
-                        })} 입고 · {option.supplier_name}
+                        {new Date(option.arrived_on).toLocaleDateString(
+                          "ko-KR",
+                          {
+                            timeZone: "Asia/Seoul",
+                          },
+                        )}{" "}
+                        입고 · {option.supplier_name}
                       </span>
                       <span className="mt-1 block">
                         입고 수량 {option.received_quantity}개
@@ -2456,10 +2518,12 @@ export default function StampLogForm({
                       <span className="block font-semibold">
                         {new Date(option.sold_at).toLocaleDateString("ko-KR", {
                           timeZone: "Asia/Seoul",
-                        })} 판매
+                        })}{" "}
+                        판매
                       </span>
                       <span className="mt-1 block">
-                        판매 {option.sold_quantity}개 · 선택 가능 {option.available_quantity}개
+                        판매 {option.sold_quantity}개 · 선택 가능{" "}
+                        {option.available_quantity}개
                       </span>
                     </button>
                   );
@@ -2481,13 +2545,18 @@ export default function StampLogForm({
                 type="number"
                 min="0"
                 value={exchangeAdditionalAmount}
-                onChange={(event) => setExchangeAdditionalAmount(event.target.value)}
+                onChange={(event) =>
+                  setExchangeAdditionalAmount(event.target.value)
+                }
                 placeholder="없으면 0"
                 className="h-10 w-40 rounded-lg border border-gray-300 bg-white px-3 text-right text-sm shadow-sm outline-none hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
               />
               <span className="text-sm text-gray-500">원</span>
             </div>
-            <span className="mt-1 block font-normal text-gray-500">일반 구매 품목 금액과 합산되어 현재 선택한 결제방식 매출에 한 번만 반영됩니다.</span>
+            <span className="mt-1 block font-normal text-gray-500">
+              일반 구매 품목 금액과 합산되어 현재 선택한 결제방식 매출에 한 번만
+              반영됩니다.
+            </span>
           </label>
         )}
 
@@ -2661,9 +2730,7 @@ export default function StampLogForm({
                 <div className="flex items-center gap-x-1.5 whitespace-nowrap">
                   <span>{deliveryForItemList.name}</span>
                   {deliveryForItemList.amount > 0 && (
-                    <span>
-                      ({formatAmount(deliveryForItemList.amount)}원)
-                    </span>
+                    <span>({formatAmount(deliveryForItemList.amount)}원)</span>
                   )}
                 </div>
               </td>
@@ -2855,46 +2922,46 @@ export default function StampLogForm({
 
   const discountField = (
     <div className="grid h-full grid-cols-[minmax(0,1fr)_82px] items-center overflow-hidden rounded-lg border border-gray-200 bg-gray-50 gap-2 p-2">
-        <div className="grid grid-cols-3 gap-2">
-          {discountOptions.map((option) => (
-            <Button
-              key={option.value}
-              type="button"
-              size="sm"
-              variant={discountType === option.value ? "primary" : "gray"}
-              disabled={
-                (option.value === "transfer" && !canUseTransferDiscount) ||
-                (option.value === "cash" && !canUseCashDiscount)
+      <div className="grid grid-cols-3 gap-2">
+        {discountOptions.map((option) => (
+          <Button
+            key={option.value}
+            type="button"
+            size="sm"
+            variant={discountType === option.value ? "primary" : "gray"}
+            disabled={
+              (option.value === "transfer" && !canUseTransferDiscount) ||
+              (option.value === "cash" && !canUseCashDiscount)
+            }
+            className="flex h-8 items-center justify-center rounded-lg px-2 py-0 text-center text-sm leading-none sm:px-2 sm:py-0 sm:text-sm"
+            onClick={() =>
+              setDiscountType((current) =>
+                current === option.value ? "" : option.value,
+              )
+            }
+          >
+            {option.name}
+          </Button>
+        ))}
+      </div>
+      <div>
+        <div className="flex items-center gap-1">
+          <input
+            type="text"
+            aria-label="할인 금액"
+            value={discountAmount}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v === "" || /^[0-9]+$/.test(v)) {
+                setDiscountAmount(v === "" ? 0 : Number(v));
               }
-              className="flex h-8 items-center justify-center rounded-lg px-2 py-0 text-center text-sm leading-none sm:px-2 sm:py-0 sm:text-sm"
-              onClick={() =>
-                setDiscountType((current) =>
-                  current === option.value ? "" : option.value,
-                )
-              }
-            >
-              {option.name}
-            </Button>
-          ))}
+            }}
+            className="h-8 min-w-0 w-full rounded-lg border border-gray-300 bg-white px-3 text-right text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-500"
+            placeholder="0"
+          />
+          <span className="text-sm text-gray-600">원</span>
         </div>
-        <div>
-          <div className="flex items-center gap-1">
-            <input
-              type="text"
-              aria-label="할인 금액"
-              value={discountAmount}
-              onChange={(e) => {
-                const v = e.target.value;
-                if (v === "" || /^[0-9]+$/.test(v)) {
-                  setDiscountAmount(v === "" ? 0 : Number(v));
-                }
-              }}
-              className="h-8 min-w-0 w-full rounded-lg border border-gray-300 bg-white px-3 text-right text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-500"
-              placeholder="0"
-            />
-            <span className="text-sm text-gray-600">원</span>
-          </div>
-        </div>
+      </div>
     </div>
   );
 
@@ -3096,28 +3163,30 @@ export default function StampLogForm({
                 </div>
               ) : (
                 <>
-                  {hasConfirmedStore &&
-                    !hideRemoteDeliveryMethods &&
+                  {hasConfirmedStore && !hideRemoteDeliveryMethods && (
                     <div ref={stepOneDeliveryRef} className="scroll-mb-16">
                       {stepOneDeliveryField}
-                    </div>}
-                  {hasConfirmedStore &&
-                    hasConfirmedDeliveryMethod &&
-                    hasValidDeliveryInfo &&
-                    <div ref={stepOnePaymentRef} className="scroll-mb-16">
-                      {stepOnePaymentField}
-                    </div>}
-                  {hasValidPayment && hasValidTransferPayer && stepOneAfterPaymentSlot && (
-                    <div ref={stepOneAfterPaymentRef} className="scroll-mb-16">
-                      {stepOneAfterPaymentSlot}
                     </div>
                   )}
                   {hasConfirmedStore &&
                     hasConfirmedDeliveryMethod &&
+                    hasValidDeliveryInfo && (
+                      <div ref={stepOnePaymentRef} className="scroll-mb-16">
+                        {stepOnePaymentField}
+                      </div>
+                    )}
+                  {hasValidPayment && stepOneAfterPaymentSlot && (
+                      <div
+                        ref={stepOneAfterPaymentRef}
+                        className="scroll-mb-16"
+                      >
+                        {stepOneAfterPaymentSlot}
+                      </div>
+                    )}
+                  {hasConfirmedStore &&
+                    hasConfirmedDeliveryMethod &&
                     hasValidDeliveryInfo &&
-                    hasValidPayment &&
-                    hasValidTransferPayer &&
-                    stepOneReservationField && (
+                    hasValidPayment && stepOneReservationField && (
                       <div ref={stepOneReservationRef} className="scroll-mb-16">
                         {stepOneReservationField}
                       </div>
@@ -3125,14 +3194,13 @@ export default function StampLogForm({
                   {hasConfirmedStore &&
                     hasConfirmedDeliveryMethod &&
                     hasValidDeliveryInfo &&
-                    hasValidPayment &&
-                    hasValidTransferPayer &&
-                    hasSelectedShipmentTiming &&
+                    hasValidPayment && hasSelectedShipmentTiming &&
                     showStampAccrual &&
-                    customerMode !== "x" &&
-                    <div ref={stepOneStampRef} className="scroll-mb-16">
-                      {stepOneStampField}
-                    </div>}
+                    customerMode !== "x" && (
+                      <div ref={stepOneStampRef} className="scroll-mb-16">
+                        {stepOneStampField}
+                      </div>
+                    )}
                 </>
               )}
             </div>
@@ -3150,11 +3218,18 @@ export default function StampLogForm({
             {customerSummary ? (
               <div
                 className={`grid grid-cols-1 gap-3 lg:items-stretch ${
-                  isNonSalesSpecialCustomer ? "" : "lg:grid-cols-2"
+                  isNonSalesSpecialCustomer
+                    ? ""
+                    : transferPayerSlot
+                      ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,1.2fr)]"
+                      : "lg:grid-cols-2"
                 }`}
               >
                 {!isNonSalesSpecialCustomer && (
                   <div className="min-w-0">{discountField}</div>
+                )}
+                {transferPayerSlot && (
+                  <div className="min-w-0">{transferPayerSlot}</div>
                 )}
                 <div className="min-w-0">{extraNoteField}</div>
               </div>

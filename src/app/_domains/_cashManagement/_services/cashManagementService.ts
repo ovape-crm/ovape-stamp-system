@@ -98,8 +98,8 @@ export const getDailyPaymentSales = async (
   const [logsResult, receiptsResult] = await Promise.all([
     supabase
       .from("logs")
-      .select("id, jsonb, customers(name)")
-      .eq("category", "stamp")
+      .select("id, jsonb, category, customers(name)")
+      .in("category", ["stamp", "reservation"])
       .gte("created_at", start)
       .lt("created_at", end)
       .order("created_at", { ascending: true }),
@@ -118,10 +118,29 @@ export const getDailyPaymentSales = async (
 
   const amountByPaymentType = new Map<string, number>();
   const transferDetails: DailyPaymentSales["transferDetails"] = [];
-  const getPayerName = (jsonb: Record<string, unknown>, customerName?: string) => {
-    const note = String(jsonb.extraNote ?? jsonb.extra_note ?? "");
-    const notedName = note.match(/입금자명\s*:\s*([^\n,]+)/)?.[1]?.trim();
-    return notedName || String(jsonb.transferPayerName ?? jsonb.xCustomerName ?? customerName ?? jsonb.customerName ?? jsonb.customer_name ?? jsonb.name ?? "입금자명 미확인");
+  const getPayerName = (
+    jsonb: Record<string, unknown>,
+    customerName?: string,
+    category?: string,
+  ) => {
+    const payerName = String(
+      jsonb.transferPayerName ??
+        jsonb.xCustomerName ??
+        customerName ??
+        "입금자명 미확인",
+    );
+    if (category === "reservation")
+      return `${payerName} (금일 예약 이체건, 매출 합계X)`;
+    if (typeof jsonb.reservationCreatedAt === "string") {
+      const date = new Date(jsonb.reservationCreatedAt);
+      const reservationDate = Number.isNaN(date.getTime())
+        ? "날짜 미확인"
+        : new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Seoul", month: "2-digit", day: "2-digit" }).format(date).replace("/", "/");
+      const workerName = String(jsonb.reservationCreatedWorkerName ?? jsonb.createdWorkerName ?? "작업자 미확인");
+      const confirmedWorkerName = String(jsonb.confirmedWorkerName ?? "작업자 미확인");
+      return `${payerName} (${reservationDate} 예약, ${workerName}) (재확인 : ${confirmedWorkerName})`;
+    }
+    return payerName;
   };
   const quantityByCategory = new Map<string, number>();
   const quantityByOtherOutboundType = new Map<
@@ -143,6 +162,7 @@ export const getDailyPaymentSales = async (
 
   for (const [logIndex, log] of (data ?? []).entries()) {
     const jsonb = (log.jsonb ?? {}) as Record<string, unknown>;
+    const isReservation = log.category === "reservation";
     const customer = Array.isArray(log.customers) ? log.customers[0] : log.customers;
     const customerName = customer?.name == null ? undefined : String(customer.name);
     const totalAmount = Number(jsonb.totalAmount ?? 0);
@@ -163,12 +183,9 @@ export const getDailyPaymentSales = async (
           !Number.isFinite(splitAmount)
         )
           continue;
-        amountByPaymentType.set(
-          splitType,
-          (amountByPaymentType.get(splitType) ?? 0) + splitAmount,
-        );
+        if (!isReservation) amountByPaymentType.set(splitType, (amountByPaymentType.get(splitType) ?? 0) + splitAmount);
         if (["transfer", "transfer_cash_receipt", "egu_transfer", "egu_transfer_cash_receipt"].includes(splitType)) {
-          const payerName = getPayerName(jsonb, customerName);
+          const payerName = getPayerName(jsonb, customerName, log.category);
           transferDetails.push({
             id: JSON.stringify([log.id ?? `${date}-${logIndex}`, paymentIndex, splitType, Math.abs(splitAmount), payerName]),
             logId: String(log.id ?? `${date}-${logIndex}`),
@@ -189,13 +206,10 @@ export const getDailyPaymentSales = async (
         !NON_PAYMENT_TYPES.has(paymentType) &&
         Number.isFinite(amount)
       ) {
-        amountByPaymentType.set(
-          paymentType,
-          (amountByPaymentType.get(paymentType) ?? 0) + amount,
-        );
+        if (!isReservation) amountByPaymentType.set(paymentType, (amountByPaymentType.get(paymentType) ?? 0) + amount);
       }
       if (["transfer", "transfer_cash_receipt", "egu_transfer", "egu_transfer_cash_receipt"].includes(paymentType) && Number.isFinite(amount)) {
-        const payerName = getPayerName(jsonb, customerName);
+        const payerName = getPayerName(jsonb, customerName, log.category);
         transferDetails.push({
           id: JSON.stringify([log.id ?? `${date}-${logIndex}`, paymentType, amount, payerName]),
           logId: String(log.id ?? `${date}-${logIndex}`),
@@ -207,6 +221,9 @@ export const getDailyPaymentSales = async (
         });
       }
     }
+
+    // 예약 이체는 개별 이체 확인에만 표시하고, 당일 매출·품목 집계에는 반영하지 않는다.
+    if (isReservation) continue;
 
     const deliveryMethod =
       jsonb.deliveryMethod === "store_visit" ||
