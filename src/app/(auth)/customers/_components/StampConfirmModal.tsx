@@ -229,6 +229,19 @@ export default function StampConfirmModal({
   const [customerChangeFormInitialValue, setCustomerChangeFormInitialValue] =
     useState<StampLogFormInitialValue>();
   const [stampLogFormRevision, setStampLogFormRevision] = useState(0);
+  const [transferPayerName, setTransferPayerName] = useState(
+    initialLogMeta?.transferPayerName ?? "",
+  );
+  const [sameCustomerTransfer, setSameCustomerTransfer] = useState(
+    Boolean(
+      initialLogMeta?.transferPayerName &&
+      initialLogMeta.transferPayerName === target.name,
+    ),
+  );
+  const [isTransferPaymentSelected, setIsTransferPaymentSelected] =
+    useState(false);
+  const [hasAcknowledgedCustomerNote, setHasAcknowledgedCustomerNote] =
+    useState(false);
   const [hasConfirmedXCustomer, setHasConfirmedXCustomer] = useState(false);
   const [pendingCustomer, setPendingCustomer] =
     useState<ExistingCustomerMatch | null>(null);
@@ -362,6 +375,14 @@ export default function StampConfirmModal({
     hasDeliveryInfo: true,
     hasCompletedBasicSequence: false,
   });
+  const customerNote = (selectedCustomer?.note ?? target.note)?.trim() ?? "";
+  const requiresCustomerNoteAcknowledgement =
+    mode === "add" &&
+    customerMode === "normal" &&
+    addStep === 2 &&
+    Boolean(customerNote) &&
+    !hasAcknowledgedCustomerNote;
+
 
   // 품목·금액과 최종 확인은 좌우 2단으로 보여줘야 해서 모달을 더 넓게
   useEffect(() => {
@@ -437,7 +458,7 @@ export default function StampConfirmModal({
             ? `${reservationDate.trim()} 예약주문`
             : "";
         const discountTag = stampLog.logMeta.discount
-          ? `${stampLog.logMeta.discount.name}할인${stampLog.logMeta.discount.amount}`
+          ? `${stampLog.logMeta.discount.name}${stampLog.logMeta.discount.amount}`
           : "";
         const couponUseTag = stampLog.logMeta.couponUse
           ? getCouponUsageNote(stampLog.logMeta.couponUse)
@@ -616,9 +637,7 @@ export default function StampConfirmModal({
                 onChange={(event) => {
                   const value = event.target.value.toUpperCase();
                   setXPhoneLastDigits(
-                    value === "X"
-                      ? "X"
-                      : value.replace(/\D/g, "").slice(0, 4),
+                    value === "X" ? "X" : value.replace(/\D/g, "").slice(0, 4),
                   );
                   setSelectedCustomer(null);
                   setHasConfirmedXCustomer(false);
@@ -807,7 +826,12 @@ export default function StampConfirmModal({
           </div>
         )}
 
-      <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+      <div
+        className={
+          requiresCustomerNoteAcknowledgement ? "hidden" : "contents"
+        }
+      >
+        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
         <StampLogForm
           key={`stamp-log-form-${stampLogFormRevision}`}
           initialValue={
@@ -828,10 +852,41 @@ export default function StampConfirmModal({
           reservationSlot={
             requiresXCustomerInfo ? xCustomerInfoFields : undefined
           }
+          transferPayerSlot={
+            isTransferPaymentSelected && effectiveFormCustomerMode === "normal" ? (
+              <div className="grid h-full grid-cols-[72px_minmax(0,1fr)_auto] items-center overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+                <span className="flex h-full items-center justify-center border-r border-gray-200 px-2 text-center text-sm font-semibold text-gray-800">
+                  이체자명
+                </span>
+                <div className="min-w-0 p-2">
+                  <input
+                    type="text"
+                    value={sameCustomerTransfer ? selectedCustomer?.name ?? target.name : transferPayerName}
+                    onChange={(event) => setTransferPayerName(event.target.value)}
+                    disabled={sameCustomerTransfer}
+                    placeholder="이름을 입력하세요."
+                    className="h-8 w-36 max-w-full rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none transition placeholder:text-gray-400 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:bg-gray-100 disabled:text-gray-500"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (sameCustomerTransfer) {
+                      setSameCustomerTransfer(false);
+                      setTransferPayerName("");
+                    } else {
+                      setSameCustomerTransfer(true);
+                    }
+                  }}
+                  className={`mr-2 h-8 shrink-0 rounded-lg border px-3 text-sm font-semibold ${sameCustomerTransfer ? "border-brand-500 bg-brand-50 text-brand-700" : "border-gray-300 bg-white text-gray-700 hover:border-brand-300"}`}
+                >
+                  {sameCustomerTransfer ? "이름 수정하기" : "동일고객"}
+                </button>
+              </div>
+            ) : undefined
+          }
           stepOneReservationSlot={
-            effectiveFormCustomerMode === "x"
-              ? undefined
-              : reservationToggle
+            effectiveFormCustomerMode === "x" ? undefined : reservationToggle
           }
           stepOneAfterPaymentSlot={
             isUnifiedXAccount && !selectedCustomer ? (
@@ -840,8 +895,22 @@ export default function StampConfirmModal({
                   성별 <span className="ml-1 text-rose-600">*</span>
                 </div>
                 <div className="grid grid-cols-2 gap-[10px] px-4 py-[4.5px] [&_button]:h-8 [&_button]:py-0 sm:[&_button]:py-0">
-                  <Button type="button" size="sm" variant={xCustomerGender === "male" ? "primary" : "gray"} onClick={() => setXCustomerGender("male")}>남자</Button>
-                  <Button type="button" size="sm" variant={xCustomerGender === "female" ? "primary" : "gray"} onClick={() => setXCustomerGender("female")}>여자</Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={xCustomerGender === "male" ? "primary" : "gray"}
+                    onClick={() => setXCustomerGender("male")}
+                  >
+                    남자
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={xCustomerGender === "female" ? "primary" : "gray"}
+                    onClick={() => setXCustomerGender("female")}
+                  >
+                    여자
+                  </Button>
                 </div>
               </div>
             ) : undefined
@@ -879,6 +948,9 @@ export default function StampConfirmModal({
                   note: selectedCustomer?.note ?? target.note,
                 }
           }
+          transferPayerName={transferPayerName}
+          sameCustomerTransfer={sameCustomerTransfer}
+          onTransferPaymentSelectedChange={setIsTransferPaymentSelected}
         />
 
         {addStep === 3 && (
@@ -1128,13 +1200,16 @@ export default function StampConfirmModal({
                         </td>
                         <td className="px-2 py-2 font-medium text-gray-900">
                           <div className="flex items-center gap-x-1.5 whitespace-nowrap">
-                            <span>{getDeliveryItem(stampLog.logMeta)?.name}</span>
+                            <span>
+                              {getDeliveryItem(stampLog.logMeta)?.name}
+                            </span>
                             {(getDeliveryItem(stampLog.logMeta)?.amount ?? 0) >
                               0 && (
                               <span>
                                 (
                                 {formatAmount(
-                                  getDeliveryItem(stampLog.logMeta)?.amount ?? 0,
+                                  getDeliveryItem(stampLog.logMeta)?.amount ??
+                                    0,
                                 )}
                                 원)
                               </span>
@@ -1176,7 +1251,9 @@ export default function StampConfirmModal({
                             <span className="mx-auto flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-xs font-semibold leading-none text-white">
                               {index +
                                 Number(Boolean(stampLog.couponUse)) +
-                                Number(Boolean(getDeliveryItem(stampLog.logMeta))) +
+                                Number(
+                                  Boolean(getDeliveryItem(stampLog.logMeta)),
+                                ) +
                                 1}
                             </span>
                           </td>
@@ -1474,6 +1551,14 @@ export default function StampConfirmModal({
                     );
                     return;
                   }
+                  if (
+                    addStep === 2 &&
+                    isTransferPaymentSelected &&
+                    !stampLog?.logMeta.transferPayerName?.trim()
+                  ) {
+                    toast.error("이체자명을 확인해 주세요.");
+                    return;
+                  }
                   if (addStep === 2 && stampLog?.logMeta.payments?.length) {
                     if (
                       stampLog.logMeta.payments.some(
@@ -1519,7 +1604,29 @@ export default function StampConfirmModal({
             </Button>
           )}
         </div>
+        </div>
       </div>
+      {requiresCustomerNoteAcknowledgement && (
+        <div className="mx-auto mt-2 flex min-h-[265px] w-full max-w-md flex-1 flex-col items-center justify-center rounded-xl border border-rose-200 bg-rose-50/70 p-6 text-center sm:p-10">
+          <span className="mb-5 inline-flex h-14 w-14 items-center justify-center rounded-full bg-rose-100 text-3xl font-bold text-rose-600">
+            !
+          </span>
+          <h3 className="text-2xl font-bold text-gray-900">
+            고객 특이사항을 확인해 주세요
+          </h3>
+          <p className="mt-5 max-w-2xl whitespace-pre-wrap break-words rounded-lg border border-rose-200 bg-white px-6 py-4 text-left text-lg leading-7 text-gray-800">
+            {customerNote}
+          </p>
+          <Button
+            type="button"
+            size="lg"
+            className="mt-7"
+            onClick={() => setHasAcknowledgedCustomerNote(true)}
+          >
+            ✓ 확인했습니다
+          </Button>
+        </div>
+      )}
       {pendingCustomer && (
         <div className="absolute inset-0 z-50 flex items-center justify-center rounded-xl bg-gray-900/25 p-4">
           <div className="w-full max-w-sm rounded-xl border border-gray-200 bg-white p-5 shadow-xl">
@@ -1547,7 +1654,7 @@ export default function StampConfirmModal({
               >
                 취소
               </Button>
-            <Button
+              <Button
                 type="button"
                 variant="tertiary"
                 className="flex w-full items-center justify-center text-center"

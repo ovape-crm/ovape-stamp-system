@@ -119,6 +119,15 @@ const StampHistoryItem = ({
     typeof log.jsonb?.extraNote === "string" && log.jsonb.extraNote.trim()
       ? log.jsonb.extraNote.trim()
       : xTransferExtraNote;
+  const transferPayerName =
+    typeof log.jsonb?.transferPayerName === "string"
+      ? log.jsonb.transferPayerName.trim()
+      : "";
+  const customerName = log.customers?.name?.trim() ?? "";
+  const shouldShowTransferPayerName =
+    customerMode === "normal" &&
+    Boolean(transferPayerName) &&
+    transferPayerName !== customerName;
   const customerBadge = isCustomerRemark ? (
     <span className="flex h-7 w-full items-center justify-center whitespace-nowrap rounded-full bg-gray-100 px-2 text-center text-xs font-semibold text-gray-700">
       고객 특이사항
@@ -227,6 +236,11 @@ const StampHistoryItem = ({
                   출고 특이사항: &quot;{extraNote}&quot;
                 </p>
               )}
+            {shouldShowTransferPayerName && (
+              <p className="mt-1 italic text-gray-400">
+                이체자명: {transferPayerName}
+              </p>
+            )}
             {typeof log.jsonb?.xCustomerName === "string" &&
               log.jsonb.xCustomerName.trim() && (
                 <p className="mt-1 italic text-gray-400">

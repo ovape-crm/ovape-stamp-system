@@ -3,7 +3,8 @@ type HistoryNoteJsonb = Record<string, unknown> | null | undefined;
 const normalizeLegacyServiceNote = (note: string) =>
   note
     .replace(/\(서비스\((.*?)\)\)/g, "(서비스,$1)")
-    .replace(/서비스\(\((.*?)\)\)/g, "서비스($1)");
+    .replace(/서비스\(\((.*?)\)\)/g, "서비스($1)")
+    .replace(/할인할인/g, "할인");
 
 export const formatHistoryNote = (note: string, jsonb?: HistoryNoteJsonb) => {
   const normalized = normalizeLegacyServiceNote(note);
