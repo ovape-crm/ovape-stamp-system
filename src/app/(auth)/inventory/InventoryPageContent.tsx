@@ -1280,12 +1280,16 @@ function StockOverview({
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [visibleCount, setVisibleCount] = useState(10);
+  const [stockView, setStockView] = useState<"overview" | "return-hold">(
+    "overview",
+  );
   const [returnHoldTab, setReturnHoldTab] = useState<"held" | "history">("held");
   const defectiveHoldsQuery = useQuery({
     queryKey: [...inventoryKeys.overview, "defective-holds"],
     queryFn: getDefectiveInventoryHolds,
+    enabled: stockView === "return-hold",
   });
-  const returnHoldHistoryQuery = useQuery({ queryKey: [...inventoryKeys.overview, "return-hold-history"], queryFn: getReturnHoldProcessingHistory });
+  const returnHoldHistoryQuery = useQuery({ queryKey: [...inventoryKeys.overview, "return-hold-history"], queryFn: getReturnHoldProcessingHistory, enabled: stockView === "return-hold" });
   const supplierRefundSettlementsQuery = useQuery({
     queryKey: [...inventoryKeys.overview, "supplier-refund-settlements"],
     queryFn: getSupplierRefundSettlements,
@@ -1403,6 +1407,29 @@ function StockOverview({
   ] as const;
   return (
     <div className="space-y-4">
+      <section className="rounded-2xl border border-gray-200 bg-white p-2 shadow-sm">
+        <div className="flex gap-1" role="tablist" aria-label="재고 현황 보기">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={stockView === "overview"}
+            onClick={() => setStockView("overview")}
+            className={`min-h-10 rounded-lg px-4 text-sm font-semibold transition ${stockView === "overview" ? "bg-brand-500 text-white shadow-sm" : "text-gray-600 hover:bg-gray-100"}`}
+          >
+            전체 재고
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={stockView === "return-hold"}
+            onClick={() => setStockView("return-hold")}
+            className={`min-h-10 rounded-lg px-4 text-sm font-semibold transition ${stockView === "return-hold" ? "bg-brand-500 text-white shadow-sm" : "text-gray-600 hover:bg-gray-100"}`}
+          >
+            반품보관
+          </button>
+        </div>
+      </section>
+      {stockView === "return-hold" && (
       <section className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 shadow-sm">
         <div className="flex items-baseline justify-between gap-3">
           <div><h2 className="text-sm font-bold text-amber-950">반품 보관</h2><p className="mt-1 text-xs text-amber-800">판매 가능 재고와 분리된 고객 반품 처리 대기 품목입니다.</p></div>
@@ -1412,6 +1439,9 @@ function StockOverview({
         {returnHoldTab === "history" && <div className="mt-3 space-y-2">{returnHoldHistoryQuery.isPending ? <p className="text-xs text-amber-800">처리 이력을 불러오는 중...</p> : returnHoldHistoryQuery.isError ? <p className="text-xs text-rose-700">처리 이력을 불러오지 못했습니다.</p> : (returnHoldHistoryQuery.data?.length ?? 0) === 0 ? <p className="text-xs text-amber-800">처리된 반품 보관품이 없습니다.</p> : (returnHoldHistoryQuery.data ?? []).map((entry) => <div key={entry.id} className="rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm"><p className="font-medium text-gray-900">{entry.itemName} {entry.quantity}개</p><p className="mt-1 text-xs text-gray-600">반품일 : {entry.returnedAt?.slice(0, 10) ?? "-"} {entry.returnCustomerName ?? "-"} {entry.returnCustomerPhone ?? ""}{entry.returnNote ? ` ${entry.returnNote}` : ""}</p><p className="mt-1 text-xs text-gray-600">{entry.action === "service" ? "손님 서비스 처리일" : entry.action === "scrap" ? "자체 폐기 처리일" : "도매처 반품 처리일"} : {entry.processedAt.slice(0, 10)}{entry.action === "service" ? ` ${entry.serviceCustomerName ?? "-"} ${entry.serviceCustomerPhone ?? ""}` : ""}{entry.processingNote ? ` ${entry.processingNote}` : ""}</p></div>)}</div>}
         {returnHoldTab === "held" && (defectiveHoldsQuery.isPending ? <p className="mt-3 text-xs text-amber-700">반품 보관품을 불러오는 중...</p> : defectiveHoldsQuery.isError ? <p className="mt-3 text-xs text-rose-700">반품 보관품을 불러오지 못했습니다.</p> : (defectiveHoldsQuery.data?.length ?? 0) > 0 ? <div className="mt-3 overflow-x-auto rounded-xl border border-amber-200 bg-white"><table className="w-full min-w-[650px] text-sm"><thead className="bg-amber-50 text-left text-xs text-amber-900"><tr><th className="px-3 py-2">품목</th><th className="px-3 py-2 text-right">수량</th><th className="px-3 py-2">고객</th><th className="px-3 py-2">상태</th><th className="px-3 py-2">보관일</th>{isMaster && <th className="px-3 py-2">처리</th>}</tr></thead><tbody>{defectiveHoldsQuery.data?.map((hold) => <tr key={hold.id} className="border-t border-amber-100"><td className="px-3 py-2 font-medium text-gray-900">{hold.itemName}</td><td className="px-3 py-2 text-right">{hold.quantity.toLocaleString("ko-KR")}개</td><td className="px-3 py-2">{hold.customerName ?? "-"}</td><td className="px-3 py-2">{hold.status === "after_service" ? "A/S 진행" : "보관"}</td><td className="px-3 py-2">{hold.createdAt.slice(0, 10)}</td>{isMaster && <td className="px-3 py-2"><Button variant="secondary" size="xs" onClick={() => openHoldProcessor(hold)}>처리</Button></td>}</tr>)}</tbody></table></div> : <p className="mt-3 text-xs text-amber-800">보관 중인 반품품이 없습니다.</p>)}
       </section>
+      )}
+      {stockView === "overview" && (
+      <>
       <section className="hidden rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="flex items-baseline justify-between gap-3"><div><h2 className="text-sm font-bold text-gray-900">도매처 환불 정산</h2><p className="mt-1 text-xs text-gray-500">기존 매입 정산을 변경하지 않는 별도 반품·환불 이력입니다.</p></div><span className="text-sm font-semibold text-brand-700">{(supplierRefundSettlementsQuery.data ?? []).reduce((sum, settlement) => sum + settlement.amount, 0).toLocaleString("ko-KR")}원</span></div>
         {supplierRefundSettlementsQuery.isPending ? <p className="mt-3 text-xs text-gray-500">정산 이력을 불러오는 중...</p> : supplierRefundSettlementsQuery.isError ? <p className="mt-3 text-xs text-rose-700">환불 정산 이력을 불러오지 못했습니다.</p> : (supplierRefundSettlementsQuery.data?.length ?? 0) > 0 ? <div className="mt-3 overflow-x-auto rounded-xl border border-gray-200"><table className="w-full min-w-[650px] text-sm"><thead className="bg-gray-50/70 text-left text-xs text-gray-600"><tr><th className="px-3 py-2">도매처</th><th className="px-3 py-2">품목</th><th className="px-3 py-2">방식</th><th className="px-3 py-2 text-right">금액</th><th className="px-3 py-2">처리일</th></tr></thead><tbody>{supplierRefundSettlementsQuery.data?.map((settlement) => <tr key={settlement.id} className="border-t border-gray-100"><td className="px-3 py-2">{settlement.supplierName ?? "-"}</td><td className="px-3 py-2">{settlement.itemName} {settlement.quantity}개</td><td className="px-3 py-2">{settlement.settlementType === "supplier_credit" ? "적립금" : "계좌 환불"}</td><td className="px-3 py-2 text-right font-semibold text-gray-900">{settlement.amount.toLocaleString("ko-KR")}원</td><td className="px-3 py-2">{settlement.createdAt.slice(0, 10)}</td></tr>)}</tbody></table></div> : <p className="mt-3 text-xs text-gray-500">처리된 도매처 환불 정산이 없습니다.</p>}
@@ -1783,6 +1813,8 @@ function StockOverview({
           </div>
         )}
       </section>
+      </>
+      )}
     </div>
   );
 }

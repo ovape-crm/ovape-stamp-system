@@ -1,6 +1,7 @@
 "use client";
 
 import Button from "@/app/_components/Button";
+import TaggedContent from "@/app/_components/TaggedContent";
 import {
   BreathTypeEnum,
   BreathTypeEnumType,
@@ -33,6 +34,14 @@ import {
 } from "@/app/_domains/_customer/_services/customerService";
 
 const formatAmount = (value: number) => value.toLocaleString("ko-KR");
+
+// 출고 확인 화면은 할인 종류를 짧게 보여 주되, 저장 이력의 할인명은 그대로 유지한다.
+const getDiscountDisplayName = (name: string) => {
+  if (name === "특별할인") return "특별";
+  if (name === "이체할인") return "이체";
+  if (name === "현금할인") return "현금";
+  return name;
+};
 
 const getStampAmountFromAction = (action?: string) => {
   if (!action || action === "no-stamp") return 0;
@@ -1367,7 +1376,7 @@ export default function StampConfirmModal({
               <p className="text-xs text-gray-500">할인</p>
               <p className="mt-0.5 text-base font-semibold text-gray-900">
                 {stampLog.logMeta.discount
-                  ? `${stampLog.logMeta.discount.name} ${formatAmount(stampLog.logMeta.discount.amount)}원`
+                  ? `${getDiscountDisplayName(stampLog.logMeta.discount.name)} ${formatAmount(stampLog.logMeta.discount.amount)}원`
                   : "0원"}
               </p>
             </div>
@@ -1435,7 +1444,7 @@ export default function StampConfirmModal({
               <p className="text-xs text-gray-500">할인</p>
               <p className="mt-0.5 text-base font-semibold text-gray-900">
                 {stampLog.logMeta.discount
-                  ? `${stampLog.logMeta.discount.name} ${formatAmount(stampLog.logMeta.discount.amount)}원`
+                  ? `${getDiscountDisplayName(stampLog.logMeta.discount.name)} ${formatAmount(stampLog.logMeta.discount.amount)}원`
                   : "0원"}
               </p>
             </div>
@@ -1607,16 +1616,17 @@ export default function StampConfirmModal({
         </div>
       </div>
       {requiresCustomerNoteAcknowledgement && (
-        <div className="mx-auto mt-2 flex min-h-[265px] w-full max-w-md flex-1 flex-col items-center justify-center rounded-xl border border-rose-200 bg-rose-50/70 p-6 text-center sm:p-10">
+        <div className="mx-auto mt-2 flex min-h-[265px] w-full max-w-3xl flex-1 flex-col items-center justify-center rounded-xl border border-rose-200 bg-rose-50/70 p-6 text-center sm:p-10">
           <span className="mb-5 inline-flex h-14 w-14 items-center justify-center rounded-full bg-rose-100 text-3xl font-bold text-rose-600">
             !
           </span>
           <h3 className="text-2xl font-bold text-gray-900">
             고객 특이사항을 확인해 주세요
           </h3>
-          <p className="mt-5 max-w-2xl whitespace-pre-wrap break-words rounded-lg border border-rose-200 bg-white px-6 py-4 text-left text-lg leading-7 text-gray-800">
-            {customerNote}
-          </p>
+          <TaggedContent
+            content={customerNote}
+            className="mt-5 w-full max-w-none break-words rounded-lg border border-rose-200 bg-white px-6 py-4 text-left text-lg leading-7 text-gray-800"
+          />
           <Button
             type="button"
             size="lg"

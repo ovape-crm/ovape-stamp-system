@@ -322,6 +322,14 @@ export const completeWorkJournal = async (values: {
   note: string;
   workType: "solo" | "shift";
 }): Promise<"handover_pending" | "shift_completed" | "closed"> => {
+  if (
+    !Number.isFinite(values.inputWorkHours) ||
+    values.inputWorkHours <= 0 ||
+    values.inputWorkHours > 24
+  ) {
+    throw new Error("INPUT_WORK_HOURS_REQUIRED");
+  }
+
   const { data: verified, error: verifyError } = await supabase.rpc(
     "verify_work_journal_worker_pin",
     { p_worker_name: values.workerName.trim(), p_pin: values.pin },
@@ -422,6 +430,16 @@ export const updateAttendanceJournal = async (
     actualStartTime?: string;
   },
 ): Promise<void> => {
+  if (
+    values.status !== "working" &&
+    (values.inputWorkHours == null ||
+      !Number.isFinite(values.inputWorkHours) ||
+      values.inputWorkHours <= 0 ||
+      values.inputWorkHours > 24)
+  ) {
+    throw new Error("INPUT_WORK_HOURS_REQUIRED");
+  }
+
   const { error } = await supabase
     .from("work_journals")
     .update({
