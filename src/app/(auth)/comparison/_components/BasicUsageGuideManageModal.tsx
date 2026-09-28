@@ -14,8 +14,8 @@ type Step = { id: string; step_order: number; title: string; content: string };
 type Note = { device_id: string; step_id: string; content: string };
 
 const guideConfig = {
-  basic: { stepsTable: 'comparison_usage_guide_steps', notesTable: 'comparison_device_usage_notes', saveStepRpc: 'save_comparison_usage_guide_step', saveNoteRpc: 'save_comparison_device_usage_note', deleteStepRpc: 'delete_comparison_usage_guide_step' },
-  customerRequired: { stepsTable: 'comparison_customer_required_guide_steps', notesTable: 'comparison_customer_required_guide_notes', saveStepRpc: 'save_comparison_customer_required_guide_step', saveNoteRpc: 'save_comparison_customer_required_guide_note', deleteStepRpc: 'delete_comparison_customer_required_guide_step' },
+  basic: { stepsTable: 'comparison_usage_guide_steps', notesTable: 'comparison_device_usage_notes', saveStepRpc: 'save_comparison_usage_guide_step', saveNoteRpc: 'save_comparison_device_usage_note', deleteStepRpc: 'delete_comparison_usage_guide_step', reorderStepRpc: 'reorder_comparison_usage_guide_steps' },
+  customerRequired: { stepsTable: 'comparison_customer_required_guide_steps', notesTable: 'comparison_customer_required_guide_notes', saveStepRpc: 'save_comparison_customer_required_guide_step', saveNoteRpc: 'save_comparison_customer_required_guide_note', deleteStepRpc: 'delete_comparison_customer_required_guide_step', reorderStepRpc: 'reorder_comparison_customer_required_guide_steps' },
 } as const;
 
 export default function BasicUsageGuideManageModal({ onCancel, kind = 'basic', title = '기초 사용법' }: { onCancel: () => void; kind?: keyof typeof guideConfig; title?: string }) {
@@ -115,6 +115,27 @@ export default function BasicUsageGuideManageModal({ onCancel, kind = 'basic', t
     } finally { setSaving(false); }
   };
 
+  const moveStep = async (step: Step, direction: 'up' | 'down') => {
+    const guideSteps = data?.steps ?? [];
+    const currentIndex = guideSteps.findIndex((item) => item.id === step.id);
+    const targetIndex = currentIndex + (direction === 'up' ? -1 : 1);
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= guideSteps.length) return;
+
+    const reorderedSteps = [...guideSteps];
+    [reorderedSteps[currentIndex], reorderedSteps[targetIndex]] = [reorderedSteps[targetIndex], reorderedSteps[currentIndex]];
+    setSaving(true);
+    try {
+      const { error } = await supabase.rpc(config.reorderStepRpc, { p_step_ids: reorderedSteps.map((item) => item.id) });
+      if (error) throw error;
+      await refresh();
+      toast.success('단계 순서를 변경했습니다.');
+    } catch {
+      toast.error('단계 순서를 변경하지 못했습니다.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (isLoading || !data) return <Loading size="sm" text="불러오는 중..." />;
 
   return <div className="flex min-h-0 w-full flex-1 flex-col">
@@ -124,7 +145,7 @@ export default function BasicUsageGuideManageModal({ onCancel, kind = 'basic', t
       <section className="rounded-xl border border-gray-200 bg-gray-50/70 p-3">
         <h3 className="mb-3 text-sm font-semibold text-gray-800">공통 사용법</h3>
         <div className="space-y-3">
-          {data.steps.map((step) => <EditableStep key={step.id} step={step} disabled={saving} onSave={saveStep} onDelete={() => deleteStep(step)} />)}
+          {data.steps.map((step, index) => <EditableStep key={step.id} step={step} disabled={saving} canMoveUp={index > 0} canMoveDown={index < data.steps.length - 1} onMove={moveStep} onSave={saveStep} onDelete={() => deleteStep(step)} />)}
         </div>
         <div className="mt-4 border-t border-gray-200 pt-3">
           <p className="mb-2 text-sm font-medium">공통 단계 추가</p>
@@ -152,11 +173,11 @@ export default function BasicUsageGuideManageModal({ onCancel, kind = 'basic', t
   </div>;
 }
 
-function EditableStep({ step, disabled, onSave, onDelete }: { step: Step; disabled: boolean; onSave: (step: Step) => Promise<boolean>; onDelete: () => void }) {
+function EditableStep({ step, disabled, canMoveUp, canMoveDown, onMove, onSave, onDelete }: { step: Step; disabled: boolean; canMoveUp: boolean; canMoveDown: boolean; onMove: (step: Step, direction: 'up' | 'down') => Promise<void>; onSave: (step: Step) => Promise<boolean>; onDelete: () => void }) {
   const [draft, setDraft] = useState(step);
   const [editing, setEditing] = useState(false);
   useEffect(() => { setDraft(step); }, [step]);
-  if (!editing) return <div className="max-w-[704px] rounded-xl border border-gray-300 bg-white p-5"><span className="mb-2 block text-xs font-semibold text-brand-600">{step.step_order}단계</span><h4 className="text-xl font-semibold text-gray-950"><TaggedContent inline content={step.title} /></h4><div className="mt-2 text-lg leading-relaxed text-gray-900"><TaggedContent content={step.content} /></div><div className="mt-3 flex justify-end gap-2"><Button size="xs" disabled={disabled} onClick={() => setEditing(true)}>수정</Button>{step.step_order !== 1 && <Button size="xs" variant="danger" disabled={disabled} onClick={onDelete}>삭제</Button>}</div></div>;
+  if (!editing) return <div className="max-w-[704px] rounded-xl border border-gray-300 bg-white p-5"><span className="mb-2 block text-xs font-semibold text-brand-600">{step.step_order}단계</span><h4 className="text-xl font-semibold text-gray-950"><TaggedContent inline content={step.title} /></h4><div className="mt-2 text-lg leading-relaxed text-gray-900"><TaggedContent content={step.content} /></div><div className="mt-3 flex flex-wrap justify-end gap-2"><Button size="xs" variant="gray" disabled={disabled || !canMoveUp} onClick={() => onMove(step, 'up')}>위로</Button><Button size="xs" variant="gray" disabled={disabled || !canMoveDown} onClick={() => onMove(step, 'down')}>아래로</Button><Button size="xs" disabled={disabled} onClick={() => setEditing(true)}>수정</Button>{step.step_order !== 1 && <Button size="xs" variant="danger" disabled={disabled} onClick={onDelete}>삭제</Button>}</div></div>;
   return <div className="max-w-[704px] rounded-xl border border-gray-300 bg-white p-5">
     <span className="mb-2 block text-xs font-semibold text-brand-600">{step.step_order}단계</span>
     <p className="mb-1 text-xs font-medium text-gray-500">제목</p>

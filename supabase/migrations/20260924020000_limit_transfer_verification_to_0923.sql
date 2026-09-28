@@ -12,7 +12,7 @@ begin
       where l.category='stamp'
         and l.created_at >= (p_business_date::timestamp at time zone 'Asia/Seoul')
         and l.created_at < ((p_business_date + 1)::timestamp at time zone 'Asia/Seoul')
-        and (l.jsonb->>'paymentType' in ('transfer','transfer_cash_receipt','egu_transfer','egu_transfer_cash_receipt') or jsonb_path_exists(l.jsonb, '$.payments[*] ? (@.paymentType == "transfer" || @.paymentType == "transfer_cash_receipt" || @.paymentType == "egu_transfer" || @.paymentType == "egu_transfer_cash_receipt")'));
+        and (l.jsonb->>'paymentType' in ('transfer','transfer_cash_receipt','egu_transfer','egu_transfer_cash_receipt') or jsonb_path_exists(l.jsonb, '$.payments[*] ? (@.paymentType == "transfer" || @.paymentType == "transfer_cash_receipt" || @.paymentType == "egu_transfer" || @.paymentType == "egu_transfer_cash_receipt")')));
   end if;
   perform public.save_daily_closing_transfer_verification(p_business_date, v_entries);
   return true;

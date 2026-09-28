@@ -40,7 +40,7 @@ const missingCostMigration = await readFile(
 test("매장제품 A/S는 원가를 수량 옆에 표시하고 별도 안내 문구를 보이지 않는다", () => {
   assert.match(
     createModal,
-    /caseType === "vendor_exchange"[\s\S]*?매입 원가층 배정/,
+    /caseType === "vendor_exchange"[\s\S]*?FIFO 원가층 배정/,
   );
   assert.match(createModal, /grid grid-cols-2 gap-3/);
   assert.match(createModal, /A\/S 원가/);

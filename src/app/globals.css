@@ -83,6 +83,11 @@ textarea,
   caret-color: auto;
 }
 
+/* 비어 있는 리치 텍스트 입력칸은 플레이스홀더가 커서 위치를 가리지 않게 한다. */
+[contenteditable="true"]:focus:empty::before {
+  content: none;
+}
+
 /* 표의 줄바꿈은 각 표가 지정한 너비/nowrap 설정을 존중합니다. */
 table th,
 table td {

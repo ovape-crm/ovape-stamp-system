@@ -264,6 +264,10 @@ export default function AttendanceRecordModal({
         toast.error("개인 PIN이 올바르지 않습니다.");
         return;
       }
+      if (error.message === "INPUT_WORK_HOURS_REQUIRED") {
+        toast.error("입력 근무시간을 0보다 큰 값으로 입력해 주세요.");
+        return;
+      }
       toast.error("퇴근 기록 처리에 실패했습니다.");
     },
   });
@@ -305,7 +309,12 @@ export default function AttendanceRecordModal({
       await onSaved();
       onClose();
     },
-    onError: () => toast.error("근무 기록 수정에 실패했습니다."),
+    onError: (error: Error) =>
+      toast.error(
+        error.message === "INPUT_WORK_HOURS_REQUIRED"
+          ? "입력 근무시간을 0보다 큰 값으로 입력해 주세요."
+          : "근무 기록 수정에 실패했습니다.",
+      ),
   });
 
   const selectMode = (nextMode: "start" | "end") => {
