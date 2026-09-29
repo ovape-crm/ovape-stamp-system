@@ -10,6 +10,7 @@ import toast from "react-hot-toast";
 import { formatHistoryNote } from "../_utils/formatHistoryNote";
 import { isXCustomer } from "@/app/_domains/_customer/_utils/specialCustomer";
 import type { GenderType } from "@/app/_domains/_customer/_types/customer.types";
+import { stripTaggedContent } from "@/app/_components/TaggedContent";
 
 const paymentTypeNameByValue = Object.values(PaymentTypeEnum).reduce(
   (acc, type) => {
@@ -181,7 +182,9 @@ const useCopy = () => {
         : "";
     const extraNoteValue = log.jsonb?.extraNote;
     const extraNote =
-      typeof extraNoteValue === "string" ? extraNoteValue.trim() : "";
+      typeof extraNoteValue === "string"
+        ? stripTaggedContent(extraNoteValue).trim()
+        : "";
     const gender = specialCustomerName
       ? specialCustomerName
       : extraNote

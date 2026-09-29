@@ -260,9 +260,12 @@ export default function CustomerDetailPage() {
     .normalize("NFC")
     .trim()
     .toLocaleLowerCase("ko-KR");
+  const historySearchTerms = normalizedHistorySearch
+    .split(/\s+/)
+    .filter(Boolean);
   const filteredLogs = normalizedHistorySearch
-    ? logs.filter((log) =>
-        [
+    ? logs.filter((log) => {
+        const searchableContent = [
           log.action,
           log.note,
           log.users?.name,
@@ -271,9 +274,11 @@ export default function CustomerDetailPage() {
           .filter(Boolean)
           .join(" ")
           .normalize("NFC")
-          .toLocaleLowerCase("ko-KR")
-          .includes(normalizedHistorySearch),
-      )
+          .toLocaleLowerCase("ko-KR");
+        return historySearchTerms.every((term) =>
+          searchableContent.includes(term),
+        );
+      })
     : logs;
   if (
     (customer.name.trim() === "재고조정" && user?.oss_role !== "master") ||
