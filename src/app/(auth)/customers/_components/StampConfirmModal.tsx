@@ -1047,7 +1047,14 @@ export default function StampConfirmModal({
                     },
                     {
                       label: "출고 메모",
-                      value: stampLog.logMeta.extraNote || "없음",
+                      value: stampLog.logMeta.extraNote?.trim() ? (
+                        <TaggedContent
+                          content={stampLog.logMeta.extraNote.trim()}
+                          inline
+                        />
+                      ) : (
+                        "없음"
+                      ),
                     },
                   ].map((summary) => (
                     <div
@@ -1102,7 +1109,14 @@ export default function StampConfirmModal({
                       : "시연용 전체 특이사항"}
                   </p>
                   <p className="flex min-w-0 items-center whitespace-pre-wrap break-words px-3 py-2 text-sm text-gray-800 [overflow-wrap:anywhere]">
-                    {stampLog.logMeta.extraNote?.trim() || "없음"}
+                    {stampLog.logMeta.extraNote?.trim() ? (
+                      <TaggedContent
+                        content={stampLog.logMeta.extraNote.trim()}
+                        inline
+                      />
+                    ) : (
+                      "없음"
+                    )}
                   </p>
                 </div>
               )}

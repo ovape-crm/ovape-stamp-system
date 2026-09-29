@@ -839,6 +839,38 @@ const addFallbackPurchaseLineSortOrder = <
     ).map((line, index) => ({ ...line, sort_order: index + 1 })),
   }));
 
+const attachPurchaseOrderAdjustments = async <
+  T extends { id: string; inventory_purchase_order_adjustments?: PurchaseOrderAdjustment[] },
+>(orders: T[]): Promise<T[]> => {
+  const orderIds = orders.map((order) => order.id);
+  if (orderIds.length === 0) return orders;
+
+  const { data, error } = await supabase
+    .from("inventory_purchase_order_adjustments")
+    .select("id, order_id, category_id, category_name, kind, amount, note")
+    .in("order_id", orderIds);
+  if (error) {
+    return orders.map((order) => ({
+      ...order,
+      inventory_purchase_order_adjustments:
+        order.inventory_purchase_order_adjustments ?? [],
+    }));
+  }
+
+  const adjustmentsByOrderId = new Map<string, PurchaseOrderAdjustment[]>();
+  for (const adjustment of data ?? []) {
+    const { order_id, ...adjustmentRow } = adjustment;
+    const rows = adjustmentsByOrderId.get(order_id) ?? [];
+    rows.push(adjustmentRow as PurchaseOrderAdjustment);
+    adjustmentsByOrderId.set(order_id, rows);
+  }
+  return orders.map((order) => ({
+    ...order,
+    inventory_purchase_order_adjustments:
+      adjustmentsByOrderId.get(order.id) ?? [],
+  }));
+};
+
 export const getPurchaseOrders = async (
   isMaster = false,
 ): Promise<PurchaseOrder[]> => {
@@ -868,25 +900,26 @@ export const getPurchaseOrders = async (
     )
     .order("created_at", { ascending: false });
   if (!compatibleError) {
-    const compatibleOrders = addFallbackPurchaseLineSortOrder(compatibleData ?? []).map((order) => ({
-      ...order,
-      inventory_purchase_order_adjustments: [],
-      inventory_purchase_receipts: order.inventory_purchase_receipts.map(
-        (receipt: {
-          inventory_purchase_receipt_lines: Record<string, unknown>[];
-          [key: string]: unknown;
-        }) => ({
-          ...receipt,
-          inventory_purchase_receipt_lines:
-            receipt.inventory_purchase_receipt_lines.map(
-              (line: Record<string, unknown>) => ({
-                ...line,
-                quantity_check_note: null,
-              }),
-            ),
-        }),
-      ),
-    })) as unknown as PurchaseOrder[];
+    const compatibleOrders = await attachPurchaseOrderAdjustments(
+      addFallbackPurchaseLineSortOrder(compatibleData ?? []).map((order) => ({
+        ...order,
+        inventory_purchase_receipts: order.inventory_purchase_receipts.map(
+          (receipt: {
+            inventory_purchase_receipt_lines: Record<string, unknown>[];
+            [key: string]: unknown;
+          }) => ({
+            ...receipt,
+            inventory_purchase_receipt_lines:
+              receipt.inventory_purchase_receipt_lines.map(
+                (line: Record<string, unknown>) => ({
+                  ...line,
+                  quantity_check_note: null,
+                }),
+              ),
+          }),
+        ),
+      })) as unknown as PurchaseOrder[],
+    );
     return attachPurchaseOrderUnitPrices(compatibleOrders, isMaster);
   }
 
@@ -900,36 +933,37 @@ export const getPurchaseOrders = async (
     )
     .order("created_at", { ascending: false });
   if (legacyError) throw legacyError;
-  const legacyOrders = addFallbackPurchaseLineSortOrder(legacyData ?? []).map((order) => ({
-    ...order,
-    inventory_purchase_order_adjustments: [],
-    inventory_purchase_order_lines: order.inventory_purchase_order_lines.map(
-      (line: Record<string, unknown>) => ({
-        ...line,
-        quantity_check_note: null,
-        handling_type: "none",
-        handling_note: null,
-        customer_id: null,
-        reservation_log_id: null,
-      }),
-    ),
-    inventory_purchase_receipts: order.inventory_purchase_receipts.map(
-      (receipt: {
-        inventory_purchase_receipt_lines: Record<string, unknown>[];
-        [key: string]: unknown;
-      }) => ({
-        ...receipt,
-        inventory_purchase_receipt_lines:
-          receipt.inventory_purchase_receipt_lines.map(
-            (line: Record<string, unknown>) => ({
-              ...line,
-              note: null,
-              quantity_check_note: null,
-            }),
-          ),
-      }),
-    ),
-  })) as unknown as PurchaseOrder[];
+  const legacyOrders = await attachPurchaseOrderAdjustments(
+    addFallbackPurchaseLineSortOrder(legacyData ?? []).map((order) => ({
+      ...order,
+      inventory_purchase_order_lines: order.inventory_purchase_order_lines.map(
+        (line: Record<string, unknown>) => ({
+          ...line,
+          quantity_check_note: null,
+          handling_type: "none",
+          handling_note: null,
+          customer_id: null,
+          reservation_log_id: null,
+        }),
+      ),
+      inventory_purchase_receipts: order.inventory_purchase_receipts.map(
+        (receipt: {
+          inventory_purchase_receipt_lines: Record<string, unknown>[];
+          [key: string]: unknown;
+        }) => ({
+          ...receipt,
+          inventory_purchase_receipt_lines:
+            receipt.inventory_purchase_receipt_lines.map(
+              (line: Record<string, unknown>) => ({
+                ...line,
+                note: null,
+                quantity_check_note: null,
+              }),
+            ),
+        }),
+      ),
+    })) as unknown as PurchaseOrder[],
+  );
   return attachPurchaseOrderUnitPrices(legacyOrders, isMaster);
 };
 

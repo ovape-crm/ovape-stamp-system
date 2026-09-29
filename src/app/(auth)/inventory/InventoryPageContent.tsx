@@ -4167,6 +4167,7 @@ function PurchaseOrderList({
 }) {
   type PurchaseOrderListTab =
     "waiting" | "partial" | "completed" | "closed" | "all";
+  const canViewAdjustments = isAdmin || isMaster;
   const expansionStorageKey = "inventory-purchase-order-expansion";
   const [quantities, setQuantities] = useState<Record<string, string>>({});
   const [arrivalDates, setArrivalDates] = useState<Record<string, string>>({});
@@ -5035,7 +5036,7 @@ function PurchaseOrderList({
                       발행 종류: {orderNote.taxInvoiceStatus}
                     </span>
                   )}
-                  {isAdmin &&
+                  {canViewAdjustments &&
                     adjustments.map((adjustment) => (
                       <span
                         key={adjustment.id}

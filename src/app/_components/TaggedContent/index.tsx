@@ -9,6 +9,12 @@ type NoteNode = {
 const noteTagRegex = /<\/?(?:red|blue|green|bold|line|yellow-bg|pink-bg|blue-bg|divider|link)(?: url="[^"]*")?>/g;
 const openingNoteTagRegex = /^<(red|blue|green|bold|line|yellow-bg|pink-bg|blue-bg|divider|link)(?: url="([^"]*)")?>$/;
 
+/** 서식 저장값을 클립보드처럼 서식을 지원하지 않는 곳에 사용할 일반 텍스트로 바꾼다. */
+export const stripTaggedContent = (value: string) =>
+  value
+    .replace(/<divider><\/divider>/g, "\n")
+    .replace(noteTagRegex, "");
+
 const parseNoteNodes = (value: string): NoteNode => {
   const root: NoteNode = { children: [] };
   const stack = [root];

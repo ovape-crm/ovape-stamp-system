@@ -14,6 +14,7 @@ import useCopy from "@/app/_domains/_log/_hooks/useCopy";
 import { getCustomerMode } from "@/app/_domains/_customer/_utils/specialCustomer";
 import { PaymentTypeEnum, StoreTypeEnum } from "@/app/_enums/enums";
 import { formatHistoryNote } from "@/app/_domains/_log/_utils/formatHistoryNote";
+import TaggedContent from "@/app/_components/TaggedContent";
 
 interface StampHistoryItemProps {
   log: LogsResType;
@@ -233,7 +234,7 @@ const StampHistoryItem = ({
             </p>
             {extraNote && (
                 <p className="mt-1 italic text-gray-400">
-                  출고 특이사항: &quot;{extraNote}&quot;
+                  출고 특이사항: &quot;<TaggedContent content={extraNote} inline />&quot;
                 </p>
               )}
             {shouldShowTransferPayerName && (
