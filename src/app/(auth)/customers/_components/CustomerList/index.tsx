@@ -190,6 +190,8 @@ const CustomerList = ({
                             ? "남자"
                             : customer.gender === "female"
                               ? "여자"
+                              : customer.gender === "unknown"
+                                ? "모름"
                               : "-"}
                     </td>
                     <td className="px-3 sm:px-6 py-2 sm:py-3 text-center whitespace-nowrap">

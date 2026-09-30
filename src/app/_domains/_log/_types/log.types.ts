@@ -42,7 +42,7 @@ export type LogCustomerInfo = {
   phone: string;
   address?: string | null;
   note?: string | null;
-  gender?: "male" | "female" | "special" | null;
+  gender?: "male" | "female" | "unknown" | "special" | null;
   is_stamp_eligible?: boolean;
 };
 

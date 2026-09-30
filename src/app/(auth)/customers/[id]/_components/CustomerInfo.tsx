@@ -60,6 +60,8 @@ const CustomerInfo = ({ customer, onEdit }: CustomerInfoProps) => {
                   ? '남자'
                   : customer.gender === 'female'
                     ? '여자'
+                    : customer.gender === 'unknown'
+                      ? '모름'
                     : '-'}
           </p>
         </div>
