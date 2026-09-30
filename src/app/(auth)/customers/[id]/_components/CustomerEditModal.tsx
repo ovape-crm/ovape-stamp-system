@@ -37,7 +37,7 @@ const schema = z
         message: "10-11자리 숫자만 입력하세요. (정보 없을 경우 X 입력)",
       })
       .transform((v) => (v.toUpperCase() === "X" ? "X" : v)),
-    gender: z.enum(["male", "female", "special"]),
+    gender: z.enum(["male", "female", "unknown", "special"]),
     is_stamp_eligible: z.boolean(),
     adult_verification_method: z.enum(["", "physical_id", "bbaton"]),
     adult_verification_request_id: z.string().optional(),
@@ -332,7 +332,9 @@ export default function CustomerEditModal({
                   ? "특수계정"
                   : formData.gender === "male"
                     ? "남자"
-                    : "여자"}
+                    : formData.gender === "female"
+                      ? "여자"
+                      : "모름"}
               </p>
             </div>
             <div>
@@ -471,7 +473,7 @@ export default function CustomerEditModal({
                 </p>
               </>
             ) : (
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <label className="cursor-pointer text-center text-sm">
                 <input
                   className="peer sr-only"
@@ -492,6 +494,17 @@ export default function CustomerEditModal({
                 />
                 <span className="block rounded-lg border border-gray-200 bg-white px-2 py-2 font-medium text-gray-600 transition hover:border-gray-300 peer-checked:border-brand-400 peer-checked:text-brand-700 peer-checked:shadow-sm">
                   여자
+                </span>
+              </label>
+              <label className="cursor-pointer text-center text-sm">
+                <input
+                  className="peer sr-only"
+                  type="radio"
+                  value="unknown"
+                  {...register("gender")}
+                />
+                <span className="block rounded-lg border border-gray-200 bg-white px-2 py-2 font-medium text-gray-600 transition hover:border-gray-300 peer-checked:border-brand-400 peer-checked:text-brand-700 peer-checked:shadow-sm">
+                  모름
                 </span>
               </label>
             </div>

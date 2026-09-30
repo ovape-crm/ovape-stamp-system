@@ -1,4 +1,4 @@
-export type GenderType = "male" | "female" | "special";
+export type GenderType = "male" | "female" | "unknown" | "special";
 
 export type CustomerType = {
   id: string;

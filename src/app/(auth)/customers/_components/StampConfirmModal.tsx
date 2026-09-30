@@ -1,6 +1,7 @@
 "use client";
 
 import Button from "@/app/_components/Button";
+import type { GenderType } from "@/app/_domains/_customer/_types/customer.types";
 import TaggedContent from "@/app/_components/TaggedContent";
 import {
   BreathTypeEnum,
@@ -141,7 +142,7 @@ export default function StampConfirmModal({
   target: {
     name: string;
     phone: string;
-    gender?: "male" | "female" | "special" | null;
+    gender?: GenderType | null;
     address?: string | null;
     note?: string | null;
     is_stamp_eligible?: boolean;

@@ -49,6 +49,7 @@ const StampHistoryItem = ({
   showCustomerInfo = true,
 }: StampHistoryItemProps) => {
   const { copyLogToClipboard } = useCopy();
+  const isHistoricalSheetImport = Boolean(log.jsonb?.historicalSheetImport);
   const isSplitPayment =
     Array.isArray(log.jsonb?.payments) && log.jsonb.payments.length >= 2;
   const hasTransactionTag = Boolean(
@@ -64,7 +65,7 @@ const StampHistoryItem = ({
     !isLocked && ((isMaster && Boolean(onManage)) || isAdmin);
   const hasReservationAction = Boolean(onConfirm);
   const actionColumnClass = hasPrimaryAction ? "col-start-1" : "col-start-2";
-  const actionButton = !isLocked
+  const actionButton = !isLocked && !isHistoricalSheetImport
     ? isMaster && onCancelRefund
       ? { label: "환불 취소", onClick: onCancelRefund }
       : onRefund
@@ -120,6 +121,10 @@ const StampHistoryItem = ({
     typeof log.jsonb?.extraNote === "string" && log.jsonb.extraNote.trim()
       ? log.jsonb.extraNote.trim()
       : xTransferExtraNote;
+  const extraNoteLines = extraNote.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const addressLine = extraNoteLines.find((line) => /^주소지\s*:/u.test(line));
+  const address = addressLine?.replace(/^주소지\s*:\s*/u, "").trim() ?? "";
+  const shipmentExtraNote = extraNoteLines.filter((line) => line !== addressLine).join("\n");
   const transferPayerName =
     typeof log.jsonb?.transferPayerName === "string"
       ? log.jsonb.transferPayerName.trim()
@@ -209,15 +214,15 @@ const StampHistoryItem = ({
 
       <div className="min-w-0 border-l border-brand-100 pl-3 sm:pl-4">
         <div className="flex items-center gap-2">
-          <Button
-            variant="secondary"
-            size="xs"
-            onClick={onEdit}
-            disabled={isLocked}
-            title={isLocked ? "마스터만 수정할 수 있습니다." : undefined}
-          >
-            ✏️
-          </Button>
+          {!isHistoricalSheetImport && <Button
+              variant="secondary"
+              size="xs"
+              onClick={onEdit}
+              disabled={isLocked}
+              title={isLocked ? "마스터만 수정할 수 있습니다." : undefined}
+            >
+              ✏️
+            </Button>}
           <div className="min-w-0 flex-1 break-words whitespace-normal text-xs text-gray-600 sm:text-sm">
             <p className="whitespace-pre-line">
               {log.note ? (
@@ -232,9 +237,14 @@ const StampHistoryItem = ({
                 <span className="text-gray-400"> - </span>
               )}
             </p>
-            {extraNote && (
+            {address && (
                 <p className="mt-1 italic text-gray-400">
-                  출고 특이사항: &quot;<TaggedContent content={extraNote} inline />&quot;
+                  주소: {address}
+                </p>
+              )}
+            {shipmentExtraNote && (
+                <p className="mt-1 italic text-gray-400">
+                  출고 특이사항: &quot;<TaggedContent content={shipmentExtraNote} inline />&quot;
                 </p>
               )}
             {shouldShowTransferPayerName && (
