@@ -29,6 +29,7 @@ import {
   getInventoryMovements,
   getInventoryMovementCount,
   getInventoryOverview,
+  getInventoryStockAsOf,
   getCurrentInventoryCostLayers,
   initializeInventory,
   addInitialInventoryEntries,
@@ -1284,6 +1285,13 @@ function StockOverview({
     "overview",
   );
   const [returnHoldTab, setReturnHoldTab] = useState<"held" | "history">("held");
+  const selectedStockDate =
+    dateMode === "custom" ? endDate || startDate || undefined : undefined;
+  const stockSnapshotQuery = useQuery({
+    queryKey: [...inventoryKeys.overview, "as-of", selectedStockDate],
+    queryFn: () => getInventoryStockAsOf(selectedStockDate!),
+    enabled: Boolean(selectedStockDate),
+  });
   const defectiveHoldsQuery = useQuery({
     queryKey: [...inventoryKeys.overview, "defective-holds"],
     queryFn: getDefectiveInventoryHolds,
@@ -1305,18 +1313,34 @@ function StockOverview({
     content: <DefectiveHoldProcessModal hold={hold} onClose={close} onComplete={refreshRefundData} />,
     options: { dismissOnBackdrop: false, dismissOnEsc: true, size: "max-w-xl" },
   });
-  const trackedItems = useMemo(() => items.filter((item) => item.is_tracked), [items]);
+  const stockItems = useMemo(() => {
+    if (!selectedStockDate || !stockSnapshotQuery.data) return items;
+    const snapshotByItemName = new Map(
+      stockSnapshotQuery.data.map((snapshot) => [snapshot.itemName, snapshot]),
+    );
+    return items.map((item) => {
+      const snapshot = snapshotByItemName.get(
+        normalizeInventoryItemName(item.item_name),
+      );
+      return snapshot
+        ? {
+            ...item,
+            quantity: snapshot.quantity,
+            updated_at: snapshot.lastMovementAt,
+          }
+        : { ...item, quantity: 0, updated_at: null };
+    });
+  }, [items, selectedStockDate, stockSnapshotQuery.data]);
+  const trackedItems = useMemo(
+    () => stockItems.filter((item) => item.is_tracked),
+    [stockItems],
+  );
   type SortKey =
     "category" | "code" | "name" | "usage" | "quantity" | "updated";
   const [sort, setSort] = useState<{
     key: SortKey;
     direction: "asc" | "desc";
   } | null>({ key: "code", direction: "asc" });
-  const localDate = (value: string) => {
-    const date = new Date(value);
-    const offset = date.getTimezoneOffset() * 60000;
-    return new Date(date.getTime() - offset).toISOString().slice(0, 10);
-  };
   const filtered = trackedItems.filter((item) => {
     const matchesName = item.item_name
       .toLocaleLowerCase("ko-KR")
@@ -1329,17 +1353,10 @@ function StockOverview({
       .includes(categorySearch.trim().toLocaleLowerCase("ko-KR"));
     const itemStatus =
       item.quantity < 0 ? "negative" : item.quantity === 0 ? "out" : "normal";
-    const date = item.updated_at ? localDate(item.updated_at) : "";
-    const matchesDate =
-      dateMode === "today" ||
-      (Boolean(date) &&
-        Boolean(startDate) &&
-        (endDate ? date >= startDate && date <= endDate : date === startDate));
     return (
       matchesName &&
       matchesCode &&
       matchesCategory &&
-      matchesDate &&
       (usage === "all" || (usage === "active" ? item.is_use : !item.is_use)) &&
       (status === "all" || status === itemStatus)
     );
@@ -1373,7 +1390,6 @@ function StockOverview({
     categorySearch,
     status,
     usage,
-    dateMode,
     startDate,
     endDate,
   ]);
