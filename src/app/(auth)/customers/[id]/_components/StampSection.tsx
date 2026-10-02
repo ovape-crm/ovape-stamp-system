@@ -390,15 +390,26 @@ const StampSection = ({
               업체 불량교환 이력 전용 계정입니다. 여기서 재고 처리는 할 수 없습니다.
             </p>
           ) : (
-            <div className="w-full border-t border-brand-200 pt-5">
+            <div className="flex w-full gap-2 border-t border-brand-200 pt-5">
               <Button
                 size="sm"
-                className="min-h-12 w-full text-base"
+                className="min-h-12 flex-1 text-base"
                 onClick={openOutboundModal}
                 disabled={isLoading}
               >
                 출고 이력
               </Button>
+              {isRegularNonAccrualCustomer && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="min-h-12 flex-1 text-base"
+                  onClick={onAddRemark}
+                  disabled={isLoading}
+                >
+                  고객 특이사항
+                </Button>
+              )}
             </div>
           )}
         </div>
