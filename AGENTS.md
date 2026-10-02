@@ -89,6 +89,7 @@ These are product-wide UI rules. Apply them to all new UI and keep them consiste
 
 ## Persistent user instructions
 
+- Do not commit or push work unless the user explicitly asks to do so; keep ongoing work uncommitted while the user is continuing the task.
 - When the user says to remember a workflow, reporting format, UI convention, or other instruction for future work, record the instruction in this `AGENTS.md` during the same task so it also applies in new conversations.
 - Before recording, preserve the user's intended scope and wording; do not turn a one-off request into a permanent rule unless the user clearly indicates that it should be remembered or applied going forward.
 - When the user asks for a modification, change only the explicitly requested content. Do not independently add, remove, or alter any other feature, UI, label, icon, layout, or behavior.

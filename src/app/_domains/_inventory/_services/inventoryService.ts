@@ -194,6 +194,32 @@ export const getInventoryOverview = async (): Promise<{
   return { initializedAt: settingsResult.data.initialized_at, items };
 };
 
+export type InventoryStockSnapshot = {
+  itemName: string;
+  quantity: number;
+  lastMovementAt: string | null;
+};
+
+// 기준일 다음 날부터 현재까지의 변동을 현재 잔액에서 빼서, 기준일 마감 재고를 가져온다.
+export const getInventoryStockAsOf = async (
+  asOfDate: string,
+): Promise<InventoryStockSnapshot[]> => {
+  const { data, error } = await supabase.rpc("get_inventory_stock_as_of", {
+    p_as_of_date: asOfDate,
+  });
+  if (error) throw error;
+  return (data ?? []).map((row: {
+    item_name: string;
+    quantity: number | null;
+    last_movement_at: string | null;
+  }) => ({
+    itemName: normalizeInventoryItemName(String(row.item_name)),
+    quantity: Number(row.quantity ?? 0),
+    lastMovementAt:
+      row.last_movement_at == null ? null : String(row.last_movement_at),
+  }));
+};
+
 export type InventoryValuation = {
   totalCost: number;
   layerQuantity: number;
