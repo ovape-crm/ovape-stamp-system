@@ -423,7 +423,7 @@ begin
     select 1
     from public.users
     where users.id = auth.uid()
-      and users.oss_role = 'admin'
+      and users.oss_role in ('admin', 'master')
   ) into v_is_admin;
 
   if not v_is_admin and p_business_date <> v_today then

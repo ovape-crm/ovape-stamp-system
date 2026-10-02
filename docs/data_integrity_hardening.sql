@@ -185,7 +185,7 @@ begin
   if auth.uid() is null then raise exception 'AUTH_REQUIRED'; end if;
   select exists (
     select 1 from public.users
-    where users.id = auth.uid() and users.oss_role = 'admin'
+    where users.id = auth.uid() and users.oss_role in ('admin', 'master')
   ) into v_is_admin;
   if not v_is_admin and p_business_date <> v_today then
     raise exception 'CANCEL_NOT_ALLOWED';
