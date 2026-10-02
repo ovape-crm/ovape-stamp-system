@@ -204,10 +204,6 @@ begin
         status = 'working',
         updated_at = now()
     where work_date = p_business_date;
-  else
-    update public.work_journals
-    set input_work_hours = null, updated_at = now()
-    where work_date = p_business_date;
   end if;
 
   delete from public.daily_closing_reports where id = v_report.id;
