@@ -188,6 +188,11 @@ export const AfterServiceStatusEnum = {
     name: '기타 (완료)',
     group: AfterServiceStatusGroupEnum.COMPLETED.value,
   },
+  CREDIT_PROCESSED: {
+    value: 'credit_processed',
+    name: '적립금 처리',
+    group: AfterServiceStatusGroupEnum.COMPLETED.value,
+  },
   OTHER_RECEIVED: {
     value: 'other_in_progress',
     name: '기타 (진행 중)',

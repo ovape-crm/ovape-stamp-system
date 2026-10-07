@@ -415,6 +415,43 @@ export type AfterServiceIntakeExpense = {
   store_cost_amount: number;
 };
 
+export type AfterServiceCreditProcessing = {
+  original_cost: number;
+  completed_on: string | null;
+  cost_mode: "same" | "different" | null;
+  settled_cost: number | null;
+  memo: string | null;
+};
+
+export const getAfterServiceCreditProcessing = async (afterServiceId: string) => {
+  const { data, error } = await supabase.rpc(
+    "get_after_service_credit_processing",
+    { p_after_service_id: Number(afterServiceId) },
+  );
+  if (error) throw error;
+  return ((data ?? [])[0] ?? null) as AfterServiceCreditProcessing | null;
+};
+
+export const processAfterServiceCreditProcessing = async (values: {
+  afterServiceId: string;
+  completedOn: string;
+  costMode: "same" | "different";
+  costAmount: number | null;
+  memo: string;
+}) => {
+  const { error } = await supabase.rpc(
+    "process_after_service_credit_processing",
+    {
+      p_after_service_id: Number(values.afterServiceId),
+      p_completed_on: values.completedOn,
+      p_cost_mode: values.costMode,
+      p_cost_amount: values.costAmount,
+      p_memo: values.memo || null,
+    },
+  );
+  if (error) throw error;
+};
+
 export const getAfterServiceIntakeExpense = async (afterServiceId: string) => {
   const { data, error } = await supabase.rpc(
     'get_after_service_intake_expense',
