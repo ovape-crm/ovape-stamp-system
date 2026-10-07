@@ -30,6 +30,12 @@ export type StatusUpdateFormValues = {
     hasStoreCost: boolean;
     storeCostAmount: number | null;
   };
+  creditProcessing?: {
+    completedOn: string;
+    costMode: "same" | "different";
+    costAmount: number | null;
+    memo: string;
+  };
 };
 
 const getTodayDateValue = () => {
@@ -95,6 +101,10 @@ interface StatusUpdateModalProps {
   serviceCaseType?: "customer_as" | "vendor_exchange" | "store_product_as" | "defective_return_as";
   serviceProgress?: InventoryServiceProgress;
   rentalItemSummary?: string;
+  canProcessCredit?: boolean;
+  creditOriginalCost?: number | null;
+  initialCreditCostMode?: "same" | "different";
+  initialCreditCostAmount?: number | null;
   onSubmit: (values: StatusUpdateFormValues) => Promise<void> | void;
   onCancel: () => void;
   isSubmitting: boolean;
@@ -120,6 +130,10 @@ const StatusUpdateModal = ({
   serviceCaseType = "customer_as",
   serviceProgress,
   rentalItemSummary,
+  canProcessCredit = false,
+  creditOriginalCost = null,
+  initialCreditCostMode = "same",
+  initialCreditCostAmount = null,
   onSubmit,
   onCancel,
   isSubmitting,
@@ -158,6 +172,12 @@ const StatusUpdateModal = ({
   const [receiptMatchType, setReceiptMatchType] = useState<
     "" | "match" | "mismatch"
   >(initialReceiptMatchType ?? (editMode ? "match" : ""));
+  const [creditCostMode, setCreditCostMode] = useState<"same" | "different">(
+    initialCreditCostMode,
+  );
+  const [creditCostAmount, setCreditCostAmount] = useState(
+    initialCreditCostAmount == null ? "" : String(initialCreditCostAmount),
+  );
   const deferredReceiptItemName = useDeferredValue(receiptItemName.trim());
   const receiptItemsQuery = useQuery({
     queryKey: ["as-repair-receipt-items", deferredReceiptItemName],
@@ -184,6 +204,12 @@ const StatusUpdateModal = ({
   const statusOptions: DropdownOption[] = Object.values(AfterServiceStatusEnum)
     .filter((opt) => {
       if (opt.value === currentStatus) {
+        return false;
+      }
+      if (
+        opt.value === AfterServiceStatusEnum.CREDIT_PROCESSED.value &&
+        !canProcessCredit
+      ) {
         return false;
       }
       if (
@@ -272,11 +298,20 @@ const StatusUpdateModal = ({
     selectedStatus === AfterServiceStatusEnum.REPAIR_RETURNED_COMPLETED.value;
   const requiresRepairIntakeExpense =
     selectedStatus === AfterServiceStatusEnum.SENT_FOR_REPAIR.value;
+  const requiresCreditProcessing =
+    selectedStatus === AfterServiceStatusEnum.CREDIT_PROCESSED.value;
   const parsedStoreRepairCostAmount = Number(storeRepairCostAmount);
   const isStoreRepairCostValid =
     !hasStoreRepairCost ||
     (Number.isInteger(parsedStoreRepairCostAmount) &&
       parsedStoreRepairCostAmount > 0);
+  const parsedCreditCostAmount = Number(creditCostAmount);
+  const effectiveCreditCost =
+    creditCostMode === "same" ? creditOriginalCost : parsedCreditCostAmount;
+  const isCreditProcessingValid =
+    typeof effectiveCreditCost === "number" &&
+    Number.isInteger(effectiveCreditCost) &&
+    effectiveCreditCost > 0;
   const isInventoryServiceCase =
     serviceCaseType === "vendor_exchange" ||
     serviceCaseType === "store_product_as";
@@ -362,6 +397,12 @@ const StatusUpdateModal = ({
           memoPlaceholder: "기타 사유를 입력하세요.",
           memoRequired: true,
         };
+      case AfterServiceStatusEnum.CREDIT_PROCESSED.value:
+        return {
+          dateLabel: "완료일",
+          memoPlaceholder: "추가 메모를 입력하세요. (선택)",
+          memoRequired: false,
+        };
       default:
         return null;
     }
@@ -375,7 +416,8 @@ const StatusUpdateModal = ({
           (!isInventoryReceiptConfirmed || !isRepairReceiptValid)) ||
         (requiresCustomerContactConfirmation && !isCustomerContactConfirmed) ||
         (requiresRentalReturnConfirmation && !isRentalReturnConfirmed) ||
-        (requiresRepairIntakeExpense && !isStoreRepairCostValid)
+        (requiresRepairIntakeExpense && !isStoreRepairCostValid) ||
+        (requiresCreditProcessing && !isCreditProcessingValid)
       ) {
         return;
       }
@@ -405,6 +447,15 @@ const StatusUpdateModal = ({
               storeCostAmount: hasStoreRepairCost
                 ? parsedStoreRepairCostAmount
                 : null,
+            }
+          : undefined,
+        creditProcessing: requiresCreditProcessing
+          ? {
+              completedOn: statusDate,
+              costMode: creditCostMode,
+              costAmount:
+                creditCostMode === "different" ? parsedCreditCostAmount : null,
+              memo: statusMemo.trim(),
             }
           : undefined,
       });
@@ -470,6 +521,8 @@ const StatusUpdateModal = ({
                         setShowReceiptItemSuggestions(false);
                         setReceiptQuantity(String(originalQuantity));
                         setReceiptMatchType("");
+                        setCreditCostMode("same");
+                        setCreditCostAmount("");
                       }}
                     />
                   ))}
@@ -813,6 +866,57 @@ const StatusUpdateModal = ({
                   )}
                 </div>
               )}
+              {requiresCreditProcessing && (
+                <div className="space-y-3 rounded-xl border border-gray-200 bg-gray-50/70 p-4">
+                  <div>
+                    <span className="mb-2 block text-sm font-medium text-gray-700">
+                      손실 원가 <span className="text-rose-600">*</span>
+                    </span>
+                    <div className="grid grid-cols-2 gap-2">
+                      {([
+                        ["same", "원가와 동일"],
+                        ["different", "원가와 다름"],
+                      ] as const).map(([value, label]) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setCreditCostMode(value)}
+                          disabled={isSubmitting}
+                          className={`h-10 cursor-pointer rounded-lg border px-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${creditCostMode === value ? "border-brand-500 bg-brand-500 text-white" : "border-gray-300 bg-white text-gray-600 hover:border-brand-300"}`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {creditCostMode === "same" ? (
+                    <p className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700">
+                      기존 원가: <span className="font-bold text-gray-900">{creditOriginalCost == null ? "등록된 원가 없음" : `${creditOriginalCost.toLocaleString("ko-KR")}원`}</span>
+                    </p>
+                  ) : (
+                    <label className="relative block text-sm font-medium text-gray-700">
+                      변경 원가 <span className="text-rose-600">*</span>
+                      <input
+                        type="number"
+                        min={1}
+                        inputMode="numeric"
+                        value={creditCostAmount}
+                        onChange={(event) => setCreditCostAmount(event.target.value)}
+                        placeholder="손실 처리할 원가 입력"
+                        className="mt-1 h-10 w-full rounded-lg border border-gray-300 bg-white px-3 pr-8 text-right text-sm font-medium shadow-sm outline-none transition hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                        disabled={isSubmitting}
+                      />
+                      <span className="pointer-events-none absolute bottom-2.5 right-3 text-sm text-gray-500">원</span>
+                    </label>
+                  )}
+                  {!isCreditProcessingValid && (
+                    <p className="text-xs text-rose-600">손실 처리할 원가를 확인해 주세요.</p>
+                  )}
+                  <p className="text-xs leading-5 text-gray-500">
+                    제품을 입고하지 않고, 확정 원가만큼 공통 매장의 일회성 기타비용으로 기록합니다.
+                  </p>
+                </div>
+              )}
               <div>
                 <input
                   type="text"
@@ -874,7 +978,8 @@ const StatusUpdateModal = ({
             (requiresCustomerContactConfirmation &&
               !isCustomerContactConfirmed) ||
             (requiresRentalReturnConfirmation && !isRentalReturnConfirmed) ||
-            (requiresRepairIntakeExpense && !isStoreRepairCostValid)
+            (requiresRepairIntakeExpense && !isStoreRepairCostValid) ||
+            (requiresCreditProcessing && !isCreditProcessingValid)
           }
         >
           {isSubmitting ? "저장 중..." : "저장"}

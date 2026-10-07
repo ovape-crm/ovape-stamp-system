@@ -12,6 +12,8 @@ import {
   confirmInventoryServiceOutbound,
   editAfterServiceStatusProcessing,
   getAfterServiceIntakeExpense,
+  getAfterServiceCreditProcessing,
+  processAfterServiceCreditProcessing,
   updateAfterService,
   deleteAfterService,
 } from "@/app/_domains/_afterService/_services/afterService";
@@ -139,6 +141,26 @@ const AfterServiceDetailDrawer = ({
     queryFn: () => getAfterServiceIntakeExpense(String(numericAfterServiceId)),
     enabled: numericAfterServiceId > 0,
   });
+  const creditProcessingQuery = useQuery({
+    queryKey: ["after-service-credit-processing", numericAfterServiceId],
+    queryFn: () => getAfterServiceCreditProcessing(String(numericAfterServiceId)),
+    enabled: isMaster && numericAfterServiceId > 0,
+  });
+  const outboundOriginalCost =
+    outboundCostAllocationsQuery.data &&
+    outboundCostAllocationsQuery.data.length > 0 &&
+    outboundCostAllocationsQuery.data.every(
+      (allocation) => allocation.unit_price != null,
+    )
+      ? outboundCostAllocationsQuery.data.reduce(
+          (total, allocation) =>
+            total +
+            Number(allocation.unit_price) * Number(allocation.outbound_quantity),
+          0,
+        )
+      : null;
+  const creditOriginalCost =
+    creditProcessingQuery.data?.original_cost ?? outboundOriginalCost;
   const canSetManualCost =
     isMaster &&
     (afterServiceDetail?.service_case_type === "store_product_as" ||
@@ -251,6 +273,16 @@ const AfterServiceDetailDrawer = ({
           afterServiceId,
           ...values.repairIntakeExpense,
         });
+      } else if (
+        values.status === AfterServiceStatusEnum.CREDIT_PROCESSED.value
+      ) {
+        if (!values.creditProcessing) {
+          throw new Error("A/S 적립금 처리 정보를 확인해 주세요.");
+        }
+        await processAfterServiceCreditProcessing({
+          afterServiceId,
+          ...values.creditProcessing,
+        });
       } else {
         await updateAfterServiceStatus(
           afterServiceId,
@@ -264,6 +296,13 @@ const AfterServiceDetailDrawer = ({
         queryClient.invalidateQueries({ queryKey: ["settlement-expenses"] });
         queryClient.invalidateQueries({
           queryKey: ["settlement-expense-total"],
+        });
+      }
+      if (values.creditProcessing) {
+        queryClient.invalidateQueries({ queryKey: ["settlement-expenses"] });
+        queryClient.invalidateQueries({ queryKey: ["settlement-expense-total"] });
+        queryClient.invalidateQueries({
+          queryKey: ["after-service-credit-processing", numericAfterServiceId],
         });
       }
       if (isInventoryServiceCase && values.repairReceipt) {
@@ -311,6 +350,10 @@ const AfterServiceDetailDrawer = ({
 
   const handleStatusAdvance = () => {
     if (!afterServiceDetail) return;
+    if (isMaster && outboundCostAllocationsQuery.isPending) {
+      toast.error("기존 원가를 불러오는 중입니다. 잠시 후 다시 시도해 주세요.");
+      return;
+    }
     if (requiresOutboundConfirmation && !afterServiceDetail.outbound_processed_at) {
       toast.error("마스터의 출고 확정 후 상태를 변경할 수 있습니다.");
       return;
@@ -337,6 +380,8 @@ const AfterServiceDetailDrawer = ({
           serviceCaseType={afterServiceDetail.service_case_type}
           serviceProgress={inventoryServiceProgressQuery.data}
           rentalItemSummary={rentalItemSummary || undefined}
+          canProcessCredit={isMaster}
+          creditOriginalCost={creditOriginalCost}
           onSubmit={handleStatusUpdate}
           onCancel={close}
           isSubmitting={isUpdatingStatus}
@@ -351,6 +396,13 @@ const AfterServiceDetailDrawer = ({
     const targetStatus = targetLog?.action.startsWith("after-service-")
       ? targetLog.action.slice("after-service-".length)
       : afterServiceDetail.status;
+    if (
+      targetStatus === AfterServiceStatusEnum.CREDIT_PROCESSED.value &&
+      !isMaster
+    ) {
+      toast.error("적립금 처리는 마스터 계정에서만 수정할 수 있습니다.");
+      return;
+    }
     if (
       new Set<string>([
         AfterServiceStatusEnum.RECEIVED.value,
@@ -380,6 +432,8 @@ const AfterServiceDetailDrawer = ({
       targetStatus ===
       AfterServiceStatusEnum.REPAIR_RETURNED_COMPLETED.value
         ? afterServiceDetail.repair_receipt_arrived_on || logDate
+        : targetStatus === AfterServiceStatusEnum.CREDIT_PROCESSED.value
+          ? creditProcessingQuery.data?.completed_on || logDate
         : targetStatus ===
             AfterServiceStatusEnum.SENT_FOR_REPAIR.value
           ? intakeExpenseQuery.data?.expense_date || logDate
@@ -423,6 +477,14 @@ const AfterServiceDetailDrawer = ({
           serviceCaseType={afterServiceDetail.service_case_type}
           serviceProgress={inventoryServiceProgressQuery.data}
           rentalItemSummary={afterServiceDetail.rental_note || undefined}
+          canProcessCredit={isMaster}
+          creditOriginalCost={creditOriginalCost}
+          initialCreditCostMode={creditProcessingQuery.data?.cost_mode ?? "same"}
+          initialCreditCostAmount={
+            creditProcessingQuery.data?.cost_mode === "different"
+              ? creditProcessingQuery.data.settled_cost
+              : null
+          }
           onSubmit={async (values) => {
             const statusDate =
               values.repairReceipt?.arrivedOn ||
@@ -434,20 +496,27 @@ const AfterServiceDetailDrawer = ({
             }
             try {
               setIsUpdatingStatus(true);
-              await editAfterServiceStatusProcessing({
-                afterServiceId: String(afterServiceDetail.id),
-                logId: statusLog?.id,
-                status: values.status,
-                statusDate,
-                memo:
-                  values.repairReceipt?.memo ||
-                  values.repairIntakeExpense?.memo ||
-                  values.note.split("\n").slice(1).join("\n"),
-                hasStoreCost:
-                  values.repairIntakeExpense?.hasStoreCost ?? false,
-                storeCostAmount:
-                  values.repairIntakeExpense?.storeCostAmount ?? null,
-              });
+              if (values.creditProcessing) {
+                await processAfterServiceCreditProcessing({
+                  afterServiceId: String(afterServiceDetail.id),
+                  ...values.creditProcessing,
+                });
+              } else {
+                await editAfterServiceStatusProcessing({
+                  afterServiceId: String(afterServiceDetail.id),
+                  logId: statusLog?.id,
+                  status: values.status,
+                  statusDate,
+                  memo:
+                    values.repairReceipt?.memo ||
+                    values.repairIntakeExpense?.memo ||
+                    values.note.split("\n").slice(1).join("\n"),
+                  hasStoreCost:
+                    values.repairIntakeExpense?.hasStoreCost ?? false,
+                  storeCostAmount:
+                    values.repairIntakeExpense?.storeCostAmount ?? null,
+                });
+              }
               invalidateAfterServiceQueries();
               queryClient.invalidateQueries({
                 queryKey: ["after-service-intake-expense", numericAfterServiceId],
@@ -457,6 +526,9 @@ const AfterServiceDetailDrawer = ({
                 queryKey: ["settlement-expense-total"],
               });
               queryClient.invalidateQueries({ queryKey: ["inventory"] });
+              queryClient.invalidateQueries({
+                queryKey: ["after-service-credit-processing", numericAfterServiceId],
+              });
               close();
               toast.success("진행상황 내용이 수정되었습니다.");
             } catch (err) {
