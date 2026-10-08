@@ -897,28 +897,65 @@ const attachPurchaseOrderAdjustments = async <
   }));
 };
 
+// Purchase-order screens use progressively smaller selects for databases that
+// are in the middle of a schema rollout. Keep the newly added memo available
+// even when one of those compatibility selects has to be used.
+const attachPurchaseUnreceivedNotes = async <
+  T extends { inventory_purchase_order_lines: { id: string }[] },
+>(orders: T[]): Promise<T[]> => {
+  const lineIds = orders.flatMap((order) =>
+    order.inventory_purchase_order_lines.map((line) => line.id),
+  );
+  if (lineIds.length === 0) return orders;
+
+  const { data, error } = await supabase.rpc("get_purchase_unreceived_notes", {
+    p_line_ids: lineIds,
+  });
+  if (error) {
+    console.error("미입고 메모를 불러오지 못했습니다:", error);
+    return orders;
+  }
+
+  const notesByLineId = new Map(
+    (data ?? []).map((line: { id: string; unreceived_note: string | null }) => [
+      line.id,
+      line.unreceived_note,
+    ]),
+  );
+  return orders.map((order) => ({
+    ...order,
+    inventory_purchase_order_lines: order.inventory_purchase_order_lines.map(
+      (line) => ({
+        ...line,
+        unreceived_note: notesByLineId.get(line.id) ?? null,
+      }),
+    ),
+  }));
+};
+
 export const getPurchaseOrders = async (
   isMaster = false,
 ): Promise<PurchaseOrder[]> => {
   const lineColumns =
-    "id, order_id, sort_order, item_name, ordered_quantity, received_quantity, pending_quantity, note, quantity_checked_by, quantity_check_note, quantity_checked_at, handling_type, handling_note, customer_id, reservation_log_id, after_service_id, inbound_type";
+    "id, order_id, sort_order, item_name, ordered_quantity, received_quantity, pending_quantity, note, unreceived_note, quantity_checked_by, quantity_check_note, quantity_checked_at, handling_type, handling_note, customer_id, reservation_log_id, after_service_id, inbound_type";
   const { data, error } = await supabase
     .from("inventory_purchase_orders")
     .select(
       `*, inventory_suppliers(name), inventory_purchase_order_lines(${lineColumns}, customers(name, phone)), inventory_purchase_receipts(id, after_service_id, arrived_on, note, created_at, reversed_at, inventory_purchase_receipt_lines(id, order_line_id, item_name, quantity, note, quantity_check_note)), inventory_purchase_order_adjustments(id, category_id, category_name, kind, amount, note)`,
     )
     .order("created_at", { ascending: false });
-  if (!error)
-    return attachPurchaseOrderUnitPrices(
+  if (!error) {
+    const ordersWithNotes = await attachPurchaseUnreceivedNotes(
       (data ?? []) as unknown as PurchaseOrder[],
-      isMaster,
     );
+    return attachPurchaseOrderUnitPrices(ordersWithNotes, isMaster);
+  }
 
   // Some environments can already have the handling columns while optional
   // adjustment / receipt-note migrations are still pending. Keep the saved
   // handling state instead of falling all the way back to `none`.
   const compatibleLineColumns =
-    "id, order_id, item_name, ordered_quantity, received_quantity, pending_quantity, note, quantity_checked_at, handling_type, handling_note, customer_id, reservation_log_id, after_service_id, inbound_type";
+    "id, order_id, item_name, ordered_quantity, received_quantity, pending_quantity, note, unreceived_note, quantity_checked_at, handling_type, handling_note, customer_id, reservation_log_id, after_service_id, inbound_type";
   const { data: compatibleData, error: compatibleError } = await supabase
     .from("inventory_purchase_orders")
     .select(
@@ -946,7 +983,8 @@ export const getPurchaseOrders = async (
         ),
       })) as unknown as PurchaseOrder[],
     );
-    return attachPurchaseOrderUnitPrices(compatibleOrders, isMaster);
+    const ordersWithNotes = await attachPurchaseUnreceivedNotes(compatibleOrders);
+    return attachPurchaseOrderUnitPrices(ordersWithNotes, isMaster);
   }
 
   // 신규 메모 열을 아직 적용하지 않은 DB에서도 입고 목록은 계속 표시한다.
@@ -965,6 +1003,7 @@ export const getPurchaseOrders = async (
       inventory_purchase_order_lines: order.inventory_purchase_order_lines.map(
         (line: Record<string, unknown>) => ({
           ...line,
+          unreceived_note: null,
           quantity_check_note: null,
           handling_type: "none",
           handling_note: null,
@@ -990,7 +1029,8 @@ export const getPurchaseOrders = async (
       ),
     })) as unknown as PurchaseOrder[],
   );
-  return attachPurchaseOrderUnitPrices(legacyOrders, isMaster);
+  const ordersWithNotes = await attachPurchaseUnreceivedNotes(legacyOrders);
+  return attachPurchaseOrderUnitPrices(ordersWithNotes, isMaster);
 };
 
 export const getPurchaseAdjustmentCategories = async (
@@ -1217,6 +1257,17 @@ export const setPurchaseArrivalQuantity = async (
   const { error } = await supabase.rpc("set_purchase_arrival_quantity", {
     p_line_id: lineId,
     p_quantity: quantity,
+  });
+  if (error) throw error;
+};
+
+export const savePurchaseUnreceivedNote = async (
+  lineId: string,
+  note: string,
+) => {
+  const { error } = await supabase.rpc("save_purchase_unreceived_note", {
+    p_line_id: lineId,
+    p_note: note,
   });
   if (error) throw error;
 };
