@@ -43,7 +43,7 @@ import {
   createPurchaseOrder,
   getLatestPurchaseUnitPrice,
   setPurchaseArrivalQuantity,
-  updatePurchaseOrderQuantity,
+  savePurchaseUnreceivedNote,
   checkPurchaseArrivalQuantity,
   processPurchaseArrival,
   closePurchaseOrderRemainder,
@@ -2025,6 +2025,7 @@ const mergePurchaseOrderNote = (status: TaxInvoiceStatus, note: string) =>
 function QuantityEditControl({
   value,
   min,
+  max,
   disabled,
   onChange,
   onSave,
@@ -2032,20 +2033,22 @@ function QuantityEditControl({
 }: {
   value: string;
   min: number;
+  max?: number;
   disabled?: boolean;
   onChange: (value: string) => void;
   onSave: () => void;
   onCancel: () => void;
 }) {
   return (
-    <div className="mx-auto flex h-11 w-full max-w-[92px] items-stretch gap-1">
+    <div className="mx-auto flex h-11 w-full max-w-[152px] items-stretch gap-1">
       <input
         type="number"
         min={min}
+        max={max}
         inputMode="numeric"
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="min-w-0 flex-1 rounded-lg border border-brand-300 px-1 text-center font-semibold outline-none focus:ring-2 focus:ring-brand-100"
+        className="min-w-[84px] flex-1 rounded-lg border border-brand-300 bg-white px-2 text-center font-semibold text-gray-900 outline-none focus:ring-2 focus:ring-brand-100"
       />
       <div className="flex w-9 shrink-0 flex-col">
         <button
@@ -4186,6 +4189,10 @@ function PurchaseOrderList({
   const canViewAdjustments = isAdmin || isMaster;
   const expansionStorageKey = "inventory-purchase-order-expansion";
   const [quantities, setQuantities] = useState<Record<string, string>>({});
+  const [unreceivedNotes, setUnreceivedNotes] = useState<Record<string, string>>({});
+  const [editingUnreceivedNotes, setEditingUnreceivedNotes] = useState<
+    Record<string, boolean>
+  >({});
   const [arrivalDates, setArrivalDates] = useState<Record<string, string>>({});
   const [arrivalNotes, setArrivalNotes] = useState<Record<string, string>>({});
   const [pending, setPending] = useState(false);
@@ -4348,69 +4355,17 @@ function PurchaseOrderList({
   };
   const waitingOrders = orders.filter((order) => order.status === "pending");
   const partialOrders = orders.filter((order) => order.status === "partial");
-  const draftBaselineRef = useRef(
-    new Map<string, { orderedQuantity: number; pendingQuantity: number }>(),
-  );
-  useEffect(() => {
-    if (
-      (listTab !== "waiting" && listTab !== "partial") ||
-      draftBaselineRef.current.size > 0
-    )
-      return;
-    const currentOrders = orders.filter((order) =>
-      listTab === "waiting"
-        ? order.status === "pending"
-        : order.status === "partial",
-    );
-    currentOrders.forEach((order) =>
-      order.inventory_purchase_order_lines.forEach((line) => {
-        draftBaselineRef.current.set(line.id, {
-          orderedQuantity: line.ordered_quantity,
-          pendingQuantity: line.pending_quantity,
-        });
-      }),
-    );
-  }, [listTab, orders]);
   const clearDraftState = () => {
     setQuantities({});
     setEditingQuantities({});
     setSavedQuantities({});
+    setUnreceivedNotes({});
+    setEditingUnreceivedNotes({});
     setArrivalDates({});
     setArrivalNotes({});
   };
-  const changeListTab = async (nextTab: PurchaseOrderListTab) => {
+  const changeListTab = (nextTab: PurchaseOrderListTab) => {
     if (nextTab === listTab || pending) return;
-    if (listTab === "waiting" || listTab === "partial") {
-      const currentOrders =
-        listTab === "waiting" ? waitingOrders : partialOrders;
-      setPending(true);
-      try {
-        for (const order of currentOrders) {
-          for (const line of order.inventory_purchase_order_lines) {
-            const baseline = draftBaselineRef.current.get(line.id);
-            if (!baseline) continue;
-            if (
-              order.status === "pending" &&
-              line.ordered_quantity !== baseline.orderedQuantity
-            ) {
-              await updatePurchaseOrderQuantity(
-                line.id,
-                baseline.orderedQuantity,
-              );
-            }
-            await setPurchaseArrivalQuantity(line.id, baseline.pendingQuantity);
-          }
-        }
-        await onSaved();
-      } catch (error) {
-        toast.error(
-          `입고대기 작업을 초기화하지 못했습니다: ${(error as Error).message}`,
-        );
-      } finally {
-        setPending(false);
-      }
-    }
-    draftBaselineRef.current.clear();
     clearDraftState();
     setListTab(nextTab);
   };
@@ -4936,9 +4891,21 @@ function PurchaseOrderList({
                     left.index - right.index,
                 )
                 .map(({ line }) => line)
-            : orderLinesInRegistrationOrder;
-        const hasCheckedItems = order.inventory_purchase_order_lines.some(
-          (line) => line.quantity_checked_at,
+            : order.status === "partial"
+              ? orderLinesInRegistrationOrder.filter(
+                  (line) => line.received_quantity < line.ordered_quantity,
+                )
+              : orderLinesInRegistrationOrder;
+        const receivingLines = displayedOrderLines.filter(
+          (line) => line.pending_quantity > 0,
+        );
+        const canProcessArrival =
+          receivingLines.length > 0 &&
+          receivingLines.every((line) => line.quantity_checked_at);
+        const missingQuantity = displayedOrderLines.reduce(
+          (sum, line) =>
+            sum + Math.max(0, line.ordered_quantity - line.received_quantity),
+          0,
         );
         const sortedReceipts = [...order.inventory_purchase_receipts].sort(
           (a, b) => a.created_at.localeCompare(b.created_at),
@@ -5040,6 +5007,11 @@ function PurchaseOrderList({
                       전체 메모: {orderNote.note}
                     </span>
                   )}
+                  {order.status === "partial" && (
+                    <span className="rounded-lg bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-700">
+                      미입고 {displayedOrderLines.length}개 품목 · 잔량 {missingQuantity}개
+                    </span>
+                  )}
                   {order.status === "closed" && order.closed_reason && (
                     <span className="rounded-lg bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-700">
                       미입고 종료 사유: {order.closed_reason}
@@ -5127,7 +5099,7 @@ function PurchaseOrderList({
             <div
               className={`${open && isExpanded ? "block" : "hidden"} overflow-auto bg-gray-50 px-4 sm:px-5`}
             >
-              <div className="min-w-[820px] overflow-hidden rounded-xl border border-brand-200 bg-white">
+              <div className="min-w-[900px] overflow-hidden rounded-xl border border-brand-200 bg-white">
                 <table className="purchase-order-table purchase-order-table--clean-edges w-full table-fixed border-collapse bg-white text-sm">
                   <colgroup>
                     <col className="w-[240px]" />
@@ -5135,7 +5107,7 @@ function PurchaseOrderList({
                     {showPartialDetails && <col className="w-[90px]" />}
                     {showPartialDetails && <col className="w-[90px]" />}
                     {showPartialDetails && <col className="w-[68px]" />}
-                    <col className="w-[70px]" />
+                    <col className="w-[152px]" />
                     <col className="w-[340px]" />
                     <col className="w-[120px]" />
                   </colgroup>
@@ -5231,6 +5203,13 @@ function PurchaseOrderList({
                         editingQuantities[line.id] ||
                         (!savedQuantities[line.id] &&
                           line.pending_quantity === 0);
+                      const unreceivedNote =
+                        unreceivedNotes[line.id] ?? line.unreceived_note ?? "";
+                      const hasUnreceivedNoteChange =
+                        unreceivedNote !== (line.unreceived_note ?? "");
+                      const isEditingUnreceivedNote =
+                        editingUnreceivedNotes[line.id] ||
+                        !line.unreceived_note;
                       return (
                         <tr key={line.id}>
                           <td className="border border-gray-200 px-3 py-3 font-semibold">
@@ -5276,10 +5255,12 @@ function PurchaseOrderList({
                             {open && editingQuantity ? (
                               <QuantityEditControl
                                 min={0}
+                                max={lineRemaining}
                                 disabled={
                                   pending ||
                                   !Number.isInteger(Number(value)) ||
-                                  Number(value) < 0
+                                  Number(value) < 0 ||
+                                  Number(value) > lineRemaining
                                 }
                                 value={value}
                                 onChange={(nextValue) =>
@@ -5290,16 +5271,6 @@ function PurchaseOrderList({
                                 }
                                 onSave={async () => {
                                   const qty = Number(value);
-                                  if (
-                                    qty > lineRemaining &&
-                                    !(await showConfirmDialog({
-                                      title: "주문 잔량 초과",
-                                      description: `주문 잔량은 ${lineRemaining}개입니다.\n${qty}개로 저장할까요?`,
-                                      confirmLabel: "수량 저장",
-                                      tone: "warning",
-                                    }))
-                                  )
-                                    return;
                                   void (async () => {
                                     const saved = await run(
                                       () =>
@@ -5382,6 +5353,104 @@ function PurchaseOrderList({
                                 <span>-</span>
                               )}
                             </div>
+                            {order.status === "partial" &&
+                              line.received_quantity < line.ordered_quantity && (
+                                <div className="mt-2 space-y-1.5">
+                                  {line.unreceived_note &&
+                                    !isEditingUnreceivedNote && (
+                                      <p className="text-xs font-semibold text-amber-700">
+                                        미입고 메모: {line.unreceived_note}
+                                      </p>
+                                    )}
+                                  {isMaster && isEditingUnreceivedNote ? (
+                                <div className="mt-2 flex gap-1.5">
+                                  <input
+                                    value={unreceivedNote}
+                                    onChange={(event) =>
+                                      setUnreceivedNotes((current) => ({
+                                        ...current,
+                                        [line.id]: event.target.value,
+                                      }))
+                                    }
+                                    disabled={pending}
+                                    placeholder="미입고 메모 입력"
+                                    className="h-9 min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-2.5 text-xs text-gray-900 outline-none placeholder:text-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-gray-100"
+                                  />
+                                  <Button
+                                    size="xs"
+                                    variant="secondary"
+                                    disabled={pending || !hasUnreceivedNoteChange}
+                                    onClick={() =>
+                                      void (async () => {
+                                        const saved = await run(
+                                          () =>
+                                            savePurchaseUnreceivedNote(
+                                              line.id,
+                                              unreceivedNote,
+                                            ),
+                                          "미입고 메모를 저장했습니다.",
+                                        );
+                                        if (saved) {
+                                          setUnreceivedNotes((current) => {
+                                            const next = { ...current };
+                                            delete next[line.id];
+                                            return next;
+                                          });
+                                          setEditingUnreceivedNotes((current) => ({
+                                            ...current,
+                                            [line.id]: false,
+                                          }));
+                                        }
+                                      })()
+                                    }
+                                  >
+                                    메모 저장
+                                  </Button>
+                                  {line.unreceived_note && (
+                                    <Button
+                                      size="xs"
+                                      variant="gray"
+                                      disabled={pending}
+                                      onClick={() => {
+                                        setUnreceivedNotes((current) => {
+                                          const next = { ...current };
+                                          delete next[line.id];
+                                          return next;
+                                        });
+                                        setEditingUnreceivedNotes((current) => ({
+                                          ...current,
+                                          [line.id]: false,
+                                        }));
+                                      }}
+                                    >
+                                      취소
+                                    </Button>
+                                  )}
+                                </div>
+                                  ) : (
+                                    isMaster &&
+                                    line.unreceived_note && (
+                                      <Button
+                                        size="xs"
+                                        variant="secondary"
+                                        disabled={pending}
+                                        onClick={() => {
+                                          setUnreceivedNotes((current) => ({
+                                            ...current,
+                                            [line.id]: line.unreceived_note ?? "",
+                                          }));
+                                          setEditingUnreceivedNotes((current) => ({
+                                            ...current,
+                                            [line.id]: true,
+                                          }));
+                                        }}
+                                      >
+                                        메모 수정
+                                      </Button>
+                                    )
+                                  )}
+                                </div>
+                              )}
                           </td>
                           <td className="border border-gray-200 px-3 py-3">
                             {!open ? (
@@ -5401,6 +5470,10 @@ function PurchaseOrderList({
                                         line.ordered_quantity
                                     ? `${line.ordered_quantity - line.received_quantity}개 미입고`
                                     : "처리 종료"}
+                              </span>
+                            ) : line.pending_quantity <= 0 ? (
+                              <span className="text-xs font-medium text-gray-400">
+                                입고 수량 입력 필요
                               </span>
                             ) : line.quantity_checked_at ? (
                               <Button
@@ -5585,7 +5658,8 @@ function PurchaseOrderList({
                                     {receipt.note ||
                                     receiptLine.note ||
                                     receiptLine.quantity_check_note ||
-                                    orderLine?.note ? (
+                                    orderLine?.note ||
+                                    orderLine?.unreceived_note ? (
                                       <div className="space-y-1">
                                         {receipt.note && (
                                           <p>입고 메모: {receipt.note}</p>
@@ -5602,6 +5676,11 @@ function PurchaseOrderList({
                                         {receiptLine.quantity_check_note && (
                                           <p className="font-semibold text-brand-700">
                                             {receiptLine.quantity_check_note}
+                                          </p>
+                                        )}
+                                        {orderLine?.unreceived_note && (
+                                          <p className="font-semibold text-amber-700">
+                                            미입고 메모: {orderLine.unreceived_note}
                                           </p>
                                         )}
                                       </div>
@@ -5701,7 +5780,14 @@ function PurchaseOrderList({
                               </td>
                               <td className="border border-gray-200 px-3 py-3 break-words text-gray-600">
                                 {missingQuantity > 0 ? (
-                                  order.closed_reason || "미입고 종료"
+                                  <div className="space-y-1">
+                                    <p>{order.closed_reason || "미입고 종료"}</p>
+                                    {line.unreceived_note && (
+                                      <p className="font-semibold text-amber-700">
+                                        미입고 메모: {line.unreceived_note}
+                                      </p>
+                                    )}
+                                  </div>
                                 ) : (
                                   <span className="font-semibold text-emerald-700">
                                     입고 완료
@@ -5764,7 +5850,7 @@ function PurchaseOrderList({
                         )
                       }
                       disabled={
-                        pending || !hasCheckedItems
+                        pending || !canProcessArrival
                       }
                     >
                       체크 품목 입고

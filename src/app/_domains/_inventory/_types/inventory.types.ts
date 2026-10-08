@@ -78,6 +78,7 @@ export type PurchaseOrderLine = {
   pending_quantity: number;
   unit_price: number | null;
   note: string | null;
+  unreceived_note: string | null;
   quantity_check_note: string | null;
   quantity_checked_at: string | null;
   handling_type:
