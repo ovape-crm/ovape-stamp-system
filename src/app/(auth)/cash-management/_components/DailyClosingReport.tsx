@@ -306,7 +306,16 @@ export default function DailyClosingReport({
 
   useEffect(() => {
     const savedEntries = transferVerificationQuery.data?.entries;
-    if (!savedEntries?.length) return;
+    if (!savedEntries?.length) {
+      if (!reportQuery.data) {
+        setSavedTransfers({});
+        setCheckedTransfers({});
+        window.sessionStorage.removeItem(
+          getTransferVerificationDraftKey(businessDate),
+        );
+      }
+      return;
+    }
     const saved = Object.fromEntries(
       paymentSales.transferDetails
         .filter((entry) =>
@@ -324,7 +333,12 @@ export default function DailyClosingReport({
     );
     setSavedTransfers(saved);
     setCheckedTransfers(saved);
-  }, [paymentSales.transferDetails, transferVerificationQuery.data]);
+  }, [
+    businessDate,
+    paymentSales.transferDetails,
+    reportQuery.data,
+    transferVerificationQuery.data,
+  ]);
 
   useEffect(() => {
     if (reportQuery.data || !openingProgressQuery.data) return;

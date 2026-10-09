@@ -469,6 +469,11 @@ export const updateLogNote = async (
     } else {
       delete nextJsonb.xPhoneLastDigits;
     }
+    if (logMeta.transferPayerName !== undefined) {
+      nextJsonb.transferPayerName = logMeta.transferPayerName;
+    } else {
+      delete nextJsonb.transferPayerName;
+    }
     nextJsonb.deliveryMethod = logMeta.deliveryMethod ?? "store_visit";
     if (logMeta.deliveryType) {
       nextJsonb.deliveryType = logMeta.deliveryType;

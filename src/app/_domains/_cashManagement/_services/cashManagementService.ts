@@ -123,9 +123,14 @@ export const getDailyPaymentSales = async (
     customerName?: string,
     category?: string,
   ) => {
+    const xCustomerName = String(jsonb.xCustomerName ?? "").trim();
+    const xPhoneLastDigits = String(jsonb.xPhoneLastDigits ?? "").trim();
     const payerName = String(
-      jsonb.transferPayerName ??
-        jsonb.xCustomerName ??
+      xCustomerName
+        ? xPhoneLastDigits
+          ? `${xCustomerName} (${xPhoneLastDigits})`
+          : xCustomerName
+        : jsonb.transferPayerName ??
         customerName ??
         "입금자명 미확인",
     );
