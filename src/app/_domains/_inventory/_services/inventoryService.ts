@@ -955,7 +955,7 @@ export const getPurchaseOrders = async (
   // adjustment / receipt-note migrations are still pending. Keep the saved
   // handling state instead of falling all the way back to `none`.
   const compatibleLineColumns =
-    "id, order_id, item_name, ordered_quantity, received_quantity, pending_quantity, note, unreceived_note, quantity_checked_at, handling_type, handling_note, customer_id, reservation_log_id, after_service_id, inbound_type";
+    "id, order_id, item_name, ordered_quantity, received_quantity, pending_quantity, note, quantity_checked_at, handling_type, handling_note, customer_id, reservation_log_id, after_service_id, inbound_type";
   const { data: compatibleData, error: compatibleError } = await supabase
     .from("inventory_purchase_orders")
     .select(

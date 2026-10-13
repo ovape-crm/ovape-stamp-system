@@ -382,7 +382,7 @@ const StampHistories = ({
         options: { dismissOnBackdrop: false, dismissOnEsc: true },
       });
     },
-    [open, close, updateItem, isReservation],
+    [open, close, updateItem, isReservation, isAdmin],
   );
 
   const deleteItem = useCallback(
