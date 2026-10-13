@@ -357,6 +357,7 @@ const CustomersDetailStampsHistories = ({
       targetUser.address,
       targetUser.note,
       targetUser.phone,
+      targetUser.id,
       targetUser.is_stamp_eligible,
     ],
   );
