@@ -701,7 +701,9 @@ const AfterServiceDetailDrawer = ({
               await updateAfterService(afterServiceId, {
                 customerId:
                   afterServiceDetail.service_case_type === "vendor_exchange"
-                    ? String(afterServiceDetail.customer_id)
+                    ? afterServiceDetail.customer_id
+                      ? String(afterServiceDetail.customer_id)
+                      : null
                     : values.customerId || null,
                 itemType: values.itemType,
                 itemName: values.itemName,

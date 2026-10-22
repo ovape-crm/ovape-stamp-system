@@ -493,12 +493,31 @@ export type ItemPurchaseCostOption = {
   received_quantity: number;
 };
 
-export const getItemPurchaseCostOptions = async (itemName: string) => {
-  const { data, error } = await supabase.rpc('get_item_purchase_cost_options', {
+export const getItemPurchaseCostOptions = async (
+  itemName: string,
+  supplierId: string,
+) => {
+  const { data, error } = await supabase.rpc('get_item_purchase_cost_options_for_supplier', {
     p_item_name: itemName,
+    p_supplier_id: supplierId,
   });
   if (error) throw error;
   return (data ?? []) as ItemPurchaseCostOption[];
+};
+
+export type ItemPurchaseSupplierOption = {
+  id: string;
+  name: string;
+};
+
+/** 선택 제품이 실제 입고된 이력이 있는 도매처만 반환합니다. */
+export const getItemPurchaseSupplierOptions = async (itemName: string) => {
+  const { data, error } = await supabase.rpc(
+    "get_item_purchase_supplier_options",
+    { p_item_name: itemName },
+  );
+  if (error) throw error;
+  return (data ?? []) as ItemPurchaseSupplierOption[];
 };
 
 export const processInventoryServiceOutbound = async (values: {

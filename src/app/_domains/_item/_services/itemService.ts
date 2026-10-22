@@ -276,6 +276,59 @@ export const searchOutboundItems = async (
   }));
 };
 
+/** 업체 교환출고처럼 실제 재고를 차감하는 화면에서 사용할 품목 검색이다. */
+export const searchInStockItemOptions = async (
+  keyword: string,
+  limit = 20,
+): Promise<ItemSearchOption[]> => {
+  const normalizedKeyword = keyword.trim();
+  if (!normalizedKeyword) return [];
+
+  const pageSize = 100;
+  const options: ItemSearchOption[] = [];
+
+  for (let from = 0; options.length < limit; from += pageSize) {
+    const { data: itemRows, error: itemError } = await supabase
+      .from("items")
+      .select("id, item_name, item_categories(id, name, order_index, created_at)")
+      .eq("is_use", true)
+      .ilike("item_name", `%${normalizedKeyword}%`)
+      .order("item_name", { ascending: true })
+      .range(from, from + pageSize - 1);
+    if (itemError) throw itemError;
+
+    const items = (itemRows ?? []).map((item) => ({
+      id: item.id,
+      item_name: item.item_name,
+      item_categories: Array.isArray(item.item_categories)
+        ? (item.item_categories[0] ?? null)
+        : item.item_categories,
+    })) as ItemSearchOption[];
+    if (!items.length) break;
+
+    const itemNames = [...new Set(items.map((item) => normalizeItemName(item.item_name)))];
+    const { data: balances, error: balanceError } = await supabase
+      .from("inventory_balances")
+      .select("item_name, quantity")
+      .in("item_name", itemNames);
+    if (balanceError) {
+      throw new Error("재고 잔량을 불러오지 못했습니다. 다시 검색해 주세요.");
+    }
+    const quantityByName = new Map(
+      (balances ?? []).map((row) => [normalizeItemName(row.item_name), Number(row.quantity)]),
+    );
+    options.push(
+      ...items.filter(
+        (item) => (quantityByName.get(normalizeItemName(item.item_name)) ?? 0) > 0,
+      ),
+    );
+
+    if (items.length < pageSize) break;
+  }
+
+  return options.slice(0, limit);
+};
+
 export const getItemsCount = async (
   filters?: ItemFiltersParam,
 ): Promise<number> => {

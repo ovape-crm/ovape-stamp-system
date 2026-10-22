@@ -23,6 +23,18 @@ const statusModal = await readFile(
   ),
   "utf8",
 );
+const afterServicesPage = await readFile(
+  new URL("../src/app/(auth)/after-services/page.tsx", import.meta.url),
+  "utf8",
+);
+const afterServiceService = await readFile(
+  new URL("../src/app/_domains/_afterService/_services/afterService.ts", import.meta.url),
+  "utf8",
+);
+const itemService = await readFile(
+  new URL("../src/app/_domains/_item/_services/itemService.ts", import.meta.url),
+  "utf8",
+);
 const zeroCostMigration = await readFile(
   new URL(
     "../supabase/migrations/20260911000000_allow_zero_cost_store_product_as_inbound.sql",
@@ -136,6 +148,38 @@ test("네 가지 A/S 접수 유형은 각 유형에 필요한 접수 정보만�
   );
 });
 
+test("업체 불량교환 도매처는 선택 제품의 입고 이력이 있는 거래처만 선택한다", () => {
+  assert.match(
+    createModal,
+    /getItemPurchaseSupplierOptions/,
+  );
+  assert.match(afterServiceService, /get_item_purchase_supplier_options/);
+  assert.match(afterServiceService, /get_item_purchase_cost_options_for_supplier/);
+  assert.match(
+    createModal,
+    /caseType === "vendor_exchange" \? \([\s\S]*?선택한 제품의 입고 도매처를 선택하세요/,
+  );
+  assert.match(createModal, /selectedVendorSupplier\.name/);
+  assert.match(
+    createModal,
+    /caseType !== "vendor_exchange" && isSupplierPickerOpen/,
+  );
+  assert.match(afterServicesPage, /getAfterServiceRegistrationErrorMessage/);
+});
+
+test("업체 불량교환 품목 검색은 현재 재고가 있는 품목만 허용한다", () => {
+  assert.match(createModal, /caseType === "vendor_exchange"[\s\S]*?searchInStockItemOptions/);
+  assert.match(itemService, /searchInStockItemOptions[\s\S]*?quantityByName\.get\(normalizeItemName\(item\.item_name\)\) \?\? 0\) > 0/);
+  assert.match(itemService, /for \(let from = 0; options\.length < limit; from \+= pageSize\)/);
+});
+
+test("A/S 등록 실패는 Supabase 오류 객체의 코드와 메시지를 사용자에게 안내한다", () => {
+  assert.match(afterServicesPage, /getAfterServiceRegistrationErrorMessage/);
+  assert.match(afterServicesPage, /DEFECTIVE_HOLD_NOT_AVAILABLE/);
+  assert.match(afterServicesPage, /INVALID_DEFECTIVE_RETURN_AS/);
+  assert.match(afterServicesPage, /toast\.error\(getAfterServiceRegistrationErrorMessage\(err\)\)/);
+});
+
 test("업체 교환출고 수정은 특수계정 연결과 출고 원가를 보존한다", () => {
   assert.match(
     createModal,
@@ -144,5 +188,12 @@ test("업체 교환출고 수정은 특수계정 연결과 출고 원가를 보�
   assert.match(
     detailDrawer,
     /service_case_type === "vendor_exchange"[\s\S]*?String\(afterServiceDetail\.customer_id\)/,
+  );
+});
+
+test("고객 없는 업체 불량교환 수정은 문자열 null을 고객 ID로 저장하지 않는다", () => {
+  assert.match(
+    detailDrawer,
+    /service_case_type === "vendor_exchange"[\s\S]*?customer_id\s*\?\s*String\(afterServiceDetail\.customer_id\)\s*:\s*null/,
   );
 });
