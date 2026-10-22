@@ -400,17 +400,19 @@ export default function AfterServiceCreateModal({
         costAllocations.reduce((sum, allocation) => sum + allocation.quantity, 0) === selectedQuantity
       : caseType === "store_product_as"
         ? receivedDate.length > 0 && supplierSearch.trim().length > 0
-      : mode !== "create" ||
-      (purchaseDate.length > 0 &&
-        receivedDate.length > 0 &&
-        supplierSearch.trim().length > 0 &&
-        (!hasAfterServiceCost || Boolean(selectedCustomerId)) &&
-        (!hasAfterServiceCost || Boolean(afterServicePaymentMethod)) &&
-        (!hasAfterServiceCost ||
-          !afterServicePaymentMethod ||
-          afterServiceCostAmount ===
-            (afterServicePaymentMethod === "card" ? 6600 : 6000) ||
-          Boolean(afterServiceCostMemo?.trim()))));
+        : caseType === "defective_return_as"
+          ? receivedDate.length > 0 && Boolean(defectiveHoldId)
+          : mode !== "create" ||
+            (purchaseDate.length > 0 &&
+              receivedDate.length > 0 &&
+              supplierSearch.trim().length > 0 &&
+              (!hasAfterServiceCost || Boolean(selectedCustomerId)) &&
+              (!hasAfterServiceCost || Boolean(afterServicePaymentMethod)) &&
+              (!hasAfterServiceCost ||
+                !afterServicePaymentMethod ||
+                afterServiceCostAmount ===
+                  (afterServicePaymentMethod === "card" ? 6600 : 6000) ||
+                Boolean(afterServiceCostMemo?.trim()))));
   const [showExchangeItemSuggestions, setShowExchangeItemSuggestions] =
     useState(false);
   const deferredExchangeItemKeyword = useDeferredValue(exchangeItemName.trim());

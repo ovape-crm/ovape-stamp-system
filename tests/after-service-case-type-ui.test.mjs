@@ -117,6 +117,25 @@ test("일반 고객 A/S는 일치 여부와 관계없이 등록 거래처를 확
   );
 });
 
+test("네 가지 A/S 접수 유형은 각 유형에 필요한 접수 정보만으로 다음 단계로 진행한다", () => {
+  assert.match(
+    createModal,
+    /caseType === "vendor_exchange"[\s\S]*?Boolean\(selectedSupplierId\)[\s\S]*?costAllocations\.reduce/,
+  );
+  assert.match(
+    createModal,
+    /caseType === "store_product_as"[\s\S]*?receivedDate\.length > 0 && supplierSearch\.trim\(\)\.length > 0/,
+  );
+  assert.match(
+    createModal,
+    /caseType === "defective_return_as"[\s\S]*?receivedDate\.length > 0 && Boolean\(defectiveHoldId\)/,
+  );
+  assert.match(
+    createModal,
+    /purchaseDate\.length > 0[\s\S]*?supplierSearch\.trim\(\)\.length > 0/,
+  );
+});
+
 test("업체 교환출고 수정은 특수계정 연결과 출고 원가를 보존한다", () => {
   assert.match(
     createModal,
