@@ -12,6 +12,7 @@ import { CustomerType } from "@/app/_domains/_customer/_types/customer.types";
 import { formatPhoneNumber } from "@/app/_utils/utils";
 import {
   searchItemOptions,
+  searchInStockItemOptions,
   type ItemSearchOption,
 } from "@/app/_domains/_item/_services/itemService";
 import { itemKeys } from "@/app/_domains/_item/_queryKeys/itemKeys";
@@ -23,7 +24,10 @@ import {
 import { Dropdown, DropdownOption } from "@/app/_components/Dropdown";
 import { useModal } from "@/app/_contexts/ModalContext";
 import { useUser } from "@/app/_contexts/UserContext";
-import { getItemPurchaseCostOptions } from "@/app/_domains/_afterService/_services/afterService";
+import {
+  getItemPurchaseCostOptions,
+  getItemPurchaseSupplierOptions,
+} from "@/app/_domains/_afterService/_services/afterService";
 
 const getLocalDateInputValue = () => {
   const now = new Date();
@@ -439,11 +443,23 @@ export default function AfterServiceCreateModal({
     .slice(0, 20);
   const purchaseCostOptionsQuery = useQuery({
     queryKey: ["vendor-exchange-cost-options", itemNameKeyword, selectedSupplierId],
-    queryFn: () => getItemPurchaseCostOptions(itemNameKeyword),
-    enabled: caseType === "vendor_exchange" && Boolean(selectedSupplierId) && selectedSupplierId !== "later" && itemNameKeyword.trim().length > 0,
+    queryFn: () => getItemPurchaseCostOptions(itemNameKeyword, selectedSupplierId ?? ""),
+    enabled:
+      caseType === "vendor_exchange" &&
+      itemNameKeyword.trim().length > 0 &&
+      Boolean(selectedSupplierId),
   });
   // 업체는 A/S를 보내는 곳이고, 원가층은 실제 현재 재고 FIFO에서 고른다.
   const vendorCostOptions = purchaseCostOptionsQuery.data ?? [];
+  const vendorSupplierOptionsQuery = useQuery({
+    queryKey: ["vendor-exchange-supplier-options", itemNameKeyword],
+    queryFn: () => getItemPurchaseSupplierOptions(itemNameKeyword),
+    enabled: caseType === "vendor_exchange" && itemNameKeyword.trim().length > 0,
+  });
+  const vendorSupplierOptions = vendorSupplierOptionsQuery.data ?? [];
+  const selectedVendorSupplier = vendorSupplierOptions.find(
+    (supplier) => supplier.id === selectedSupplierId,
+  );
   const buildReceivedNote = useCallback((supplierName = supplierSearch.trim()) => {
     if (caseType !== "customer_as") {
       return `매장접수일 : ${formatReceivedNoteDate(receivedDate)}\n도매처 : ${supplierName}`;
@@ -466,8 +482,11 @@ export default function AfterServiceCreateModal({
     isFetching: areItemsLoading,
     isError: isItemSearchError,
   } = useQuery({
-    queryKey: itemKeys.search(deferredItemNameKeyword),
-    queryFn: () => searchItemOptions(deferredItemNameKeyword),
+    queryKey: [...itemKeys.search(deferredItemNameKeyword), caseType],
+    queryFn: () =>
+      caseType === "vendor_exchange"
+        ? searchInStockItemOptions(deferredItemNameKeyword)
+        : searchItemOptions(deferredItemNameKeyword),
     enabled: deferredItemNameKeyword.length > 0,
   });
 
@@ -477,6 +496,12 @@ export default function AfterServiceCreateModal({
     setValue("itemType", item.item_categories?.name || "", {
       shouldValidate: true,
     });
+    if (caseType === "vendor_exchange") {
+      setSelectedSupplierId(null);
+      setSupplierSearch("");
+      setValue("supplierId", "", { shouldValidate: true });
+      setValue("costAllocations", [], { shouldValidate: true });
+    }
     setShowItemSuggestions(false);
   };
 
@@ -1275,45 +1300,91 @@ export default function AfterServiceCreateModal({
                   )}
                 </div>
                 <div className="relative mt-1">
-                  <svg
-                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="m21 21-4.35-4.35m2.1-5.4a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"
-                    />
-                  </svg>
-                  <input
-                    value={supplierSearch}
-                    onFocus={() => {
-                      if (selectedSupplierId !== "later") {
-                        setIsSupplierPickerOpen(true);
+                  {caseType === "vendor_exchange" ? (
+                    <Dropdown
+                      controlledValue={selectedSupplierId ?? undefined}
+                      disabled={
+                        vendorSupplierOptionsQuery.isPending ||
+                        vendorSupplierOptions.length === 0
                       }
-                    }}
-                    onBlur={() => setIsSupplierPickerOpen(false)}
-                    onChange={(event) => {
-                      setSupplierSearch(event.target.value);
-                      setSelectedSupplierId(null);
-                      setValue("supplierId", "");
-                      setIsSupplierPickerOpen(true);
-                      setReceivedInfoError("");
-                    }}
-                    placeholder={
-                      areSuppliersLoading
-                        ? "거래처를 불러오는 중..."
-                        : "거래처명을 검색하세요"
-                    }
-                    autoComplete="off"
-                    className="h-10 w-full rounded-lg border border-gray-300 bg-white pl-9 pr-3 text-sm shadow-sm outline-none transition hover:border-gray-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-                  />
+                    >
+                      <Dropdown.Trigger
+                        compact
+                        className="h-10 px-3 text-sm font-normal"
+                      >
+                        {vendorSupplierOptionsQuery.isPending
+                          ? "입고 도매처를 불러오는 중..."
+                          : selectedVendorSupplier
+                            ? selectedVendorSupplier.name
+                            : vendorSupplierOptions.length
+                              ? "선택한 제품의 입고 도매처를 선택하세요"
+                            : "선택한 제품의 입고 도매처가 없습니다"}
+                      </Dropdown.Trigger>
+                      <Dropdown.Content compact maxHeightClass="max-h-52">
+                        {vendorSupplierOptions.map((supplier) => (
+                          <Dropdown.Item
+                            key={supplier.id}
+                            compact
+                            option={{ value: supplier.id, label: supplier.name }}
+                            onSelect={(option: DropdownOption) => {
+                              const selectedSupplier = vendorSupplierOptions.find(
+                                (supplier) => supplier.id === String(option.value),
+                              );
+                              if (!selectedSupplier) return;
+                              setSelectedSupplierId(selectedSupplier.id);
+                              setSupplierSearch(selectedSupplier.name);
+                              setValue("supplierId", selectedSupplier.id, {
+                                shouldValidate: true,
+                              });
+                              setReceivedInfoError("");
+                            }}
+                          />
+                        ))}
+                      </Dropdown.Content>
+                    </Dropdown>
+                  ) : (
+                    <>
+                      <svg
+                        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="m21 21-4.35-4.35m2.1-5.4a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"
+                        />
+                      </svg>
+                      <input
+                        value={supplierSearch}
+                        onFocus={() => {
+                          if (selectedSupplierId !== "later") {
+                            setIsSupplierPickerOpen(true);
+                          }
+                        }}
+                        onBlur={() => setIsSupplierPickerOpen(false)}
+                        onChange={(event) => {
+                          setSupplierSearch(event.target.value);
+                          setSelectedSupplierId(null);
+                          setValue("supplierId", "");
+                          setIsSupplierPickerOpen(true);
+                          setReceivedInfoError("");
+                        }}
+                        placeholder={
+                          areSuppliersLoading
+                            ? "거래처를 불러오는 중..."
+                            : "거래처명을 검색하세요"
+                        }
+                        autoComplete="off"
+                        className="h-10 w-full rounded-lg border border-gray-300 bg-white pl-9 pr-3 text-sm shadow-sm outline-none transition hover:border-gray-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                      />
+                    </>
+                  )}
                 </div>
-                {isSupplierPickerOpen && supplierSearch.trim() && (
+                {caseType !== "vendor_exchange" && isSupplierPickerOpen && supplierSearch.trim() && (
                   <div className="absolute z-30 mt-1 max-h-52 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white p-1 shadow-lg">
                     {supplierSuggestions.length ? (
                       supplierSuggestions.map((supplier) => (
@@ -1350,7 +1421,7 @@ export default function AfterServiceCreateModal({
               {caseType === "vendor_exchange" && selectedSupplierId && selectedSupplierId !== "later" && (
                 <div className="rounded-xl border border-gray-200 bg-gray-50/70 p-3">
                   <p className="text-sm font-semibold text-gray-800">FIFO 원가층 배정</p>
-                  <p className="mt-1 text-xs text-gray-600">현재 재고에 실제 남아 있는 FIFO 원가층만 표시됩니다.</p>
+                  <p className="mt-1 text-xs text-gray-600">선택한 도매처에서 입고한 재고 중 실제 불량이 발생한 입고분을 선택하세요.</p>
                   <div className="mt-3 space-y-2">
                     {vendorCostOptions.map((option, index) => (
                       <div key={option.cost_layer_id} className="grid grid-cols-[1fr_5rem] items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs">
@@ -1374,7 +1445,7 @@ export default function AfterServiceCreateModal({
                       </div>
                     ))}
                     {!purchaseCostOptionsQuery.isPending && vendorCostOptions.length === 0 && (
-                      <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">현재 재고에 배정 가능한 확정 FIFO 원가층이 없습니다.</p>
+                      <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">선택한 도매처에서 입고한 재고 원가층이 없습니다.</p>
                     )}
                   </div>
                   <p className="mt-2 text-right text-xs text-gray-600">배정 {costAllocations.reduce((sum, allocation) => sum + allocation.quantity, 0)} / 출고 {selectedQuantity}</p>

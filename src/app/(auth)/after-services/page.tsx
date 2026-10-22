@@ -38,6 +38,54 @@ const normalizeIntakeDate = (value: string) => {
   const year = parts[1].length === 2 ? `20${parts[1]}` : parts[1];
   return `${year}-${parts[2].padStart(2, "0")}-${parts[3].padStart(2, "0")}`;
 };
+
+const getAfterServiceRegistrationErrorMessage = (error: unknown) => {
+  const details =
+    error && typeof error === "object"
+      ? (error as {
+          code?: unknown;
+          message?: unknown;
+          details?: unknown;
+          hint?: unknown;
+        })
+      : null;
+  const code = typeof details?.code === "string" ? details.code : "";
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof details?.message === "string"
+        ? details.message
+        : "";
+  const hint = typeof details?.hint === "string" ? details.hint : "";
+
+  if (message.includes("INSUFFICIENT_INVENTORY")) {
+    return "현재 재고보다 많이 출고할 수 없습니다.";
+  }
+  if (message.includes("MASTER_REQUIRED")) {
+    return "이 접수 유형은 마스터 계정만 등록할 수 있습니다.";
+  }
+  if (message.includes("DEFECTIVE_HOLD_NOT_AVAILABLE")) {
+    return "선택한 불량 반품 품목은 이미 처리되었거나 사용할 수 없습니다.";
+  }
+  if (message.includes("INVALID_DEFECTIVE_RETURN_AS")) {
+    return "선택한 불량 반품 품목의 고객·품목·수량을 다시 확인해 주세요.";
+  }
+  if (message.includes("UNIT_PRICE_REQUIRED")) {
+    return "매장제품 A/S 원가를 0원 이상으로 입력해 주세요.";
+  }
+  if (
+    message.includes("SELECTED_RECEIPT_LAYER_NOT_AVAILABLE") ||
+    message.includes("SELECTED_RECEIPT_LAYER_QUANTITY_MISMATCH")
+  ) {
+    return "선택한 입고분 재고가 변경되었거나 수량이 맞지 않습니다. 입고분과 수량을 다시 선택해 주세요.";
+  }
+
+  if (message) {
+    return `A/S 등록에 실패했습니다.${code ? ` (${code})` : ""} ${message}${hint ? ` — ${hint}` : ""}`;
+  }
+
+  return "A/S 등록에 실패했습니다. 잠시 후 다시 시도해 주세요.";
+};
 import {
   AfterServiceStatusEnum,
   PaymentTypeEnum,
@@ -316,13 +364,7 @@ const AfterServicesPage = () => {
         }
       }
       console.error("AS 등록 실패:", err);
-      toast.error(
-        err instanceof Error && err.message.includes("INSUFFICIENT_INVENTORY")
-          ? "현재 재고보다 많이 출고할 수 없습니다."
-          : err instanceof Error
-            ? err.message
-            : "AS 등록에 실패했습니다.",
-      );
+      toast.error(getAfterServiceRegistrationErrorMessage(err));
     } finally {
       setIsSubmitting(false);
     }
