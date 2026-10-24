@@ -601,6 +601,7 @@ export const processInventoryServiceInbound = async (values: {
   arrivedOn: string;
   itemName: string;
   quantity: number;
+  matchType: 'match' | 'mismatch';
   memo: string;
 }) => {
   const { data, error } = await supabase.rpc(
@@ -611,6 +612,7 @@ export const processInventoryServiceInbound = async (values: {
       p_item_name: values.itemName,
       p_quantity: values.quantity,
       p_memo: values.memo || null,
+      p_match_type: values.matchType,
     },
   );
   if (error) throw error;

@@ -528,3 +528,30 @@ export const updateLogNote = async (
   if (error) throw error;
   return data;
 };
+
+/**
+ * A/S 진행 이력의 메모만 변경한다. 재고·원가와 연결된 출고 로그는 jsonb를
+ * 건드리면 보호 트리거가 동작하므로, 메모 수정에는 이 경로를 사용해야 한다.
+ */
+export const updateAfterServiceLogNoteOnly = async (
+  logId: string,
+  note: string,
+) => {
+  const { error } = await supabase.rpc("update_after_service_log_note", {
+    p_log_id: Number(logId),
+    p_note: note,
+  });
+
+  if (error) throw error;
+};
+
+export const updateExchangeHistoryNoteOnly = async (
+  logId: string,
+  note: string,
+) => {
+  const { error } = await supabase.rpc("update_exchange_history_note", {
+    p_log_id: Number(logId),
+    p_note: note,
+  });
+  if (error) throw error;
+};

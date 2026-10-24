@@ -11,6 +11,7 @@ import {
 import {
   getLogs,
   updateLogNote,
+  updateExchangeHistoryNoteOnly,
   deleteLog,
 } from "@/app/_domains/_log/_services/logService";
 import useCopy from "@/app/_domains/_log/_hooks/useCopy";
@@ -325,6 +326,36 @@ const StampHistories = ({
         amount: number;
       }) => {
         try {
+          const hasExchangeItems = Array.isArray(log.jsonb?.items) &&
+            log.jsonb.items.some((item) =>
+              item && typeof item === "object" &&
+              ((item as Record<string, unknown>).inventoryAction === "exchange_in" ||
+                (item as Record<string, unknown>).inventoryAction === "exchange_out"),
+            );
+          const hasSameExchangeItems = hasExchangeItems &&
+            JSON.stringify(
+              (log.jsonb.items as Array<Record<string, unknown>>).map((item) => ({
+                itemId: item.itemId,
+                itemName: item.itemName,
+                quantity: item.quantity,
+                inventoryAction: item.inventoryAction,
+              })),
+            ) === JSON.stringify(
+              (values.logMeta.items as Array<Record<string, unknown>>).map((item) => ({
+                itemId: item.itemId,
+                itemName: item.itemName,
+                quantity: item.quantity,
+                inventoryAction: item.inventoryAction,
+              })),
+            );
+
+          if (hasSameExchangeItems) {
+            await updateExchangeHistoryNoteOnly(log.id, values.note);
+            updateItem(log.id, (item) => ({ ...item, note: values.note }));
+            close();
+            toast.success("이력을 저장했습니다.");
+            return;
+          }
           // 예약 이력은 아직 스탬프가 적립되지 않았으므로 개수 수정 허용
           const nextAction = isReservation
             ? values.amount === 0
