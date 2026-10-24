@@ -118,10 +118,14 @@ test("매장제품 A/S와 업체 불량교환은 같은 재고 입고 처리 경
   );
 });
 
-test("일반 고객 A/S는 일치 여부와 관계없이 등록 거래처를 확인한다", () => {
+test("일반 고객 A/S는 사용자가 선택한 일치 여부와 등록 거래처를 확인한다", () => {
   assert.match(
     statusModal,
-    /\(isInventoryServiceCase \|\|\s*\(hasRegisteredSupplier &&\s*\(\(receiptValuesDiffer && receiptMatchType === "mismatch"\) \|\|\s*\(!receiptValuesDiffer && receiptMatchType === "match"\)\)\)\)/,
+    /receiptMatchType !== "" &&\s*\(isInventoryServiceCase \|\| hasRegisteredSupplier\)/,
+  );
+  assert.match(
+    statusModal,
+    /const canEditReceiptValues =\s*!editMode && receiptMatchType === "mismatch"/,
   );
   assert.doesNotMatch(
     statusModal,

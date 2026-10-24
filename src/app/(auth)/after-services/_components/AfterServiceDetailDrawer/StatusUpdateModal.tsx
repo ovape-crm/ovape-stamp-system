@@ -171,7 +171,7 @@ const StatusUpdateModal = ({
   );
   const [receiptMatchType, setReceiptMatchType] = useState<
     "" | "match" | "mismatch"
-  >(initialReceiptMatchType ?? (editMode ? "match" : ""));
+  >(editMode ? (initialReceiptMatchType ?? "") : "");
   const [creditCostMode, setCreditCostMode] = useState<"same" | "different">(
     initialCreditCostMode,
   );
@@ -332,16 +332,16 @@ const StatusUpdateModal = ({
   const receiptValuesDiffer =
     receiptItemName.trim() !== originalItemName.trim() ||
     parsedReceiptQuantity !== originalQuantity;
+  const canEditReceiptValues =
+    !editMode && receiptMatchType === "mismatch";
   const isRepairReceiptValid =
     !requiresInventoryReceiptConfirmation ||
     editMode ||
     (receiptItemName.trim().length > 0 &&
       Number.isInteger(parsedReceiptQuantity) &&
       parsedReceiptQuantity > 0 &&
-      (isInventoryServiceCase ||
-        (hasRegisteredSupplier &&
-          ((receiptValuesDiffer && receiptMatchType === "mismatch") ||
-            (!receiptValuesDiffer && receiptMatchType === "match")))));
+      receiptMatchType !== "" &&
+      (isInventoryServiceCase || hasRegisteredSupplier));
   const requiresCustomerContactConfirmation =
     selectedStatus === AfterServiceStatusEnum.REPAIR_RETURNED.value;
   const requiresRentalReturnConfirmation =
@@ -435,7 +435,8 @@ const StatusUpdateModal = ({
               arrivedOn: statusDate,
               itemName: receiptItemName.trim(),
               quantity: parsedReceiptQuantity,
-              matchType: receiptValuesDiffer ? "mismatch" : "match",
+              matchType:
+                receiptMatchType === "mismatch" ? "mismatch" : "match",
               memo: statusMemo.trim(),
             }
           : undefined,
@@ -552,6 +553,41 @@ const StatusUpdateModal = ({
                   floating
                 />
               </div>
+              {requiresInventoryReceiptConfirmation && !editMode && (
+                <div className="grid grid-cols-2 gap-2">
+                  {(
+                    [
+                      ["match", "제품·수량 일치"],
+                      ["mismatch", "제품·수량 불일치"],
+                    ] as const
+                  ).map(([value, label]) => {
+                    const selected = receiptMatchType === value;
+                    const disabled = isSubmitting;
+                    return (
+                      <label
+                        key={value}
+                        className={`flex min-h-11 items-center justify-center gap-2 rounded-lg border px-3 text-center text-sm font-semibold transition ${disabled ? selected ? "cursor-not-allowed border-brand-400 bg-brand-50 text-brand-700" : "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400" : selected ? "cursor-pointer border-brand-400 bg-brand-50 text-brand-700" : "cursor-pointer border-gray-300 bg-white text-gray-700 hover:border-brand-300"}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          onChange={() => {
+                            setReceiptMatchType(value);
+                            if (value === "match") {
+                              setReceiptItemName(originalItemName);
+                              setReceiptQuantity(String(originalQuantity));
+                              setShowReceiptItemSuggestions(false);
+                            }
+                          }}
+                          disabled={disabled}
+                          className="h-4 w-4 accent-brand-500"
+                        />
+                        {label}
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
               {requiresInventoryReceiptConfirmation && (
                 <div className="space-y-3 rounded-xl border border-gray-200 bg-gray-50/70 p-4">
                   {!hasRegisteredSupplier ? (
@@ -582,10 +618,12 @@ const StatusUpdateModal = ({
                           </p>
                         )}
                       </div>
-                      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_176px]">
-                        <label className="relative text-sm font-medium text-gray-700">
-                          품목명 <span className="text-rose-600">*</span>
-                          <div className="relative mt-1">
+                      <div className="space-y-3">
+                        <label
+                          aria-label="품목명"
+                          className="relative block text-sm font-medium text-gray-700"
+                        >
+                          <div className="relative">
                             <svg
                               className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500"
                               fill="none"
@@ -610,7 +648,6 @@ const StatusUpdateModal = ({
                               }
                               onChange={(event) => {
                                 setReceiptItemName(event.target.value);
-                                setReceiptMatchType("");
                                 setShowReceiptItemSuggestions(true);
                               }}
                               autoComplete="off"
@@ -618,8 +655,7 @@ const StatusUpdateModal = ({
                               className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-9 pr-10 text-sm font-medium text-gray-900 shadow-sm outline-none transition placeholder:font-normal placeholder:text-gray-500 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                               disabled={
                                 isSubmitting ||
-                                editMode ||
-                                serviceCaseType === "store_product_as"
+                                !canEditReceiptValues
                               }
                             />
                           </div>
@@ -634,7 +670,6 @@ const StatusUpdateModal = ({
                                       onMouseDown={(event) => {
                                         event.preventDefault();
                                         setReceiptItemName(item.item_name);
-                                        setReceiptMatchType("");
                                         setShowReceiptItemSuggestions(false);
                                       }}
                                       className="flex w-full items-center justify-between gap-3 border-b border-gray-100 px-3 py-2 text-left text-sm last:border-b-0 hover:bg-gray-50"
@@ -656,9 +691,12 @@ const StatusUpdateModal = ({
                               </div>
                             )}
                         </label>
-                        <label className="text-sm font-medium text-gray-700">
-                          수량 <span className="text-rose-600">*</span>
-                          <div className="mt-1 flex items-center gap-1.5">
+                        <div className="grid grid-cols-2 gap-3">
+                        <label
+                          aria-label="수량"
+                          className="text-sm font-medium text-gray-700"
+                        >
+                          <div className="flex items-center gap-1.5">
                             <input
                               type="number"
                               min={1}
@@ -667,13 +705,11 @@ const StatusUpdateModal = ({
                               value={receiptQuantity}
                               onChange={(event) => {
                                 setReceiptQuantity(event.target.value);
-                                setReceiptMatchType("");
                               }}
                               className="h-10 w-[72px] rounded-lg border border-gray-300 bg-white px-2 text-center text-sm font-medium shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                               disabled={
                                 isSubmitting ||
-                                editMode ||
-                                serviceCaseType === "store_product_as"
+                                !canEditReceiptValues
                               }
                             />
                             {([-1, 1] as const).map((delta) => (
@@ -685,8 +721,7 @@ const StatusUpdateModal = ({
                                 }
                                 disabled={
                                   isSubmitting ||
-                                  editMode ||
-                                  serviceCaseType === "store_product_as" ||
+                                  !canEditReceiptValues ||
                                   (delta < 0 && parsedReceiptQuantity <= 1) ||
                                   (delta > 0 &&
                                     maximumReceiptQuantity !== null &&
@@ -710,7 +745,6 @@ const StatusUpdateModal = ({
                                       ),
                                     ),
                                   );
-                                  setReceiptMatchType("");
                                 }}
                                 className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg border border-gray-300 bg-white text-lg text-gray-600 shadow-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
                               >
@@ -724,6 +758,25 @@ const StatusUpdateModal = ({
                             </p>
                           )}
                         </label>
+                        <label className="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700">
+                          <span className="min-w-0 flex-1 font-semibold">
+                            {serviceCaseType === "vendor_exchange"
+                              ? "업체 교환입고 처리"
+                              : serviceCaseType === "store_product_as"
+                                ? "수리 입고 (재고처리)"
+                                : "A/S 교환입고 처리"}
+                          </span>
+                          <input
+                            type="checkbox"
+                            checked={isInventoryReceiptConfirmed}
+                            onChange={(event) =>
+                              setIsInventoryReceiptConfirmed(event.target.checked)
+                            }
+                            className="h-4 w-4 shrink-0 cursor-pointer accent-brand-500"
+                            disabled={isSubmitting}
+                          />
+                        </label>
+                        </div>
                       </div>
                       {isInventoryServiceCase && !editMode && receiptValuesDiffer && (
                         <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
@@ -735,52 +788,6 @@ const StatusUpdateModal = ({
                           재고에 반영된 제품명과 수량은 직접 수정할 수 없습니다. 변경이 필요하면 입고 처리를 취소한 뒤 다시 처리해 주세요.
                         </p>
                       )}
-                      {!isInventoryServiceCase && !editMode && <div className="grid grid-cols-2 gap-2">
-                        {(
-                          [
-                            ["match", "제품·수량 일치"],
-                            ["mismatch", "제품·수량 불일치"],
-                          ] as const
-                        ).map(([value, label]) => {
-                          const disabled =
-                            isSubmitting ||
-                            (value === "match" && receiptValuesDiffer) ||
-                            (value === "mismatch" && !receiptValuesDiffer);
-                          return (
-                            <label
-                              key={value}
-                              className={`flex min-h-11 items-center justify-center gap-2 rounded-lg border px-3 text-center text-sm font-semibold transition ${disabled ? "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400" : receiptMatchType === value ? "cursor-pointer border-brand-400 bg-brand-50 text-brand-700" : "cursor-pointer border-gray-300 bg-white text-gray-700 hover:border-brand-300"}`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={receiptMatchType === value}
-                                onChange={() => setReceiptMatchType(value)}
-                                disabled={disabled}
-                                className="h-4 w-4 accent-brand-500"
-                              />
-                              {label}
-                            </label>
-                          );
-                        })}
-                      </div>}
-                      <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-gray-200 bg-white p-3 text-sm text-gray-700">
-                        <span className="min-w-0 flex-1 font-semibold">
-                          {serviceCaseType === "vendor_exchange"
-                            ? "업체 교환입고 처리"
-                            : serviceCaseType === "store_product_as"
-                              ? "수리 입고 (재고처리)"
-                              : "A/S 교환입고 처리"}
-                        </span>
-                        <input
-                          type="checkbox"
-                          checked={isInventoryReceiptConfirmed}
-                          onChange={(event) =>
-                            setIsInventoryReceiptConfirmed(event.target.checked)
-                          }
-                          className="h-4 w-4 shrink-0 cursor-pointer accent-brand-500"
-                          disabled={isSubmitting}
-                        />
-                      </label>
                     </>
                   )}
                 </div>

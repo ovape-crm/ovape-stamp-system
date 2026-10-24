@@ -45,6 +45,7 @@ import {
   deleteLog,
   getAfterServiceStampLog,
   getLogsByAfterServiceId,
+  updateAfterServiceLogNoteOnly,
   updateStampLogHistoryOnly,
   updateLogNote,
 } from "@/app/_domains/_log/_services/logService";
@@ -255,6 +256,7 @@ const AfterServiceDetailDrawer = ({
             arrivedOn: values.repairReceipt.arrivedOn,
             itemName: values.repairReceipt.itemName,
             quantity: values.repairReceipt.quantity,
+            matchType: values.repairReceipt.matchType,
             memo: values.repairReceipt.memo,
           });
         } else {
@@ -532,7 +534,12 @@ const AfterServiceDetailDrawer = ({
               close();
               toast.success("진행상황 내용이 수정되었습니다.");
             } catch (err) {
-              const message = err instanceof Error ? err.message : "";
+              console.error("Failed to edit A/S processing status:", err);
+              const message = err instanceof Error
+                ? err.message
+                : typeof err === "object" && err !== null && "message" in err
+                  ? String((err as { message?: unknown }).message ?? "")
+                  : "";
               toast.error(message || "진행상황 수정에 실패했습니다.");
             } finally {
               setIsUpdatingStatus(false);
@@ -817,7 +824,7 @@ const AfterServiceDetailDrawer = ({
               }
               if (values.isExchangeIssued) {
                 if (exchangeLog) {
-                  await updateLogNote(
+                  await updateAfterServiceLogNoteOnly(
                     exchangeLog.id,
                     `교환일 : ${values.exchangeDate?.replaceAll("-", "/") ?? ""}\n교환품목 : ${values.exchangeItemName ?? ""}\n수량 : ${values.exchangeQuantity}개\n교환메모 : ${values.exchangeNote?.trim() ?? ""}`,
                   );
@@ -843,6 +850,7 @@ const AfterServiceDetailDrawer = ({
                         itemId: string;
                         itemName: string;
                         itemCategoryName?: string | null;
+                        quantity: number;
                         inventoryAction?: "exchange_out" | "as_exchange_out";
                       }>
                     ).find(
@@ -850,11 +858,26 @@ const AfterServiceDetailDrawer = ({
                         item.inventoryAction === "exchange_out" ||
                         item.inventoryAction === "as_exchange_out",
                     )!;
-                    await updateStampLogHistoryOnly(
-                      String(exchangeOutboundLog.id),
-                      `(교환일 ${exchangeDateValue}) ${exchangeLineText}`,
-                      PaymentTypeEnum.SHIPMENT_REMARK.value,
-                      {
+                    const nextItemId = values.exchangeItemId === "existing"
+                      ? existingItem.itemId
+                      : (values.exchangeItemId ?? existingItem.itemId);
+                    const nextItemName = values.exchangeItemName ?? existingItem.itemName;
+                    const isSameOutboundItem =
+                      nextItemId === existingItem.itemId &&
+                      nextItemName === existingItem.itemName &&
+                      values.exchangeQuantity === existingItem.quantity;
+
+                    if (isSameOutboundItem) {
+                      await updateAfterServiceLogNoteOnly(
+                        String(exchangeOutboundLog.id),
+                        `(교환일 ${exchangeDateValue}) ${exchangeLineText}`,
+                      );
+                    } else {
+                      await updateStampLogHistoryOnly(
+                        String(exchangeOutboundLog.id),
+                        `(교환일 ${exchangeDateValue}) ${exchangeLineText}`,
+                        PaymentTypeEnum.SHIPMENT_REMARK.value,
+                        {
                         afterServiceId: numericAfterServiceId,
                         afterServiceOperation: "exchange",
                         storeName: StoreTypeEnum.OVAPE.value,
@@ -862,13 +885,8 @@ const AfterServiceDetailDrawer = ({
                         extraNote: `A/S 교환 · ${exchangeDateValue}`,
                         items: [
                           {
-                            itemId:
-                              values.exchangeItemId === "existing"
-                                ? existingItem.itemId
-                                : (values.exchangeItemId ??
-                                  existingItem.itemId),
-                            itemName:
-                              values.exchangeItemName ?? existingItem.itemName,
+                            itemId: nextItemId,
+                            itemName: nextItemName,
                             itemCategoryName:
                               values.exchangeItemCategoryName ??
                               existingItem.itemCategoryName ??
@@ -881,8 +899,9 @@ const AfterServiceDetailDrawer = ({
                             inventoryAction: "as_exchange_out",
                           },
                         ],
-                      },
-                    );
+                        },
+                      );
+                    }
                   } else if (!afterServiceDetail.is_exchange_issued) {
                     await addStamp(
                       values.customerId,

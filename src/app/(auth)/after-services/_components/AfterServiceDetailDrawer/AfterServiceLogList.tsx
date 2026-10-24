@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react';
 import Button from '@/app/_components/Button';
 import Loading from '@/app/_components/Loading';
 import { useLogsByAfterServiceId } from '@/app/_domains/_log/_hooks/useLogsByAfterServiceId';
-import { updateLogNote } from '@/app/_domains/_log/_services/logService';
+import { updateAfterServiceLogNoteOnly } from '@/app/_domains/_log/_services/logService';
 import toast from 'react-hot-toast';
 import AfterServiceLogItem from './AfterServiceLogItem';
 import { AfterServiceLogType } from '@/app/_domains/_log/_types/log.types';
@@ -50,14 +50,19 @@ const AfterServiceLogList = ({
     async (log: AfterServiceLogType) => {
       try {
         setIsSaving(true);
-        await updateLogNote(log.id, noteDraft);
+        await updateAfterServiceLogNoteOnly(log.id, noteDraft);
         refresh();
         setEditingId(null);
         setNoteDraft('');
         toast.success('노트를 저장했습니다.');
       } catch (e) {
         console.error('Failed to save note:', e);
-        toast.error('노트 저장에 실패했습니다. 다시 시도해 주세요.');
+        const message = e instanceof Error
+          ? e.message
+          : typeof e === 'object' && e !== null && 'message' in e
+            ? String((e as { message?: unknown }).message ?? '')
+            : '';
+        toast.error(message || '노트 저장에 실패했습니다. 다시 시도해 주세요.');
       } finally {
         setIsSaving(false);
       }
