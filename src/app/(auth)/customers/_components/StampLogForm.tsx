@@ -1255,8 +1255,6 @@ export default function StampLogForm({
             id: "",
             name: line.itemCategoryName,
             order_index: 0,
-            is_liquid_category: false,
-            liquid_sale_kind: null,
             created_at: "",
           }
         : null,
@@ -1588,6 +1586,9 @@ export default function StampLogForm({
             onClick={() => {
               setStoreName(option.value);
               setHasConfirmedStore(true);
+              setHasConfirmedDeliveryMethod(hideRemoteDeliveryMethods);
+              setPaymentType("");
+              setSplitPayments([]);
             }}
           >
             {option.name}

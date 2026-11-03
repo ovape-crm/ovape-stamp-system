@@ -21,18 +21,7 @@ interface CategoryManageModalProps {
 type EditingState = {
   id: string;
   name: string;
-  isLiquidCategory: boolean;
-  liquidSaleKind: string;
 };
-
-const liquidPricingGroupOptions = [
-  { value: '', label: '적용 안 함' },
-  { value: 'mtl_event', label: '입호흡 · 이벤트' }, { value: 'mtl_basic', label: '입호흡 · 기본' },
-  { value: 'dtl_event', label: '폐호흡 · 이벤트' }, { value: 'dtl_basic', label: '폐호흡 · 기본' },
-];
-const liquidPricingGroupLabel = Object.fromEntries(
-  liquidPricingGroupOptions.map((option) => [option.value, option.label]),
-);
 
 const CategoryManageModal = ({
   onClose,
@@ -40,8 +29,6 @@ const CategoryManageModal = ({
   const queryClient = useQueryClient();
   const { categories } = useItemCategories();
   const [newName, setNewName] = useState('');
-  const [newIsLiquidCategory, setNewIsLiquidCategory] = useState(false);
-  const [newLiquidSaleKind, setNewLiquidSaleKind] = useState('');
   const [editing, setEditing] = useState<EditingState | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [itemCounts, setItemCounts] = useState<Record<string, number>>({});
@@ -52,7 +39,6 @@ const CategoryManageModal = ({
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: itemKeys.categories() });
-    queryClient.invalidateQueries({ queryKey: itemKeys.lists() });
   };
 
   const handleCreate = async () => {
@@ -62,12 +48,8 @@ const CategoryManageModal = ({
       await createItemCategory({
         name: newName.trim(),
         orderIndex: categories.length + 1,
-        isLiquidCategory: newIsLiquidCategory,
-        liquidSaleKind: newIsLiquidCategory && newLiquidSaleKind ? newLiquidSaleKind : null,
       });
       setNewName('');
-      setNewIsLiquidCategory(false);
-      setNewLiquidSaleKind('');
       refresh();
       toast.success('카테고리가 추가되었습니다.');
     } catch {
@@ -85,8 +67,6 @@ const CategoryManageModal = ({
         id: category.id,
         name: editing.name.trim(),
         orderIndex: category.order_index,
-        isLiquidCategory: editing.isLiquidCategory,
-        liquidSaleKind: editing.isLiquidCategory && editing.liquidSaleKind ? editing.liquidSaleKind : null,
       });
       setEditing(null);
       refresh();
@@ -146,8 +126,6 @@ const CategoryManageModal = ({
                     autoFocus
                     className="flex-1 px-2 py-1 text-sm border border-brand-200 rounded focus:outline-none focus:ring-2 focus:ring-brand-300"
                   />
-                  <label className="flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs text-gray-700"><input type="checkbox" checked={editing.isLiquidCategory} onChange={(event) => setEditing({ ...editing, isLiquidCategory: event.target.checked })} />액상 카테고리</label>
-                  {editing.isLiquidCategory && <label className="flex items-center gap-1 whitespace-nowrap text-xs text-gray-700">금액 자동 적용<select value={editing.liquidSaleKind} onChange={(event) => setEditing({ ...editing, liquidSaleKind: event.target.value })} className="rounded border border-gray-300 bg-white px-2 py-1 text-xs">{liquidPricingGroupOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>}
                   <Button
                     size="xs"
                     onClick={() => handleUpdate(category)}
@@ -168,8 +146,6 @@ const CategoryManageModal = ({
                   <span className="flex-1 text-sm text-gray-800">
                     <span className="text-gray-400 mr-1.5">{index + 1}.</span>
                     {category.name}
-                    {category.is_liquid_category && <span className="ml-1.5 rounded bg-brand-100 px-1.5 py-0.5 text-[10px] font-medium text-brand-700">액상</span>}
-                    {category.is_liquid_category && <span className="ml-1.5 text-xs text-gray-500">금액 : {liquidPricingGroupLabel[category.liquid_sale_kind ?? '']}</span>}
                     {itemCounts[category.id] > 0 && (
                       <span className="text-gray-400 ml-1">
                         ({itemCounts[category.id]})
@@ -180,7 +156,7 @@ const CategoryManageModal = ({
                     size="xs"
                     variant="gray"
                     onClick={() =>
-                      setEditing({ id: category.id, name: category.name, isLiquidCategory: category.is_liquid_category, liquidSaleKind: category.liquid_sale_kind ?? '' })
+                      setEditing({ id: category.id, name: category.name })
                     }
                   >
                     수정
@@ -201,7 +177,7 @@ const CategoryManageModal = ({
       </div>
 
       {/* 새 카테고리 추가 */}
-      <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-100">
+      <div className="flex gap-2 pt-2 border-t border-gray-100">
         <input
           type="text"
           value={newName}
@@ -212,8 +188,6 @@ const CategoryManageModal = ({
           placeholder="새 카테고리 이름"
           className="flex-1 px-3 py-1.5 text-sm border border-brand-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-300"
         />
-        <label className="flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs text-gray-700"><input type="checkbox" checked={newIsLiquidCategory} onChange={(event) => setNewIsLiquidCategory(event.target.checked)} />액상 카테고리</label>
-        {newIsLiquidCategory && <label className="flex items-center gap-1 whitespace-nowrap text-xs text-gray-700">금액 자동 적용<select value={newLiquidSaleKind} onChange={(event) => setNewLiquidSaleKind(event.target.value)} className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs">{liquidPricingGroupOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>}
         <Button size="sm" onClick={handleCreate} disabled={isSubmitting || !newName.trim()}>
           추가
         </Button>

@@ -7,10 +7,15 @@ import StampCards from "./StampCards";
 import {
   addStamp,
   addReservationStamp,
+  getCouponUsageNote,
   removeStamp,
   StampLogMeta,
 } from "@/app/_domains/_stamp/_services/stampService";
-import type { PaymentTypeEnumType } from "@/app/_enums/enums";
+import {
+  PaymentTypeEnum,
+  PaymentTypeEnumType,
+  StoreTypeEnum,
+} from "@/app/_enums/enums";
 import { useModal } from "@/app/_contexts/ModalContext";
 import { useQueryClient } from "@tanstack/react-query";
 import { logKeys } from "@/app/_domains/_log/_queryKeys/logKeys";
@@ -239,13 +244,24 @@ const StampSection = ({
         : target.is_stamp_eligible === false || customerMode === "x"
           ? 0
           : amount;
-      await addStamp(
+      const outboundLogId = await addStamp(
         targetCustomerId ?? target.id,
         effectiveAmount,
         memo ?? "",
         paymentType,
         logMeta,
       );
+      if (logMeta?.couponUse) {
+        await removeStamp(
+          "coupon",
+          targetCustomerId ?? target.id,
+          logMeta.couponUse.quantity * 10,
+          getCouponUsageNote(logMeta.couponUse),
+          PaymentTypeEnum.SHIPMENT_REMARK.value,
+          logMeta.storeName ?? StoreTypeEnum.OVAPE.value,
+          outboundLogId,
+        );
+      }
       onUpdate();
       invalidateLogLists();
       const successMessage = targetCustomerId
