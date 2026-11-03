@@ -104,7 +104,7 @@ type ItemFiltersParam = {
 const buildQuery = (filters?: ItemFiltersParam) => {
   let query = supabase
     .from("items")
-    .select("*, item_categories(id, name, order_index, is_liquid_category, liquid_sale_kind, created_at)");
+    .select("*, item_categories(id, name, order_index, created_at)");
 
   if (filters?.categoryId) {
     query = query.eq("category_id", filters.categoryId);
@@ -220,7 +220,7 @@ export const searchItemOptions = async (
 
   const { data, error } = await supabase
     .from("items")
-    .select("id, item_name, item_categories(id, name, order_index, is_liquid_category, liquid_sale_kind, created_at)")
+    .select("id, item_name, item_categories(id, name, order_index, created_at)")
     .eq("is_use", true)
     .ilike("item_name", `%${normalizedKeyword}%`)
     .order("item_name", { ascending: true })
@@ -246,7 +246,7 @@ export const searchOutboundItems = async (
 
   const { data, error } = await supabase
     .from("items")
-    .select("*, item_categories(id, name, order_index, is_liquid_category, liquid_sale_kind, created_at)")
+    .select("*, item_categories(id, name, order_index, created_at)")
     .eq("is_use", true)
     .ilike("item_name", `%${normalizedKeyword}%`)
     .order("item_name", { ascending: true })
@@ -290,7 +290,7 @@ export const searchInStockItemOptions = async (
   for (let from = 0; options.length < limit; from += pageSize) {
     const { data: itemRows, error: itemError } = await supabase
       .from("items")
-      .select("id, item_name, item_categories(id, name, order_index, is_liquid_category, liquid_sale_kind, created_at)")
+      .select("id, item_name, item_categories(id, name, order_index, created_at)")
       .eq("is_use", true)
       .ilike("item_name", `%${normalizedKeyword}%`)
       .order("item_name", { ascending: true })

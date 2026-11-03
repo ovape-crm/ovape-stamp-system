@@ -27,7 +27,6 @@ import { useUser } from "@/app/_contexts/UserContext";
 import Loading from "@/app/_components/Loading";
 import ItemBulkEditModal from "./_components/ItemBulkEditModal";
 import OutboundMemoRuleManageModal from "./_components/OutboundMemoRuleManageModal";
-import LiquidSalePriceRuleManageModal from "./_components/LiquidSalePriceRuleManageModal";
 
 const ItemsPage = () => {
   const queryClient = useQueryClient();
@@ -48,14 +47,13 @@ const ItemsPage = () => {
   const effectiveFilters = useMemo<ItemFilters>(() => filters, [filters]);
 
   const handleItemSubmit = async (values: FormValues) => {
-    const isLiquidCategory = categories.some((category) => String(category.id) === values.categoryId && category.is_liquid_category);
     await createItem({
       categoryId: values.categoryId || null,
       itemCode: values.itemCode,
       itemName: values.itemName,
       sellingPrice: values.sellingPrice ?? null,
-      liquidType: isLiquidCategory ? values.liquidType ?? "" : "",
-      liquidFlavor: isLiquidCategory ? values.liquidFlavor ?? "" : "",
+      liquidType: values.liquidType ?? "",
+      liquidFlavor: values.liquidFlavor ?? "",
       note: values.note ?? "",
     });
     toast.success("품목이 추가되었습니다.");
@@ -70,14 +68,13 @@ const ItemsPage = () => {
           categories={categories}
           editItem={item}
           onSubmit={async (values) => {
-            const isLiquidCategory = categories.some((category) => String(category.id) === values.categoryId && category.is_liquid_category);
             await updateItem(item.id, {
               categoryId: values.categoryId || null,
               itemCode: values.itemCode,
               itemName: values.itemName,
               sellingPrice: values.sellingPrice ?? null,
-              liquidType: isLiquidCategory ? values.liquidType ?? "" : "",
-              liquidFlavor: isLiquidCategory ? values.liquidFlavor ?? "" : "",
+              liquidType: values.liquidType ?? "",
+              liquidFlavor: values.liquidFlavor ?? "",
               note: values.note ?? "",
               isUse: values.isUse ?? true,
             });
@@ -153,13 +150,6 @@ const ItemsPage = () => {
     });
   };
 
-  const handleOpenLiquidSalePriceRules = () => {
-    open({
-      content: <LiquidSalePriceRuleManageModal onClose={close} />,
-      options: { dismissOnBackdrop: false, dismissOnEsc: true, size: "max-w-2xl" },
-    });
-  };
-
   if (isLoading || !isAdmin)
     return <Loading size="lg" text="권한을 확인하는 중..." />;
 
@@ -179,13 +169,6 @@ const ItemsPage = () => {
             actions={
               isAdmin ? (
                 <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={handleOpenLiquidSalePriceRules}
-                  >
-                    액상 판매종류 관리
-                  </Button>
                   <Button
                     size="sm"
                     variant="secondary"

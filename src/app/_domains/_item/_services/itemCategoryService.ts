@@ -32,17 +32,13 @@ export const getItemCountByCategory = async (): Promise<
 export const createItemCategory = async ({
   name,
   orderIndex,
-  isLiquidCategory,
-  liquidSaleKind,
 }: {
   name: string;
   orderIndex: number;
-  isLiquidCategory: boolean;
-  liquidSaleKind: string | null;
 }): Promise<ItemCategoryType> => {
   const { data, error } = await supabase
     .from('item_categories')
-    .insert({ name, order_index: orderIndex, is_liquid_category: isLiquidCategory, liquid_sale_kind: liquidSaleKind })
+    .insert({ name, order_index: orderIndex })
     .select()
     .single();
 
@@ -54,18 +50,14 @@ export const updateItemCategory = async ({
   id,
   name,
   orderIndex,
-  isLiquidCategory,
-  liquidSaleKind,
 }: {
   id: string;
   name: string;
   orderIndex: number;
-  isLiquidCategory: boolean;
-  liquidSaleKind: string | null;
 }): Promise<void> => {
   const { error } = await supabase
     .from('item_categories')
-    .update({ name, order_index: orderIndex, is_liquid_category: isLiquidCategory, liquid_sale_kind: liquidSaleKind })
+    .update({ name, order_index: orderIndex })
     .eq('id', id);
 
   if (error) throw error;
