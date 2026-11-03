@@ -44,7 +44,7 @@ const ItemDetailModal = ({ item, onClose }: ItemDetailModalProps) => {
         <Field label="품목 코드" value={item.item_code} />
         <Field label="품목 명" value={item.item_name} />
 
-        <div className="flex gap-3">
+        {item.item_categories?.is_liquid_category && <div className="flex gap-3">
           <div className="flex-1">
             <Field
               label="매출단가"
@@ -55,7 +55,7 @@ const ItemDetailModal = ({ item, onClose }: ItemDetailModalProps) => {
               }
             />
           </div>
-        </div>
+        </div>}
 
         <div className="flex gap-3">
           <div className="flex-1">

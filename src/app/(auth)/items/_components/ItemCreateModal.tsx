@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import Button from '@/app/_components/Button';
 import { Dropdown, DropdownOption } from '@/app/_components/Dropdown';
@@ -53,6 +53,7 @@ const ItemCreateModal = ({
     register,
     handleSubmit,
     control,
+    setValue,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -78,6 +79,22 @@ const ItemCreateModal = ({
           isUse: true,
         },
   });
+
+  const categoryId = useWatch({ control, name: 'categoryId' });
+  const selectedCategory = categories.find((category) => String(category.id) === categoryId);
+  const isLiquidCategory = Boolean(selectedCategory?.is_liquid_category);
+  const liquidPricingLabel: Record<string, string> = {
+    mtl_event: '입호흡 · 이벤트',
+    mtl_basic: '입호흡 · 기본',
+    dtl_event: '폐호흡 · 이벤트',
+    dtl_basic: '폐호흡 · 기본',
+  };
+  useEffect(() => {
+    if (!isLiquidCategory) {
+      setValue('liquidType', '');
+      setValue('liquidFlavor', '');
+    }
+  }, [isLiquidCategory, setValue]);
 
   const categoryOptions = [
     { label: '선택 안 함', value: '' },
@@ -176,6 +193,11 @@ const ItemCreateModal = ({
               </Dropdown>
             )}
           />
+          {isLiquidCategory && (
+            <div className="mt-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+              금액 자동 적용: <span className="font-semibold text-brand-700">{selectedCategory?.liquid_sale_kind ? liquidPricingLabel[selectedCategory.liquid_sale_kind] : '적용 안 함'}</span>
+            </div>
+          )}
         </div>
 
         {/* 품목 코드 */}
@@ -226,7 +248,7 @@ const ItemCreateModal = ({
         </div>
 
         {/* 액상 */}
-        <div className="flex gap-3">
+        {isLiquidCategory && <div className="flex gap-3">
           <div className="flex flex-col gap-1 flex-1">
             <label className="text-sm font-medium text-gray-700">
               액상 종류
@@ -247,7 +269,7 @@ const ItemCreateModal = ({
               className="px-3 py-2 text-sm border border-brand-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-300"
             />
           </div>
-        </div>
+        </div>}
 
         {/* 비고 */}
         <div className="flex flex-col gap-1">
