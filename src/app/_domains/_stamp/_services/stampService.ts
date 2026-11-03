@@ -7,9 +7,7 @@ import {
   BreathTypeEnum,
   BreathTypeEnumType,
   LogCategoryEnum,
-  PaymentTypeEnum,
   PaymentTypeEnumType,
-  StoreTypeEnum,
   StoreTypeEnumType,
 } from "@/app/_enums/enums";
 import { confirmOutboundInventory } from "@/app/_domains/_inventory/_services/outboundInventoryService";
@@ -213,19 +211,6 @@ export const confirmReservationStamp = async (logId: string) => {
   );
   if (updateError) throw updateError;
 
-  const couponUse = log.jsonb?.couponUse as StampLogMeta["couponUse"];
-  if (couponUse?.quantity && couponUse.quantity >= 1) {
-    await removeStamp(
-      "coupon",
-      String(log.customer_id),
-      couponUse.quantity * 10,
-      getCouponUsageNote(couponUse),
-      PaymentTypeEnum.SHIPMENT_REMARK.value,
-      (log.jsonb?.storeName as StoreTypeEnumType["value"] | undefined) ??
-        StoreTypeEnum.OVAPE.value,
-      String(logId),
-    );
-  }
 };
 
 /**

@@ -19,7 +19,7 @@ export const getAllItemsForBulk = async (): Promise<ItemType[]> => {
   for (let from = 0; ; from += pageSize) {
     const { data, error } = await supabase
       .from('items')
-      .select('*, item_categories(id, name, order_index, created_at)')
+    .select('*, item_categories(id, name, order_index, is_liquid_category, liquid_sale_kind, created_at)')
       .order('id')
       .range(from, from + pageSize - 1);
     if (error) throw error;
