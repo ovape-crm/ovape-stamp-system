@@ -242,7 +242,7 @@ const StampHistoryItem = ({
                   주소: {address}
                 </p>
               )}
-            {shipmentExtraNote && (
+            {shipmentExtraNote && !log.jsonb?.outboundMemoRemark && (
                 <p className="mt-1 italic text-gray-400">
                   출고 특이사항: &quot;<TaggedContent content={shipmentExtraNote} inline />&quot;
                 </p>

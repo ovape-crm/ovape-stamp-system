@@ -28,6 +28,11 @@ import RefundModal from "@/app/(auth)/histories/_components/StampHistories/Refun
 import StampHistoryItem from "@/app/(auth)/histories/_components/StampHistories/StampHistoryItem";
 import { createCustomerFollowUpRemark, updateOpenCustomerFollowUpRemark } from "@/app/_domains/_customer/_services/customerFollowUpRemarkService";
 import { resolveCurrentWorkerName } from "@/app/_domains/_workJournal/_utils/currentWorker";
+import {
+  formatFollowUpRemarkNote,
+  getFollowUpRemarkContent,
+  isFollowUpRemarkNote,
+} from "@/app/_domains/_customer/_utils/followUpRemarkNote";
 
 const CustomersDetailStampsHistories = ({
   targetUser,
@@ -205,14 +210,14 @@ const CustomersDetailStampsHistories = ({
       const isRemarkLog =
         log.jsonb?.paymentType === PaymentTypeEnum.REMARK.value;
       const isFollowUpRemarkLog =
-        isRemarkLog && (log.note ?? '').startsWith('[처리 필요 등록]');
+        isRemarkLog && isFollowUpRemarkNote(log.note);
       const hasStampLogItems =
         Array.isArray(log.jsonb?.items) && log.jsonb.items.length > 0;
       const shouldEditMemoOnly = isRemarkLog || !hasStampLogItems;
 
       if (shouldEditMemoOnly) {
         const originalFollowUpContent = isFollowUpRemarkLog
-          ? (log.note ?? '').replace(/^\[처리 필요 등록\]\n?/, '')
+          ? getFollowUpRemarkContent(log.note)
           : '';
         const handleRemarkSubmit = async (note: string, remarkType = 'general') => {
           try {
@@ -252,7 +257,7 @@ const CustomersDetailStampsHistories = ({
             } else {
               await createCustomerFollowUpRemark({ customerId: targetUser.id, content: note, authorName: workerName });
             }
-            const updated = await updateLogNote(log.id, `[처리 필요 등록]\n${note}`);
+            const updated = await updateLogNote(log.id, formatFollowUpRemarkNote(note));
             onUpdateLog(log.id, (item) => ({ ...item, note: updated.note, jsonb: updated.jsonb, updated_at: updated.updated_at }));
             close();
             toast.success('처리 필요 특이사항을 저장했습니다.');
@@ -265,7 +270,7 @@ const CustomersDetailStampsHistories = ({
         open({
           content: (
             <RemarkLogCreateModal
-              initialNote={log.note ?? ""}
+              initialNote={isFollowUpRemarkLog ? originalFollowUpContent : (log.note ?? "")}
               mode="edit"
               title={isRemarkLog ? undefined : "메모 수정"}
               label={isRemarkLog ? undefined : "메모"}
