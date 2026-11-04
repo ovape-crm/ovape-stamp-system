@@ -766,6 +766,7 @@ export default function StampLogForm({
       storeName,
       totalAmount: finalAmount,
       extraNote: extraNote.trim() || undefined,
+      outboundMemoRemark: customerMode === "normal",
       xCustomerName:
         customerMode === "x" ? xCustomerName?.trim() || undefined : undefined,
       xPhoneLastDigits:
@@ -1257,6 +1258,8 @@ export default function StampLogForm({
             order_index: 0,
             is_liquid_category: false,
             liquid_sale_kind: null,
+            is_stamp_eligible: false,
+            stamp_count_per_item: 0,
             created_at: "",
           }
         : null,

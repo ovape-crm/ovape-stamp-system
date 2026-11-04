@@ -90,6 +90,10 @@ These are product-wide UI rules. Apply them to all new UI and keep them consiste
 ## Persistent user instructions
 
 - 액상 자동 판매금액 계산은 3병 판매 구성을 최대한 우선 적용한다. 가능한 3병 구성 조합이 둘 이상이면 최종 금액이 더 높은 조합을 적용하고, 남는 1~2병은 해당 분류의 추가 1병 금액을 더한다. 이 규칙은 다음 작업에서 출고 이력 추가에 연결한다.
+- 액상 자동 판매금액은 일반 고객·X 고객의 기본 출고(출고 구분 미입력 또는 메모입력)에만 적용한다. 일반 고객의 가격조정·서비스·교환입고·교환출고·A/S 교환출고와 시연용·재고조정에는 적용하지 않는다. X 고객은 적립·쿠폰 없이 자동금액만 적용한다.
+- 적립 대상은 카테고리 설정으로 관리하며, 입호흡·이벤트 / 입호흡·기본 / 폐호흡·이벤트 / 폐호흡·기본 / 기기만 품목 1개당 1개 적립으로 설정한다. 나머지 카테고리는 적립 0개다. 고객 정보가 미적립대상인 일반 고객은 적립·쿠폰 입력, 검증, 안내 전체에서 제외한다.
+- 일반 고객 쿠폰은 입호흡 또는 폐호흡만 선택할 수 있고 직접입력은 제공하지 않는다. 호흡 방식 선택 후 이벤트·기본 버튼을 표시하며 기본값은 이벤트지만 자동 전환하지 않는다. 2단계 다음에서 선택한 호흡 방식·분류 액상 수량이 쿠폰 병수보다 적으면 저장을 막고 변경 안내를 표시한다. 쿠폰 사용 병수는 자동 판매금액 계산과 적립 가능 수량에서 차감한다.
+- 적립 부족 안내는 적립 대상 품목별 수량을 명시한다. 예: `입호흡 · 이벤트 3개\n입호흡 · 기본 1개\n4개까지 적립할 수 있습니다.\n\n현재 3개만 적립됩니다. 적립 수량을 확인해 주세요.` 안내에는 `진행하기`와 `수정하기` 버튼을 둔다. 적립 수량이 최대치보다 많으면 저장을 막고, 적으면 진행 여부를 선택하게 한다.
 - Do not commit or push work unless the user explicitly asks to do so; keep ongoing work uncommitted while the user is continuing the task.
 - When the user says to remember a workflow, reporting format, UI convention, or other instruction for future work, record the instruction in this `AGENTS.md` during the same task so it also applies in new conversations.
 - Before recording, preserve the user's intended scope and wording; do not turn a one-off request into a permanent rule unless the user clearly indicates that it should be remembered or applied going forward.

@@ -4,6 +4,8 @@ export type ItemCategoryType = {
   order_index: number;
   is_liquid_category: boolean;
   liquid_sale_kind: 'mtl_event' | 'mtl_basic' | 'dtl_event' | 'dtl_basic' | null;
+  is_stamp_eligible: boolean;
+  stamp_count_per_item: number;
   created_at: string;
 };
 

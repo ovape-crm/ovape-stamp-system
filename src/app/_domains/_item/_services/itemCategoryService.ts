@@ -34,15 +34,19 @@ export const createItemCategory = async ({
   orderIndex,
   isLiquidCategory,
   liquidSaleKind,
+  isStampEligible,
+  stampCountPerItem,
 }: {
   name: string;
   orderIndex: number;
   isLiquidCategory: boolean;
   liquidSaleKind: string | null;
+  isStampEligible: boolean;
+  stampCountPerItem: number;
 }): Promise<ItemCategoryType> => {
   const { data, error } = await supabase
     .from('item_categories')
-    .insert({ name, order_index: orderIndex, is_liquid_category: isLiquidCategory, liquid_sale_kind: liquidSaleKind })
+    .insert({ name, order_index: orderIndex, is_liquid_category: isLiquidCategory, liquid_sale_kind: liquidSaleKind, is_stamp_eligible: isStampEligible, stamp_count_per_item: isStampEligible ? stampCountPerItem : 0 })
     .select()
     .single();
 
@@ -56,16 +60,20 @@ export const updateItemCategory = async ({
   orderIndex,
   isLiquidCategory,
   liquidSaleKind,
+  isStampEligible,
+  stampCountPerItem,
 }: {
   id: string;
   name: string;
   orderIndex: number;
   isLiquidCategory: boolean;
   liquidSaleKind: string | null;
+  isStampEligible: boolean;
+  stampCountPerItem: number;
 }): Promise<void> => {
   const { error } = await supabase
     .from('item_categories')
-    .update({ name, order_index: orderIndex, is_liquid_category: isLiquidCategory, liquid_sale_kind: liquidSaleKind })
+    .update({ name, order_index: orderIndex, is_liquid_category: isLiquidCategory, liquid_sale_kind: liquidSaleKind, is_stamp_eligible: isStampEligible, stamp_count_per_item: isStampEligible ? stampCountPerItem : 0 })
     .eq('id', id);
 
   if (error) throw error;

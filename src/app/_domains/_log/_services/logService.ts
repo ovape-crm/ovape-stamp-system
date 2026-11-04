@@ -14,6 +14,7 @@ import {
 import supabase from "@/libs/supabaseClient";
 import { resolveCurrentWorkerName as resolveActiveWorkerName } from "@/app/_domains/_workJournal/_utils/currentWorker";
 import { hasAdminAccess, type OssRole } from "@/app/_domains/_user/_utils/userRole";
+import { syncOutboundMemoRemark } from "@/app/_domains/_customer/_services/outboundMemoRemarkService";
 
 export type HistoryTransferCustomer = {
   id: string;
@@ -427,7 +428,7 @@ export const updateLogNote = async (
 ) => {
   const { data: existing, error: fetchError } = await supabase
     .from("logs")
-    .select("jsonb, category")
+    .select("jsonb, category, customer_id, created_at")
     .eq("id", logId)
     .single();
 
@@ -449,6 +450,7 @@ export const updateLogNote = async (
   if (logMeta !== undefined) {
     nextJsonb.totalAmount = logMeta.totalAmount;
     nextJsonb.items = logMeta.items;
+    nextJsonb.outboundMemoRemark = Boolean(logMeta.outboundMemoRemark);
     if (logMeta.discount) {
       nextJsonb.discount = logMeta.discount;
     } else {
@@ -526,6 +528,18 @@ export const updateLogNote = async (
     .single();
 
   if (error) throw error;
+  if (logMeta?.outboundMemoRemark && existing?.customer_id && existing.created_at) {
+    await syncOutboundMemoRemark({
+      customerId: String(existing.customer_id),
+      sourceLogId: String(logId),
+      content: logMeta.extraNote ?? "",
+      createdAt: existing.created_at,
+      workerName:
+        typeof nextJsonb.createdWorkerName === "string"
+          ? nextJsonb.createdWorkerName
+          : "직원",
+    });
+  }
   return data;
 };
 

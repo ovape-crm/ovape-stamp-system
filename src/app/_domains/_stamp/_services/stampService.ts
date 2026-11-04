@@ -11,6 +11,7 @@ import {
   StoreTypeEnumType,
 } from "@/app/_enums/enums";
 import { confirmOutboundInventory } from "@/app/_domains/_inventory/_services/outboundInventoryService";
+import { syncOutboundMemoRemark } from "@/app/_domains/_customer/_services/outboundMemoRemarkService";
 
 export interface Stamp {
   id: string;
@@ -82,6 +83,7 @@ export type StampLogMeta = {
   storeName?: StoreTypeEnumType["value"];
   totalAmount?: number;
   extraNote?: string;
+  outboundMemoRemark?: boolean;
   xCustomerName?: string;
   xPhoneLastDigits?: string;
   xCustomerGender?: "male" | "female";
@@ -144,15 +146,26 @@ export const addStamp = async (
   if (!(await confirmOutboundInventory(requestMeta.items ?? []))) {
     throw new Error("출고 처리를 취소했습니다.");
   }
+  const requestJsonb = await withCreatedWorker({ paymentType, ...requestMeta });
   const { data, error } = await supabase.rpc("apply_stamp_log_operation_v2", {
     p_customer_id: customerId,
     p_stamp_delta: amount,
     p_action: amount === 0 ? "no-stamp" : `add-${amount}`,
     p_note: note,
-    p_jsonb: await withCreatedWorker({ paymentType, ...requestMeta }),
+    p_jsonb: requestJsonb,
   });
   if (error) throw error;
-  return String(data);
+  const logId = String(data);
+  if (requestMeta.outboundMemoRemark) {
+    await syncOutboundMemoRemark({
+      customerId,
+      sourceLogId: logId,
+      content: requestMeta.extraNote ?? "",
+      createdAt: new Date().toISOString(),
+      workerName: typeof requestJsonb.createdWorkerName === "string" ? requestJsonb.createdWorkerName : "직원",
+    });
+  }
+  return logId;
 };
 
 /**
