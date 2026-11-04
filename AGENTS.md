@@ -89,6 +89,7 @@ These are product-wide UI rules. Apply them to all new UI and keep them consiste
 
 ## Persistent user instructions
 
+- 액상 자동 판매금액 계산은 3병 판매 구성을 최대한 우선 적용한다. 가능한 3병 구성 조합이 둘 이상이면 최종 금액이 더 높은 조합을 적용하고, 남는 1~2병은 해당 분류의 추가 1병 금액을 더한다. 이 규칙은 다음 작업에서 출고 이력 추가에 연결한다.
 - Do not commit or push work unless the user explicitly asks to do so; keep ongoing work uncommitted while the user is continuing the task.
 - When the user says to remember a workflow, reporting format, UI convention, or other instruction for future work, record the instruction in this `AGENTS.md` during the same task so it also applies in new conversations.
 - Before recording, preserve the user's intended scope and wording; do not turn a one-off request into a permanent rule unless the user clearly indicates that it should be remembered or applied going forward.
@@ -96,7 +97,7 @@ These are product-wide UI rules. Apply them to all new UI and keep them consiste
 - Do not change an existing control's label, icon, visual treatment, or behavior unless the user explicitly requests that exact change. When restructuring existing controls, preserve their current visible labels and icons by default.
 - Action-menu dropdown triggers and every label or icon within their menus must be horizontally and vertically centered by default.
 - This project must be deployed to `https://ovape-system.vercel.app/` after the relevant changes are merged to `main`.
-- When the user asks to commit and push the work completed today, commit and push the current work branch only. Then provide a GitHub pull request URL and copy-and-paste-ready title and detail so the user can create and merge the PR through GitHub's green pull-request and merge buttons. Do not directly merge or push the work branch into `main` unless the user explicitly asks to bypass the PR workflow.
+- 사용자가 “커밋하고 푸시”라고 말하면 현재 작업 브랜치에 커밋한 뒤 GitHub 원격 브랜치까지만 올린다. GitHub PR 생성·초록색 Merge 버튼을 통한 `main` 병합은 사용자가 직접 수행한다. 사용자가 명시적으로 `main` 병합 또는 main 푸시를 지시하지 않는 한, 에이전트는 절대 작업 브랜치를 `main`에 머지하거나 `main`에 푸시하지 않는다.
 
 ## Gear icon
 

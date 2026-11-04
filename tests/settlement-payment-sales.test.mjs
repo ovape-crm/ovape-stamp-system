@@ -55,6 +55,11 @@ test("단일결제·과거매출은 호환되고 메모 및 조회기간 밖 로
         jsonb: { paymentType: "remark", totalAmount: 99999 },
       },
       {
+        action: "coupon-10",
+        created_at: "2026-09-04T11:30:00+09:00",
+        jsonb: { paymentType: "card", totalAmount: 65000 },
+      },
+      {
         created_at: "2026-10-01T00:00:00+09:00",
         jsonb: { paymentType: "cash", totalAmount: 50000 },
       },

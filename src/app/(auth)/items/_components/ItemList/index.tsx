@@ -54,6 +54,7 @@ const ItemList = ({
       return sort.direction === 'asc' ? result : -result;
     });
   }, [items, sort]);
+  const hasLiquidItems = items.some((item) => item.item_categories?.is_liquid_category);
   const sortHeading = (label: string, key: SortKey, className = '') => (
     <button type="button" onClick={() => changeSort(key)} className={`inline-flex cursor-pointer items-center gap-1 ${className}`} title={`${label} 정렬: 오름차순 → 내림차순 → 기본순`}>
       {label}<span aria-hidden="true" className={sort?.key === key ? 'text-brand-600' : 'text-gray-400'}>{sort?.key === key ? (sort.direction === 'asc' ? '↑' : '↓') : '↕'}</span>
@@ -65,7 +66,7 @@ const ItemList = ({
       content: (
         <CategoryManageModal onClose={close} />
       ),
-      options: { dismissOnBackdrop: false, dismissOnEsc: true },
+      options: { dismissOnBackdrop: false, dismissOnEsc: true, size: 'max-w-2xl' },
     });
   };
 
@@ -96,7 +97,7 @@ const ItemList = ({
         {actions}
       </div>
       <div className="overflow-x-auto rounded-lg border border-brand-100 bg-white shadow-sm">
-        <table className="w-full min-w-[1000px] divide-y divide-brand-100 table-auto">
+        <table className={`w-full ${hasLiquidItems ? 'min-w-[1000px]' : 'min-w-[820px]'} divide-y divide-brand-100 table-auto`}>
           <thead className="sticky top-0 z-10 bg-gradient-to-r from-brand-50 to-brand-100">
             <tr>
               <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
@@ -152,12 +153,12 @@ const ItemList = ({
               <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap max-w-48">
                 비고
               </th>
-              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
+              {hasLiquidItems && <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
                 {sortHeading('액상 종류', 'liquidType')}
-              </th>
-              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
+              </th>}
+              {hasLiquidItems && <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
                 {sortHeading('액상 맛', 'liquidFlavor')}
-              </th>
+              </th>}
               <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-brand-700 whitespace-nowrap">
                 시연대 위치
               </th>
@@ -167,7 +168,7 @@ const ItemList = ({
             {items.length === 0 ? (
               <tr>
                 <td
-                  colSpan={11}
+                  colSpan={hasLiquidItems ? 11 : 9}
                   className="px-3 sm:px-6 py-10 text-center text-gray-500 text-xs sm:text-sm"
                 >
                   품목 데이터가 없습니다.
@@ -253,12 +254,12 @@ const ItemList = ({
                       {item.note || <span className="text-gray-400">-</span>}
                     </p>
                   </td>
-                  <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 whitespace-nowrap">
-                    {item.liquid_type || <span className="text-gray-400">-</span>}
-                  </td>
-                  <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 whitespace-nowrap">
-                    {item.liquid_flavor || <span className="text-gray-400">-</span>}
-                  </td>
+                  {hasLiquidItems && <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 whitespace-nowrap">
+                    {item.item_categories?.is_liquid_category && item.liquid_type ? item.liquid_type : <span className="text-gray-400">-</span>}
+                  </td>}
+                  {hasLiquidItems && <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 whitespace-nowrap">
+                    {item.item_categories?.is_liquid_category && item.liquid_flavor ? item.liquid_flavor : <span className="text-gray-400">-</span>}
+                  </td>}
                   <td className="px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 whitespace-nowrap">
                     {item.liqud_stand_cells?.length
                       ? item.liqud_stand_cells.map((cell) =>

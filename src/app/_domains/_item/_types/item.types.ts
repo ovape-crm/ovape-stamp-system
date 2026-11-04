@@ -2,6 +2,8 @@ export type ItemCategoryType = {
   id: string;
   name: string;
   order_index: number;
+  is_liquid_category: boolean;
+  liquid_sale_kind: 'mtl_event' | 'mtl_basic' | 'dtl_event' | 'dtl_basic' | null;
   created_at: string;
 };
 

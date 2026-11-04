@@ -100,7 +100,7 @@ export default function DeviceSelectModal({
                 {availableDevices.map((device) => (
                   <tr
                     key={device.id}
-                    className="border-b border-brand-50 hover:bg-brand-50/60 cursor-pointer transition-colors"
+                    className="border-b border-brand-50 cursor-pointer transition-colors active:bg-brand-50/60 [@media(hover:hover)]:hover:bg-brand-50/60"
                     onClick={() =>
                       onSelect(device, valueMapByDevice[device.id] ?? {})
                     }
