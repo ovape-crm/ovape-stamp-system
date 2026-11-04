@@ -105,6 +105,7 @@ const getPurchaseReceiptGross = (
 
 type SettlementSaleLog = {
   id: number;
+  action: string;
   created_at: string;
   jsonb: unknown;
 };
@@ -167,7 +168,7 @@ export const getSettlementSummary = async (
       ? fetchPaged<SettlementSaleLog>(async (from, to) => {
           const { data, error } = await supabase
             .from("logs")
-            .select("id, created_at, jsonb")
+            .select("id, action, created_at, jsonb")
             .eq("category", "stamp")
             .gte("created_at", costReplayRange.start)
             .lt("created_at", costReplayRange.end)
@@ -559,6 +560,7 @@ export const getSettlementSummary = async (
     `${LIVE_PURCHASE_START_DATE}T00:00:00+09:00`,
   ).toISOString();
   for (const log of logs) {
+    if (log.action.startsWith("coupon-")) continue;
     const jsonb = (log.jsonb ?? {}) as Record<string, unknown>;
     if (jsonb.afterServiceOperation === "cost") continue;
     const items = Array.isArray(jsonb.items)
@@ -1148,17 +1150,19 @@ export const getSettlementCostItems = async (): Promise<
     if (item.is_use || !previous)
       currentItemStatus.set(name, item.is_use ? "active" : "inactive");
   }
-  const logs: { created_at: string; jsonb: unknown }[] = [];
+  const logs: { action: string; created_at: string; jsonb: unknown }[] = [];
   for (let from = 0; ; from += 1000) {
     const { data, error } = await supabase
       .from("logs")
-      .select("created_at, jsonb")
+      .select("action, created_at, jsonb")
       .eq("category", "stamp")
       .gte("created_at", start)
       .order("created_at")
       .range(from, from + 999);
     if (error) throw error;
-    logs.push(...((data ?? []) as { created_at: string; jsonb: unknown }[]));
+    logs.push(
+      ...((data ?? []) as { action: string; created_at: string; jsonb: unknown }[]),
+    );
     if ((data ?? []).length < 1000) break;
   }
   const quantities = new Map<
@@ -1166,6 +1170,7 @@ export const getSettlementCostItems = async (): Promise<
     { itemId: number | null; before: number; after: number; opening: number }
   >();
   for (const log of logs) {
+    if (log.action.startsWith("coupon-")) continue;
     const isBefore = log.created_at < "2026-07-21T15:00:00+00:00";
     const jsonb = (log.jsonb ?? {}) as Record<string, unknown>;
     if (jsonb.afterServiceOperation === "cost") continue;

@@ -5,6 +5,7 @@ export type PaymentSales = {
 
 export type LivePaymentLog = {
   created_at: string;
+  action?: string;
   jsonb: unknown;
 };
 
@@ -38,6 +39,7 @@ export const aggregatePaymentSales = ({
     if (row.created_at < liveRange.start || row.created_at >= liveRange.end) {
       continue;
     }
+    if (row.action?.startsWith("coupon-")) continue;
     const jsonb = (row.jsonb ?? {}) as Record<string, unknown>;
     const totalAmount = Number(jsonb.totalAmount ?? 0);
     const paymentSign = totalAmount < 0 ? -1 : 1;
