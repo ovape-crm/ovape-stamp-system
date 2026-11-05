@@ -169,3 +169,8 @@ table td > * {
 .expense-management-table td:nth-child(6) {
   text-align: center;
 }
+
+/* 쿠폰 수정 팝업 위로 전역 매뉴얼 ? 버튼이 겹치지 않게 한다. */
+.coupon-edit-popover-open [data-manual-placement-ui] {
+  visibility: hidden !important;
+}

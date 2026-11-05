@@ -431,6 +431,14 @@ export const deleteLog = async (logId: string) => {
 /**
  * 로그 노트 업데이트
  */
+type UpdatedLogNoteResult = {
+  action: string;
+  note: string;
+  jsonb: StampLogMeta;
+  updated_at: string;
+  stampCount?: number;
+};
+
 export const updateLogNote = async (
   logId: string,
   note: string,
@@ -438,7 +446,7 @@ export const updateLogNote = async (
   storeName?: StoreTypeEnumType["value"],
   logMeta?: StampLogMeta,
   action?: string,
-) => {
+): Promise<UpdatedLogNoteResult> => {
   const { data: existing, error: fetchError } = await supabase
     .from("logs")
     .select("jsonb, category, customer_id, created_at")
@@ -542,21 +550,50 @@ export const updateLogNote = async (
     }
   }
 
-  const updatePayload: Record<string, unknown> = {
-    note,
-    jsonb: await withModifiedWorker(nextJsonb),
-  };
-  const { data, error } = await supabase
-    .from("logs")
-    .update(updatePayload)
-    .eq("id", logId)
-    .select()
-    .single();
-
-  if (error) throw error;
-  let updatedLog = data;
+  const nextJsonbWithWorker = await withModifiedWorker(nextJsonb);
+  const currentCouponUse = currentJsonb.couponUse;
+  const nextCouponUse = logMeta?.couponUse;
+  const requiresCouponReconciliation =
+    existing?.category === LogCategoryEnum.STAMP.value &&
+    action !== undefined &&
+    logMeta !== undefined &&
+    JSON.stringify(currentCouponUse ?? null) !==
+      JSON.stringify(nextCouponUse ?? null);
+  let updatedLog: Omit<UpdatedLogNoteResult, "stampCount">;
   let updatedStampCount: number | undefined;
-  if (action !== undefined) {
+
+  if (requiresCouponReconciliation) {
+    const { data: reconciliationResult, error: reconciliationError } =
+      await supabase.rpc("update_outbound_log_with_coupon_reconciliation", {
+        p_log_id: String(logId),
+        p_note: note,
+        p_jsonb: nextJsonbWithWorker,
+        p_action: action,
+      });
+    if (reconciliationError) throw reconciliationError;
+
+    const result = reconciliationResult as {
+      log?: Record<string, unknown>;
+      stampCount?: unknown;
+    } | null;
+    if (!result?.log) {
+      throw new Error("COUPON_RECONCILIATION_RESULT_NOT_RETURNED");
+    }
+    updatedLog = result.log as Omit<UpdatedLogNoteResult, "stampCount">;
+    if (typeof result.stampCount === "number") {
+      updatedStampCount = result.stampCount;
+    }
+  } else {
+    const { data, error } = await supabase
+      .from("logs")
+      .update({ note, jsonb: nextJsonbWithWorker })
+      .eq("id", logId)
+      .select()
+      .single();
+    if (error) throw error;
+    updatedLog = data as Omit<UpdatedLogNoteResult, "stampCount">;
+
+    if (action !== undefined) {
     const { data: actionResult, error: actionError } = await supabase.rpc(
       "update_stamp_log_action",
       { p_log_id: String(logId), p_action: action },
@@ -571,6 +608,7 @@ export const updateLogNote = async (
     };
     if (typeof (actionResult as { stampCount?: unknown } | null)?.stampCount === "number") {
       updatedStampCount = (actionResult as { stampCount: number }).stampCount;
+    }
     }
   }
   if (logMeta?.outboundMemoRemark && existing?.customer_id && existing.created_at) {

@@ -388,6 +388,17 @@ const StampHistories = ({
                   : customer,
             );
           }
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: logKeys.all() }),
+            queryClient.invalidateQueries({ queryKey: customerKeys.all() }),
+            ...(log.customer_id
+              ? [
+                  queryClient.invalidateQueries({
+                    queryKey: ["stamps", String(log.customer_id)],
+                  }),
+                ]
+              : []),
+          ]);
           close();
           toast.success("이력을 저장했습니다.");
         } catch (e) {
@@ -399,6 +410,7 @@ const StampHistories = ({
       open({
         content: (
           <StampLogEditModal
+            customerId={String(log.customer_id)}
             target={{
               name: log.customers.name,
               phone: log.customers.phone,
@@ -424,14 +436,14 @@ const StampHistories = ({
         options: { dismissOnBackdrop: false, dismissOnEsc: true },
       });
     },
-    [open, close, updateItem, isReservation, isAdmin],
+    [open, close, queryClient, updateItem, isReservation, isAdmin],
   );
 
   const deleteItem = useCallback(
     (log: LogsResType) => {
       const handleConfirm = async () => {
         try {
-          const { deletedLogIds, stampCount } = await deleteLog(log.id);
+          const { deletedLogIds } = await deleteLog(log.id);
           deletedLogIds.forEach(removeItem);
           await Promise.all([
             queryClient.invalidateQueries({ queryKey: logKeys.lists() }),
@@ -441,21 +453,14 @@ const StampHistories = ({
             ] : []),
           ]);
           if (log.customer_id) {
-            if (stampCount !== undefined) {
-              queryClient.setQueryData(
-                customerKeys.detail(log.customer_id),
-                (customer: Awaited<ReturnType<typeof getCustomerById>> | undefined) =>
-                  customer
-                    ? { ...customer, stamps: [{ count: stampCount }] }
-                    : customer,
-              );
-            } else {
-              const refreshedCustomer = await getCustomerById(log.customer_id);
-              queryClient.setQueryData(
-                customerKeys.detail(log.customer_id),
-                refreshedCustomer,
-              );
-            }
+            const refreshedCustomer = await getCustomerById(log.customer_id);
+            queryClient.setQueryData(
+              customerKeys.detail(log.customer_id),
+              refreshedCustomer,
+            );
+            await queryClient.invalidateQueries({
+              queryKey: ["stamps", String(log.customer_id)],
+            });
           }
           close();
           toast.success("로그를 삭제했습니다.");

@@ -186,27 +186,22 @@ const CustomersDetailStampsHistories = ({
     (log: CustomersLogsResType[number]) => {
       const handleConfirm = async () => {
         try {
-          const { deletedLogIds, stampCount } = await deleteLog(log.id);
+          const { deletedLogIds } = await deleteLog(log.id);
           deletedLogIds.forEach(onDeleteLog);
           await Promise.all([
             queryClient.invalidateQueries({ queryKey: logKeys.all() }),
             queryClient.invalidateQueries({ queryKey: customerKeys.detail(targetUser.id) }),
           ]);
-          if (stampCount !== undefined) {
-            queryClient.setQueryData(
-              customerKeys.detail(targetUser.id),
-              (customer: Awaited<ReturnType<typeof getCustomerById>> | undefined) =>
-                customer
-                  ? { ...customer, stamps: [{ count: stampCount }] }
-                  : customer,
-            );
-          } else {
-            const refreshedCustomer = await getCustomerById(targetUser.id);
-            queryClient.setQueryData(
-              customerKeys.detail(targetUser.id),
-              refreshedCustomer,
-            );
-          }
+          // 삭제 RPC 반환값과 화면의 고객 상세가 같은 원본을 보도록 즉시 재조회한다.
+          // 쿠폰 연결 이력이 함께 삭제되는 경우에도 총 스탬프가 새로고침 없이 갱신된다.
+          const refreshedCustomer = await getCustomerById(targetUser.id);
+          queryClient.setQueryData(
+            customerKeys.detail(targetUser.id),
+            refreshedCustomer,
+          );
+          await queryClient.invalidateQueries({
+            queryKey: ["stamps", targetUser.id],
+          });
           close();
           toast.success("로그를 삭제했습니다.");
         } catch (e) {
@@ -341,6 +336,13 @@ const CustomersDetailStampsHistories = ({
                   : customer,
             );
           }
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: logKeys.all() }),
+            queryClient.invalidateQueries({ queryKey: customerKeys.all() }),
+            queryClient.invalidateQueries({
+              queryKey: ["stamps", targetUser.id],
+            }),
+          ]);
           close();
           toast.success("이력을 저장했습니다.");
         } catch (e) {
@@ -352,6 +354,7 @@ const CustomersDetailStampsHistories = ({
       open({
         content: (
           <StampLogEditModal
+            customerId={String(log.customer_id)}
             target={{
               name: targetUser.name,
               phone: targetUser.phone,
@@ -380,6 +383,7 @@ const CustomersDetailStampsHistories = ({
     [
       open,
       close,
+      queryClient,
       onUpdateLog,
       isReservation,
       targetUser.name,
