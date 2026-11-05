@@ -58,6 +58,8 @@ export default function CustomerDetailPage() {
   const isSpecialCustomer = customer
     ? checkSpecialCustomer(customer.name, customer.phone, customer.is_stamp_eligible ?? true)
     : false;
+  const canShowAfterServiceHistory =
+    !isSpecialCustomer || customer?.name.trim() === "매장제품 A/S";
   const [isFollowUpAlertOpen, setIsFollowUpAlertOpen] = useState(true);
   const [followUpDecision, setFollowUpDecision] = useState<'later' | 'now' | null>(null);
   const [selectedFollowUpRemarkId, setSelectedFollowUpRemarkId] = useState<string | null>(null);
@@ -77,8 +79,10 @@ export default function CustomerDetailPage() {
   useEffect(() => {
     const current = pathname?.split("/").pop();
     const allowed = isSpecialCustomer
-      ? ["integrated"]
-      : ["integrated", "reservations", "customers"];
+      ? canShowAfterServiceHistory
+        ? ["integrated", "after-services"]
+        : ["integrated"]
+      : ["integrated", "reservations", "customers", "after-services"];
     if (!pathname?.includes("/history/")) return;
     if (!current || !allowed.includes(current)) {
       router.replace(`/customers/${customerId}/history/integrated`);
@@ -91,11 +95,14 @@ export default function CustomerDetailPage() {
           ? LogCategoryEnum.CUSTOMER.value
           : LogCategoryEnum.STAMP.value,
     );
-  }, [customerId, isSpecialCustomer, pathname, router]);
+  }, [canShowAfterServiceHistory, customerId, isSpecialCustomer, pathname, router]);
   const selectHistoryTab = (next: LogCategoryEnumType["value"]) => {
     const route = next === LogCategoryEnum.RESERVATION.value ? "reservations" : next === LogCategoryEnum.CUSTOMER.value ? "customers" : "integrated";
     router.push(`/customers/${customerId}/history/${route}`);
   };
+  const isAfterServiceTab = pathname?.endsWith("/history/after-services");
+  const selectAfterServiceTab = () =>
+    router.push(`/customers/${customerId}/history/after-services`);
 
   const {
     logs,
@@ -420,6 +427,7 @@ export default function CustomerDetailPage() {
           <div className="mb-3 pb-2 border-b border-brand-100 flex gap-2 text-xs">
             <Button
               variant={
+                !isAfterServiceTab &&
                 logCategory === LogCategoryEnum.STAMP.value
                   ? "primary"
                   : "secondary"
@@ -462,8 +470,17 @@ export default function CustomerDetailPage() {
                 고객 이력
               </Button>
             )}
+            {canShowAfterServiceHistory && (
+              <Button
+                variant={isAfterServiceTab ? "primary" : "secondary"}
+                size="sm"
+                onClick={selectAfterServiceTab}
+              >
+                A/S 이력
+              </Button>
+            )}
           </div>
-          <div className="mb-3">
+          {!isAfterServiceTab && <div className="mb-3">
             <div className="relative">
               <svg
                 aria-hidden="true"
@@ -493,8 +510,10 @@ export default function CustomerDetailPage() {
                 </button>
               )}
             </div>
-          </div>
-          <div className="space-y-2.5">
+          </div>}
+          {isAfterServiceTab ? (
+            <CustomerAfterServices customerId={customerId} />
+          ) : <div className="space-y-2.5">
             {(logCategory === LogCategoryEnum.STAMP.value ||
               logCategory === LogCategoryEnum.RESERVATION.value) && (
               <CustomersDetailStampsHistories
@@ -530,9 +549,9 @@ export default function CustomerDetailPage() {
                 onDeleteLog={removeLog}
               />
             )}
-          </div>
+          </div>}
         </div>
-        {logCategory !== LogCategoryEnum.REMARK.value &&
+        {!isAfterServiceTab && logCategory !== LogCategoryEnum.REMARK.value &&
           hasMore &&
           !logsLoading && (
             <div className="mt-4 flex justify-center">
@@ -566,19 +585,6 @@ export default function CustomerDetailPage() {
           )} */}
       </div>
 
-      {/* AS 현황 섹션 */}
-      {(!isSpecialCustomer || customer.name.trim() === "매장제품 A/S") && (
-        <div className="mb-10">
-          <div className="bg-white rounded-lg shadow-sm border border-brand-100 p-6">
-            <h2 className="text-lg sm:text-xl font-semibold text-brand-700 mb-4">
-              {customer.name.trim() === "매장제품 A/S"
-                ? "업체 불량교환 이력"
-                : "AS 현황"}
-            </h2>
-            <CustomerAfterServices customerId={customerId} />
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -10,6 +10,14 @@ const couponHistoryMigrationPath = new URL(
   "../supabase/migrations/20261104000000_keep_coupon_history_separate_from_sales.sql",
   import.meta.url,
 );
+const couponEditReconciliationMigrationPath = new URL(
+  "../supabase/migrations/20261105001000_reconcile_outbound_coupon_on_edit.sql",
+  import.meta.url,
+);
+const couponEditChangeMigrationPath = new URL(
+  "../supabase/migrations/20261105002000_reconcile_outbound_coupon_change_on_edit.sql",
+  import.meta.url,
+);
 
 test("출고와 쿠폰 사용은 하나의 RPC 트랜잭션으로 저장한다", async () => {
   const sql = await readFile(migrationPath, "utf8");
@@ -39,6 +47,26 @@ test("쿠폰 이력에는 판매 금액·결제수단·품목을 복제하지 �
   assert.doesNotMatch(sql, /'totalAmount'|'paymentType'|'payments'|'items'/i);
   assert.match(sql, /values \(auth\.uid\(\), p_customer_id, format\('coupon-%s', v_coupon_delta\), v_coupon_note, v_coupon_jsonb, 'stamp'\)/i);
   assert.match(sql, /values \(auth\.uid\(\), target_log\.customer_id, format\('coupon-%s', v_coupon_delta\), v_coupon_note, v_coupon_jsonb, 'stamp'\)/i);
+});
+
+test("출고 수정에서 쿠폰을 취소하면 연결 쿠폰 이력과 스탬프를 함께 복구한다", async () => {
+  const sql = await readFile(couponEditReconciliationMigrationPath, "utf8");
+
+  assert.match(sql, /update_outbound_log_with_coupon_reconciliation/i);
+  assert.match(sql, /couponSourceOutboundLogId' = target_log\.id::text/i);
+  assert.match(sql, /coupon_restore_delta := coupon_restore_delta/i);
+  assert.match(sql, /set count = count \+ total_delta/i);
+  assert.match(sql, /delete from public\.logs[\s\S]*?couponSourceOutboundLogId' = target_log\.id::text/i);
+  assert.match(sql, /set note = p_note,[\s\S]*?jsonb = coalesce\(p_jsonb, '\{\}'::jsonb\),[\s\S]*?action = p_action/i);
+});
+
+test("출고 수정에서 쿠폰 장수를 바꾸면 차이만큼 스탬프와 연결 이력을 조정한다", async () => {
+  const sql = await readFile(couponEditChangeMigrationPath, "utf8");
+
+  assert.match(sql, /existing_coupon_delta - next_coupon_delta/i);
+  assert.match(sql, /set action = format\('coupon-%s', next_coupon_delta\)/i);
+  assert.match(sql, /when 'event' then ' · 이벤트'/i);
+  assert.match(sql, /when 'basic' then ' · 기본'/i);
 });
 
 test("출고 저장 성공 전에 별도 쿠폰 차감 요청을 보내지 않는다", async () => {

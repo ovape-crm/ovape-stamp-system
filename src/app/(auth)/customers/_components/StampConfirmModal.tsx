@@ -125,6 +125,25 @@ const getDeliveryItem = (logMeta: StampLogMeta) => {
 
 const addStepLabels = ["기본 정보", "품목 · 금액", "최종 확인"] as const;
 
+const getOutboundProductTotal = (logMeta: StampLogMeta) => {
+  // 과거 출고는 액상 자동금액이 별도로 저장되지 않았으므로 품목 소계를 그대로 쓴다.
+  // 자동금액이 확정 저장된 출고만 액상 품목 소계 대신 확정 금액을 반영한다.
+  const savedLiquidSaleAmount = logMeta.liquidSale?.amount;
+  const hasSavedLiquidSaleAmount = typeof savedLiquidSaleAmount === "number";
+  const itemTotal = (logMeta.items ?? []).reduce(
+    (sum, item) =>
+      sum +
+      (hasSavedLiquidSaleAmount &&
+      item.liquidSaleKind &&
+      (!item.outboundRuleType || item.outboundRuleType === "standard")
+        ? 0
+        : item.amount),
+    0,
+  );
+
+  return itemTotal + (hasSavedLiquidSaleAmount ? savedLiquidSaleAmount : 0);
+};
+
 const buildOrderedOutboundItemNote = (logMeta: StampLogMeta) => {
   const items = logMeta.items ?? [];
   const getBreath = (item?: (typeof items)[number]) => {
@@ -452,16 +471,94 @@ export default function StampConfirmModal({
     hasDeliveryInfo: true,
     hasCompletedBasicSequence: false,
   });
+  const initialFinalItemKey = JSON.stringify(
+    (initialLogMeta?.items ?? []).map((item) => ({
+      itemId: item.itemId,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      adjustedUnitPrice: item.adjustedUnitPrice,
+      amount: item.amount,
+      remark: item.remark,
+      inventoryAction: item.inventoryAction,
+    })),
+  );
+  const currentFinalItemKey = JSON.stringify(
+    (stampLog?.logMeta.items ?? []).map((item) => ({
+      itemId: item.itemId,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      adjustedUnitPrice: item.adjustedUnitPrice,
+      amount: item.amount,
+      remark: item.remark,
+      inventoryAction: item.inventoryAction,
+    })),
+  );
+  const initialFinalPaymentKey = JSON.stringify({
+    paymentType: initialPaymentType,
+    storeName: initialStoreName,
+    payments: initialLogMeta?.payments,
+    discount: initialLogMeta?.discount,
+    deliveryMethod: initialLogMeta?.deliveryMethod,
+    deliveryType: initialLogMeta?.deliveryType,
+    parcelCarrier: initialLogMeta?.parcelCarrier,
+    deliveryFee: initialLogMeta?.deliveryFee,
+    deliveryBaseFee: initialLogMeta?.deliveryBaseFee,
+    totalAmount: initialLogMeta?.totalAmount,
+  });
+  const currentFinalPaymentKey = JSON.stringify({
+    paymentType: stampLog?.paymentType,
+    storeName: stampLog?.storeName,
+    payments: stampLog?.logMeta.payments,
+    discount: stampLog?.logMeta.discount,
+    deliveryMethod: stampLog?.logMeta.deliveryMethod,
+    deliveryType: stampLog?.logMeta.deliveryType,
+    parcelCarrier: stampLog?.logMeta.parcelCarrier,
+    deliveryFee: stampLog?.logMeta.deliveryFee,
+    deliveryBaseFee: stampLog?.logMeta.deliveryBaseFee,
+    totalAmount: stampLog?.logMeta.totalAmount,
+  });
+  const hasFinalItemChanges =
+    mode === "edit" && currentFinalItemKey !== initialFinalItemKey;
+  const hasFinalPaymentChanges =
+    mode === "edit" && currentFinalPaymentKey !== initialFinalPaymentKey;
   const [hasAcknowledgedFinalSummary, setHasAcknowledgedFinalSummary] =
-    useState(false);
+    useState(mode === "edit");
   const [hasAcknowledgedFinalItems, setHasAcknowledgedFinalItems] =
-    useState(false);
+    useState(mode === "edit");
+  const previousFinalReviewChanges = useRef({ item: false, payment: false });
   useEffect(() => {
-    if (addStep !== 3) {
+    if (addStep !== 3 && mode !== "edit") {
       setHasAcknowledgedFinalSummary(false);
       setHasAcknowledgedFinalItems(false);
     }
-  }, [addStep]);
+  }, [addStep, mode]);
+  useEffect(() => {
+    if (mode !== "edit" || addStep !== 3 || !stampLog) return;
+
+    const previous = previousFinalReviewChanges.current;
+    if (hasFinalItemChanges || hasFinalPaymentChanges) {
+      if (!previous.item && !previous.payment) {
+        setHasAcknowledgedFinalSummary(false);
+      }
+    } else if (previous.item || previous.payment) {
+      setHasAcknowledgedFinalSummary(true);
+    }
+    if (hasFinalItemChanges && !previous.item) {
+      setHasAcknowledgedFinalItems(false);
+    } else if (!hasFinalItemChanges && previous.item) {
+      setHasAcknowledgedFinalItems(true);
+    }
+    previousFinalReviewChanges.current = {
+      item: hasFinalItemChanges,
+      payment: hasFinalPaymentChanges,
+    };
+  }, [
+    addStep,
+    hasFinalItemChanges,
+    hasFinalPaymentChanges,
+    mode,
+    stampLog,
+  ]);
   const customerNote = (selectedCustomer?.note ?? target.note)?.trim() ?? "";
   const requiresCustomerNoteAcknowledgement =
     mode === "add" &&
@@ -990,7 +1087,7 @@ export default function StampConfirmModal({
                     onChange={(event) => setTransferPayerName(event.target.value)}
                     disabled={sameCustomerTransfer}
                     placeholder="이름을 입력하세요."
-                    className="h-8 w-36 max-w-full rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none transition placeholder:text-gray-400 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:bg-gray-100 disabled:text-gray-500"
+                    className="h-8 w-full min-w-0 rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none transition placeholder:text-gray-400 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:bg-gray-100 disabled:text-gray-500"
                   />
                 </div>
                 <button
@@ -1003,9 +1100,9 @@ export default function StampConfirmModal({
                       setSameCustomerTransfer(true);
                     }
                   }}
-                  className={`mr-2 h-8 shrink-0 rounded-lg border px-3 text-sm font-semibold ${sameCustomerTransfer ? "border-brand-500 bg-brand-50 text-brand-700" : "border-gray-300 bg-white text-gray-700 hover:border-brand-300"}`}
+                  className={`mr-2 h-8 shrink-0 rounded-lg border px-2 text-sm font-semibold ${sameCustomerTransfer ? "border-brand-500 bg-brand-50 text-brand-700" : "border-gray-300 bg-white text-gray-700 hover:border-brand-300"}`}
                 >
-                  {sameCustomerTransfer ? "이름 수정하기" : "동일고객"}
+                  {sameCustomerTransfer ? "수정하기" : "동일고객"}
                 </button>
               </div>
             ) : undefined
@@ -1077,6 +1174,9 @@ export default function StampConfirmModal({
           sameCustomerTransfer={sameCustomerTransfer}
           onTransferPaymentSelectedChange={setIsTransferPaymentSelected}
           showFinalItemList={hasAcknowledgedFinalSummary}
+          autoCheckFinalReviewItems={
+            mode === "edit" && !hasFinalItemChanges
+          }
           onFinalReviewAcknowledgedChange={setHasAcknowledgedFinalItems}
         />
 
@@ -1505,12 +1605,7 @@ export default function StampConfirmModal({
             <div className="border-l border-gray-200 pl-5">
               <p className="text-xs text-gray-500">상품 합계</p>
               <p className="mt-0.5 text-base font-semibold text-gray-900">
-                {formatAmount(
-                  stampLog.logMeta.items?.reduce(
-                    (sum, item) => sum + item.amount,
-                    0,
-                  ) ?? 0,
-                )}
+                {formatAmount(getOutboundProductTotal(stampLog.logMeta))}
                 원
               </p>
             </div>
@@ -1573,12 +1668,7 @@ export default function StampConfirmModal({
             <div className="border-l border-gray-200 pl-5">
               <p className="text-xs text-gray-500">상품 합계</p>
               <p className="mt-0.5 text-base font-semibold text-gray-900">
-                {formatAmount(
-                  stampLog.logMeta.items?.reduce(
-                    (sum, item) => sum + item.amount,
-                    0,
-                  ) ?? 0,
-                )}
+                {formatAmount(getOutboundProductTotal(stampLog.logMeta))}
                 원
               </p>
             </div>
@@ -1620,13 +1710,16 @@ export default function StampConfirmModal({
             </Button>
           )}
           {addStep < 3 ? (
-            addStep === 1 && !formValidity.hasCompletedBasicSequence ? null : (
+            addStep === 1 &&
+            !formValidity.hasCompletedBasicSequence &&
+            mode !== "edit" ? null : (
               <Button
                 data-manual-key="outbound-modal-next-step"
                 size="sm"
                 disabled={
                   addStep === 1
-                    ? !formValidity.hasCompletedBasicSequence ||
+                    ? (mode !== "edit" &&
+                        !formValidity.hasCompletedBasicSequence) ||
                       (isUnifiedXAccount &&
                         !selectedCustomer &&
                         !xCustomerGender) ||
@@ -1782,7 +1875,8 @@ export default function StampConfirmModal({
                 isSubmitting ||
                 (addStep === 3 &&
                   usesStandardSalesFlow &&
-                  (!hasAcknowledgedFinalSummary || !hasAcknowledgedFinalItems))
+                  (!hasAcknowledgedFinalSummary ||
+                    !hasAcknowledgedFinalItems))
               }
               onClick={handleConfirm}
             >
