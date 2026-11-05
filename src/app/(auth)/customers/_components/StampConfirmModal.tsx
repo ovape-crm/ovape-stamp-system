@@ -3,6 +3,7 @@
 import Button from "@/app/_components/Button";
 import type { GenderType } from "@/app/_domains/_customer/_types/customer.types";
 import TaggedContent from "@/app/_components/TaggedContent";
+import { getDeliveryStampAccrualStatus } from "@/app/_domains/_stamp/_utils/deliveryStampAccrual";
 import {
   BreathTypeEnum,
   BreathTypeEnumType,
@@ -16,7 +17,7 @@ import {
   getStampsByCustomer,
   type StampLogMeta,
 } from "@/app/_domains/_stamp/_services/stampService";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useModal } from "@/app/_contexts/ModalContext";
 import StampLogForm, {
@@ -124,6 +125,57 @@ const getDeliveryItem = (logMeta: StampLogMeta) => {
 
 const addStepLabels = ["기본 정보", "품목 · 금액", "최종 확인"] as const;
 
+const buildOrderedOutboundItemNote = (logMeta: StampLogMeta) => {
+  const items = logMeta.items ?? [];
+  const getBreath = (item?: (typeof items)[number]) => {
+    if (!item) return null;
+    if (item.outboundRuleType && item.outboundRuleType !== "standard") return null;
+    return item.liquidSaleKind?.startsWith("mtl_")
+      ? "mtl"
+      : item.liquidSaleKind?.startsWith("dtl_")
+        ? "dtl"
+        : null;
+  };
+  const liquidSortOrder: Record<string, number> = {
+    mtl_event: 0,
+    mtl_basic: 1,
+    dtl_event: 2,
+    dtl_basic: 3,
+  };
+  const displayItems = items
+    .map((item, sourceIndex) => ({ item, sourceIndex }))
+    .sort((left, right) => {
+      const leftOrder = getBreath(left.item)
+        ? liquidSortOrder[left.item.liquidSaleKind ?? ""] ?? 4
+        : 4;
+      const rightOrder = getBreath(right.item)
+        ? liquidSortOrder[right.item.liquidSaleKind ?? ""] ?? 4
+        : 4;
+      return leftOrder - rightOrder || left.sourceIndex - right.sourceIndex;
+    });
+  const liquidRowsByBreath = (breathType: "mtl" | "dtl") => [
+    ...(logMeta.liquidSale?.appliedRules ?? [])
+      .filter((rule) => rule.breathType === breathType)
+      .map((rule) => `${rule.label} ${rule.count}건`),
+    ...(logMeta.liquidSale?.additionalBottles ?? [])
+      .filter((bottle) => bottle.breathType === breathType)
+      .map((bottle) => `${bottle.label} ${bottle.quantity}건`),
+  ];
+  return displayItems
+    .flatMap(({ item }, index) => {
+      const breath = getBreath(item);
+      const nextBreath = getBreath(displayItems[index + 1]?.item);
+      return [
+        item.lineText,
+        ...(breath && breath !== nextBreath
+          ? liquidRowsByBreath(breath)
+          : []),
+      ];
+    })
+    .filter(Boolean)
+    .join(", ");
+};
+
 export default function StampConfirmModal({
   target,
   mode,
@@ -180,6 +232,14 @@ export default function StampConfirmModal({
   const submittingRef = useRef(false);
   const requestIdRef = useRef(crypto.randomUUID());
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showAccrualWarning, setShowAccrualWarning] = useState(false);
+  const [isAccrualWarningAccepted, setIsAccrualWarningAccepted] = useState(false);
+  const [isDeliveryAccrualConfirmed, setIsDeliveryAccrualConfirmed] =
+    useState(false);
+  const [accrualWarningDestination, setAccrualWarningDestination] = useState<"next" | "confirm" | null>(null);
+  const [accrualWarningType, setAccrualWarningType] = useState<
+    "shortage" | "excess" | "delivery_mismatch" | "delivery_confirm"
+  >("shortage");
 
   const [note, setNote] = useState("");
   const [breathType, setBreathType] = useState<
@@ -195,6 +255,13 @@ export default function StampConfirmModal({
     "remove",
   );
   const [stampLog, setStampLog] = useState<StampLogValue | null>(null);
+  useEffect(() => {
+    setIsDeliveryAccrualConfirmed(false);
+  }, [
+    stampLog?.amount,
+    stampLog?.logMeta.deliveryMethod,
+    stampLog?.logMeta.stampAccrual?.maximum,
+  ]);
   const initialReservationDate = initialLogMeta?.reservationDate?.trim() ?? "";
   const [shipmentTiming, setShipmentTiming] = useState<
     "immediate" | "reservation" | ""
@@ -385,6 +452,16 @@ export default function StampConfirmModal({
     hasDeliveryInfo: true,
     hasCompletedBasicSequence: false,
   });
+  const [hasAcknowledgedFinalSummary, setHasAcknowledgedFinalSummary] =
+    useState(false);
+  const [hasAcknowledgedFinalItems, setHasAcknowledgedFinalItems] =
+    useState(false);
+  useEffect(() => {
+    if (addStep !== 3) {
+      setHasAcknowledgedFinalSummary(false);
+      setHasAcknowledgedFinalItems(false);
+    }
+  }, [addStep]);
   const customerNote = (selectedCustomer?.note ?? target.note)?.trim() ?? "";
   const requiresCustomerNoteAcknowledgement =
     mode === "add" &&
@@ -453,6 +530,49 @@ export default function StampConfirmModal({
       toast.error("특이사항을 입력해 주세요.");
       return;
     }
+    const stampAccrual = stampLog?.logMeta.stampAccrual;
+    if ((mode === "add" || mode === "edit") && shouldAccrueStamp && stampAccrual) {
+      const deliveryAccrualStatus = getDeliveryStampAccrualStatus({
+        deliveryMethod: stampLog?.logMeta.deliveryMethod,
+        amount: stampLog!.amount,
+        maximum: stampAccrual.maximum,
+      });
+      if (deliveryAccrualStatus === "invalid") {
+        setShowConfirm(false);
+        setAccrualWarningType("delivery_mismatch");
+        setAccrualWarningDestination("confirm");
+        setShowAccrualWarning(true);
+        return;
+      }
+      if (
+        deliveryAccrualStatus === "requires_confirmation" &&
+        !isDeliveryAccrualConfirmed
+      ) {
+        setShowConfirm(false);
+        setAccrualWarningType("delivery_confirm");
+        setAccrualWarningDestination("confirm");
+        setShowAccrualWarning(true);
+        return;
+      }
+      if (stampLog!.amount > stampAccrual.maximum) {
+        setShowConfirm(false);
+        setAccrualWarningType("excess");
+        setAccrualWarningDestination("confirm");
+        setShowAccrualWarning(true);
+        return;
+      }
+      if (
+        deliveryAccrualStatus === null &&
+        stampLog!.amount < stampAccrual.maximum &&
+        !isAccrualWarningAccepted
+      ) {
+        setShowConfirm(false);
+        setAccrualWarningType("shortage");
+        setAccrualWarningDestination("confirm");
+        setShowAccrualWarning(true);
+        return;
+      }
+    }
 
     try {
       submittingRef.current = true;
@@ -493,10 +613,7 @@ export default function StampConfirmModal({
                 ? "손님이 퀵부르심"
                 : "";
         const itemNote =
-          stampLog.logMeta.items
-            ?.map((item) => item.lineText)
-            .filter(Boolean)
-            .join(", ") ?? stampLog.note;
+          buildOrderedOutboundItemNote(stampLog.logMeta) || stampLog.note;
         const transactionTags = [
           couponUseTag,
           discountTag,
@@ -801,15 +918,13 @@ export default function StampConfirmModal({
       {effectiveFormCustomerMode !== "demo" &&
         effectiveFormCustomerMode !== "adjustment" &&
         effectiveFormCustomerMode !== "x" &&
-        (selectedCustomer ||
-          (mode !== "add" && mode !== "edit") ||
-          addStep === 1) && (
+        (addStep === 1 || addStep === 3) && (
           <TargetCustomerCard
             name={selectedCustomer?.name ?? target.name}
             phone={selectedCustomer?.phone ?? target.phone}
             address={selectedCustomer?.address ?? target.address}
             note={selectedCustomer?.note ?? target.note}
-            className="mr-1 mb-1 shrink-0"
+            className="mr-1 mb-2.5 shrink-0"
             compact
           />
         )}
@@ -841,7 +956,7 @@ export default function StampConfirmModal({
           requiresCustomerNoteAcknowledgement ? "hidden" : "contents"
         }
       >
-        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pr-1">
         <StampLogForm
           key={`stamp-log-form-${stampLogFormRevision}`}
           initialValue={
@@ -961,10 +1076,12 @@ export default function StampConfirmModal({
           transferPayerName={transferPayerName}
           sameCustomerTransfer={sameCustomerTransfer}
           onTransferPaymentSelectedChange={setIsTransferPaymentSelected}
+          showFinalItemList={hasAcknowledgedFinalSummary}
+          onFinalReviewAcknowledgedChange={setHasAcknowledgedFinalItems}
         />
 
         {addStep === 3 && (
-          <div className="mt-2.5 flex flex-col gap-2.5">
+          <div className="order-first flex flex-col gap-2.5">
             {stampLog && usesStandardSalesFlow && (
               <>
                 <div
@@ -1019,25 +1136,6 @@ export default function StampConfirmModal({
                                 : "배달대행"
                             : "매장방문",
                     },
-                    ...(requiresXCustomerInfo
-                      ? []
-                      : [
-                          {
-                            label: "스탬프 적립",
-                            value:
-                              stampLog.amount === 0
-                                ? "미적립"
-                                : `${stampLog.amount}개`,
-                          },
-                          ...(stampLog.couponUse
-                            ? [
-                                {
-                                  label: "쿠폰 사용",
-                                  value: `${stampLog.couponUse.quantity}장`,
-                                },
-                              ]
-                            : []),
-                        ]),
                     {
                       label: "결제 정보",
                       value: stampLog.logMeta.payments?.length
@@ -1057,19 +1155,48 @@ export default function StampConfirmModal({
                         "없음"
                       ),
                     },
-                  ].map((summary) => (
-                    <div
-                      key={summary.label}
-                      className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5"
-                    >
-                      <p className="text-xs font-medium text-gray-500">
-                        {summary.label}
-                      </p>
-                      <p className="mt-1 text-sm font-semibold text-gray-900">
+                    {
+                      label: "내용 확인",
+                      value: (
+                        <label className="flex cursor-pointer items-center justify-center">
+                          <input
+                            type="checkbox"
+                            checked={hasAcknowledgedFinalSummary}
+                            onChange={(event) => {
+                              setHasAcknowledgedFinalSummary(event.target.checked);
+                              if (!event.target.checked) {
+                                setHasAcknowledgedFinalItems(false);
+                              }
+                            }}
+                            className="h-6 w-6 cursor-pointer rounded border-pink-500 accent-pink-500 focus:ring-pink-200"
+                            aria-label="내용 확인"
+                          />
+                        </label>
+                      ),
+                    },
+                  ].map((summary) =>
+                    summary.label === "내용 확인" ? (
+                      <div
+                        key={summary.label}
+                        className="flex items-center justify-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-semibold text-gray-900"
+                      >
+                        <span>{summary.label}</span>
                         {summary.value}
-                      </p>
-                    </div>
-                  ))}
+                      </div>
+                    ) : (
+                      <div
+                        key={summary.label}
+                        className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5"
+                      >
+                        <p className="text-xs font-medium text-gray-500">
+                          {summary.label}
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-gray-900">
+                          {summary.value}
+                        </p>
+                      </div>
+                    ),
+                  )}
                 </div>
 
                 {stampLog.logMeta.deliveryMethod !== "store_visit" && (
@@ -1122,7 +1249,7 @@ export default function StampConfirmModal({
                 </div>
               )}
 
-            <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+            <div className="hidden overflow-hidden rounded-lg border border-gray-200 bg-white">
               <div className="flex items-center gap-3 border-b border-gray-200 bg-gray-50 px-4 py-3">
                 <h3 className="text-sm font-semibold text-gray-900">
                   품목 목록
@@ -1605,6 +1732,41 @@ export default function StampConfirmModal({
                       return;
                     }
                   }
+                  if (addStep === 2 && shouldAccrueStamp && stampLog?.logMeta.stampAccrual) {
+                    const stampAccrual = stampLog.logMeta.stampAccrual;
+                    const deliveryAccrualStatus = getDeliveryStampAccrualStatus({
+                      deliveryMethod: stampLog.logMeta.deliveryMethod,
+                      amount: stampLog.amount,
+                      maximum: stampAccrual.maximum,
+                    });
+                    if (deliveryAccrualStatus === "invalid") {
+                      setAccrualWarningType("delivery_mismatch");
+                      setAccrualWarningDestination("next");
+                      setShowAccrualWarning(true);
+                      return;
+                    }
+                    if (
+                      deliveryAccrualStatus === "requires_confirmation" &&
+                      !isDeliveryAccrualConfirmed
+                    ) {
+                      setAccrualWarningType("delivery_confirm");
+                      setAccrualWarningDestination("next");
+                      setShowAccrualWarning(true);
+                      return;
+                    }
+                    if (stampLog.amount > stampAccrual.maximum) {
+                      setAccrualWarningType("excess");
+                      setAccrualWarningDestination("next");
+                      setShowAccrualWarning(true);
+                      return;
+                    }
+                    if (deliveryAccrualStatus === null && stampLog.amount < stampAccrual.maximum) {
+                      setAccrualWarningType("shortage");
+                      setAccrualWarningDestination("next");
+                      setShowAccrualWarning(true);
+                      return;
+                    }
+                  }
                   setAddStep((s) => (s === 1 ? 2 : 3));
                 }}
               >
@@ -1615,7 +1777,13 @@ export default function StampConfirmModal({
             <Button
               data-manual-key="outbound-modal-confirm"
               size="sm"
-              disabled={!stampLog || isSubmitting}
+              disabled={
+                !stampLog ||
+                isSubmitting ||
+                (addStep === 3 &&
+                  usesStandardSalesFlow &&
+                  (!hasAcknowledgedFinalSummary || !hasAcknowledgedFinalItems))
+              }
               onClick={handleConfirm}
             >
               {isSubmitting
@@ -1708,7 +1876,26 @@ export default function StampConfirmModal({
   );
 
   if (mode === "add" || mode === "edit") {
-    return addModeContent;
+    const stampAccrual = stampLog?.logMeta.stampAccrual;
+    const couponUse = stampLog?.couponUse;
+    const normalizeAccrualLabel = (value: string) => value.replace(/[\s·.-]/g, "").replace("액상", "");
+    const couponLabel = couponUse ? getCouponUsageNote(couponUse) : "";
+    const couponTarget = couponUse ? normalizeAccrualLabel(couponLabel.replace(/ 쿠폰.*$/, "")) : "";
+    const couponItemIndex = stampAccrual && couponTarget ? stampAccrual.items.findIndex((item) => normalizeAccrualLabel(item.categoryName).includes(couponTarget)) : -1;
+    const formulaParts: string[] = [];
+    stampAccrual?.items.forEach((item, index) => {
+      formulaParts.push(index === 0 ? String(item.quantity) : `+${item.quantity}`);
+      if (index === couponItemIndex && couponUse) formulaParts.push(`-${couponUse.quantity}`);
+    });
+    const isDeliveryConfirmation = accrualWarningType === "delivery_confirm";
+    const warningMessage = isDeliveryConfirmation
+      ? "택배,배달 적립 대상인가요?\n미적립 대상이면 적립수량을 0개로 수정해주세요."
+      : accrualWarningType === "delivery_mismatch"
+        ? "택배,배달은 수량에 맞게 적립 또는 0개만 가능합니다.\n미적립 대상은 0개, 적립대상은 가능 수량에 맞게 조정해주세요."
+        : accrualWarningType === "excess"
+          ? `현재 ${stampLog?.amount ?? 0}개가 입력되었습니다.\n수정해주세요.`
+          : `현재 ${stampLog?.amount ?? 0}개만 적립됩니다.\n수정 또는 진행해주세요.`;
+    return <>{addModeContent}{showAccrualWarning && stampAccrual && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4"><div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl"><div className="text-sm leading-6 text-gray-700"><p className="font-semibold text-gray-900">적립 가능 수량</p>{stampAccrual.items.map((item, index) => <Fragment key={item.categoryName}><p>{item.categoryName} {item.quantity}개</p>{index === couponItemIndex && couponUse && <p>{couponLabel}</p>}</Fragment>)}<p className="mt-1 font-medium text-gray-900">{formulaParts.join("")} = {stampAccrual.maximum}개 가능</p></div><div className="my-4 border-t border-gray-200" /><p className="whitespace-pre-line text-sm leading-6 text-gray-700">{warningMessage}</p><div className="mt-5 flex justify-end gap-2"><Button type="button" size="sm" variant="gray" onClick={() => { setShowAccrualWarning(false); setAccrualWarningDestination(null); }}>{isDeliveryConfirmation ? "아니오" : "수정하기"}</Button>{isDeliveryConfirmation && <Button type="button" size="sm" onClick={() => { const destination = accrualWarningDestination; setIsDeliveryAccrualConfirmed(true); setShowAccrualWarning(false); setAccrualWarningDestination(null); if (destination === "next") setAddStep(3); else setShowConfirm(true); }}>네</Button>}{accrualWarningType === "shortage" && <Button type="button" size="sm" onClick={() => { const destination = accrualWarningDestination; setIsAccrualWarningAccepted(true); setShowAccrualWarning(false); setAccrualWarningDestination(null); if (destination === "next") setAddStep(3); else setShowConfirm(true); }}>진행하기</Button>}</div></div></div>}</>;
   }
 
   const confirmContent = (

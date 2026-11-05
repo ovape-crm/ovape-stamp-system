@@ -24,6 +24,7 @@ import { updateHistoryMasterMetadata } from "@/app/_domains/_log/_services/logSe
 import { useQueryClient } from "@tanstack/react-query";
 import { logKeys } from "@/app/_domains/_log/_queryKeys/logKeys";
 import { customerKeys } from "@/app/_domains/_customer/_queryKeys/customerKeys";
+import { getCustomerById } from "@/app/_domains/_customer/_services/customerService";
 import RefundModal from "@/app/(auth)/histories/_components/StampHistories/RefundModal";
 import StampHistoryItem from "@/app/(auth)/histories/_components/StampHistories/StampHistoryItem";
 import { createCustomerFollowUpRemark, updateOpenCustomerFollowUpRemark } from "@/app/_domains/_customer/_services/customerFollowUpRemarkService";
@@ -185,8 +186,27 @@ const CustomersDetailStampsHistories = ({
     (log: CustomersLogsResType[number]) => {
       const handleConfirm = async () => {
         try {
-          const deletedLogIds = await deleteLog(log.id);
+          const { deletedLogIds, stampCount } = await deleteLog(log.id);
           deletedLogIds.forEach(onDeleteLog);
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: logKeys.all() }),
+            queryClient.invalidateQueries({ queryKey: customerKeys.detail(targetUser.id) }),
+          ]);
+          if (stampCount !== undefined) {
+            queryClient.setQueryData(
+              customerKeys.detail(targetUser.id),
+              (customer: Awaited<ReturnType<typeof getCustomerById>> | undefined) =>
+                customer
+                  ? { ...customer, stamps: [{ count: stampCount }] }
+                  : customer,
+            );
+          } else {
+            const refreshedCustomer = await getCustomerById(targetUser.id);
+            queryClient.setQueryData(
+              customerKeys.detail(targetUser.id),
+              refreshedCustomer,
+            );
+          }
           close();
           toast.success("로그를 삭제했습니다.");
         } catch (e) {
@@ -202,7 +222,7 @@ const CustomersDetailStampsHistories = ({
         options: { dismissOnBackdrop: false },
       });
     },
-    [onDeleteLog, open, close],
+    [onDeleteLog, open, close, queryClient, targetUser.id],
   );
 
   const handleEdit = useCallback(
@@ -295,12 +315,8 @@ const CustomersDetailStampsHistories = ({
         amount: number;
       }) => {
         try {
-          // 예약 이력은 아직 스탬프가 적립되지 않았으므로 개수 수정 허용
-          const nextAction = isReservation
-            ? values.amount === 0
-              ? "no-stamp"
-              : `add-${values.amount}`
-            : undefined;
+          const nextAction =
+            values.amount === 0 ? "no-stamp" : `add-${values.amount}`;
           const updated = await updateLogNote(
             log.id,
             values.note,
@@ -316,6 +332,15 @@ const CustomersDetailStampsHistories = ({
             jsonb: updated.jsonb,
             updated_at: updated.updated_at,
           }));
+          if (typeof updated.stampCount === "number") {
+            queryClient.setQueryData(
+              customerKeys.detail(targetUser.id),
+              (customer: Awaited<ReturnType<typeof getCustomerById>> | undefined) =>
+                customer
+                  ? { ...customer, stamps: [{ count: updated.stampCount }] }
+                  : customer,
+            );
+          }
           close();
           toast.success("이력을 저장했습니다.");
         } catch (e) {
@@ -343,7 +368,7 @@ const CustomersDetailStampsHistories = ({
               log.jsonb?.storeName as StoreTypeEnumType["value"] | undefined
             }
             initialLogMeta={log.jsonb as StampLogMeta}
-            isStampAmountEditable={isReservation}
+            isStampAmountEditable
             title={isReservation ? "출고 예약 수정" : "출고 이력 수정"}
             onSubmit={handleSubmit}
             onCancel={close}

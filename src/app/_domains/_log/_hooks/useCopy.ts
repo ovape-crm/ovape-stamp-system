@@ -213,7 +213,7 @@ const useCopy = () => {
         ? splitPayments
             .map((payment) =>
               buildClipboardRow(
-                `${hasTransactionTag ? "분할결제," : "분할결제) "}${formatHistoryNote(log.note, log.jsonb)}`,
+                `(분할결제) ${formatHistoryNote(log.note, log.jsonb)}`,
                 String(payment.amount),
                 paymentTypeNameByValue[payment.paymentType] ?? "",
               ),

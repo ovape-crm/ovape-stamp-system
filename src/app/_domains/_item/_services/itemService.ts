@@ -246,7 +246,7 @@ export const searchOutboundItems = async (
 
   const { data, error } = await supabase
     .from("items")
-    .select("*, item_categories(id, name, order_index, is_liquid_category, liquid_sale_kind, created_at)")
+    .select("*, item_categories(id, name, order_index, is_liquid_category, liquid_sale_kind, is_stamp_eligible, stamp_count_per_item, created_at)")
     .eq("is_use", true)
     .ilike("item_name", `%${normalizedKeyword}%`)
     .order("item_name", { ascending: true })

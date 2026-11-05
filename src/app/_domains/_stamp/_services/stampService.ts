@@ -24,6 +24,10 @@ export type StampLogItem = {
   itemId: string;
   itemName: string;
   itemCategoryName?: string | null;
+  isLiquidCategory?: boolean;
+  liquidSaleKind?: "mtl_event" | "mtl_basic" | "dtl_event" | "dtl_basic" | null;
+  outboundRuleType?: "standard" | "service" | "price_adjust" | "exchange_in" | "exchange_out" | "adjustment" | "demo";
+  stampCountPerItem?: number;
   quantity: number;
   unitPrice: number;
   adjustedUnitPrice?: number | null;
@@ -112,8 +116,15 @@ export type StampLogMeta = {
   couponUse?: {
     quantity: number;
     breathType: BreathTypeEnumType["value"];
+    saleKind?: "event" | "basic";
     customMemo?: string;
   };
+  liquidSale?: {
+    amount: number;
+    appliedRules: Array<{ breathType?: "mtl" | "dtl"; label: string; salePrice: number; count: number }>;
+    additionalBottles: Array<{ breathType?: "mtl" | "dtl"; label: string; unitPrice: number; quantity: number }>;
+  };
+  stampAccrual?: { maximum: number; items: Array<{ categoryName: string; quantity: number; stampCount: number }>; couponQuantity: number };
 };
 
 export const getCouponUsageNote = (
@@ -126,7 +137,8 @@ export const getCouponUsageNote = (
         ? BreathTypeEnum.DTL.name
         : couponUse.customMemo?.trim() || BreathTypeEnum.CUSTOM.name;
 
-  return `${typeLabel} 쿠폰 ${couponUse.quantity}장 사용`;
+  const saleKindLabel = couponUse.saleKind === "event" ? " · 이벤트" : couponUse.saleKind === "basic" ? " · 기본" : "";
+  return `${typeLabel}${saleKindLabel} 쿠폰 ${couponUse.quantity}장 사용`;
 };
 
 /**

@@ -12,6 +12,8 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { itemKeys } from "@/app/_domains/_item/_queryKeys/itemKeys";
 import { searchOutboundItems } from "@/app/_domains/_item/_services/itemService";
+import { getLiquidSaleExtraBottlePrices, getLiquidSalePriceRules, liquidSaleExtraBottlePriceKey, liquidSalePriceRuleKey } from "@/app/_domains/_item/_services/liquidSalePriceRuleService";
+import { calculateLiquidSale, type LiquidKind } from "@/app/_domains/_item/_utils/liquidSaleCalculation";
 import { useOutboundMemoRules } from "@/app/_domains/_item/_hooks/useOutboundMemoRules";
 import type { ItemType } from "@/app/_domains/_item/_types/item.types";
 import type {
@@ -28,7 +30,7 @@ import {
   getCustomerExchangeSaleOptions,
   getCouponUsageNote,
 } from "@/app/_domains/_stamp/_services/stampService";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CustomerMode } from "@/app/_domains/_customer/_utils/specialCustomer";
 import { formatPhoneNumber } from "@/app/_utils/utils";
 
@@ -101,6 +103,7 @@ export type StampLogValue = {
   couponUse?: {
     quantity: number;
     breathType: BreathTypeEnumType["value"];
+    saleKind?: "event" | "basic";
     customMemo?: string;
   };
 };
@@ -164,6 +167,8 @@ export default function StampLogForm({
   onTransferPaymentSelectedChange,
   compactStepOneSpacing = false,
   hideRemoteDeliveryMethods = false,
+  showFinalItemList = false,
+  onFinalReviewAcknowledgedChange,
 }: {
   onChange: (value: StampLogValue | null) => void;
   initialValue?: StampLogFormInitialValue;
@@ -213,6 +218,9 @@ export default function StampLogForm({
   compactStepOneSpacing?: boolean;
   /** X남자/X여자 출고 추가에서는 매장방문만 선택 가능 */
   hideRemoteDeliveryMethods?: boolean;
+  /** 최종 확인에서 상단 정보 확인 후 품목표를 표시한다. */
+  showFinalItemList?: boolean;
+  onFinalReviewAcknowledgedChange?: (value: boolean) => void;
   customerSummary?: {
     name: string;
     phone: string;
@@ -243,16 +251,9 @@ export default function StampLogForm({
   const [couponCustomMemo, setCouponCustomMemo] = useState(
     initialCouponUse?.customMemo ?? "",
   );
+  const [couponSaleKind, setCouponSaleKind] = useState<LiquidKind>(initialCouponUse?.saleKind ?? "event");
   const maxCouponUseQuantity = Math.floor((currentStampCount + amount) / 10);
-  const couponUseDisplay = initialCouponUse
-    ? `${
-        initialCouponUse.breathType === BreathTypeEnum.MTL.value
-          ? BreathTypeEnum.MTL.name
-          : initialCouponUse.breathType === BreathTypeEnum.DTL.value
-            ? BreathTypeEnum.DTL.name
-            : initialCouponUse.customMemo?.trim() || BreathTypeEnum.CUSTOM.name
-      } 쿠폰 ${initialCouponUse.quantity}장 사용`
-    : "";
+  const couponUseDisplay = initialCouponUse ? getCouponUsageNote(initialCouponUse) : "";
   useEffect(() => {
     if (!isEditMode && currentStampCount + amount < 10) {
       setUseCouponAfterShipment(false);
@@ -355,6 +356,7 @@ export default function StampLogForm({
     "correction" | "damage" | "loss" | "disposal"
   >("correction");
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
+  const [recentlySavedLineId, setRecentlySavedLineId] = useState<string | null>(null);
   const [draftLines, setDraftLines] = useState<DraftStampLogLine[]>(
     () =>
       initialValue?.logMeta?.items?.map((item, index) => ({
@@ -363,6 +365,13 @@ export default function StampLogForm({
         id: `${item.itemId}-${index}`,
       })) ?? [],
   );
+  const initialLiquidCompositionRef = useRef(
+    (initialValue?.logMeta?.items ?? [])
+      .map((item) => `${item.itemId}:${item.quantity}:${item.liquidSaleKind ?? ""}:${item.outboundRuleType ?? ""}`)
+      .sort()
+      .join("|")
+  );
+  const [editLiquidPriceMode, setEditLiquidPriceMode] = useState<"saved" | "current">("saved");
   const exchangeSaleOptionsQuery = useQuery({
     queryKey: [
       "customer-exchange-sale-options",
@@ -408,6 +417,7 @@ export default function StampLogForm({
     initialValue?.logMeta?.extraNote ?? "",
   );
   const itemSearchRef = useRef<HTMLDivElement>(null);
+  const itemSelectionRef = useRef<HTMLDivElement>(null);
   const lineRefs = useRef(new Map<string, HTMLElement>());
   const previousLineRectsRef = useRef(new Map<string, DOMRect>());
 
@@ -431,6 +441,8 @@ export default function StampLogForm({
     refetchOnMount: "always",
     refetchInterval: showItemResults && !selectedItem ? 15000 : false,
   });
+  const liquidRulesQuery = useQuery({ queryKey: liquidSalePriceRuleKey, queryFn: getLiquidSalePriceRules });
+  const liquidExtraPricesQuery = useQuery({ queryKey: liquidSaleExtraBottlePriceKey, queryFn: getLiquidSaleExtraBottlePrices });
   const items = itemSearchQuery.data ?? [];
   const isItemsLoading = itemSearchQuery.isPending;
   const isItemsFetching = itemSearchQuery.isFetching;
@@ -536,7 +548,37 @@ export default function StampLogForm({
       : selectedOutboundRuleType === "price_adjust"
         ? priceAdjustMemo
         : customRemark;
-  const totalAmount = draftLines.reduce((sum, line) => sum + line.amount, 0);
+  const isStandardSaleLine = (line: DraftStampLogLine) => !line.outboundRuleType || line.outboundRuleType === "standard";
+  const isLiquidAutoSaleEligible = usesStandardSalesFlow && draftLines.length > 0;
+  const automaticLiquidLines = draftLines.filter(isStandardSaleLine);
+  const liquidCoupon = useCouponAfterShipment && (couponBreathType === BreathTypeEnum.MTL.value || couponBreathType === BreathTypeEnum.DTL.value)
+    ? { breathType: couponBreathType === BreathTypeEnum.MTL.value ? "mtl" as const : "dtl" as const, saleKind: couponSaleKind, quantity: couponUseQuantity }
+    : undefined;
+  let liquidSaleCalculation: ReturnType<typeof calculateLiquidSale> | undefined;
+  let liquidSaleError = "";
+  if (isLiquidAutoSaleEligible && !liquidRulesQuery.isPending && !liquidExtraPricesQuery.isPending) {
+    try { liquidSaleCalculation = calculateLiquidSale(automaticLiquidLines, liquidRulesQuery.data ?? [], liquidExtraPricesQuery.data ?? [], liquidCoupon); }
+    catch (error) { liquidSaleError = error instanceof Error ? error.message : "액상 판매금액을 계산하지 못했습니다."; }
+  }
+  const liquidCompositionChanged = draftLines.map((line) => `${line.itemId}:${line.quantity}:${line.liquidSaleKind ?? ""}:${line.outboundRuleType ?? ""}`).sort().join("|") !== initialLiquidCompositionRef.current;
+  const savedLiquidSale = initialValue?.logMeta?.liquidSale;
+  const hasLiquidPriceChange = Boolean(isEditMode && savedLiquidSale && liquidSaleCalculation && savedLiquidSale.amount !== liquidSaleCalculation.totalAmount && !liquidCompositionChanged);
+  const useSavedLiquidPrice = Boolean(isEditMode && savedLiquidSale && !liquidCompositionChanged && editLiquidPriceMode === "saved");
+  const liquidAutoAmount = useSavedLiquidPrice ? savedLiquidSale!.amount : (liquidSaleCalculation?.totalAmount ?? 0);
+  const liquidSaleForSave = useSavedLiquidPrice ? savedLiquidSale : liquidSaleCalculation ? {
+    amount: liquidSaleCalculation.totalAmount,
+    appliedRules: liquidSaleCalculation.appliedRules.map((rule) => ({ breathType: rule.breathType, label: rule.label, salePrice: rule.salePrice, count: rule.count })),
+    additionalBottles: liquidSaleCalculation.additionalBottles.map((bottle) => ({ breathType: bottle.breathType, label: bottle.label, unitPrice: bottle.unitPrice, quantity: bottle.quantity })),
+  } : undefined;
+  const stampAccrualItems = Object.values(draftLines.reduce<Record<string, { categoryName: string; quantity: number; stampCount: number }>>((result, line) => {
+    if (!line.stampCountPerItem || !isStandardSaleLine(line)) return result;
+    const key = line.itemCategoryName ?? "미분류";
+    const current = result[key] ?? { categoryName: key, quantity: 0, stampCount: line.stampCountPerItem };
+    current.quantity += line.quantity; result[key] = current; return result;
+  }, {}));
+  const stampAccrualMaximum = stampAccrualItems.reduce((sum, item) => sum + item.quantity * item.stampCount, 0) - (useCouponAfterShipment ? couponUseQuantity : 0);
+  const itemTotalAmount = draftLines.reduce((sum, line) => sum + (isStandardSaleLine(line) && line.liquidSaleKind ? 0 : line.amount), 0);
+  const totalAmount = itemTotalAmount + liquidAutoAmount;
   const discountLabel = discountOptions.find(
     (option) => option.value === discountType,
   )?.name;
@@ -599,9 +641,9 @@ export default function StampLogForm({
     splitPayments.every((payment) => payment.amount >= 1);
   const splitPaymentMatches =
     hasAmountForEverySplitPayment && splitPaymentDifference === 0;
-  const amountExpression = draftLines
+  const amountExpression = [...draftLines
     .map((line) => formatAmount(line.amount))
-    .join(" + ");
+    , ...(liquidAutoAmount > 0 ? [formatAmount(liquidAutoAmount)] : [])].join(" + ");
   const finalAmountExpression = [
     amountExpression || "0",
     activeDiscountAmount > 0 ? `- ${formatAmount(activeDiscountAmount)}` : "",
@@ -676,13 +718,11 @@ export default function StampLogForm({
         : deliveryType !== "" &&
           (deliveryType !== "agency" || deliveryFeeInput !== "")));
   const hasValidCouponSelection =
-    isEditMode ||
     !useCouponAfterShipment ||
     (couponUseQuantity >= 1 &&
-      couponUseQuantity * 10 <= currentStampCount + amount &&
       couponBreathType !== "" &&
-      (couponBreathType !== BreathTypeEnum.CUSTOM.value ||
-        couponCustomMemo.trim().length > 0));
+      !liquidSaleError &&
+      (isEditMode || couponUseQuantity * 10 <= currentStampCount + amount));
 
   useEffect(() => {
     if (!isNonSalesSpecialCustomer) return;
@@ -702,7 +742,7 @@ export default function StampLogForm({
   }, [discountType, canUseTransferDiscount, canUseCashDiscount]);
 
   useEffect(() => {
-    if (customerMode === "x") setAmount(0);
+    if (customerMode === "x") { setAmount(0); setUseCouponAfterShipment(false); }
   }, [customerMode]);
 
   useEffect(() => {
@@ -823,6 +863,9 @@ export default function StampLogForm({
         itemId: line.itemId,
         itemName: line.itemName,
         itemCategoryName: line.itemCategoryName,
+        liquidSaleKind: line.liquidSaleKind,
+        outboundRuleType: line.outboundRuleType,
+        stampCountPerItem: line.stampCountPerItem,
         quantity: line.quantity,
         unitPrice: line.unitPrice,
         adjustedUnitPrice: line.adjustedUnitPrice,
@@ -844,12 +887,11 @@ export default function StampLogForm({
           ? {
               quantity: couponUseQuantity,
               breathType: couponBreathType,
-              customMemo:
-                couponBreathType === BreathTypeEnum.CUSTOM.value
-                  ? couponCustomMemo.trim() || undefined
-                  : undefined,
+              saleKind: couponSaleKind,
             }
           : undefined,
+      liquidSale: liquidSaleForSave,
+      stampAccrual: customerMode === "normal" && showStampAccrual && usesStandardSalesFlow ? { maximum: Math.max(0, stampAccrualMaximum), items: stampAccrualItems, couponQuantity: useCouponAfterShipment ? couponUseQuantity : 0 } : undefined,
     };
 
     onChangeRef.current({
@@ -880,10 +922,7 @@ export default function StampLogForm({
           ? {
               quantity: couponUseQuantity,
               breathType: couponBreathType,
-              customMemo:
-                couponBreathType === BreathTypeEnum.CUSTOM.value
-                  ? couponCustomMemo.trim() || undefined
-                  : undefined,
+              saleKind: couponSaleKind,
             }
           : undefined,
     });
@@ -1164,15 +1203,23 @@ export default function StampLogForm({
         : remarkType === "service"
           ? `서비스${customRemark.trim() ? `,${customRemark.trim().replace(/^\((.*)\)$/, "$1")}` : ""}`
           : remark;
-    const lineText = `${selectedItem.item_name} ${quantity}개${
+    const itemUnit = selectedItem.item_categories?.is_liquid_category ? "병" : "개";
+    const lineText = `${selectedItem.item_name} ${quantity}${itemUnit}${
       remarkText ? ` (${remarkText})` : ""
     }`;
+    const editedLine = editingLineId
+      ? draftLines.find((line) => line.id === editingLineId)
+      : undefined;
 
     const nextLine: DraftStampLogLine = {
       id: editingLineId ?? `${selectedItem.id}-${Date.now()}`,
       itemId: selectedItem.id,
       itemName: selectedItem.item_name,
-      itemCategoryName: selectedItem.item_categories?.name ?? null,
+      itemCategoryName: selectedItem.item_categories?.name ?? editedLine?.itemCategoryName ?? null,
+      isLiquidCategory: selectedItem.item_categories?.is_liquid_category ?? editedLine?.isLiquidCategory ?? false,
+      liquidSaleKind: (selectedItem.item_categories?.liquid_sale_kind ?? editedLine?.liquidSaleKind ?? null) as StampLogItem["liquidSaleKind"],
+      outboundRuleType: customerMode === "demo" ? "demo" : customerMode === "adjustment" ? "adjustment" : remarkType === "service" ? "service" : remarkType === "price_adjust" ? "price_adjust" : remarkType === "exchange_in" ? "exchange_in" : remarkType === "exchange_out" || remarkType === "as_exchange_out" ? "exchange_out" : "standard",
+      stampCountPerItem: selectedItem.item_categories?.is_stamp_eligible ? selectedItem.item_categories.stamp_count_per_item : (editedLine?.stampCountPerItem ?? 0),
       quantity,
       unitPrice: price,
       adjustedUnitPrice: remarkType === "price_adjust" ? adjustedPrice : null,
@@ -1234,6 +1281,11 @@ export default function StampLogForm({
         : [...prev, nextLine],
     );
     resetLineInputs();
+    setRecentlySavedLineId(nextLine.id);
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+      lineRefs.current.get(nextLine.id)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      window.setTimeout(() => setRecentlySavedLineId(null), 1600);
+    }));
   };
 
   const handleEditLine = (line: DraftStampLogLine) => {
@@ -1256,10 +1308,10 @@ export default function StampLogForm({
             id: "",
             name: line.itemCategoryName,
             order_index: 0,
-            is_liquid_category: false,
-            liquid_sale_kind: null,
-            is_stamp_eligible: false,
-            stamp_count_per_item: 0,
+            is_liquid_category: Boolean(line.isLiquidCategory),
+            liquid_sale_kind: line.liquidSaleKind ?? null,
+            is_stamp_eligible: Boolean(line.stampCountPerItem),
+            stamp_count_per_item: line.stampCountPerItem ?? 0,
             created_at: "",
           }
         : null,
@@ -1270,6 +1322,7 @@ export default function StampLogForm({
     setItemSearch("");
     setShowItemResults(false);
     setQuantity(line.quantity);
+    window.requestAnimationFrame(() => itemSelectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
     setCustomRemark("");
     setExchangeMemo("");
     setExchangeSaleSource(
@@ -1953,15 +2006,20 @@ export default function StampLogForm({
             </div>
             {isEditMode ? (
               initialCouponUse ? (
-                <div className="col-span-2 flex min-h-9 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 px-3 text-center text-xs font-semibold text-gray-700">
-                  {couponUseDisplay}
+                <div className="col-span-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-center text-xs font-semibold text-gray-700">
+                  <p>{couponUseDisplay}</p>
+                  {liquidSaleError && (
+                    <p className="mt-1 whitespace-pre-line text-rose-600">
+                      {`${liquidSaleError}\n쿠폰 적용 액상을 확인해 주세요.`}
+                    </p>
+                  )}
                 </div>
               ) : (
                 <div className="col-span-2" aria-hidden="true" />
               )
             ) : (
               <>
-                {currentStampCount + amount >= 10 ? (
+                {customerMode === "normal" && currentStampCount + amount >= 10 ? (
                   <Button
                     type="button"
                     size="xs"
@@ -1974,7 +2032,7 @@ export default function StampLogForm({
                 ) : (
                   <div aria-hidden="true" />
                 )}
-                {currentStampCount + amount >= 10 ? (
+                {customerMode === "normal" && currentStampCount + amount >= 10 ? (
                   <Button
                     type="button"
                     size="xs"
@@ -1996,7 +2054,7 @@ export default function StampLogForm({
         </div>
       </div>
       {!isEditMode &&
-        currentStampCount + amount >= 10 &&
+        customerMode === "normal" && currentStampCount + amount >= 10 &&
         useCouponAfterShipment && (
           <div className="grid grid-cols-[140px_minmax(0,1fr)] border-t border-gray-200">
             <div className="flex items-center border-r border-gray-200 px-4 py-2 text-gray-800">
@@ -2053,7 +2111,7 @@ export default function StampLogForm({
                     +
                   </button>
                 </div>
-                {Object.values(BreathTypeEnum).map((option) => (
+                {[BreathTypeEnum.MTL, BreathTypeEnum.DTL].map((option) => (
                   <Button
                     key={option.value}
                     type="button"
@@ -2067,18 +2125,9 @@ export default function StampLogForm({
                     {option.name}
                   </Button>
                 ))}
-                {couponBreathType === BreathTypeEnum.CUSTOM.value && (
-                  <input
-                    type="text"
-                    value={couponCustomMemo}
-                    onChange={(event) =>
-                      setCouponCustomMemo(event.target.value)
-                    }
-                    placeholder="쿠폰사용 내용입력"
-                    className="h-8 min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none placeholder:text-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-                  />
-                )}
+                {(couponBreathType === BreathTypeEnum.MTL.value || couponBreathType === BreathTypeEnum.DTL.value) && <div className="flex items-center gap-1 border-l border-gray-200 pl-2"><Button type="button" size="xs" variant={couponSaleKind === "event" ? "primary" : "gray"} className="h-8 whitespace-nowrap" onClick={() => setCouponSaleKind("event")}>이벤트</Button><Button type="button" size="xs" variant={couponSaleKind === "basic" ? "primary" : "gray"} className="h-8 whitespace-nowrap" onClick={() => setCouponSaleKind("basic")}>기본</Button></div>}
               </div>
+              {liquidSaleError && <p className="mt-2 whitespace-pre-line text-xs font-medium text-rose-600">{`${liquidSaleError}\n쿠폰 적용 액상을 변경해 주세요.`}</p>}
             </div>
           </div>
         )}
@@ -2100,7 +2149,7 @@ export default function StampLogForm({
   ) : null;
 
   const itemSelectionField = (
-    <div className="grid grid-cols-1 gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3 lg:grid-cols-2 lg:items-stretch">
+    <div ref={itemSelectionRef} className="sticky top-0 z-20 grid grid-cols-1 gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3 shadow-sm lg:grid-cols-2 lg:items-stretch">
       <div className="min-w-0">
         {editingLineId && (
           <span className="mb-1 block w-fit rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
@@ -2615,10 +2664,7 @@ export default function StampLogForm({
       ? {
           quantity: couponUseQuantity,
           breathType: couponBreathType,
-          customMemo:
-            couponBreathType === BreathTypeEnum.CUSTOM.value
-              ? couponCustomMemo.trim() || undefined
-              : undefined,
+          saleKind: couponSaleKind,
         }
       : null;
   const deliveryForItemList =
@@ -2643,10 +2689,121 @@ export default function StampLogForm({
           name: amount > 0 ? `스탬프 ${amount}개 적립` : "스탬프 미적립",
         }
       : null;
+  const liquidSaleRowsForItemList = liquidSaleForSave && liquidAutoAmount > 0
+    ? (["mtl", "dtl"] as const).flatMap((breathType) => {
+        const resolveBreath = (label: string, value?: "mtl" | "dtl") => value ?? (label.startsWith("입호흡") ? "mtl" : "dtl");
+        return [
+          ...liquidSaleForSave.appliedRules.filter((rule) => resolveBreath(rule.label, rule.breathType) === breathType).map((rule) => ({ breathType, name: rule.label, unitPrice: rule.salePrice, quantity: rule.count, amount: rule.salePrice * rule.count })),
+          ...liquidSaleForSave.additionalBottles.filter((bottle) => resolveBreath(bottle.label, bottle.breathType) === breathType).map((bottle) => ({ breathType, name: bottle.label, unitPrice: bottle.unitPrice, quantity: bottle.quantity, amount: bottle.unitPrice * bottle.quantity })),
+        ];
+      })
+    : [];
+  const liquidSortOrder: Record<string, number> = { mtl_event: 0, mtl_basic: 1, dtl_event: 2, dtl_basic: 3 };
+  const displayDraftLines = isLiquidAutoSaleEligible
+    ? draftLines.map((line, sourceIndex) => ({ line, sourceIndex })).sort((left, right) => {
+        const leftOrder = isStandardSaleLine(left.line) && left.line.liquidSaleKind ? liquidSortOrder[left.line.liquidSaleKind] ?? 4 : 4;
+        const rightOrder = isStandardSaleLine(right.line) && right.line.liquidSaleKind ? liquidSortOrder[right.line.liquidSaleKind] ?? 4 : 4;
+        return leftOrder - rightOrder || left.sourceIndex - right.sourceIndex;
+      })
+    : draftLines.map((line, sourceIndex) => ({ line, sourceIndex }));
+  const getLiquidBreath = (line: DraftStampLogLine | undefined) => !line || !isStandardSaleLine(line) ? null : line.liquidSaleKind?.startsWith("mtl_") ? "mtl" : line.liquidSaleKind?.startsWith("dtl_") ? "dtl" : null;
+  const hasAutomaticSaleRowAfter = (index: number) => {
+    const breath = getLiquidBreath(displayDraftLines[index]?.line);
+    return Boolean(breath && liquidSaleRowsForItemList.some((row) => row.breathType === breath) && getLiquidBreath(displayDraftLines[index + 1]?.line) !== breath);
+  };
+  const automaticSaleRowsBefore = (index: number) => displayDraftLines.slice(0, index).reduce((count, _, lineIndex) => count + (hasAutomaticSaleRowAfter(lineIndex) ? liquidSaleRowsForItemList.filter((row) => row.breathType === getLiquidBreath(displayDraftLines[lineIndex]?.line)).length : 0), 0);
   const virtualItemCount =
     Number(Boolean(couponUseForItemList)) +
     Number(Boolean(deliveryForItemList)) +
     Number(Boolean(stampAccrualForItemList));
+  const isFinalReview = step === 3;
+  const finalReviewRowIds = [
+    ...(couponUseForItemList ? ["coupon"] : []),
+    ...(deliveryForItemList ? ["delivery"] : []),
+    ...(stampAccrualForItemList ? ["stamp"] : []),
+    ...displayDraftLines.flatMap(({ line }, index) => [
+      `line:${line.id}`,
+      ...(hasAutomaticSaleRowAfter(index)
+        ? liquidSaleRowsForItemList
+            .filter((row) => row.breathType === getLiquidBreath(line))
+            .map((row, rowIndex) =>
+              `liquid:${row.breathType}:${row.name}:${rowIndex}`,
+            )
+        : []),
+    ]),
+  ];
+  const finalReviewRowKey = finalReviewRowIds.join("|");
+  const finalReviewItemDataKey = JSON.stringify({
+    lines: draftLines.map((line) => ({
+      id: line.id,
+      quantity: line.quantity,
+      amount: line.amount,
+      adjustedUnitPrice: line.adjustedUnitPrice,
+      remark: line.remark,
+      inventoryAction: line.inventoryAction,
+    })),
+    coupon: couponUseForItemList,
+    delivery: deliveryForItemList,
+    stamp: stampAccrualForItemList,
+    liquidSale: liquidSaleRowsForItemList,
+  });
+  const previousFinalReviewItemDataKey = useRef(finalReviewItemDataKey);
+  const [checkedFinalReviewRows, setCheckedFinalReviewRows] = useState<
+    string[]
+  >([]);
+  useEffect(() => {
+    if (!isFinalReview || !showFinalItemList) {
+      setCheckedFinalReviewRows([]);
+      onFinalReviewAcknowledgedChange?.(false);
+      previousFinalReviewItemDataKey.current = finalReviewItemDataKey;
+      return;
+    }
+    if (previousFinalReviewItemDataKey.current !== finalReviewItemDataKey) {
+      previousFinalReviewItemDataKey.current = finalReviewItemDataKey;
+      setCheckedFinalReviewRows([]);
+      onFinalReviewAcknowledgedChange?.(false);
+      return;
+    }
+    setCheckedFinalReviewRows((current) =>
+      current.filter((rowId) => finalReviewRowIds.includes(rowId)),
+    );
+  }, [
+    finalReviewItemDataKey,
+    finalReviewRowKey,
+    isFinalReview,
+    onFinalReviewAcknowledgedChange,
+    showFinalItemList,
+  ]);
+  const hasCheckedEveryFinalReviewRow =
+    finalReviewRowIds.length > 0 &&
+    finalReviewRowIds.every((rowId) => checkedFinalReviewRows.includes(rowId));
+  useEffect(() => {
+    onFinalReviewAcknowledgedChange?.(
+      isFinalReview && showFinalItemList && hasCheckedEveryFinalReviewRow,
+    );
+  }, [
+    hasCheckedEveryFinalReviewRow,
+    isFinalReview,
+    onFinalReviewAcknowledgedChange,
+    showFinalItemList,
+  ]);
+  const finalReviewCell = (rowId: string) => (
+    <td className="px-3 py-2 text-center">
+      <input
+        type="checkbox"
+        checked={checkedFinalReviewRows.includes(rowId)}
+        onChange={(event) =>
+          setCheckedFinalReviewRows((current) =>
+            event.target.checked
+              ? [...new Set([...current, rowId])]
+              : current.filter((id) => id !== rowId),
+          )
+        }
+        className="h-6 w-6 cursor-pointer rounded border-pink-500 accent-pink-500 focus:ring-pink-200"
+        aria-label={`${rowId} 확인`}
+      />
+    </td>
+  );
 
   const itemListContent = (
     <div className="min-h-[210px] overflow-x-auto rounded-lg border border-gray-200 bg-white">
@@ -2680,7 +2837,9 @@ export default function StampLogForm({
                 <th className="w-[10%] px-2 py-2 text-right">소계</th>
               </>
             )}
-            <th className="w-[18%] px-3 py-2 text-center">작업</th>
+            <th className="w-[10%] px-3 py-2 text-center">
+              {isFinalReview ? "확인" : "작업"}
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -2716,9 +2875,11 @@ export default function StampLogForm({
                   </td>
                 </>
               )}
-              <td className="px-3 py-2 text-center text-xs font-medium text-gray-400">
-                -
-              </td>
+              {isFinalReview ? finalReviewCell("coupon") : (
+                <td className="px-3 py-2 text-center text-xs font-medium text-gray-400">
+                  -
+                </td>
+              )}
             </tr>
           )}
           {deliveryForItemList && (
@@ -2755,15 +2916,17 @@ export default function StampLogForm({
                   </td>
                 </>
               )}
-              <td className="px-3 py-2 text-center text-xs font-medium text-gray-400">
-                -
-              </td>
+              {isFinalReview ? finalReviewCell("delivery") : (
+                <td className="px-3 py-2 text-center text-xs font-medium text-gray-400">
+                  -
+                </td>
+              )}
             </tr>
           )}
           {stampAccrualForItemList && (
             <tr className="border-b border-gray-200 bg-amber-50/50">
               <td className="px-2 py-2">
-                <span className="mx-auto flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-xs font-semibold leading-none text-white">
+                <span className="mx-auto flex h-5 w-5 items-center justify-center rounded-full bg-pink-500 text-xs font-semibold leading-none text-white">
                   {virtualItemCount}
                 </span>
               </td>
@@ -2789,9 +2952,11 @@ export default function StampLogForm({
                   </td>
                 </>
               )}
-              <td className="px-3 py-2 text-center text-xs font-medium text-gray-400">
-                -
-              </td>
+              {isFinalReview ? finalReviewCell("stamp") : (
+                <td className="px-3 py-2 text-center text-xs font-medium text-gray-400">
+                  -
+                </td>
+              )}
             </tr>
           )}
           {draftLines.length === 0 ? (
@@ -2799,8 +2964,12 @@ export default function StampLogForm({
               <td
                 colSpan={
                   customerMode === "adjustment" || customerMode === "demo"
-                    ? 6
-                    : 8
+                    ? isFinalReview
+                      ? 5
+                      : 6
+                    : isFinalReview
+                      ? 7
+                      : 8
                 }
                 className="h-44 px-3 py-2 text-center text-sm text-gray-400"
               >
@@ -2808,15 +2977,15 @@ export default function StampLogForm({
               </td>
             </tr>
           ) : (
-            draftLines.map((line, index) => (
+            displayDraftLines.map(({ line, sourceIndex }, index) => (
+              <Fragment key={line.id}>
               <tr
                 ref={setLineRef(line.id)}
-                key={line.id}
-                className="border-b border-gray-200 last:border-b-0"
+                className={`border-b border-gray-200 last:border-b-0 ${recentlySavedLineId === line.id ? "bg-brand-50" : ""}`}
               >
                 <td className="px-2 py-2">
                   <span className="mx-auto flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-xs font-semibold leading-none text-white">
-                    {index + virtualItemCount + 1}
+                    {index + virtualItemCount + automaticSaleRowsBefore(index) + 1}
                   </span>
                 </td>
                 <td className="px-2 py-2 font-medium text-gray-900">
@@ -2857,6 +3026,7 @@ export default function StampLogForm({
                     </td>
                   </>
                 )}
+                {isFinalReview ? finalReviewCell(`line:${line.id}`) : (
                 <td className="px-3 py-2">
                   <div className="flex items-center justify-center gap-1">
                     <Button
@@ -2868,24 +3038,19 @@ export default function StampLogForm({
                     >
                       ✏️
                     </Button>
-                    <button
+                    {!line.liquidSaleKind && <><button
                       type="button"
-                      onClick={() => moveLine(index, -1)}
-                      disabled={index === 0}
+                      onClick={() => moveLine(sourceIndex, -1)}
+                      disabled={sourceIndex === 0}
                       className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-gray-200 bg-white text-xs font-semibold text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-35"
                       aria-label={`${line.lineText} 위로 이동`}
-                    >
-                      ↑
-                    </button>
-                    <button
+                    >↑</button><button
                       type="button"
-                      onClick={() => moveLine(index, 1)}
-                      disabled={index === draftLines.length - 1}
+                      onClick={() => moveLine(sourceIndex, 1)}
+                      disabled={sourceIndex === draftLines.length - 1}
                       className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-gray-200 bg-white text-xs font-semibold text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-35"
                       aria-label={`${line.lineText} 아래로 이동`}
-                    >
-                      ↓
-                    </button>
+                    >↓</button></>}
                     <button
                       type="button"
                       onClick={() =>
@@ -2900,7 +3065,10 @@ export default function StampLogForm({
                     </button>
                   </div>
                 </td>
+                )}
               </tr>
+              {hasAutomaticSaleRowAfter(index) && (() => { const breath = getLiquidBreath(line)!; return liquidSaleRowsForItemList.filter((row) => row.breathType === breath).map((row, rowIndex) => <tr key={`${breath}-${row.name}-${rowIndex}`} className="border-b border-gray-200 bg-emerald-50/50"><td className="px-2 py-2"><span className="mx-auto flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-xs font-semibold leading-none text-white">{index + virtualItemCount + automaticSaleRowsBefore(index) + rowIndex + 2}</span></td><td className="px-2 py-2 font-medium text-gray-900">{row.name}</td><td className="px-2 py-2 text-center text-xs font-medium text-gray-600">액상판매</td><td className="px-2 py-2 text-center"><span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-600">일반판매</span></td><td className="px-2 py-2 text-center font-medium text-gray-800">{row.quantity}건</td>{customerMode !== "adjustment" && customerMode !== "demo" && <><td className="px-2 py-2 text-right text-gray-700">{formatAmount(row.unitPrice)}원</td><td className="px-2 py-2 text-right font-medium text-gray-900">{formatAmount(row.amount)}원</td></>}{isFinalReview ? finalReviewCell(`liquid:${row.breathType}:${row.name}:${rowIndex}`) : <td className="px-3 py-2 text-center text-xs font-medium text-gray-400">-</td>}</tr>); })()}
+              </Fragment>
             ))
           )}
         </tbody>
@@ -2970,6 +3138,13 @@ export default function StampLogForm({
   const amountField = (
     <div>
       <span className="block text-sm font-medium text-gray-700 mb-2">금액</span>
+      {hasLiquidPriceChange && savedLiquidSale && liquidSaleCalculation && (
+        <div className="mb-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <p className="font-semibold">액상 판매 기준 금액이 변경되었습니다.</p>
+          <p className="mt-1">기존 저장 금액 {formatAmount(savedLiquidSale.amount)}원 · 현재 판매 기준 금액 {formatAmount(liquidSaleCalculation.totalAmount)}원</p>
+          <div className="mt-2 flex gap-2"><Button type="button" size="xs" variant={editLiquidPriceMode === "saved" ? "primary" : "gray"} onClick={() => setEditLiquidPriceMode("saved")}>이전 금액으로 저장하기</Button><Button type="button" size="xs" variant={editLiquidPriceMode === "current" ? "primary" : "gray"} onClick={() => setEditLiquidPriceMode("current")}>변경 금액으로 저장하기</Button></div>
+        </div>
+      )}
       <div className="rounded-lg bg-gray-50 px-3 py-3">
         <p className="text-sm font-semibold text-gray-900">
           {finalAmountExpression || "0"} = {formatAmount(finalAmount)}
@@ -3144,7 +3319,7 @@ export default function StampLogForm({
     if (step) {
       return (
         <div>
-          {(step === 2 || step === 3) && stepCustomerSummaryPanel}
+          {step === 2 && stepCustomerSummaryPanel}
           <div
             className={
               step === 1
@@ -3207,7 +3382,8 @@ export default function StampLogForm({
               )}
             </div>
           </div>
-          <div className={step === 2 ? "mt-2.5 space-y-2.5" : "hidden"}>
+          <div className={step === 2 || step === 3 ? "mt-2.5 space-y-2.5" : "hidden"}>
+            {step === 2 && <>
             {customerSummary && reservationSlot && (
               <div className="min-w-0">{reservationSlot}</div>
             )}
@@ -3217,6 +3393,13 @@ export default function StampLogForm({
               </div>
               {itemListContent}
             </div>
+            </>}
+            {step === 3 && showFinalItemList && (
+              <div className="min-w-0 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                {itemListContent}
+              </div>
+            )}
+            {step === 2 && <>
             {customerSummary ? (
               <div
                 className={`grid grid-cols-1 gap-3 lg:items-stretch ${
@@ -3253,6 +3436,7 @@ export default function StampLogForm({
               </div>
             )}
             {splitPaymentAmountField}
+            </>}
           </div>
         </div>
       );
