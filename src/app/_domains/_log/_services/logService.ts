@@ -408,11 +408,24 @@ export const getInventoryAdjustmentLogsForHistory = async (
  * 로그 삭제
  */
 export const deleteLog = async (logId: string) => {
-  const { data, error } = await supabase.rpc("cancel_or_delete_log_operation", {
+  const { data, error } = await supabase.rpc(
+    "cancel_or_delete_log_operation_with_stamp_count",
+    {
     p_log_id: String(logId),
-  });
+    },
+  );
   if (error) throw error;
-  return (data ?? [String(logId)]).map(String);
+  if (Array.isArray(data)) {
+    return { deletedLogIds: data.map(String), stampCount: undefined };
+  }
+  const result = data as { deletedLogIds?: unknown; stampCount?: unknown } | null;
+  return {
+    deletedLogIds: Array.isArray(result?.deletedLogIds)
+      ? result.deletedLogIds.map(String)
+      : [String(logId)],
+    stampCount:
+      typeof result?.stampCount === "number" ? result.stampCount : undefined,
+  };
 };
 
 /**
@@ -451,6 +464,21 @@ export const updateLogNote = async (
     nextJsonb.totalAmount = logMeta.totalAmount;
     nextJsonb.items = logMeta.items;
     nextJsonb.outboundMemoRemark = Boolean(logMeta.outboundMemoRemark);
+    if (logMeta.liquidSale) {
+      nextJsonb.liquidSale = logMeta.liquidSale;
+    } else {
+      delete nextJsonb.liquidSale;
+    }
+    if (logMeta.stampAccrual) {
+      nextJsonb.stampAccrual = logMeta.stampAccrual;
+    } else {
+      delete nextJsonb.stampAccrual;
+    }
+    if (logMeta.couponUse) {
+      nextJsonb.couponUse = logMeta.couponUse;
+    } else {
+      delete nextJsonb.couponUse;
+    }
     if (logMeta.discount) {
       nextJsonb.discount = logMeta.discount;
     } else {
@@ -518,8 +546,6 @@ export const updateLogNote = async (
     note,
     jsonb: await withModifiedWorker(nextJsonb),
   };
-  if (action !== undefined) updatePayload.action = action;
-
   const { data, error } = await supabase
     .from("logs")
     .update(updatePayload)
@@ -528,6 +554,25 @@ export const updateLogNote = async (
     .single();
 
   if (error) throw error;
+  let updatedLog = data;
+  let updatedStampCount: number | undefined;
+  if (action !== undefined) {
+    const { data: actionResult, error: actionError } = await supabase.rpc(
+      "update_stamp_log_action",
+      { p_log_id: String(logId), p_action: action },
+    );
+    if (actionError) throw actionError;
+    updatedLog = {
+      ...data,
+      action:
+        typeof (actionResult as { action?: unknown } | null)?.action === "string"
+          ? (actionResult as { action: string }).action
+          : action,
+    };
+    if (typeof (actionResult as { stampCount?: unknown } | null)?.stampCount === "number") {
+      updatedStampCount = (actionResult as { stampCount: number }).stampCount;
+    }
+  }
   if (logMeta?.outboundMemoRemark && existing?.customer_id && existing.created_at) {
     await syncOutboundMemoRemark({
       customerId: String(existing.customer_id),
@@ -540,7 +585,7 @@ export const updateLogNote = async (
           : "직원",
     });
   }
-  return data;
+  return { ...updatedLog, stampCount: updatedStampCount };
 };
 
 /**

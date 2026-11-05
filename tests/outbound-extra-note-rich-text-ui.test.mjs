@@ -21,7 +21,7 @@ const taggedContent = await readFile(
 
 test('출고 특이사항은 확인과 이력 화면에서 저장된 서식 태그를 해석한다', () => {
   assert.match(historyItem, /import TaggedContent/);
-  assert.match(historyItem, /<TaggedContent content=\{extraNote\} inline \/>/);
+  assert.match(historyItem, /<TaggedContent content=\{shipmentExtraNote\} inline \/>/);
   assert.match(confirmModal, /label: "출고 메모"[\s\S]*?<TaggedContent/);
   assert.match(confirmModal, /시연용 전체 특이사항[\s\S]*?<TaggedContent/);
 });

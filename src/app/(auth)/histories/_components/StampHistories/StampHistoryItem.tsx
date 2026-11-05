@@ -228,9 +228,7 @@ const StampHistoryItem = ({
               {log.note ? (
                 `${
                   isSplitPayment
-                    ? hasTransactionTag
-                      ? "분할결제,"
-                      : "분할결제) "
+                    ? "(분할결제) "
                     : ""
                 }${formatHistoryNote(log.note, log.jsonb)}`
               ) : (

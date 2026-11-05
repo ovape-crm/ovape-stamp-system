@@ -19,6 +19,7 @@ import { confirmReservationStamp } from "@/app/_domains/_stamp/_services/stampSe
 import { useQueryClient } from "@tanstack/react-query";
 import { logKeys } from "@/app/_domains/_log/_queryKeys/logKeys";
 import { customerKeys } from "@/app/_domains/_customer/_queryKeys/customerKeys";
+import { getCustomerById } from "@/app/_domains/_customer/_services/customerService";
 import Loading from "@/app/_components/Loading";
 import Button from "@/app/_components/Button";
 import { Dropdown, DropdownOption } from "@/app/_components/Dropdown";
@@ -361,12 +362,8 @@ const StampHistories = ({
             toast.success("이력을 저장했습니다.");
             return;
           }
-          // 예약 이력은 아직 스탬프가 적립되지 않았으므로 개수 수정 허용
-          const nextAction = isReservation
-            ? values.amount === 0
-              ? "no-stamp"
-              : `add-${values.amount}`
-            : undefined;
+          const nextAction =
+            values.amount === 0 ? "no-stamp" : `add-${values.amount}`;
           const updated = await updateLogNote(
             log.id,
             values.note,
@@ -382,6 +379,15 @@ const StampHistories = ({
             jsonb: updated.jsonb,
             updated_at: updated.updated_at,
           }));
+          if (log.customer_id && typeof updated.stampCount === "number") {
+            queryClient.setQueryData(
+              customerKeys.detail(log.customer_id),
+              (customer: Awaited<ReturnType<typeof getCustomerById>> | undefined) =>
+                customer
+                  ? { ...customer, stamps: [{ count: updated.stampCount }] }
+                  : customer,
+            );
+          }
           close();
           toast.success("이력을 저장했습니다.");
         } catch (e) {
@@ -409,7 +415,7 @@ const StampHistories = ({
               log.jsonb?.storeName as StoreTypeEnumType["value"] | undefined
             }
             initialLogMeta={log.jsonb as StampLogMeta}
-            isStampAmountEditable={isReservation}
+            isStampAmountEditable
             title={isReservation ? "출고 예약 수정" : "출고 이력 수정"}
             onSubmit={handleSubmit}
             onCancel={close}
@@ -425,8 +431,32 @@ const StampHistories = ({
     (log: LogsResType) => {
       const handleConfirm = async () => {
         try {
-          const deletedLogIds = await deleteLog(log.id);
+          const { deletedLogIds, stampCount } = await deleteLog(log.id);
           deletedLogIds.forEach(removeItem);
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: logKeys.lists() }),
+            ...(log.customer_id ? [
+              queryClient.invalidateQueries({ queryKey: logKeys.byCustomerAll(log.customer_id) }),
+              queryClient.invalidateQueries({ queryKey: customerKeys.detail(log.customer_id) }),
+            ] : []),
+          ]);
+          if (log.customer_id) {
+            if (stampCount !== undefined) {
+              queryClient.setQueryData(
+                customerKeys.detail(log.customer_id),
+                (customer: Awaited<ReturnType<typeof getCustomerById>> | undefined) =>
+                  customer
+                    ? { ...customer, stamps: [{ count: stampCount }] }
+                    : customer,
+              );
+            } else {
+              const refreshedCustomer = await getCustomerById(log.customer_id);
+              queryClient.setQueryData(
+                customerKeys.detail(log.customer_id),
+                refreshedCustomer,
+              );
+            }
+          }
           close();
           toast.success("로그를 삭제했습니다.");
         } catch (e) {
@@ -444,7 +474,7 @@ const StampHistories = ({
         options: { dismissOnBackdrop: false },
       });
     },
-    [removeItem, open, close],
+    [removeItem, open, close, queryClient],
   );
 
   const confirmReservation = useCallback(
