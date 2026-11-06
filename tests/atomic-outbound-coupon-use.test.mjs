@@ -18,6 +18,10 @@ const couponEditChangeMigrationPath = new URL(
   "../supabase/migrations/20261105002000_reconcile_outbound_coupon_change_on_edit.sql",
   import.meta.url,
 );
+const staffOutboundEditMigrationPath = new URL(
+  "../supabase/migrations/20261106060000_allow_staff_atomic_outbound_edits.sql",
+  import.meta.url,
+);
 
 test("출고와 쿠폰 사용은 하나의 RPC 트랜잭션으로 저장한다", async () => {
   const sql = await readFile(migrationPath, "utf8");
@@ -79,4 +83,18 @@ test("출고 저장 성공 전에 별도 쿠폰 차감 요청을 보내지 않�
   assert.ok(handleAdd);
   assert.match(handleAdd[0], /await addStamp\(/);
   assert.doesNotMatch(handleAdd[0], /removeStamp\(/);
+});
+
+test("직원 출고 수정은 로그·쿠폰·적립을 한 RPC에서 함께 갱신한다", async () => {
+  const sql = await readFile(staffOutboundEditMigrationPath, "utf8");
+  const logService = await readFile(
+    new URL("../src/app/_domains/_log/_services/logService.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(sql, /oss_role in \('staff', 'admin', 'master'\)/i);
+  assert.match(sql, /total_delta := next_amount - previous_amount \+ existing_coupon_delta - next_coupon_delta/i);
+  assert.match(sql, /update public\.logs set note = p_note, jsonb = coalesce\(p_jsonb, '\{\}'::jsonb\), action = p_action/i);
+  assert.match(logService, /const requiresOutboundReconciliation =[\s\S]*?existing\?\.category === LogCategoryEnum\.STAMP\.value[\s\S]*?action !== undefined[\s\S]*?logMeta !== undefined;/);
+  assert.match(logService, /if \(requiresOutboundReconciliation\)[\s\S]*?update_outbound_log_with_coupon_reconciliation/);
 });

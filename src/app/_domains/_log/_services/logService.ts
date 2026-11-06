@@ -603,18 +603,17 @@ export const updateLogNote = async (
   }
 
   const nextJsonbWithWorker = await withModifiedWorker(nextJsonb);
-  const currentCouponUse = currentJsonb.couponUse;
-  const nextCouponUse = logMeta?.couponUse;
-  const requiresCouponReconciliation =
+  // 출고 이력은 품목·적립·쿠폰 변경을 하나의 DB 트랜잭션에서 처리해야 한다.
+  // 이전에는 쿠폰이 바뀔 때만 RPC를 사용해 일반 직원 수정 시 로그만 먼저
+  // 저장되고, 뒤이은 스탬프 변경 권한 오류로 수량이 어긋날 수 있었다.
+  const requiresOutboundReconciliation =
     existing?.category === LogCategoryEnum.STAMP.value &&
     action !== undefined &&
-    logMeta !== undefined &&
-    JSON.stringify(currentCouponUse ?? null) !==
-      JSON.stringify(nextCouponUse ?? null);
+    logMeta !== undefined;
   let updatedLog: Omit<UpdatedLogNoteResult, "stampCount">;
   let updatedStampCount: number | undefined;
 
-  if (requiresCouponReconciliation) {
+  if (requiresOutboundReconciliation) {
     const { data: reconciliationResult, error: reconciliationError } =
       await supabase.rpc("update_outbound_log_with_coupon_reconciliation", {
         p_log_id: String(logId),
