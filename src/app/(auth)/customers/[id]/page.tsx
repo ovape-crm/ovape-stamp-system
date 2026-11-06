@@ -518,7 +518,9 @@ export default function CustomerDetailPage() {
               logCategory === LogCategoryEnum.RESERVATION.value) && (
               <CustomersDetailStampsHistories
                 targetUser={{
-                  id: customer.id,
+                  // URL 기반 고객 상세 캐시 키와 같은 문자열 ID를 전달한다.
+                  // DB 응답의 숫자 ID를 그대로 쓰면 삭제 후 캐시 갱신 키가 달라진다.
+                  id: customerId,
                   phone: customer.phone,
                   name: customer.name,
                   gender: customer.gender,

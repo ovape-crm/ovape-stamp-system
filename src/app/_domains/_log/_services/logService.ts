@@ -14,7 +14,7 @@ import {
 import supabase from "@/libs/supabaseClient";
 import { resolveCurrentWorkerName as resolveActiveWorkerName } from "@/app/_domains/_workJournal/_utils/currentWorker";
 import { hasAdminAccess, type OssRole } from "@/app/_domains/_user/_utils/userRole";
-import { syncOutboundMemoRemark } from "@/app/_domains/_customer/_services/outboundMemoRemarkService";
+import { formatOutboundMemoRemark, syncOutboundMemoRemark } from "@/app/_domains/_customer/_services/outboundMemoRemarkService";
 
 export type HistoryTransferCustomer = {
   id: string;
@@ -426,6 +426,58 @@ export const deleteLog = async (logId: string) => {
     stampCount:
       typeof result?.stampCount === "number" ? result.stampCount : undefined,
   };
+};
+
+/**
+ * 출고 메모에서 파생된 고객 특이사항을 수정한다.
+ * 원출고의 extraNote를 원본으로 유지하고, 이력에 보이는 특이사항은 그 원본을 다시 동기화한다.
+ */
+export const updateOutboundMemoRemark = async ({
+  customerId,
+  sourceLogId,
+  content,
+}: {
+  customerId: string;
+  sourceLogId: string;
+  content: string;
+}) => {
+  const { data: sourceLog, error: sourceError } = await supabase
+    .from("logs")
+    .select("id, jsonb, created_at")
+    .eq("id", sourceLogId)
+    .eq("customer_id", customerId)
+    .single();
+  if (sourceError) throw sourceError;
+
+  const sourceJsonb =
+    (sourceLog.jsonb as Record<string, unknown> | null) ?? {};
+  const nextJsonb = await withModifiedWorker({
+    ...sourceJsonb,
+    extraNote: content.trim(),
+    outboundMemoRemark: true,
+  });
+  const trimmedContent = content.trim();
+  const sourceLogIdText = String(sourceLog.id);
+  const { error } = await supabase.rpc("update_outbound_memo_remark", {
+    p_customer_id: Number(customerId),
+    p_source_log_id: sourceLogIdText,
+    p_source_jsonb: nextJsonb,
+    p_remark_note: trimmedContent
+      ? formatOutboundMemoRemark({
+          content: trimmedContent,
+          createdAt: sourceLog.created_at,
+          workerName:
+            typeof sourceJsonb.createdWorkerName === "string"
+              ? sourceJsonb.createdWorkerName
+              : "직원",
+        })
+      : null,
+    p_remark_jsonb: await withCreatedWorker({
+      paymentType: "remark",
+      outboundMemoSourceLogId: sourceLogIdText,
+    }),
+  });
+  if (error) throw error;
 };
 
 /**

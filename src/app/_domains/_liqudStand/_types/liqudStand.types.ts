@@ -1,6 +1,14 @@
 import type { ItemType } from '../../_item/_types/item.types';
 
 export type LiqudStandSettings = { id: number; blue_days: number; red_days: number };
+export type LiqudStandCellDateHistory = {
+  id: string;
+  cell_id: string;
+  item_name: string | null;
+  secondary_item_name: string | null;
+  previous_installed_on: string;
+  changed_at: string;
+};
 export type LiqudStandCell = {
   id: string;
   section_id: string;
