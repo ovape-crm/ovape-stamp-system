@@ -776,7 +776,16 @@ export default function StampLogForm({
     (couponUseQuantity >= 1 &&
       couponBreathType !== "" &&
       !liquidSaleError &&
-      (isEditMode || couponUseQuantity * 10 <= currentStampCount + amount));
+      // 기존 쿠폰을 그대로 둔 메모·결제정보 수정은 이후 이력의 스탬프 변동과
+      // 무관하게 허용한다. 쿠폰 장수·분류를 바꾼 경우에는 현재 수정 후 잔여
+      // 스탬프 범위 안에서만 저장하도록 막는다.
+      (isEditMode &&
+      initialCouponUse &&
+      couponUseQuantity === initialCouponUse.quantity &&
+      couponBreathType === initialCouponUse.breathType &&
+      couponSaleKind === (initialCouponUse.saleKind ?? "event")
+        ? true
+        : couponUseQuantity * 10 <= currentStampCount + amount));
 
   useEffect(() => {
     if (!isNonSalesSpecialCustomer) return;
@@ -2878,6 +2887,10 @@ export default function StampLogForm({
           name: amount > 0 ? `스탬프 ${amount}개 적립` : "스탬프 미적립",
         }
       : null;
+  const discountForItemList =
+    discountLabel && activeDiscountAmount > 0
+      ? { name: discountLabel, amount: activeDiscountAmount }
+      : null;
   const liquidSaleRowsForItemList = liquidSaleForSave && liquidAutoAmount > 0
     ? (["mtl", "dtl"] as const).flatMap((breathType) => {
         const resolveBreath = (label: string, value?: "mtl" | "dtl") => value ?? (label.startsWith("입호흡") ? "mtl" : "dtl");
@@ -2917,6 +2930,7 @@ export default function StampLogForm({
     ...(couponUseForItemList ? ["coupon"] : []),
     ...(deliveryForItemList ? ["delivery"] : []),
     ...(stampAccrualForItemList ? ["stamp"] : []),
+    ...(discountForItemList ? ["discount"] : []),
     ...displayDraftLines.flatMap(({ line }, index) => [
       `line:${line.id}`,
       ...(hasAutomaticSaleRowAfter(index)
@@ -3247,6 +3261,34 @@ export default function StampLogForm({
               {hasAutomaticSaleRowAfter(index) && (() => { const breath = getLiquidBreath(line)!; return liquidSaleRowsForItemList.filter((row) => row.breathType === breath).map((row, rowIndex) => <tr key={`${breath}-${row.name}-${rowIndex}`} className="border-b border-gray-200 bg-emerald-50/50"><td className="px-2 py-2"><span className="mx-auto flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-xs font-semibold leading-none text-white">{index + virtualItemCount + automaticSaleRowsBefore(index) + rowIndex + 2}</span></td><td className="px-2 py-2 font-medium text-gray-900">{row.name}</td><td className="px-2 py-2 text-center text-xs font-medium text-gray-600">액상판매</td><td className="px-2 py-2 text-center"><span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-600">일반판매</span></td><td className="px-2 py-2 text-center font-medium text-gray-800">{row.quantity}건</td>{customerMode !== "adjustment" && customerMode !== "demo" && <><td className="px-2 py-2 text-right text-gray-700">{formatAmount(row.unitPrice)}원</td><td className="px-2 py-2 text-right font-medium text-gray-900">{formatAmount(row.amount)}원</td></>}{isFinalReview ? finalReviewCell(`liquid:${row.breathType}:${row.name}:${rowIndex}`) : <td className="px-3 py-2 text-center text-xs font-medium text-gray-400">-</td>}</tr>); })()}
               </Fragment>
             ))
+          )}
+          {discountForItemList && (
+            <tr className="border-b border-gray-200 bg-rose-50/50">
+              <td className="px-2 py-2 text-center font-medium text-rose-600">-</td>
+              <td className="px-2 py-2 font-medium text-gray-900">
+                {discountForItemList.name}
+              </td>
+              <td className="px-2 py-2 text-center text-xs font-medium text-gray-600">
+                할인
+              </td>
+              <td className="px-2 py-2 text-center">
+                <span className="inline-flex items-center rounded-md bg-rose-100 px-2 py-1 text-xs font-semibold text-rose-700">
+                  전체 할인
+                </span>
+              </td>
+              <td className="px-2 py-2 text-center font-medium text-gray-800">-</td>
+              {customerMode !== "adjustment" && customerMode !== "demo" && (
+                <>
+                  <td className="px-2 py-2 text-right text-gray-500">-</td>
+                  <td className="px-2 py-2 text-right font-semibold text-rose-600">
+                    -{formatAmount(discountForItemList.amount)}원
+                  </td>
+                </>
+              )}
+              {isFinalReview ? finalReviewCell("discount") : (
+                <td className="px-3 py-2 text-center text-xs font-medium text-gray-400">-</td>
+              )}
+            </tr>
           )}
         </tbody>
       </table>

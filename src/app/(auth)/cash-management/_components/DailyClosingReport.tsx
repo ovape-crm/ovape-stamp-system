@@ -785,8 +785,8 @@ export default function DailyClosingReport({
         <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
           {usesTransferVerification && (!isTransferVerificationSaved || isViewingSavedTransfers) && <TransferVerificationCards stores={transferStores} checkedTransfers={checkedTransfers} onToggle={toggleTransfer} disabled={isClosed || isTransferVerificationSaved} onSave={saveTransferVerification} canSave={allTransfersChecked} onClose={isTransferVerificationSaved ? () => setIsViewingSavedTransfers(false) : undefined} />}
           <div className={`${isTransferVerificationSaved && !isViewingSavedTransfers ? "grid" : "hidden"} gap-3 md:grid-cols-2 xl:grid-cols-[170px_170px_140px_minmax(0,1fr)]`}>
-            <SalesBreakdownCard title="오베이프 매출" items={paymentSales.ovapeBreakdown} rowCount={Math.max(paymentSales.ovapeBreakdown.length, paymentSales.eguVapeBreakdown.length)} transferVerified={transferStores[0].entries.length > 0 && transferStores[0].entries.every((entry) => savedTransfers[entry.id])} onTransferVerifiedClick={() => setIsViewingSavedTransfers(true)} />
-            <SalesBreakdownCard title="이구베이프 매출" items={paymentSales.eguVapeBreakdown} rowCount={Math.max(paymentSales.ovapeBreakdown.length, paymentSales.eguVapeBreakdown.length)} transferVerified={transferStores[1].entries.length > 0 && transferStores[1].entries.every((entry) => savedTransfers[entry.id])} onTransferVerifiedClick={() => setIsViewingSavedTransfers(true)} />
+            <SalesBreakdownCard title="오베이프 매출" items={paymentSales.ovapeBreakdown} rowCount={Math.max(paymentSales.ovapeBreakdown.length, paymentSales.eguVapeBreakdown.length)} verifiedPaymentTypes={new Set(transferStores[0].entries.filter((entry) => savedTransfers[entry.id]).map((entry) => entry.paymentType))} onTransferVerifiedClick={() => setIsViewingSavedTransfers(true)} />
+            <SalesBreakdownCard title="이구베이프 매출" items={paymentSales.eguVapeBreakdown} rowCount={Math.max(paymentSales.ovapeBreakdown.length, paymentSales.eguVapeBreakdown.length)} verifiedPaymentTypes={new Set(transferStores[1].entries.filter((entry) => savedTransfers[entry.id]).map((entry) => entry.paymentType))} onTransferVerifiedClick={() => setIsViewingSavedTransfers(true)} />
             <div className="flex min-h-36 flex-col overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
               <div className="flex min-h-0 flex-1 flex-col p-4">
                 <h2 className="border-b border-gray-200 pb-2 text-sm font-bold text-gray-800">
@@ -1158,13 +1158,13 @@ function SalesBreakdownCard({
   title,
   items,
   rowCount,
-  transferVerified,
+  verifiedPaymentTypes,
   onTransferVerifiedClick,
 }: {
   title: string;
   items: DailyPaymentSales["breakdown"];
   rowCount: number;
-  transferVerified: boolean;
+  verifiedPaymentTypes: Set<string>;
   onTransferVerifiedClick: () => void;
 }) {
   const total = items.reduce((sum, item) => sum + item.amount, 0);
@@ -1182,7 +1182,7 @@ function SalesBreakdownCard({
                 key={item.paymentType}
                 className="flex items-center justify-between gap-2 border-b border-gray-200 pb-1.5 text-sm last:border-b-0"
               >
-                <span className="flex items-center gap-1.5 text-gray-600">{item.label}{item.label === "이체" && transferVerified && <button type="button" onClick={onTransferVerifiedClick} className="font-bold text-rose-500 hover:text-rose-700" aria-label="저장된 개별 이체 내역 확인">✓</button>}</span>
+                <span className="flex items-center gap-1.5 text-gray-600">{item.label}{verifiedPaymentTypes.has(item.paymentType) && <button type="button" onClick={onTransferVerifiedClick} className="font-bold text-rose-500 hover:text-rose-700" aria-label="저장된 개별 이체 내역 확인">✓</button>}</span>
                 <strong className="whitespace-nowrap text-gray-900">
                   {formatWon(item.amount)}
                 </strong>

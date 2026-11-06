@@ -41,3 +41,16 @@ test("이체자 정보 변경 무효화는 역할별 이체 목록 재조회에 
   assert.doesNotMatch(invalidationMigration, /with payment_rows|jsonb_array_elements/i);
   assert.doesNotMatch(invalidationMigration, /oss_role|has_admin_access/i);
 });
+
+test("이체 확인 표시는 확인한 실제 결제수단 행에 표시한다", async () => {
+  const report = await readFile(
+    new URL(
+      "../src/app/(auth)/cash-management/_components/DailyClosingReport.tsx",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+
+  assert.match(report, /verifiedPaymentTypes\.has\(item\.paymentType\)/);
+  assert.doesNotMatch(report, /item\.label === "이체" && transferVerified/);
+});
