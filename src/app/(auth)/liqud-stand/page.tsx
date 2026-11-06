@@ -17,9 +17,11 @@ import {
   deleteLiqudStandLine,
   deleteLiqudSection,
   getLiqudStand,
+  getLiqudStandCellDateHistory,
   moveLiqudStandCell,
   resizeLiqudSection,
   saveLiqudCell,
+  updateLiqudStandCellsInstalledOn,
   updateLiqudSection,
   updateLiqudSettings,
 } from '@/app/_domains/_liqudStand/_services/liqudStandService';
@@ -31,7 +33,7 @@ const consumables = [
   { name: '맥 0.8', color: '#fff200' }, { name: '맥 1.0', color: '#8ed252' },
   { name: '스퀘어팟레드', color: '#29aeca' },
 ];
-type StatusFilter = 'all' | 'black' | 'blue' | 'red';
+type StatusFilter = 'all' | 'today' | 'black' | 'blue' | 'red';
 type CellPosition = { sectionId: string; row: number; column: number; cell: LiqudStandCell };
 
 const getDays = (date: string | null) => {
@@ -73,6 +75,9 @@ export default function LiqudStandPage() {
     direction: 'row' | 'column';
   } | null>(null);
   const [layoutEditingSectionId, setLayoutEditingSectionId] = useState<string | null>(null);
+  const [isBulkDateEditing, setIsBulkDateEditing] = useState(false);
+  const [bulkDateCellIds, setBulkDateCellIds] = useState<string[]>([]);
+  const [bulkInstalledOn, setBulkInstalledOn] = useState(getTodayDateValue());
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const suppressClick = useRef(false);
   const query = useQuery({ queryKey, queryFn: getLiqudStand, retry: false });
@@ -156,13 +161,21 @@ export default function LiqudStandPage() {
   const { settings, sections } = query.data;
   const filterOptions: { value: StatusFilter; label: string }[] = [
     { value: 'all', label: '전체' },
+    { value: 'today', label: '당일' },
     { value: 'black', label: `당일~${settings.blue_days - 1}일` },
     { value: 'blue', label: `${settings.blue_days}일~${settings.red_days - 1}일` },
     { value: 'red', label: `${settings.red_days}일~` },
   ];
   const getCellStatus = (cell: LiqudStandCell): Exclude<StatusFilter, 'all'> => {
     const days = getDays(cell.installed_on);
-    return days >= settings.red_days ? 'red' : days >= settings.blue_days ? 'blue' : 'black';
+    return days === 0 ? 'today' : days >= settings.red_days ? 'red' : days >= settings.blue_days ? 'blue' : 'black';
+  };
+  const matchesPeriodFilter = (cell: LiqudStandCell, activeFilter: StatusFilter) => {
+    if (activeFilter === 'all') return true;
+    const status = getCellStatus(cell);
+    return activeFilter === 'black'
+      ? status === 'today' || status === 'black'
+      : status === activeFilter;
   };
   const visibleSections = selectedSectionIds.length
     ? sections.filter((section) => selectedSectionIds.includes(section.id))
@@ -289,6 +302,38 @@ export default function LiqudStandPage() {
             )) : <p className="text-sm text-gray-400">선택한 날짜에 등록된 소모품이 없습니다.</p>}
           </div>
         )}
+        {isAdmin && isBulkDateEditing && (
+          <div className="mt-3 flex flex-col gap-3 rounded-xl border border-brand-200 bg-brand-50/70 p-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-brand-800">교체 날짜 일괄 변경</p>
+              <p className="mt-0.5 text-xs text-brand-700">날짜를 바꿀 품목 칸을 2개 이상 선택해 주세요. 현재 {bulkDateCellIds.length}개 선택</p>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+              <div className="min-w-[210px]"><KoreanDatePicker value={bulkInstalledOn} onChange={setBulkInstalledOn} selectedLabel="변경할 교체 날짜" /></div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="gray" onClick={() => { setIsBulkDateEditing(false); setBulkDateCellIds([]); }}>취소</Button>
+                <Button
+                  size="sm"
+                  disabled={bulkDateCellIds.length < 2 || !bulkInstalledOn || mutation.isPending}
+                  onClick={async () => {
+                    const confirmed = await showConfirmDialog({
+                      title: '교체 날짜 일괄 변경',
+                      description: `선택한 ${bulkDateCellIds.length}개 품목의 교체 날짜를 ${bulkInstalledOn}(으)로 변경할까요?`,
+                      confirmLabel: '날짜 변경',
+                    });
+                    if (!confirmed) return;
+                    mutation.mutate(async () => {
+                      await updateLiqudStandCellsInstalledOn(bulkDateCellIds, bulkInstalledOn);
+                      setIsBulkDateEditing(false);
+                      setBulkDateCellIds([]);
+                      toast.success(`${bulkDateCellIds.length}개 품목의 교체 날짜를 변경했습니다.`);
+                    });
+                  }}
+                >날짜 변경</Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {moveSource && (
@@ -332,7 +377,7 @@ export default function LiqudStandPage() {
                     cell.item_name &&
                     (!selectedDate || cell.installed_on === selectedDate) &&
                     matchesItemNameSearch(cell) &&
-                    (activeFilter === 'all' || getCellStatus(cell) === activeFilter),
+                    matchesPeriodFilter(cell, activeFilter),
                   )
                   .reduce<Record<string, number>>((result, cell) => {
                     const name = cell.consumable_type || '미지정';
@@ -350,6 +395,16 @@ export default function LiqudStandPage() {
             {isAdmin && layoutEditingSectionId !== section.id && (
               <Button size="xs" variant="gray" onClick={() => setLayoutEditingSectionId(section.id)}>표 편집</Button>
             )}
+            {isAdmin && layoutEditingSectionId !== section.id && (
+              <Button
+                size="xs"
+                variant={isBulkDateEditing ? 'primary' : 'gray'}
+                onClick={() => {
+                  setIsBulkDateEditing((current) => !current);
+                  setBulkDateCellIds([]);
+                }}
+              >교체 날짜 일괄 변경</Button>
+            )}
             {isAdmin && layoutEditingSectionId === section.id && <div className="flex flex-wrap gap-1">
               <Button size="xs" variant="gray" onClick={() => setLineAddConfirm({ section, direction: 'row' })}>가로줄 추가</Button>
               <Button size="xs" variant="gray" onClick={() => setLineAddConfirm({ section, direction: 'column' })}>세로줄 추가</Button>
@@ -364,10 +419,11 @@ export default function LiqudStandPage() {
               {Array.from({ length: section.row_count * section.column_count }, (_, index) => {
                 const row = Math.floor(index / section.column_count); const column = index % section.column_count;
                 const cell = section.liqud_stand_cells.find((c) => c.row_index === row && c.column_index === column);
-                const days = getDays(cell?.installed_on ?? null);
-                const status: Exclude<StatusFilter, 'all'> = days >= settings.red_days ? 'red' : days >= settings.blue_days ? 'blue' : 'black';
+                const status: Exclude<StatusFilter, 'all'> = cell?.item_name ? getCellStatus(cell) : 'black';
                 const activeFilter = sectionFilters[section.id] ?? filter;
-                const matchesStatus = activeFilter === 'all' || (Boolean(cell?.item_name) && activeFilter === status);
+                const matchesStatus = cell?.item_name
+                  ? matchesPeriodFilter(cell, activeFilter)
+                  : false;
                 const matchesDate = !selectedDate || (Boolean(cell?.item_name) && cell?.installed_on === selectedDate);
                 const matchesSearch = matchesItemNameSearch(cell);
                 const visible = matchesStatus && matchesDate && matchesSearch;
@@ -375,9 +431,12 @@ export default function LiqudStandPage() {
                 const position = cell ? { sectionId: section.id, row, column, cell } : null;
                 const isMovingSource = moveSource?.sectionId === section.id && moveSource.row === row && moveSource.column === column;
                 const isLineDeleteActive = lineDeleteMode?.sectionId === section.id;
+                const isBulkDateSelected = Boolean(cell?.id && bulkDateCellIds.includes(cell.id));
                 return <button
                   key={`${row}-${column}`}
-                  draggable={Boolean(isAdmin && cell?.item_name && !isLineDeleteActive)}
+                  type="button"
+                  aria-pressed={isBulkDateEditing ? isBulkDateSelected : undefined}
+                  draggable={Boolean(isAdmin && cell?.item_name && !isLineDeleteActive && !isBulkDateEditing)}
                   onDragStart={(event) => {
                     if (!position) return;
                     event.dataTransfer.setData('application/json', JSON.stringify(position));
@@ -394,7 +453,7 @@ export default function LiqudStandPage() {
                     } catch { setMoveSource(null); }
                   }}
                   onPointerDown={() => {
-                    if (!position || !isAdmin || isLineDeleteActive) return;
+                    if (!position || !isAdmin || isLineDeleteActive || isBulkDateEditing) return;
                     longPressTimer.current = setTimeout(() => {
                       suppressClick.current = true;
                       setMoveSource(position);
@@ -405,6 +464,13 @@ export default function LiqudStandPage() {
                   onPointerCancel={() => { if (longPressTimer.current) clearTimeout(longPressTimer.current); }}
                   onPointerLeave={() => { if (longPressTimer.current) clearTimeout(longPressTimer.current); }}
                   onClick={() => {
+                    if (isBulkDateEditing) {
+                      if (!cell?.id || !cell.item_name) return;
+                      setBulkDateCellIds((current) => current.includes(cell.id)
+                        ? current.filter((id) => id !== cell.id)
+                        : [...current, cell.id]);
+                      return;
+                    }
                     if (isLineDeleteActive) {
                       requestLineDelete(
                         section,
@@ -420,7 +486,7 @@ export default function LiqudStandPage() {
                     }
                     setEditing({ section, row, column, cell });
                   }}
-                  className={`flex min-h-[98px] flex-col overflow-hidden rounded border bg-white p-0 text-center transition ${visible ? '' : 'invisible pointer-events-none'} ${isMovingSource ? 'border-amber-500 ring-4 ring-amber-200' : 'border-gray-300'} ${isLineDeleteActive ? 'cursor-crosshair hover:border-rose-500 hover:ring-2 hover:ring-rose-200' : isAdmin ? 'cursor-grab hover:ring-2 hover:ring-brand-300 active:cursor-grabbing' : 'cursor-pointer hover:ring-2 hover:ring-brand-200'}`}
+                  className={`flex min-h-[98px] flex-col overflow-hidden rounded border bg-white p-0 text-center transition ${visible ? '' : 'invisible pointer-events-none'} ${isBulkDateSelected ? 'border-brand-500 ring-4 ring-brand-200' : isMovingSource ? 'border-amber-500 ring-4 ring-amber-200' : 'border-gray-300'} ${isBulkDateEditing ? cell?.item_name ? 'cursor-pointer hover:ring-2 hover:ring-brand-300' : 'cursor-not-allowed opacity-60' : isLineDeleteActive ? 'cursor-crosshair hover:border-rose-500 hover:ring-2 hover:ring-rose-200' : isAdmin ? 'cursor-grab hover:ring-2 hover:ring-brand-300 active:cursor-grabbing' : 'cursor-pointer hover:ring-2 hover:ring-brand-200'}`}
                 >
                   <span className={`flex w-full shrink-0 items-center justify-between gap-1 border-b border-[#dec79f] bg-[#f3dfbd] px-2 py-1 text-sm font-semibold leading-tight ${status === 'red' ? 'text-red-600' : status === 'blue' ? 'text-blue-600' : 'text-gray-900'}`}>
                     <span className="text-[11px] font-bold text-amber-900/60">1-{column + 1}</span>
@@ -620,6 +686,14 @@ function CellEditor({ target, canClear, onClose, onSave, onClear }: { target: { 
   const [note, setNote] = useState(target.cell?.note ?? '');
   const [confirmClear, setConfirmClear] = useState(false);
   const { items } = useItems({ searchKeyword: search, isUse: true });
+  const historyQuery = useQuery({
+    queryKey: ['liqud-stand-cell-date-history', target.cell?.id, target.cell?.item_name, target.cell?.secondary_item_name],
+    queryFn: () => getLiqudStandCellDateHistory(
+      target.cell!.id,
+      [target.cell!.item_name ?? '', target.cell!.secondary_item_name ?? ''],
+    ),
+    enabled: Boolean(target.cell?.id && target.cell.item_name),
+  });
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/50 p-4 backdrop-blur-[2px]">
@@ -690,6 +764,19 @@ function CellEditor({ target, canClear, onClose, onSave, onClear }: { target: { 
             </div>
             <label className="block text-sm font-semibold text-gray-700">메모<input value={note} onChange={(e) => setNote(e.target.value)} className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm outline-none focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100" placeholder="선택 입력" /></label>
           </div>
+          {(historyQuery.data?.length ?? 0) > 0 ? (
+            <div>
+              <p className="mb-2 text-sm font-semibold text-gray-700">이전 교체 날짜</p>
+              <div className="max-h-32 space-y-1.5 overflow-y-auto rounded-xl border border-gray-200 bg-gray-50 p-3">
+                {historyQuery.data?.map((history) => (
+                  <p key={history.id} className="text-sm text-gray-700">
+                    {history.previous_installed_on.replaceAll('-', '.')} · {history.item_name ?? '품목'}
+                    {history.secondary_item_name ? ` / ${history.secondary_item_name}` : ''}
+                  </p>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <div className="flex flex-col-reverse gap-2 border-t border-gray-100 bg-gray-50/70 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">

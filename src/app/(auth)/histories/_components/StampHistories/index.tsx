@@ -13,6 +13,7 @@ import {
   updateLogNote,
   updateExchangeHistoryNoteOnly,
   deleteLog,
+  updateOutboundMemoRemark,
 } from "@/app/_domains/_log/_services/logService";
 import useCopy from "@/app/_domains/_log/_hooks/useCopy";
 import { confirmReservationStamp } from "@/app/_domains/_stamp/_services/stampService";
@@ -49,6 +50,7 @@ import {
   getFollowUpRemarkContent,
   isFollowUpRemarkNote,
 } from "@/app/_domains/_customer/_utils/followUpRemarkNote";
+import { getOutboundMemoRemarkContent } from "@/app/_domains/_customer/_services/outboundMemoRemarkService";
 
 const PAGE_SIZE = 10;
 // 복사 기능은 유지하되, 이력 화면에서는 노출하지 않는다.
@@ -246,11 +248,48 @@ const StampHistories = ({
     (log: LogsResType) => {
       const isRemarkLog =
         log.jsonb?.paymentType === PaymentTypeEnum.REMARK.value;
+      const outboundMemoSourceLogId =
+        typeof log.jsonb?.outboundMemoSourceLogId === "string"
+          ? log.jsonb.outboundMemoSourceLogId
+          : null;
       const isFollowUpRemarkLog =
         isRemarkLog && isFollowUpRemarkNote(log.note);
       const hasStampLogItems =
         Array.isArray(log.jsonb?.items) && log.jsonb.items.length > 0;
       const shouldEditMemoOnly = isRemarkLog || !hasStampLogItems;
+
+      if (isRemarkLog && outboundMemoSourceLogId) {
+        const handleOutboundMemoSubmit = async (note: string) => {
+          try {
+            await updateOutboundMemoRemark({
+              customerId: String(log.customer_id),
+              sourceLogId: outboundMemoSourceLogId,
+              content: note,
+            });
+            await queryClient.invalidateQueries({ queryKey: logKeys.all() });
+            close();
+            toast.success("출고 메모를 저장했습니다.");
+          } catch (e) {
+            console.error("Failed to save outbound memo:", e);
+            toast.error("출고 메모 저장에 실패했습니다. 다시 시도해 주세요.");
+          }
+        };
+        open({
+          content: (
+            <RemarkLogCreateModal
+              initialNote={getOutboundMemoRemarkContent(log.note ?? "")}
+              mode="edit"
+              title="출고 메모 수정"
+              label="출고 메모"
+              placeholder="출고 메모를 입력하세요"
+              onSubmit={handleOutboundMemoSubmit}
+              onCancel={close}
+            />
+          ),
+          options: { dismissOnBackdrop: false, dismissOnEsc: true },
+        });
+        return;
+      }
 
       if (shouldEditMemoOnly) {
         const originalFollowUpContent = isFollowUpRemarkLog
@@ -379,9 +418,10 @@ const StampHistories = ({
             jsonb: updated.jsonb,
             updated_at: updated.updated_at,
           }));
+          const customerId = String(log.customer_id);
           if (log.customer_id && typeof updated.stampCount === "number") {
             queryClient.setQueryData(
-              customerKeys.detail(log.customer_id),
+              customerKeys.detail(customerId),
               (customer: Awaited<ReturnType<typeof getCustomerById>> | undefined) =>
                 customer
                   ? { ...customer, stamps: [{ count: updated.stampCount }] }
@@ -394,7 +434,7 @@ const StampHistories = ({
             ...(log.customer_id
               ? [
                   queryClient.invalidateQueries({
-                    queryKey: ["stamps", String(log.customer_id)],
+                    queryKey: ["stamps", customerId],
                   }),
                 ]
               : []),
@@ -443,23 +483,28 @@ const StampHistories = ({
     (log: LogsResType) => {
       const handleConfirm = async () => {
         try {
-          const { deletedLogIds } = await deleteLog(log.id);
+          const { deletedLogIds, stampCount } = await deleteLog(log.id);
+          const customerId = String(log.customer_id);
           deletedLogIds.forEach(removeItem);
           await Promise.all([
             queryClient.invalidateQueries({ queryKey: logKeys.lists() }),
             ...(log.customer_id ? [
-              queryClient.invalidateQueries({ queryKey: logKeys.byCustomerAll(log.customer_id) }),
-              queryClient.invalidateQueries({ queryKey: customerKeys.detail(log.customer_id) }),
+              queryClient.invalidateQueries({ queryKey: logKeys.byCustomerAll(customerId) }),
+              queryClient.invalidateQueries({ queryKey: customerKeys.detail(customerId) }),
             ] : []),
           ]);
           if (log.customer_id) {
-            const refreshedCustomer = await getCustomerById(log.customer_id);
-            queryClient.setQueryData(
-              customerKeys.detail(log.customer_id),
-              refreshedCustomer,
-            );
+            if (stampCount !== undefined) {
+              queryClient.setQueryData(
+                customerKeys.detail(customerId),
+                (customer: Awaited<ReturnType<typeof getCustomerById>> | undefined) =>
+                  customer
+                    ? { ...customer, stamps: [{ count: stampCount }] }
+                    : customer,
+              );
+            }
             await queryClient.invalidateQueries({
-              queryKey: ["stamps", String(log.customer_id)],
+              queryKey: ["stamps", customerId],
             });
           }
           close();

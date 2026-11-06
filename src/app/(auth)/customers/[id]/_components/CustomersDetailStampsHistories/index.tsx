@@ -3,6 +3,7 @@ import { CustomersLogsResType, LogsResType } from "@/app/_domains/_log/_types/lo
 import {
   updateLogNote,
   deleteLog,
+  updateOutboundMemoRemark,
 } from "@/app/_domains/_log/_services/logService";
 import { useCallback } from "react";
 import {
@@ -34,6 +35,7 @@ import {
   getFollowUpRemarkContent,
   isFollowUpRemarkNote,
 } from "@/app/_domains/_customer/_utils/followUpRemarkNote";
+import { getOutboundMemoRemarkContent } from "@/app/_domains/_customer/_services/outboundMemoRemarkService";
 
 const CustomersDetailStampsHistories = ({
   targetUser,
@@ -186,19 +188,21 @@ const CustomersDetailStampsHistories = ({
     (log: CustomersLogsResType[number]) => {
       const handleConfirm = async () => {
         try {
-          const { deletedLogIds } = await deleteLog(log.id);
+          const { deletedLogIds, stampCount } = await deleteLog(log.id);
           deletedLogIds.forEach(onDeleteLog);
           await Promise.all([
             queryClient.invalidateQueries({ queryKey: logKeys.all() }),
             queryClient.invalidateQueries({ queryKey: customerKeys.detail(targetUser.id) }),
           ]);
-          // 삭제 RPC 반환값과 화면의 고객 상세가 같은 원본을 보도록 즉시 재조회한다.
-          // 쿠폰 연결 이력이 함께 삭제되는 경우에도 총 스탬프가 새로고침 없이 갱신된다.
-          const refreshedCustomer = await getCustomerById(targetUser.id);
-          queryClient.setQueryData(
-            customerKeys.detail(targetUser.id),
-            refreshedCustomer,
-          );
+          if (stampCount !== undefined) {
+            queryClient.setQueryData(
+              customerKeys.detail(targetUser.id),
+              (customer: Awaited<ReturnType<typeof getCustomerById>> | undefined) =>
+                customer
+                  ? { ...customer, stamps: [{ count: stampCount }] }
+                  : customer,
+            );
+          }
           await queryClient.invalidateQueries({
             queryKey: ["stamps", targetUser.id],
           });
@@ -224,11 +228,48 @@ const CustomersDetailStampsHistories = ({
     (log: CustomersLogsResType[number]) => {
       const isRemarkLog =
         log.jsonb?.paymentType === PaymentTypeEnum.REMARK.value;
+      const outboundMemoSourceLogId =
+        typeof log.jsonb?.outboundMemoSourceLogId === "string"
+          ? log.jsonb.outboundMemoSourceLogId
+          : null;
       const isFollowUpRemarkLog =
         isRemarkLog && isFollowUpRemarkNote(log.note);
       const hasStampLogItems =
         Array.isArray(log.jsonb?.items) && log.jsonb.items.length > 0;
       const shouldEditMemoOnly = isRemarkLog || !hasStampLogItems;
+
+      if (isRemarkLog && outboundMemoSourceLogId) {
+        const handleOutboundMemoSubmit = async (note: string) => {
+          try {
+            await updateOutboundMemoRemark({
+              customerId: targetUser.id,
+              sourceLogId: outboundMemoSourceLogId,
+              content: note,
+            });
+            await queryClient.invalidateQueries({ queryKey: logKeys.all() });
+            close();
+            toast.success("출고 메모를 저장했습니다.");
+          } catch (e) {
+            console.error(e);
+            toast.error("출고 메모 저장에 실패했습니다. 다시 시도해 주세요.");
+          }
+        };
+        open({
+          content: (
+            <RemarkLogCreateModal
+              initialNote={getOutboundMemoRemarkContent(log.note ?? '')}
+              mode="edit"
+              title="출고 메모 수정"
+              label="출고 메모"
+              placeholder="출고 메모를 입력하세요"
+              onSubmit={handleOutboundMemoSubmit}
+              onCancel={close}
+            />
+          ),
+          options: { dismissOnBackdrop: false, dismissOnEsc: true },
+        });
+        return;
+      }
 
       if (shouldEditMemoOnly) {
         const originalFollowUpContent = isFollowUpRemarkLog

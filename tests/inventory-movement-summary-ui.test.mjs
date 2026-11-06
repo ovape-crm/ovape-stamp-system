@@ -18,11 +18,13 @@ const settingsMigration = await readFile(
   "utf8",
 );
 
-test("월간·연간 변동은 품목 행을 20개씩 표시하고 더 불러올 수 있다", () => {
-  assert.match(inventoryPage, /useState\(20\)/);
-  assert.match(inventoryPage, /summaryRows\.slice\(0, summaryVisibleCount\)/);
-  assert.match(inventoryPage, /setSummaryVisibleCount\(\(count\) => count \+ 20\)/);
+test("월간·연간 변동은 서버 집계 결과를 20개 품목 행씩 불러온다", () => {
+  assert.match(inventoryPage, /getInventoryMovementSummary/);
+  assert.match(inventoryPage, /limit: 20/);
+  assert.match(inventoryPage, /summaryQuery\.fetchNextPage\(\)/);
   assert.match(inventoryPage, /더 불러오기/);
+  assert.match(inventoryService, /export const getInventoryMovementSummary/);
+  assert.match(inventoryService, /get_inventory_movement_summary/);
 });
 
 test("월간·연간 기본 구분은 공통 설정을 읽고 마스터만 바꾼다", () => {

@@ -507,10 +507,70 @@ export type InventoryMovementQuery = {
   limit?: number;
   offset?: number;
   includeUnitPrices?: boolean;
+  exactItemName?: string;
+};
+
+export type InventoryMovementSummaryRow = {
+  itemName: string;
+  itemCode: string;
+  direction: "in" | "out";
+  totalQuantity: number;
+  quantities: Record<string, number>;
+};
+
+export type InventoryMovementSummaryResult = {
+  total: number;
+  rows: InventoryMovementSummaryRow[];
+};
+
+export const getInventoryMovementSummary = async (options: {
+  startDate: string;
+  endDate: string;
+  movementGroup?: "in" | "out";
+  search?: string;
+  sortKey: "code" | "name";
+  sortDirection: "asc" | "desc";
+  limit: number;
+  offset: number;
+}): Promise<InventoryMovementSummaryResult> => {
+  const { data, error } = await supabase.rpc("get_inventory_movement_summary", {
+    p_start_date: options.startDate,
+    p_end_date: options.endDate,
+    p_movement_group: options.movementGroup ?? null,
+    p_search: options.search?.trim() || null,
+    p_sort_key: options.sortKey,
+    p_sort_direction: options.sortDirection,
+    p_limit: options.limit,
+    p_offset: options.offset,
+  });
+  if (error) throw error;
+  const result = (data ?? {}) as { total?: unknown; rows?: unknown };
+  return {
+    total: typeof result.total === "number" ? result.total : 0,
+    rows: Array.isArray(result.rows)
+      ? result.rows.map((row) => {
+          const value = row as Record<string, unknown>;
+          return {
+            itemName: String(value.itemName ?? ""),
+            itemCode: String(value.itemCode ?? ""),
+            direction: value.direction === "out" ? "out" : "in",
+            totalQuantity: Number(value.totalQuantity ?? 0),
+            quantities: Object.fromEntries(
+              Object.entries((value.quantities ?? {}) as Record<string, unknown>)
+                .map(([key, quantity]) => [key, Number(quantity)])
+                .filter(([, quantity]) => Number.isFinite(quantity)),
+            ),
+          };
+        })
+      : [],
+  };
 };
 
 export const getInventoryMovementCount = async (options: InventoryMovementQuery = {}) => {
   let query = supabase.from("inventory_movements").select("id", { count: "exact", head: true });
+  // 과거 구글시트 이력이 한때 차감한 수량을 되돌린 시스템 보정값이다.
+  // 현재 재고 정합성에는 남기되, 운영자가 보는 변동 이력·집계에서는 숨긴다.
+  query = query.or("reference_type.neq.historical_sheet_import_repair,reference_type.is.null");
   if (options.startDate) query = query.gte("created_at", `${options.startDate}T00:00:00+09:00`);
   if (options.endDate) query = query.lte("created_at", `${options.endDate}T23:59:59.999+09:00`);
   if (options.itemName?.trim()) query = query.ilike("item_name", `%${options.itemName.trim()}%`);
@@ -572,11 +632,13 @@ export const getInventoryMovements = async (
       .select(
         "id, item_name, movement_type, quantity_delta, quantity_after, reference_type, reference_id, reversed_movement_id, note, created_by, created_at, counterparty_name, counterparty_id, inventory_action, item_remark",
       )
+      .or("reference_type.neq.historical_sheet_import_repair,reference_type.is.null")
       .order("created_at", { ascending: false })
       .order("id", { ascending: false });
     if (options.startDate) query = query.gte("created_at", `${options.startDate}T00:00:00+09:00`);
     if (options.endDate) query = query.lte("created_at", `${options.endDate}T23:59:59.999+09:00`);
-    if (options.itemName?.trim()) query = query.ilike("item_name", `%${options.itemName.trim()}%`);
+    if (options.exactItemName) query = query.eq("item_name", options.exactItemName);
+    else if (options.itemName?.trim()) query = query.ilike("item_name", `%${options.itemName.trim()}%`);
     if (options.referenceId?.trim()) query = query.eq("reference_id", options.referenceId.trim());
     if (options.movementGroup === "out") query = query.lt("quantity_delta", 0);
     if (options.movementGroup === "in") query = query.gt("quantity_delta", 0);

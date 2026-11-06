@@ -14,6 +14,11 @@ export const formatOutboundMemoRemark = ({ content, createdAt, workerName }: { c
   return `출고 특이사항\n날짜 : ${dateText} ${weekdayNames[weekdayIndex]}\n작업자 : ${workerName}\n내용 : ${content.trim()}`;
 };
 
+export const getOutboundMemoRemarkContent = (note: string) => {
+  const matched = note.match(/(?:^|\n)내용\s*:\s*([\s\S]*)$/u);
+  return matched?.[1]?.trim() ?? note;
+};
+
 export const syncOutboundMemoRemark = async ({ customerId, sourceLogId, content, createdAt, workerName }: { customerId: string; sourceLogId: string; content: string; createdAt: string; workerName: string }) => {
   const { data: existing, error } = await supabase.from("logs").select("id").eq("customer_id", customerId).contains("jsonb", { outboundMemoSourceLogId: sourceLogId }).maybeSingle();
   if (error) throw error;

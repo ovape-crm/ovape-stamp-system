@@ -60,12 +60,12 @@ import {
   getReturnHoldProcessingHistory,
   getSupplierRefundSettlements,
   getInventoryMovementSummaryDefaultGroup,
+  getInventoryMovementSummary,
   saveInventoryMovementSummaryDefaultGroup,
 } from "@/app/_domains/_inventory/_services/inventoryService";
 import { deactivateTaxInvoiceOption, getTaxInvoiceOptions, saveTaxInvoiceOption, type TaxInvoiceOption } from "@/app/_domains/_inventory/_services/taxInvoiceOptionService";
 import type {
   InventoryItem,
-  InventoryMovement,
   InventorySupplier,
   PurchaseAdjustmentCategory,
   PurchaseAdjustmentKind,
@@ -777,7 +777,6 @@ export function InventoryPageContent({
           key={`${searchParams.get("item") ?? ""}-${searchParams.get("date") ?? ""}-${searchParams.get("reference") ?? ""}`}
           isAdmin={isAdmin}
           isMaster={isMaster}
-          items={items}
           onSaved={refresh}
           initialItemName={searchParams.get("item") ?? ""}
           initialDate={searchParams.get("date") ?? ""}
@@ -7530,7 +7529,6 @@ function SupplierManageOverlay({
 function MovementHistory({
   isAdmin,
   isMaster,
-  items,
   onSaved,
   onOpenPurchaseOrder,
   initialItemName,
@@ -7539,7 +7537,6 @@ function MovementHistory({
 }: {
   isAdmin: boolean;
   isMaster: boolean;
-  items: InventoryItem[];
   onSaved: () => Promise<void>;
   onOpenPurchaseOrder: (orderId: string) => void;
   initialItemName: string;
@@ -7556,21 +7553,21 @@ function MovementHistory({
   const [summaryGroup, setSummaryGroup] = useState<MovementSummaryGroup>("all");
   const [defaultSummaryGroupDialogOpen, setDefaultSummaryGroupDialogOpen] = useState(false);
   const [defaultSummaryGroupCandidate, setDefaultSummaryGroupCandidate] = useState<MovementSummaryGroup>("all");
-  const [summaryVisibleCount, setSummaryVisibleCount] = useState(20);
   const [summarySearch, setSummarySearch] = useState("");
   const [summarySort, setSummarySort] = useState<MovementSummarySort>({ key: "code", direction: "asc" });
   const [summaryDetail, setSummaryDetail] = useState<{
     itemName: string;
     direction: "in" | "out";
     columnLabel: string;
-    movements: InventoryMovement[];
+    startDate: string;
+    endDate: string;
     total: number;
   } | null>(null);
   const [summaryTotalDetail, setSummaryTotalDetail] = useState<{
     itemName: string;
     direction: "in" | "out";
     total: number;
-    columns: Array<{ label: string; total: number; movements: InventoryMovement[] }>;
+    columns: Array<{ label: string; total: number; startDate: string; endDate: string }>;
   } | null>(null);
   const summaryTopScrollRef = useRef<HTMLDivElement>(null);
   const summaryTableScrollRef = useRef<HTMLDivElement>(null);
@@ -7661,75 +7658,49 @@ function MovementHistory({
   const summaryEndDate = movementView === "monthly"
     ? `${summaryYear}-${String(summaryMonth).padStart(2, "0")}-${String(daysInSummaryMonth).padStart(2, "0")}`
     : `${summaryYear}-12-31`;
-  const summaryMovementsQuery = useQuery({
-    queryKey: [...inventoryKeys.movements, "summary", movementView, summaryYear, summaryMonth, summaryGroup],
-    queryFn: () => getInventoryMovements({
+  const summaryQuery = useInfiniteQuery({
+    queryKey: [...inventoryKeys.movements, "summary", movementView, summaryYear, summaryMonth, summaryGroup, summarySearch, summarySort],
+    queryFn: ({ pageParam }) => getInventoryMovementSummary({
       startDate: summaryStartDate,
       endDate: summaryEndDate,
       movementGroup: summaryGroup === "all" ? undefined : summaryGroup,
+      search: summarySearch,
+      sortKey: summarySort.key,
+      sortDirection: summarySort.direction,
+      limit: 20,
+      offset: pageParam,
     }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, pages) => {
+      const displayed = pages.reduce((count, page) => count + page.rows.length, 0);
+      return displayed < lastPage.total ? displayed : undefined;
+    },
     enabled: movementView !== "period",
   });
   const summaryColumns = movementView === "monthly"
     ? Array.from({ length: daysInSummaryMonth }, (_, index) => index + 1)
     : Array.from({ length: 12 }, (_, index) => index + 1);
-  const inventoryItemByMovementName = useMemo(() => {
-    const exactItems = new Map(items.map((item) => [normalizeInventoryItemName(item.item_name), item]));
-    const compactName = (value: string) => normalizeInventoryItemName(value)
-      .toLocaleLowerCase("ko-KR")
-      .replace(/[^\p{L}\p{N}]/gu, "");
-    return (movementItemName: string) => {
-      const normalizedName = normalizeInventoryItemName(movementItemName);
-      const exactItem = exactItems.get(normalizedName);
-      if (exactItem?.item_code.trim()) return exactItem;
-      const movementKey = compactName(normalizedName);
-      if (movementKey.length < 4) return exactItem;
-      const matches = items.filter((item) => {
-        const itemKey = compactName(item.item_name);
-        return item.item_code.trim() && (itemKey.includes(movementKey) || movementKey.includes(itemKey));
-      });
-      return matches.length === 1 ? matches[0] : exactItem;
-    };
-  }, [items]);
-  const summaryRows = useMemo(() => {
-    const rows = new Map<string, { itemCode: string; itemName: string; direction: "in" | "out"; values: number[]; movementsByColumn: InventoryMovement[][] }>();
-    for (const movement of summaryMovementsQuery.data ?? []) {
-      const parts = getSeoulDateParts(movement.created_at);
-      const columnIndex = movementView === "monthly"
-        ? Number(parts.day) - 1
-        : Number(parts.month) - 1;
-      if (columnIndex < 0 || columnIndex >= summaryColumns.length) continue;
-      const linkedItem = inventoryItemByMovementName(movement.item_name);
-      const itemName = linkedItem?.item_name ?? normalizeInventoryItemName(movement.item_name);
-      const direction = movement.quantity_delta >= 0 ? "in" : "out";
-      const key = `${itemName}\u0000${direction}`;
-      const row = rows.get(key) ?? {
-        itemCode: linkedItem?.item_code ?? "",
-        itemName,
-        direction,
-        values: Array(summaryColumns.length).fill(0),
-        movementsByColumn: Array.from({ length: summaryColumns.length }, (): InventoryMovement[] => []),
-      };
-      row.values[columnIndex] += movement.quantity_delta;
-      row.movementsByColumn[columnIndex].push(movement);
-      rows.set(key, row);
+  const summaryRows = summaryQuery.data?.pages.flatMap((page) => page.rows) ?? [];
+  const summaryTotalCount = summaryQuery.data?.pages[0]?.total ?? 0;
+  const getSummaryColumnRange = (column: number) => {
+    if (movementView === "monthly") {
+      const date = `${summaryYear}-${String(summaryMonth).padStart(2, "0")}-${String(column).padStart(2, "0")}`;
+      return { startDate: date, endDate: date, key: date };
     }
-    const searchText = summarySearch.trim().toLocaleLowerCase("ko-KR");
-    return [...rows.values()]
-      .filter((row) => !searchText || `${row.itemCode} ${row.itemName}`.toLocaleLowerCase("ko-KR").includes(searchText))
-      .sort((left, right) => {
-      const leftValue = summarySort.key === "code" ? left.itemCode : left.itemName;
-      const rightValue = summarySort.key === "code" ? right.itemCode : right.itemName;
-      const comparison = leftValue.localeCompare(rightValue, "ko-KR", { numeric: true, sensitivity: "base" });
-      if (comparison) return summarySort.direction === "asc" ? comparison : -comparison;
-      const nameComparison = left.itemName.localeCompare(right.itemName, "ko-KR");
-      return nameComparison || left.direction.localeCompare(right.direction);
-    });
-  }, [inventoryItemByMovementName, movementView, summaryColumns.length, summaryMovementsQuery.data, summarySearch, summarySort]);
-  const visibleSummaryRows = summaryRows.slice(0, summaryVisibleCount);
-  useEffect(() => {
-    setSummaryVisibleCount(20);
-  }, [movementView, summaryYear, summaryMonth, summaryGroup, summarySearch, summarySort]);
+    const startDate = `${summaryYear}-${String(column).padStart(2, "0")}-01`;
+    const endDate = `${summaryYear}-${String(column).padStart(2, "0")}-${String(new Date(summaryYear, column, 0).getDate()).padStart(2, "0")}`;
+    return { startDate, endDate, key: startDate };
+  };
+  const summaryDetailQuery = useQuery({
+    queryKey: [...inventoryKeys.movements, "summary-detail", summaryDetail?.itemName, summaryDetail?.direction, summaryDetail?.startDate, summaryDetail?.endDate],
+    queryFn: () => getInventoryMovements({
+      startDate: summaryDetail!.startDate,
+      endDate: summaryDetail!.endDate,
+      exactItemName: summaryDetail!.itemName,
+      movementGroup: summaryDetail!.direction,
+    }),
+    enabled: Boolean(summaryDetail),
+  });
   const cycleSummarySort = (key: MovementSummarySortKey) => {
     setSummarySort((current) => {
       if (current.key !== key) return { key, direction: "asc" };
@@ -7771,7 +7742,7 @@ function MovementHistory({
       topScroll.removeEventListener("scroll", syncFromTop);
       tableScroll.removeEventListener("scroll", syncFromTable);
     };
-  }, [movementView, summaryColumns.length, visibleSummaryRows.length]);
+  }, [movementView, summaryColumns.length, summaryRows.length]);
   const loading = movementsQuery.isPending;
   const reversedIds = new Set(
     movements.map((movement) => movement.reversed_movement_id).filter(Boolean),
@@ -8250,23 +8221,23 @@ function MovementHistory({
               </label>
             </div>
           </div>
-          <div className="mb-3 flex items-center justify-start gap-3 text-xs text-gray-600 sm:text-sm"><span><b className="font-semibold text-brand-600">{visibleSummaryRows.length.toLocaleString()}</b>/{summaryRows.length.toLocaleString()}개 품목</span></div>
+          <div className="mb-3 flex items-center justify-start gap-3 text-xs text-gray-600 sm:text-sm"><span><b className="font-semibold text-brand-600">{summaryRows.length.toLocaleString()}</b>/{summaryTotalCount.toLocaleString()}개 품목</span></div>
           <div ref={summaryTableScrollRef} className="max-h-[calc(100vh-11rem)] overflow-auto rounded-xl border border-gray-200 bg-white">
             <div ref={summaryTopScrollRef} className="sticky left-0 top-0 z-40 h-4 w-full overflow-x-auto border-b border-gray-200 bg-gray-50" aria-label="표 가로 스크롤">
               <div className="h-px" style={{ width: summaryTableScrollWidth ? `${summaryTableScrollWidth}px` : "100%" }} />
             </div>
-            {summaryMovementsQuery.isPending ? <div className="p-12"><Loading size="sm" text="변동 데이터를 불러오는 중..." /></div> : summaryMovementsQuery.isError ? <div className="p-12 text-center text-sm font-medium text-rose-700">변동 데이터를 불러오지 못했습니다.</div> : (
-              <table ref={summaryTableRef} className="w-full min-w-max border-collapse text-sm"><thead className="bg-brand-50 text-brand-700"><tr><th className="sticky left-0 top-4 z-30 w-32 border border-brand-200 bg-brand-50 px-3 py-3 text-left">{summarySortLabel("품목 코드", "code")}</th><th className="sticky left-32 top-4 z-30 border border-brand-200 bg-brand-50 px-3 py-3 text-left">{summarySortLabel("품목명", "name")}</th><th className="sticky top-4 z-20 min-w-20 border border-brand-200 bg-brand-50 px-3 py-3 text-center">총 수량</th>{summaryColumns.map((column) => <th key={column} className="sticky top-4 z-20 min-w-14 border border-brand-200 bg-brand-50 px-3 py-3 text-center">{movementView === "monthly" ? `${column}일` : `${column}월`}</th>)}</tr></thead><tbody>{visibleSummaryRows.length ? visibleSummaryRows.map((row) => { const total = row.values.reduce((sum, value) => sum + value, 0); const columnDetails = row.values.map((value, index) => ({ label: movementView === "monthly" ? `${index + 1}일` : `${index + 1}월`, total: value, movements: row.movementsByColumn[index] })).filter((column) => column.total !== 0); return <tr key={`${row.itemName}-${row.direction}`}><td className="sticky left-0 z-10 w-32 whitespace-nowrap border border-gray-200 bg-white px-3 py-3 font-mono text-xs text-gray-500">{row.itemCode || "-"}</td><td className="sticky left-32 z-10 whitespace-nowrap border border-gray-200 bg-white px-3 py-3 font-semibold">{row.itemName} <span className={row.direction === "in" ? "text-blue-600" : "text-rose-600"}>({row.direction === "in" ? "입고" : "출고"})</span></td><td className={`border border-gray-200 px-3 py-3 text-right font-bold ${total > 0 ? "text-blue-600" : total < 0 ? "text-rose-600" : "text-gray-400"}`}>{total ? <button type="button" onClick={() => setSummaryTotalDetail({ itemName: row.itemName, direction: row.direction, total, columns: columnDetails })} className="cursor-pointer underline decoration-current/30 underline-offset-4 hover:decoration-current">{`${total > 0 ? "+" : ""}${total.toLocaleString()}`}</button> : "-"}</td>{row.values.map((value, index) => <td key={index} className={`border border-gray-200 px-3 py-3 text-right font-semibold ${value > 0 ? "text-blue-600" : value < 0 ? "text-rose-600" : "text-gray-400"}`}>{value ? <button type="button" onClick={() => setSummaryDetail({ itemName: row.itemName, direction: row.direction, columnLabel: movementView === "monthly" ? `${index + 1}일` : `${index + 1}월`, movements: row.movementsByColumn[index], total: value })} className="cursor-pointer underline decoration-current/30 underline-offset-4 hover:decoration-current">{`${value > 0 ? "+" : ""}${value.toLocaleString()}`}</button> : "-"}</td>)}</tr>; }) : <tr><td colSpan={summaryColumns.length + 3} className="px-4 py-12 text-center text-gray-400">조건에 맞는 재고 변동이 없습니다.</td></tr>}</tbody></table>
+            {summaryQuery.isPending ? <div className="p-12"><Loading size="sm" text="변동 데이터를 불러오는 중..." /></div> : summaryQuery.isError ? <div className="p-12 text-center text-sm font-medium text-rose-700"><p>변동 데이터를 불러오지 못했습니다.</p><p className="mt-1 break-words text-xs font-normal text-rose-600">{summaryQuery.error instanceof Error ? summaryQuery.error.message : "잠시 후 다시 시도해 주세요."}</p><Button size="xs" variant="gray" className="mt-3" onClick={() => void summaryQuery.refetch()}>다시 시도</Button></div> : (
+              <table ref={summaryTableRef} className="w-full min-w-max border-collapse text-sm"><thead className="bg-brand-50 text-brand-700"><tr><th className="sticky left-0 top-4 z-30 w-32 border border-brand-200 bg-brand-50 px-3 py-3 text-left">{summarySortLabel("품목 코드", "code")}</th><th className="sticky left-32 top-4 z-30 border border-brand-200 bg-brand-50 px-3 py-3 text-left">{summarySortLabel("품목명", "name")}</th><th className="sticky top-4 z-20 min-w-20 border border-brand-200 bg-brand-50 px-3 py-3 text-center">총 수량</th>{summaryColumns.map((column) => <th key={column} className="sticky top-4 z-20 min-w-14 border border-brand-200 bg-brand-50 px-3 py-3 text-center">{movementView === "monthly" ? `${column}일` : `${column}월`}</th>)}</tr></thead><tbody>{summaryRows.length ? summaryRows.map((row) => { const columnDetails = summaryColumns.map((column) => { const range = getSummaryColumnRange(column); return { label: movementView === "monthly" ? `${column}일` : `${column}월`, total: row.quantities[range.key] ?? 0, startDate: range.startDate, endDate: range.endDate }; }).filter((column) => column.total !== 0); return <tr key={`${row.itemName}-${row.direction}`}><td className="sticky left-0 z-10 w-32 whitespace-nowrap border border-gray-200 bg-white px-3 py-3 font-mono text-xs text-gray-500">{row.itemCode || "-"}</td><td className="sticky left-32 z-10 whitespace-nowrap border border-gray-200 bg-white px-3 py-3 font-semibold">{row.itemName} <span className={row.direction === "in" ? "text-blue-600" : "text-rose-600"}>({row.direction === "in" ? "입고" : "출고"})</span></td><td className={`border border-gray-200 px-3 py-3 text-right font-bold ${row.totalQuantity > 0 ? "text-blue-600" : row.totalQuantity < 0 ? "text-rose-600" : "text-gray-400"}`}>{row.totalQuantity ? <button type="button" onClick={() => setSummaryTotalDetail({ itemName: row.itemName, direction: row.direction, total: row.totalQuantity, columns: columnDetails })} className="cursor-pointer underline decoration-current/30 underline-offset-4 hover:decoration-current">{`${row.totalQuantity > 0 ? "+" : ""}${row.totalQuantity.toLocaleString()}`}</button> : "-"}</td>{summaryColumns.map((column) => { const range = getSummaryColumnRange(column); const value = row.quantities[range.key] ?? 0; return <td key={column} className={`border border-gray-200 px-3 py-3 text-right font-semibold ${value > 0 ? "text-blue-600" : value < 0 ? "text-rose-600" : "text-gray-400"}`}>{value ? <button type="button" onClick={() => setSummaryDetail({ itemName: row.itemName, direction: row.direction, columnLabel: movementView === "monthly" ? `${column}일` : `${column}월`, startDate: range.startDate, endDate: range.endDate, total: value })} className="cursor-pointer underline decoration-current/30 underline-offset-4 hover:decoration-current">{`${value > 0 ? "+" : ""}${value.toLocaleString()}`}</button> : "-"}</td>; })}</tr>; }) : <tr><td colSpan={summaryColumns.length + 3} className="px-4 py-12 text-center text-gray-400">조건에 맞는 재고 변동이 없습니다.</td></tr>}</tbody></table>
             )}
           </div>
-          {visibleSummaryRows.length < summaryRows.length && (
+          {summaryQuery.hasNextPage && (
             <div className="flex justify-center">
               <button
                 type="button"
-                onClick={() => setSummaryVisibleCount((count) => count + 20)}
+                onClick={() => void summaryQuery.fetchNextPage()}
                 className="min-h-10 rounded-lg border border-gray-300 bg-white px-5 text-sm font-semibold text-gray-700 shadow-sm hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
               >
-                더 불러오기
+                {summaryQuery.isFetchingNextPage ? "불러오는 중..." : "더 불러오기"}
               </button>
             </div>
           )}
@@ -8322,7 +8293,7 @@ function MovementHistory({
               </div>
             </div>
             <div className="mt-4 divide-y divide-gray-100 rounded-lg border border-gray-200">
-              {summaryDetail.movements.map((movement) => {
+              {summaryDetailQuery.isPending ? <div className="p-6"><Loading size="sm" text="변동 상세를 불러오는 중..." /></div> : summaryDetailQuery.isError ? <div className="p-6 text-center text-sm text-rose-700">변동 상세를 불러오지 못했습니다.</div> : (summaryDetailQuery.data ?? []).map((movement) => {
                 return (
                   <div key={movement.id} className="flex items-center justify-between gap-3 px-3 py-3">
                     <div className="min-w-0">
@@ -8364,7 +8335,7 @@ function MovementHistory({
             </div>
             <div className="mt-4 divide-y divide-gray-100 rounded-lg border border-gray-200">
               {summaryTotalDetail.columns.map((column) => (
-                <button key={column.label} type="button" onClick={() => setSummaryDetail({ itemName: summaryTotalDetail.itemName, direction: summaryTotalDetail.direction, columnLabel: column.label, movements: column.movements, total: column.total })} className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left transition hover:bg-gray-50">
+                <button key={column.label} type="button" onClick={() => setSummaryDetail({ itemName: summaryTotalDetail.itemName, direction: summaryTotalDetail.direction, columnLabel: column.label, startDate: column.startDate, endDate: column.endDate, total: column.total })} className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left transition hover:bg-gray-50">
                   <span className="text-sm font-semibold text-gray-900">{column.label}</span>
                   <span className={column.total > 0 ? "font-bold text-blue-600" : "font-bold text-rose-600"}>{column.total > 0 ? "+" : ""}{column.total.toLocaleString()}</span>
                 </button>

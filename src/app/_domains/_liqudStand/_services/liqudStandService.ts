@@ -1,5 +1,5 @@
 import supabase from '@/libs/supabaseClient';
-import type { LiqudStandSection, LiqudStandSettings } from '../_types/liqudStand.types';
+import type { LiqudStandCellDateHistory, LiqudStandSection, LiqudStandSettings } from '../_types/liqudStand.types';
 
 const withTimeout = async <T>(request: PromiseLike<T>, label: string): Promise<T> => {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -39,6 +39,24 @@ export const getLiqudStand = async () => {
     settings: (settingsResult.data ?? { id: 1, blue_days: 14, red_days: 28 }) as LiqudStandSettings,
     sections,
   };
+};
+
+export const getLiqudStandCellDateHistory = async (
+  cellId: string,
+  itemNames: string[],
+): Promise<LiqudStandCellDateHistory[]> => {
+  const { data, error } = await supabase
+    .from('liqud_stand_cell_date_history')
+    .select('*')
+    .eq('cell_id', cellId)
+    .order('changed_at', { ascending: false })
+    .limit(50);
+  if (error) throw error;
+  const currentNames = new Set(itemNames.filter(Boolean));
+  return ((data ?? []) as LiqudStandCellDateHistory[]).filter((history) =>
+    currentNames.has(history.item_name ?? '') ||
+    currentNames.has(history.secondary_item_name ?? ''),
+  );
 };
 
 export const updateLiqudSettings = async (blueDays: number, redDays: number) => {
@@ -122,6 +140,20 @@ export const saveLiqudCell = async (values: { sectionId: string; rowIndex: numbe
 
 export const clearLiqudCell = async (sectionId: string, rowIndex: number, columnIndex: number) => {
   const { error } = await supabase.from('liqud_stand_cells').delete().eq('section_id', sectionId).eq('row_index', rowIndex).eq('column_index', columnIndex);
+  if (error) throw error;
+};
+
+export const updateLiqudStandCellsInstalledOn = async (
+  cellIds: string[],
+  installedOn: string,
+) => {
+  if (cellIds.length < 2) {
+    throw new Error('교체 날짜를 한 번에 변경하려면 두 칸 이상 선택해 주세요.');
+  }
+  const { error } = await supabase
+    .from('liqud_stand_cells')
+    .update({ installed_on: installedOn, updated_at: new Date().toISOString() })
+    .in('id', cellIds);
   if (error) throw error;
 };
 

@@ -525,6 +525,12 @@ export default function StampConfirmModal({
     useState(mode === "edit");
   const [hasAcknowledgedFinalItems, setHasAcknowledgedFinalItems] =
     useState(mode === "edit");
+  // 시연용·재고조정에는 상단 "내용 확인" 단계가 없으므로 최종 확인에
+  // 진입하면 품목표를 바로 표시한다.
+  const shouldShowFinalItemList =
+    hasAcknowledgedFinalSummary ||
+    customerMode === "demo" ||
+    customerMode === "adjustment";
   const previousFinalReviewChanges = useRef({ item: false, payment: false });
   useEffect(() => {
     if (addStep !== 3 && mode !== "edit") {
@@ -1173,7 +1179,7 @@ export default function StampConfirmModal({
           transferPayerName={transferPayerName}
           sameCustomerTransfer={sameCustomerTransfer}
           onTransferPaymentSelectedChange={setIsTransferPaymentSelected}
-          showFinalItemList={hasAcknowledgedFinalSummary}
+          showFinalItemList={shouldShowFinalItemList}
           autoCheckFinalReviewItems={
             mode === "edit" && !hasFinalItemChanges
           }
