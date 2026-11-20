@@ -421,9 +421,11 @@ export default function LiqudStandPage() {
                 const cell = section.liqud_stand_cells.find((c) => c.row_index === row && c.column_index === column);
                 const status: Exclude<StatusFilter, 'all'> = cell?.item_name ? getCellStatus(cell) : 'black';
                 const activeFilter = sectionFilters[section.id] ?? filter;
-                const matchesStatus = cell?.item_name
-                  ? matchesPeriodFilter(cell, activeFilter)
-                  : false;
+                const matchesStatus = activeFilter === 'all'
+                  ? true
+                  : cell?.item_name
+                    ? matchesPeriodFilter(cell, activeFilter)
+                    : false;
                 const matchesDate = !selectedDate || (Boolean(cell?.item_name) && cell?.installed_on === selectedDate);
                 const matchesSearch = matchesItemNameSearch(cell);
                 const visible = matchesStatus && matchesDate && matchesSearch;

@@ -1294,7 +1294,7 @@ export const saveSettlementItemCost = async (item: {
   basisType: SettlementCostBasisType;
   segments: { quantity: number; unitCost: number }[];
 }) => {
-  const { error } = await supabase.rpc("save_settlement_item_cost_segments", {
+  const { error } = await supabase.rpc("save_and_resolve_missing_inventory_cost", {
     p_item_id: item.itemId,
     p_item_name: item.itemName,
     p_basis_type: item.basisType,
@@ -1304,18 +1304,6 @@ export const saveSettlementItemCost = async (item: {
     })),
   });
   if (error) throw error;
-  const finalSegment = item.segments.at(-1);
-  if (finalSegment) {
-    const { error: resolveError } = await supabase.rpc(
-      "resolve_inventory_cost_pending_layers",
-      {
-        p_item_name: item.itemName,
-        p_basis_type: item.basisType,
-        p_unit_cost: finalSegment.unitCost,
-      },
-    );
-    if (resolveError) throw resolveError;
-  }
 };
 
 export const saveSettlementHistoricalItemCostsBulk = async (

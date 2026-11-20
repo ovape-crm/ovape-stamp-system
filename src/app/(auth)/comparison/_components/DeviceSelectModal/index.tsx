@@ -101,18 +101,21 @@ export default function DeviceSelectModal({
                   <tr
                     key={device.id}
                     className="border-b border-brand-50 cursor-pointer transition-colors active:bg-brand-50/60 [@media(hover:hover)]:hover:bg-brand-50/60"
-                    onClick={() =>
-                      onSelect(device, valueMapByDevice[device.id] ?? {})
-                    }
                   >
                     {selectionColumns.map((col) => (
                       <td
                         key={col.id}
-                        className="px-3 py-2.5 text-gray-700 whitespace-nowrap"
+                        className="p-0 text-gray-700 whitespace-nowrap"
                       >
-                        {valueMapByDevice[device.id]?.[col.id] ?? (
-                          <span className="text-gray-300">-</span>
-                        )}
+                        <button
+                          type="button"
+                          className="block w-full px-3 py-2.5 text-left"
+                          onClick={() => onSelect(device, valueMapByDevice[device.id] ?? {})}
+                        >
+                          {valueMapByDevice[device.id]?.[col.id] ?? (
+                            <span className="text-gray-300">-</span>
+                          )}
+                        </button>
                       </td>
                     ))}
                   </tr>
