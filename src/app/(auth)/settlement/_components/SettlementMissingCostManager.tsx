@@ -79,7 +79,7 @@ export default function SettlementMissingCostManager() {
       ]);
       toast.success("누락 원가를 저장했습니다.");
     },
-    onError: () => toast.error("원가 저장에 실패했습니다."),
+    onError: (error: { message?: string }) => toast.error(error.message || "원가 저장에 실패했습니다."),
   });
 
   return (

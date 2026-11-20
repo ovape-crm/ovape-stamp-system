@@ -2,6 +2,7 @@ type HistoryNoteJsonb = Record<string, unknown> | null | undefined;
 
 type HistoryItem = {
   lineText?: unknown;
+  itemCategoryName?: unknown;
   isLiquidCategory?: unknown;
   liquidSaleKind?: unknown;
   outboundRuleType?: unknown;
@@ -43,16 +44,23 @@ const buildOrderedOutboundItemNote = (jsonb?: HistoryNoteJsonb) => {
     dtl_event: 2,
     dtl_basic: 3,
   };
+  const getDisplayGroup = (item: HistoryItem) => {
+    if (item.itemCategoryName === "기기") return 0;
+    return getBreath(item) ? 1 : 2;
+  };
   const displayItems = items
     .map((item, sourceIndex) => ({ item, sourceIndex }))
     .sort((left, right) => {
-      const leftOrder = getBreath(left.item)
-        ? liquidSortOrder[String(left.item.liquidSaleKind)] ?? 4
-        : 4;
-      const rightOrder = getBreath(right.item)
-        ? liquidSortOrder[String(right.item.liquidSaleKind)] ?? 4
-        : 4;
-      return leftOrder - rightOrder || left.sourceIndex - right.sourceIndex;
+      const groupDifference = getDisplayGroup(left.item) - getDisplayGroup(right.item);
+      if (groupDifference !== 0) return groupDifference;
+      if (getDisplayGroup(left.item) === 1) {
+        return (
+          (liquidSortOrder[String(left.item.liquidSaleKind)] ?? 4) -
+            (liquidSortOrder[String(right.item.liquidSaleKind)] ?? 4) ||
+          left.sourceIndex - right.sourceIndex
+        );
+      }
+      return left.sourceIndex - right.sourceIndex;
     });
   const liquidSale =
     typeof jsonb?.liquidSale === "object" && jsonb.liquidSale !== null

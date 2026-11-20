@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Dropdown, DropdownOption } from '@/app/_components/Dropdown';
 import Loading from '@/app/_components/Loading';
 import { useUser } from '@/app/_contexts/UserContext';
@@ -16,6 +16,11 @@ import {
   productSearchColumnSettingKey,
   saveProductSearchColumnSettings,
 } from '@/app/_domains/_item/_services/productSearchColumnSettingService';
+import {
+  getProductSearchFilterSettings,
+  productSearchFilterSettingKey,
+} from '@/app/_domains/_item/_services/productSearchFilterSettingService';
+import ProductSearchFilterSettingsModal from './_components/ProductSearchFilterSettingsModal';
 import toast from 'react-hot-toast';
 
 type SearchMode = 'liquid' | 'other';
@@ -151,18 +156,57 @@ function ResizableHeader({
   );
 }
 
+function SearchGroupSettingsButton({
+  title,
+  onClick,
+}: {
+  title: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      aria-label={title}
+      className="translate-y-[1px] cursor-pointer text-gray-400 transition-all hover:rotate-45 hover:text-gray-600"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        className="h-4 w-4 transition-transform"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+        />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M15 12a3 3 0 11-6 0 3 3 0 0 1 6 0z"
+        />
+      </svg>
+    </button>
+  );
+}
+
 export default function ProductSearchPage() {
-  const { isAdmin } = useUser();
+  const { isAdmin, user } = useUser();
+  const queryClient = useQueryClient();
+  const isMaster = user?.oss_role === 'master';
   const [mode, setMode] = useState<SearchMode>('liquid');
   const [usageFilter, setUsageFilter] = useState<UsageFilter>('used');
-  const [showSoldOut, setShowSoldOut] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return window.localStorage.getItem('product-search-show-sold-out') === 'true';
-  });
+  const [showSoldOut, setShowSoldOut] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [filterSettingsOpen, setFilterSettingsOpen] = useState<'usage' | 'soldOut' | null>(null);
   const [columnEditing, setColumnEditing] = useState(false);
   const [isSavingColumnWidths, setIsSavingColumnWidths] = useState(false);
   const hasAppliedSharedColumnWidths = useRef(false);
+  const changedFilters = useRef({ usage: false, soldOut: false });
   const [columnWidthSnapshot, setColumnWidthSnapshot] = useState<Record<
     SearchMode,
     Record<ProductColumnKey, number>
@@ -194,6 +238,23 @@ export default function ProductSearchPage() {
     queryFn: getProductSearchColumnSettings,
     retry: false,
   });
+  const filterSettingQuery = useQuery({
+    queryKey: productSearchFilterSettingKey,
+    queryFn: getProductSearchFilterSettings,
+    retry: false,
+  });
+  const openFilterSettings = async (kind: 'usage' | 'soldOut') => {
+    try {
+      await queryClient.fetchQuery({
+        queryKey: productSearchFilterSettingKey,
+        queryFn: getProductSearchFilterSettings,
+        staleTime: 0,
+      });
+      setFilterSettingsOpen(kind);
+    } catch {
+      toast.error('상품 검색 기본값을 불러오지 못했습니다.\n다시 시도해 주세요.');
+    }
+  };
 
   useEffect(() => {
     if (!columnSettingQuery.data || hasAppliedSharedColumnWidths.current) return;
@@ -209,6 +270,11 @@ export default function ProductSearchPage() {
       },
     }));
   }, [columnSettingQuery.data]);
+  useEffect(() => {
+    if (!filterSettingQuery.data) return;
+    if (!changedFilters.current.usage) setUsageFilter(filterSettingQuery.data.usageFilter);
+    if (!changedFilters.current.soldOut) setShowSoldOut(filterSettingQuery.data.showSoldOut);
+  }, [filterSettingQuery.data]);
   const activeSearch = searchValues[mode];
   const liquidCategoryIds = useMemo(
     () => new Set(liquidCategoryQuery.data ?? []),
@@ -428,9 +494,10 @@ export default function ProductSearchPage() {
           </div>
 
           <div className="flex w-full flex-col rounded-xl border border-gray-200 bg-gray-50/70 p-2.5 sm:w-[120px] sm:shrink-0">
-            <p className="mb-1 text-xs font-semibold text-gray-600">
-              사용 구분
-            </p>
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold text-gray-600">사용 구분</p>
+              {isMaster && <SearchGroupSettingsButton title="사용 구분 기본값 설정" onClick={() => void openFilterSettings('usage')} />}
+            </div>
             <Dropdown controlledValue={usageFilter}>
               <Dropdown.Trigger compact>
                 {
@@ -453,11 +520,12 @@ export default function ProductSearchPage() {
                   key={option.value}
                   option={option}
                   compact
-                  onSelect={(selected: DropdownOption) =>
+                  onSelect={(selected: DropdownOption) => {
+                    changedFilters.current.usage = true;
                     setUsageFilter(
                       selected.value as 'all' | 'used' | 'unused',
-                    )
-                  }
+                    );
+                  }}
                 />
               ))}
               </Dropdown.Content>
@@ -465,20 +533,18 @@ export default function ProductSearchPage() {
           </div>
 
           <div className="flex w-full flex-col rounded-xl border border-gray-200 bg-gray-50/70 p-2.5 sm:w-[120px] sm:shrink-0">
-            <p className="mb-1 text-xs font-semibold text-gray-600">
-              품절 상품
-            </p>
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold text-gray-600">품절 상품</p>
+              {isMaster && <SearchGroupSettingsButton title="품절 상품 기본값 설정" onClick={() => void openFilterSettings('soldOut')} />}
+            </div>
             <button
               type="button"
               role="switch"
               aria-checked={showSoldOut}
               onClick={() => {
+                changedFilters.current.soldOut = true;
                 const next = !showSoldOut;
                 setShowSoldOut(next);
-                window.localStorage.setItem(
-                  'product-search-show-sold-out',
-                  String(next),
-                );
               }}
               className={`flex h-11 w-full items-center justify-between gap-1.5 rounded-lg border bg-white px-2.5 text-xs font-semibold shadow-sm transition ${
                 showSoldOut
@@ -593,6 +659,28 @@ export default function ProductSearchPage() {
         <LiquidCategorySettingsModal
           initialCategoryIds={liquidCategoryQuery.data ?? []}
           onClose={() => setSettingsOpen(false)}
+        />
+      )}
+      {isMaster && filterSettingsOpen && filterSettingQuery.data && (
+        <ProductSearchFilterSettingsModal
+          kind={filterSettingsOpen}
+          initialSettings={filterSettingQuery.data}
+          onClose={() => setFilterSettingsOpen(null)}
+          onSaved={(settings) => {
+            queryClient.setQueryData(productSearchFilterSettingKey, (current: typeof filterSettingQuery.data) => ({
+              usageFilter: current?.usageFilter ?? 'used',
+              showSoldOut: current?.showSoldOut ?? false,
+              ...settings,
+            }));
+            if (settings.usageFilter !== undefined) {
+              changedFilters.current.usage = true;
+              setUsageFilter(settings.usageFilter);
+            }
+            if (settings.showSoldOut !== undefined) {
+              changedFilters.current.soldOut = true;
+              setShowSoldOut(settings.showSoldOut);
+            }
+          }}
         />
       )}
 
