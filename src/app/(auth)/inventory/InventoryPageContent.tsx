@@ -29,6 +29,7 @@ import {
   getInventoryMovements,
   getInventoryMovementCount,
   getInventoryOverview,
+  getRenewalInventoryOverview,
   getInventoryStockAsOf,
   getCurrentInventoryCostLayers,
   initializeInventory,
@@ -753,7 +754,7 @@ export function InventoryPageContent({
           onSaved={refresh}
         />
       ) : tab === "stock" ? (
-        <StockOverview items={items} isMaster={isMaster} />
+        <StockOverview isMaster={isMaster} />
       ) : tab === "cost" && isMaster ? (
         <InventoryCostOverview items={items} />
       ) : tab === "untracked" ? (
@@ -1261,13 +1262,7 @@ function InventoryCostOverview({ items }: { items: InventoryItem[] }) {
   );
 }
 
-function StockOverview({
-  items,
-  isMaster,
-}: {
-  items: InventoryItem[];
-  isMaster: boolean;
-}) {
+function StockOverview({ isMaster }: { isMaster: boolean }) {
   const { open, close } = useModal();
   const [nameSearch, setNameSearch] = useState("");
   const [codeSearch, setCodeSearch] = useState("");
@@ -1291,6 +1286,11 @@ function StockOverview({
     queryFn: () => getInventoryStockAsOf(selectedStockDate!),
     enabled: Boolean(selectedStockDate),
   });
+  const renewalQuery = useQuery({
+    queryKey: [...inventoryKeys.overview, "renewal"],
+    queryFn: getRenewalInventoryOverview,
+    enabled: stockView === "overview",
+  });
   const defectiveHoldsQuery = useQuery({
     queryKey: [...inventoryKeys.overview, "defective-holds"],
     queryFn: getDefectiveInventoryHolds,
@@ -1313,11 +1313,12 @@ function StockOverview({
     options: { dismissOnBackdrop: false, dismissOnEsc: true, size: "max-w-xl" },
   });
   const stockItems = useMemo(() => {
-    if (!selectedStockDate || !stockSnapshotQuery.data) return items;
+    const sourceItems = renewalQuery.data?.items ?? [];
+    if (!selectedStockDate || !stockSnapshotQuery.data) return sourceItems;
     const snapshotByItemName = new Map(
       stockSnapshotQuery.data.map((snapshot) => [snapshot.itemName, snapshot]),
     );
-    return items.map((item) => {
+    return sourceItems.map((item) => {
       const snapshot = snapshotByItemName.get(
         normalizeInventoryItemName(item.item_name),
       );
@@ -1329,9 +1330,9 @@ function StockOverview({
           }
         : { ...item, quantity: 0, updated_at: null };
     });
-  }, [items, selectedStockDate, stockSnapshotQuery.data]);
+  }, [renewalQuery.data?.items, selectedStockDate, stockSnapshotQuery.data]);
   const trackedItems = useMemo(
-    () => stockItems.filter((item) => item.is_tracked),
+    () => stockItems.filter((item) => item.is_tracked && item.item_id != null),
     [stockItems],
   );
   type SortKey =
