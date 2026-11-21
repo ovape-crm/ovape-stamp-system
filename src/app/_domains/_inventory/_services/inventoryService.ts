@@ -28,6 +28,114 @@ export const inventoryKeys = {
 export const normalizeInventoryItemName = (value: string) =>
   value.normalize("NFC").trim();
 
+async function getAllOverviewItems() {
+  const items: { id: number; item_name: string; item_code: string; is_use: boolean; item_categories: { name: string } | { name: string }[] | null }[] = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await supabase.from("items")
+      .select("id, item_name, item_code, is_use, item_categories(name)")
+      .order("id").range(offset, offset + 999);
+    if (error) throw error;
+    items.push(...(data ?? []));
+    if ((data ?? []).length < 1000) return items;
+  }
+}
+
+async function getAllOverviewBalances() {
+  const balances: { item_name: string; quantity: number; updated_at: string }[] = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await supabase.from("inventory_balances")
+      .select("item_name, quantity, updated_at").order("item_name")
+      .range(offset, offset + 999);
+    if (error) throw error;
+    balances.push(...(data ?? []));
+    if ((data ?? []).length < 1000) return balances;
+  }
+}
+
+async function getHistoricalRepairBalanceNames() {
+  const names = new Set<string>();
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await supabase
+      .from("inventory_movements")
+      .select("item_name")
+      .eq("reference_type", "historical_sheet_import_repair")
+      .order("id")
+      .range(offset, offset + 999);
+    if (error) throw error;
+    for (const movement of data ?? []) names.add(normalizeInventoryItemName(movement.item_name));
+    if ((data ?? []).length < 1000) return names;
+  }
+}
+
+export type InventoryRenewalUnlinkedBalance = {
+  itemName: string;
+  quantity: number;
+  updatedAt: string | null;
+};
+
+export const getRenewalInventoryOverview = async (): Promise<{
+  items: InventoryItem[];
+  unlinkedBalances: InventoryRenewalUnlinkedBalance[];
+  links: { legacyItemName: string; itemId: number }[];
+}> => {
+  const [itemRows, balanceRows, linksResult, categoryPoliciesResult, itemPoliciesResult] = await Promise.all([
+    getAllOverviewItems(),
+    getAllOverviewBalances(),
+    supabase.from("inventory_renewal_item_links").select("legacy_item_name,item_id"),
+    supabase.from("inventory_category_policies").select("category_name"),
+    supabase.from("inventory_item_policies").select("item_name,tracking_mode"),
+  ]);
+  // 마이그레이션 적용 전에도 이름이 같은 재고는 리뉴얼 화면에서 검토할 수 있다.
+  // 연결표 저장만 마이그레이션 적용 뒤에 가능하다.
+  const linkRows = linksResult.error ? [] : linksResult.data ?? [];
+  if (categoryPoliciesResult.error) throw categoryPoliciesResult.error;
+  if (itemPoliciesResult.error) throw itemPoliciesResult.error;
+
+  const itemsByName = new Map(itemRows.map((item) => [normalizeInventoryItemName(item.item_name), item]));
+  const itemsById = new Map(itemRows.map((item) => [Number(item.id), item]));
+  const links = new Map(linkRows.map((link) => [normalizeInventoryItemName(link.legacy_item_name), Number(link.item_id)]));
+  const balancesByItemId = new Map<number, { quantity: number; updatedAt: string | null }>();
+  const unlinkedBalances: InventoryRenewalUnlinkedBalance[] = [];
+  for (const balance of balanceRows) {
+    // 수량이 0인 과거 이력·보정 행은 현재 재고가 아니므로 연결 대상으로 만들지 않는다.
+    if (Number(balance.quantity) === 0) continue;
+    const name = normalizeInventoryItemName(balance.item_name);
+    const item = itemsByName.get(name) ?? itemsById.get(links.get(name) ?? -1);
+    if (!item) {
+      unlinkedBalances.push({ itemName: balance.item_name, quantity: Number(balance.quantity), updatedAt: balance.updated_at });
+      continue;
+    }
+    const current = balancesByItemId.get(Number(item.id)) ?? { quantity: 0, updatedAt: null };
+    balancesByItemId.set(Number(item.id), {
+      quantity: current.quantity + Number(balance.quantity),
+      updatedAt: !current.updatedAt || new Date(balance.updated_at).getTime() > new Date(current.updatedAt).getTime() ? balance.updated_at : current.updatedAt,
+    });
+  }
+  const untrackedCategories = new Set((categoryPoliciesResult.data ?? []).map((row) => row.category_name));
+  const itemModes = new Map((itemPoliciesResult.data ?? []).map((row) => [normalizeInventoryItemName(row.item_name), row.tracking_mode as "tracked" | "untracked"]));
+  return {
+    items: itemRows.map((item) => {
+      const category = Array.isArray(item.item_categories) ? item.item_categories[0] : item.item_categories;
+      const mode: InventoryItem["tracking_mode"] = itemModes.get(normalizeInventoryItemName(item.item_name)) ?? "inherit";
+      const balance = balancesByItemId.get(Number(item.id));
+      return { item_id: Number(item.id), item_name: normalizeInventoryItemName(item.item_name), item_code: item.item_code, category_name: category?.name ?? null, quantity: balance?.quantity ?? 0, updated_at: balance?.updatedAt ?? null, is_tracked: mode === "tracked" || (mode === "inherit" && !untrackedCategories.has(category?.name ?? "")), tracking_mode: mode, is_use: item.is_use };
+    }),
+    unlinkedBalances,
+    links: linkRows.map((link) => ({
+      legacyItemName: normalizeInventoryItemName(link.legacy_item_name),
+      itemId: Number(link.item_id),
+    })),
+  };
+};
+
+export const saveRenewalInventoryItemLink = async (legacyItemName: string, itemId: number) => {
+  const { error } = await supabase.from("inventory_renewal_item_links").upsert({
+    legacy_item_name: normalizeInventoryItemName(legacyItemName), item_id: itemId,
+    updated_by: (await supabase.auth.getUser()).data.user?.id,
+  });
+  if (error) throw error;
+};
+
 export type DefectiveInventoryHold = {
   id: string;
   itemName: string;
@@ -107,8 +215,9 @@ export const getInventoryOverview = async (): Promise<{
 }> => {
   const [
     settingsResult,
-    itemsResult,
-    balancesResult,
+    itemRows,
+    balanceRows,
+    historicalRepairNames,
     categoryPoliciesResult,
     itemPoliciesResult,
   ] = await Promise.all([
@@ -117,20 +226,14 @@ export const getInventoryOverview = async (): Promise<{
       .select("initialized_at")
       .eq("id", true)
       .single(),
-    supabase
-      .from("items")
-      .select("id, item_name, item_code, is_use, item_categories(name)")
-      .order("item_name"),
-    supabase
-      .from("inventory_balances")
-      .select("item_name, quantity, updated_at"),
+    getAllOverviewItems(),
+    getAllOverviewBalances(),
+    getHistoricalRepairBalanceNames(),
     supabase.from("inventory_category_policies").select("category_name"),
     supabase.from("inventory_item_policies").select("item_name, tracking_mode"),
   ]);
 
   if (settingsResult.error) throw settingsResult.error;
-  if (itemsResult.error) throw itemsResult.error;
-  if (balancesResult.error) throw balancesResult.error;
   if (categoryPoliciesResult.error) throw categoryPoliciesResult.error;
   if (itemPoliciesResult.error) throw itemPoliciesResult.error;
 
@@ -145,13 +248,13 @@ export const getInventoryOverview = async (): Promise<{
   );
 
   const balances = new Map(
-    (balancesResult.data ?? []).map((balance) => [
+    balanceRows.map((balance) => [
       normalizeInventoryItemName(balance.item_name),
       balance,
     ]),
   );
 
-  const items = (itemsResult.data ?? []).map((item) => {
+  const items: InventoryItem[] = itemRows.map((item) => {
     const itemName = normalizeInventoryItemName(item.item_name);
     const balance = balances.get(itemName);
     const category = Array.isArray(item.item_categories)
@@ -177,7 +280,14 @@ export const getInventoryOverview = async (): Promise<{
     };
   });
 
+  // 품목에 연결되지 않은 과거 시트 보정 잔액 중 0인 항목은 표시하지 않는다.
+  // 실제 잔량이 남은 항목은 확인할 수 있도록 그대로 표시한다.
   for (const balance of balances.values()) {
+    const isHistoricalRepair = historicalRepairNames.has(normalizeInventoryItemName(balance.item_name));
+    const isHistoricalRepairTimestamp = balance.updated_at &&
+      Math.floor(new Date(balance.updated_at).getTime() / 1000) ===
+        Math.floor(new Date("2026-10-02T14:34:06+09:00").getTime() / 1000);
+    if (Number(balance.quantity) === 0 && (isHistoricalRepair || isHistoricalRepairTimestamp)) continue;
     items.push({
       item_id: null,
       item_name: balance.item_name,
