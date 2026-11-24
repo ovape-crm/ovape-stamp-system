@@ -31,6 +31,7 @@ import {
   getInventoryOverview,
   getRenewalInventoryOverview,
   getInventoryStockAsOf,
+  aggregateInventorySnapshotsByItemId,
   getCurrentInventoryCostLayers,
   initializeInventory,
   addInitialInventoryEntries,
@@ -1315,13 +1316,15 @@ function StockOverview({ isMaster }: { isMaster: boolean }) {
   const stockItems = useMemo(() => {
     const sourceItems = renewalQuery.data?.items ?? [];
     if (!selectedStockDate || !stockSnapshotQuery.data) return sourceItems;
-    const snapshotByItemName = new Map(
-      stockSnapshotQuery.data.map((snapshot) => [snapshot.itemName, snapshot]),
+    const snapshotsByItemId = aggregateInventorySnapshotsByItemId(
+      stockSnapshotQuery.data,
+      sourceItems,
+      renewalQuery.data?.links ?? [],
     );
     return sourceItems.map((item) => {
-      const snapshot = snapshotByItemName.get(
-        normalizeInventoryItemName(item.item_name),
-      );
+      const snapshot = item.item_id == null
+        ? undefined
+        : snapshotsByItemId.get(item.item_id);
       return snapshot
         ? {
             ...item,
