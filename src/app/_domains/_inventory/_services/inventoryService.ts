@@ -310,6 +310,48 @@ export type InventoryStockSnapshot = {
   lastMovementAt: string | null;
 };
 
+/**
+ * 과거 재고 스냅샷은 품목명을 보존한다. 현재 품목명 또는 자동 생성된 과거명
+ * 연결을 통해 현재 품목 ID에 합산해, 이름 변경 뒤에도 기준일 재고가 끊기지
+ * 않도록 한다.
+ */
+export const aggregateInventorySnapshotsByItemId = (
+  snapshots: InventoryStockSnapshot[],
+  items: Pick<InventoryItem, "item_id" | "item_name">[],
+  links: { legacyItemName: string; itemId: number }[],
+) => {
+  const currentItemIdsByName = new Map(
+    items
+      .filter((item): item is InventoryItem & { item_id: number } => item.item_id != null)
+      .map((item) => [normalizeInventoryItemName(item.item_name), item.item_id]),
+  );
+  const linkedItemIdsByLegacyName = new Map(
+    links.map((link) => [normalizeInventoryItemName(link.legacyItemName), link.itemId]),
+  );
+  const snapshotsByItemId = new Map<number, {
+    quantity: number;
+    lastMovementAt: string | null;
+  }>();
+
+  for (const snapshot of snapshots) {
+    const itemId = currentItemIdsByName.get(snapshot.itemName) ??
+      linkedItemIdsByLegacyName.get(snapshot.itemName);
+    if (itemId == null) continue;
+    const current = snapshotsByItemId.get(itemId);
+    snapshotsByItemId.set(itemId, {
+      quantity: (current?.quantity ?? 0) + snapshot.quantity,
+      lastMovementAt: !current?.lastMovementAt ||
+          (snapshot.lastMovementAt != null &&
+            new Date(snapshot.lastMovementAt).getTime() >
+              new Date(current.lastMovementAt).getTime())
+        ? snapshot.lastMovementAt
+        : current.lastMovementAt,
+    });
+  }
+
+  return snapshotsByItemId;
+};
+
 // 기준일 다음 날부터 현재까지의 변동을 현재 잔액에서 빼서, 기준일 마감 재고를 가져온다.
 export const getInventoryStockAsOf = async (
   asOfDate: string,
