@@ -2087,7 +2087,13 @@ function ReceiptManager({
   onSaved: () => Promise<void>;
   focusOrderId?: string | null;
 }) {
-  const items = allItems.filter((item) => item.is_tracked);
+  const renewalItemsQuery = useQuery({
+    queryKey: [...inventoryKeys.overview, "renewal"],
+    queryFn: getRenewalInventoryOverview,
+  });
+  const items = (renewalItemsQuery.data?.items ?? allItems).filter(
+    (item) => item.is_tracked,
+  );
   const itemCodeByName = useMemo(
     () => new Map<string, string>(allItems.map((item) => [item.item_name, item.item_code])),
     [allItems],
