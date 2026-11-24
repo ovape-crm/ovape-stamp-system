@@ -1,4 +1,5 @@
 import supabase from "@/libs/supabaseClient";
+import { getInventoryQuantitiesByItemId } from "@/app/_domains/_inventory/_services/inventoryItemQuantityService";
 import { ItemType } from "../_types/item.types";
 
 export type ItemSearchOption = Pick<
@@ -48,7 +49,12 @@ export const getItemDeactivationImpacts = async (
   for (const result of [balances, purchaseLines, primaryCells, secondaryCells, memoRules]) {
     if (result.error) throw result.error;
   }
-  const balanceByName = new Map((balances.data ?? []).map((row) => [normalizeItemName(row.item_name), Number(row.quantity)]));
+  const balanceByName = new Map(
+    (balances.data ?? []).map((row) => [
+      normalizeItemName(row.item_name),
+      Number(row.quantity),
+    ]),
+  );
   const linesByName = new Map<string, { pending: number; reservations: number }>();
   for (const line of purchaseLines.data ?? []) {
     const name = normalizeItemName(line.item_name);
@@ -254,25 +260,11 @@ export const searchOutboundItems = async (
   if (error) throw error;
   const items = (data ?? []) as ItemType[];
   if (!items.length) return [];
-  const itemNames = [
-    ...new Set(items.map((item) => normalizeItemName(item.item_name))),
-  ];
-  const { data: balances, error: balanceError } = await supabase
-    .from("inventory_balances")
-    .select("item_name, quantity")
-    .in("item_name", itemNames);
-  if (balanceError)
-    throw new Error("재고 잔량을 불러오지 못했습니다. 다시 검색해 주세요.");
-  const quantityByName = new Map(
-    (balances ?? []).map((row) => [
-      normalizeItemName(row.item_name),
-      Number(row.quantity),
-    ]),
-  );
+  const quantityByItemId = await getInventoryQuantitiesByItemId(items);
   return items.map((item) => ({
     ...item,
     current_quantity:
-      quantityByName.get(normalizeItemName(item.item_name)) ?? 0,
+      quantityByItemId.get(String(item.id)) ?? 0,
   }));
 };
 
@@ -306,20 +298,10 @@ export const searchInStockItemOptions = async (
     })) as ItemSearchOption[];
     if (!items.length) break;
 
-    const itemNames = [...new Set(items.map((item) => normalizeItemName(item.item_name)))];
-    const { data: balances, error: balanceError } = await supabase
-      .from("inventory_balances")
-      .select("item_name, quantity")
-      .in("item_name", itemNames);
-    if (balanceError) {
-      throw new Error("재고 잔량을 불러오지 못했습니다. 다시 검색해 주세요.");
-    }
-    const quantityByName = new Map(
-      (balances ?? []).map((row) => [normalizeItemName(row.item_name), Number(row.quantity)]),
-    );
+    const quantityByItemId = await getInventoryQuantitiesByItemId(items);
     options.push(
       ...items.filter(
-        (item) => (quantityByName.get(normalizeItemName(item.item_name)) ?? 0) > 0,
+        (item) => (quantityByItemId.get(String(item.id)) ?? 0) > 0,
       ),
     );
 

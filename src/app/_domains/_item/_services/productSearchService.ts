@@ -1,4 +1,5 @@
 import supabase from "@/libs/supabaseClient";
+import { getInventoryQuantitiesByItemId } from "@/app/_domains/_inventory/_services/inventoryItemQuantityService";
 
 export type ProductSearchItem = {
   id: string;
@@ -16,7 +17,7 @@ export type ProductSearchItem = {
 };
 
 export const getProductSearchItems = async (): Promise<ProductSearchItem[]> => {
-  const [itemsResult, locationsResult, balancesResult] = await Promise.all([
+  const [itemsResult, locationsResult] = await Promise.all([
     supabase
       .from("items")
       .select(
@@ -28,15 +29,14 @@ export const getProductSearchItems = async (): Promise<ProductSearchItem[]> => {
       .select(
         "item_name, secondary_item_name, column_index, liqud_stand_sections(name)",
       ),
-    supabase.from("inventory_balances").select("item_name, quantity"),
   ]);
   if (itemsResult.error) throw itemsResult.error;
   const locationsByItemName = new Map<string, string[]>();
-  const quantityByItemName = new Map(
-    (balancesResult.error ? [] : (balancesResult.data ?? [])).map((row) => [
-      row.item_name,
-      Number(row.quantity),
-    ]),
+  const quantityByItemId = await getInventoryQuantitiesByItemId(
+    (itemsResult.data ?? []).map((item) => ({
+      id: item.id,
+      item_name: item.item_name,
+    })),
   );
   for (const cell of locationsResult.error
     ? []
@@ -60,6 +60,6 @@ export const getProductSearchItems = async (): Promise<ProductSearchItem[]> => {
       ? (item.item_categories[0] ?? null)
       : item.item_categories,
     locations: locationsByItemName.get(item.item_name) ?? [],
-    current_quantity: quantityByItemName.get(item.item_name) ?? null,
+    current_quantity: quantityByItemId.get(String(item.id)) ?? null,
   })) as ProductSearchItem[];
 };
